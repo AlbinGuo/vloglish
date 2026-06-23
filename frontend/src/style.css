@@ -106,3 +106,218 @@ body {
 .subtitle-ipa:has(+ .subtitle-english.subtitle-english--active) {
   color: inherit;
 }
+
+/* 当前句「文字渐深」进度 */
+.subtitle-english-progress .subtitle-english-dim {
+  opacity: 0.28;
+}
+
+.subtitle-english-progress .subtitle-english-read {
+  pointer-events: auto;
+  transition: clip-path 0.28s linear;
+  will-change: clip-path;
+}
+
+/* 背景色高亮模式 */
+html.highlight-style-background .subtitle-english span.highlight {
+  text-decoration-line: none;
+  border-radius: 0.25rem;
+  padding: 0.05em 0.25em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+html.highlight-style-background .subtitle-english span.highlight-a {
+  background-color: rgb(254 243 199);
+  color: #b45309;
+}
+
+html.highlight-style-background .subtitle-english span.highlight-d {
+  background-color: rgb(237 233 254);
+  color: #6d28d9;
+}
+
+html.highlight-style-background .subtitle-english span.highlight-i {
+  background-color: rgb(207 250 254);
+  color: #0e7490;
+}
+
+html.highlight-style-background .subtitle-english span.highlight-l {
+  background-color: rgb(252 231 243);
+  color: #be185d;
+}
+
+html.highlight-style-background .subtitle-english span.highlight-c {
+  background-color: rgb(209 250 229);
+  color: #047857;
+}
+
+html.highlight-style-background .subtitle-english span.highlight-f {
+  background-color: rgb(254 226 226);
+  color: #b91c1c;
+}
+
+html.highlight-style-background .subtitle-english--active span.highlight-a {
+  background-color: rgb(251 191 36 / 0.45);
+  color: #fde68a;
+}
+
+html.highlight-style-background .subtitle-english--active span.highlight-d {
+  background-color: rgb(167 139 250 / 0.45);
+  color: #e9d5ff;
+}
+
+html.highlight-style-background .subtitle-english--active span.highlight-i {
+  background-color: rgb(34 211 238 / 0.35);
+  color: #a5f3fc;
+}
+
+html.highlight-style-background .subtitle-english--active span.highlight-l {
+  background-color: rgb(244 114 182 / 0.4);
+  color: #fbcfe8;
+}
+
+html.highlight-style-background .subtitle-english--active span.highlight-c {
+  background-color: rgb(52 211 153 / 0.35);
+  color: #a7f3d0;
+}
+
+html.highlight-style-background .subtitle-english--active span.highlight-f {
+  background-color: rgb(248 113 113 / 0.4);
+  color: #fecaca;
+}
+
+html.highlight-style-background .subtitle-english span.text-transparent {
+  text-decoration-line: none;
+  background-color: rgb(0 0 0 / 0.06);
+  border-radius: 0.25rem;
+  padding: 0.05em 0.25em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+html.highlight-style-background .subtitle-english--active span.text-transparent {
+  background-color: rgb(255 255 255 / 0.15);
+}
+
+/* 右侧字幕区：高亮词加粗、字色加深 */
+.subtitle-panel .subtitle-english span.highlight {
+  font-weight: 600;
+}
+
+.subtitle-panel .subtitle-english span.highlight-a {
+  color: #92400e;
+  text-decoration-color: #d97706;
+}
+
+.subtitle-panel .subtitle-english span.highlight-d {
+  color: #5b21b6;
+  text-decoration-color: #7c3aed;
+}
+
+.subtitle-panel .subtitle-english span.highlight-i {
+  color: #155e75;
+  text-decoration-color: #0891b2;
+}
+
+.subtitle-panel .subtitle-english span.highlight-l {
+  color: #9d174d;
+  text-decoration-color: #db2777;
+}
+
+.subtitle-panel .subtitle-english span.highlight-c {
+  color: #065f46;
+  text-decoration-color: #059669;
+}
+
+.subtitle-panel .subtitle-english span.highlight-f {
+  color: #991b1b;
+  text-decoration-color: #dc2626;
+}
+
+.subtitle-panel .subtitle-english--active span.highlight-a,
+.subtitle-panel .subtitle-english--active span.highlight-d,
+.subtitle-panel .subtitle-english--active span.highlight-i,
+.subtitle-panel .subtitle-english--active span.highlight-l,
+.subtitle-panel .subtitle-english--active span.highlight-c,
+.subtitle-panel .subtitle-english--active span.highlight-f {
+  font-weight: 600;
+}
+
+.subtitle-panel .subtitle-english--active span.highlight-a {
+  color: #fcd34d;
+  text-decoration-color: #f59e0b;
+}
+
+.subtitle-panel .subtitle-english--active span.highlight-d {
+  color: #ddd6fe;
+  text-decoration-color: #a78bfa;
+}
+
+.subtitle-panel .subtitle-english--active span.highlight-i {
+  color: #67e8f9;
+  text-decoration-color: #22d3ee;
+}
+
+.subtitle-panel .subtitle-english--active span.highlight-l {
+  color: #f9a8d4;
+  text-decoration-color: #f472b6;
+}
+
+.subtitle-panel .subtitle-english--active span.highlight-c {
+  color: #6ee7b7;
+  text-decoration-color: #34d399;
+}
+
+.subtitle-panel .subtitle-english--active span.highlight-f {
+  color: #fca5a5;
+  text-decoration-color: #f87171;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-english span.highlight-a {
+  color: #92400e;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-english span.highlight-d {
+  color: #5b21b6;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-english span.highlight-i {
+  color: #155e75;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-english span.highlight-l {
+  color: #9d174d;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-english span.highlight-c {
+  color: #065f46;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-english span.highlight-f {
+  color: #991b1b;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-a {
+  color: #fcd34d;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-d {
+  color: #ddd6fe;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-i {
+  color: #67e8f9;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-l {
+  color: #f9a8d4;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-c {
+  color: #6ee7b7;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-f {
+  color: #fca5a5;
+}

@@ -4,9 +4,12 @@
       "video_id": "26PrgjTboVQ",
       "index": 999,
       "tags": [
-        { "id": 25, "name": "知识" }
+        {
+          "id": 25,
+          "name": "知识"
+        }
       ],
-      "cover": "https://i.ytimg.com/vi/26PrgjTboVQ/hqdefault.jpg",
+      "cover": "http://oss.sxakgs.com/en/26PrgjTboVQ/cover.jpg",
       "short_title": "BBC 六分钟英语：追随梦想",
       "summary": "Neil 和 Beth 讨论「追随梦想」的话题，分享两位勇敢追梦者的真实故事，并学习 utopia、struggle with、outlandish 等相关词汇。",
       "remark": "",
@@ -44,12 +47,15 @@
           "accent": "英国"
         },
         "tags": [
-          { "id": 25, "name": "知识" }
+          {
+            "id": 25,
+            "name": "知识"
+          }
         ],
         "media": {
-          "video_url": "https://www.youtube.com/embed/26PrgjTboVQ?rel=0",
-          "audio_url": "/api/episode/26PrgjTboVQ/audio/",
-          "thumbnail_url": "https://i.ytimg.com/vi/26PrgjTboVQ/hqdefault.jpg"
+          "video_url": "http://oss.sxakgs.com/en/26PrgjTboVQ/video.mp4",
+          "audio_url": "http://oss.sxakgs.com/en/26PrgjTboVQ/audio.webm",
+          "thumbnail_url": "http://oss.sxakgs.com/en/26PrgjTboVQ/cover.jpg"
         },
         "subtitles": [
           {
@@ -272,7 +278,8 @@
             "ipa": "",
             "english_html": "<span>Once</span> <span>again,</span> <span>our</span> <span>six</span> <span>minutes</span> <span>are</span> <span>up.</span> <span>Bye</span> <span>for</span> <span>now!</span> <span>Goodbye!</span>"
           }
-        ]
+        ],
+        "cover": "http://oss.sxakgs.com/en/26PrgjTboVQ/cover.jpg"
       },
       "total_episodes": 191
     }

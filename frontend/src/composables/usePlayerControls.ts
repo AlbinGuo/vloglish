@@ -54,6 +54,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
   const isPlaying = ref(false)
 
+  const currentTime = ref(0)
+
 
 
   let sentenceLoopTimer: ReturnType<typeof setTimeout> | null = null
@@ -143,6 +145,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
     clearSentenceLoopTimer()
 
     v.currentTime = sub.start
+
+    currentTime.value = sub.start
 
     opts.currentIndex.value = opts.sortedSubs.value.indexOf(sub)
 
@@ -470,6 +474,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
     const t = v.currentTime
 
+    currentTime.value = t
+
     const subs = opts.sortedSubs.value
 
     const playingIndex = opts.currentIndex.value
@@ -681,6 +687,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
     showHelp,
 
     isPlaying,
+
+    currentTime,
 
     currentSub,
 

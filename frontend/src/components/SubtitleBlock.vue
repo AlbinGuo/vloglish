@@ -14,6 +14,7 @@ const props = withDefaults(
     large?: boolean
     align?: SubtitleAlign
     chineseFocus?: boolean
+    readProgress?: number
   }>(),
   { align: 'center', chineseFocus: false },
 )
@@ -42,7 +43,7 @@ function chineseClasses() {
       v-if="showIpa && ipa"
       class="subtitle-ipa font-serif tracking-wide opacity-60 max-w-full break-words"
       :class="[
-        large ? 'text-base sm:text-lg' : 'text-sm',
+        large ? 'text-base sm:text-lg' : 'text-base',
         chineseFocus && !active ? 'text-neutral-500' : '',
       ]"
     >
@@ -54,6 +55,7 @@ function chineseClasses() {
       :active="active"
       :large="large"
       :align="align"
+      :read-progress="readProgress"
       @click="$emit('click', $event)"
     />
     <p v-if="showChinese && chinese" class="subtitle-chinese max-w-full" :class="chineseClasses()">

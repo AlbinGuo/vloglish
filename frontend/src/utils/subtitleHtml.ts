@@ -1,3 +1,15 @@
+import type { Subtitle } from '@/types'
+
+/** 当前时间点应展示的字幕：活跃句优先，间隙显示下一句，末尾之后保留最后一句。 */
+export function resolveDisplaySub(subs: Subtitle[], t: number): Subtitle | null {
+  if (!subs.length) return null
+  const activeIdx = subs.findIndex((s) => t >= s.start && t < s.end)
+  if (activeIdx >= 0) return subs[activeIdx]
+  const nextIdx = subs.findIndex((s) => t < s.start)
+  if (nextIdx >= 0) return subs[nextIdx]
+  return subs[subs.length - 1]
+}
+
 /** Preprocess english_html before v-html render. */
 export function preprocessSubtitleHtml(html: string, options: { blank?: boolean } = {}): string {
   let result = html

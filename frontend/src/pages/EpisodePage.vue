@@ -7,6 +7,9 @@ import EntryCard from '@/components/EntryCard.vue'
 import PlayerControls from '@/components/PlayerControls.vue'
 import VideoPlayer from '@/components/player/VideoPlayer.vue'
 import KeyboardHelp from '@/components/KeyboardHelp.vue'
+import SettingsButton from '@/components/SettingsButton.vue'
+import SettingsPanel from '@/components/SettingsPanel.vue'
+import CurrentSubtitleBar from '@/components/CurrentSubtitleBar.vue'
 import SubtitleBlock from '@/components/SubtitleBlock.vue'
 import { usePlayerControls } from '@/composables/usePlayerControls'
 import {
@@ -17,6 +20,7 @@ import {
   modeShowsIpa,
   modeUsesBlank,
   preprocessSubtitleHtml,
+  resolveDisplaySub,
   type SubtitleAlign,
   type SubtitleDisplayMode,
 } from '@/utils/subtitleHtml'
@@ -39,6 +43,7 @@ const videoRef = ref<HTMLVideoElement | null>(null)
 const videoPanelRef = ref<HTMLElement | null>(null)
 const videoHidden = ref(false)
 const listRef = ref<HTMLElement | null>(null)
+const showSettings = ref(false)
 
 function registerVideoEl(el: HTMLVideoElement | null) {
   videoRef.value = el
@@ -79,12 +84,24 @@ const player = usePlayerControls({
   currentIndex,
 })
 
+const displaySub = computed(() => resolveDisplaySub(sortedSubs.value, player.currentTime.value))
+
+const playbackTime = computed(() => player.currentTime.value)
+
 watch(showEntryPanel, (open) => {
   document.body.style.overflow = open ? 'hidden' : ''
 })
 
+watch(showSettings, (open) => {
+  if (open && !showEntryPanel.value) document.body.style.overflow = 'hidden'
+  else if (!showEntryPanel.value) document.body.style.overflow = ''
+})
+
 function onEntryKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && showEntryPanel.value) closeEntryPanel()
+  if (e.key === 'Escape') {
+    if (showEntryPanel.value) closeEntryPanel()
+    else if (showSettings.value) showSettings.value = false
+  }
 }
 
 onMounted(() => {
@@ -199,7 +216,12 @@ function subtitleRowClass(index: number) {
         <p class="font-semibold truncate">{{ episode.short_title }}</p>
         <p class="text-xs text-neutral-500">{{ episode.author.name }} · 第 {{ episode.index }} 期</p>
       </div>
-      <button class="text-xs text-neutral-400 hover:text-black" @click="player.showHelp.value = true">? 快捷键</button>
+      <div class="flex items-center gap-1 shrink-0">
+        <SettingsButton @click="showSettings = true" />
+        <button class="text-xs text-neutral-400 hover:text-black px-2 py-1" @click="player.showHelp.value = true">
+          ? 快捷键
+        </button>
+      </div>
     </header>
 
     <div v-if="loading" class="flex-1 flex items-center justify-center text-neutral-500">加载中...</div>
@@ -209,7 +231,7 @@ function subtitleRowClass(index: number) {
       <!-- 视频区：始终可见，不参与字幕滚动 -->
       <aside
         ref="videoPanelRef"
-        class="shrink-0 lg:w-[46%] xl:w-[44%] lg:min-h-0 lg:overflow-y-auto lg:border-r border-black/5 bg-neutral-100 p-3 sm:p-4 flex flex-col gap-2"
+        class="shrink-0 lg:w-[46%] xl:w-[44%] lg:min-h-0 flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 bg-neutral-100 p-3 sm:p-4"
       >
         <VideoPlayer
           :src="playbackSrc"
@@ -226,10 +248,20 @@ function subtitleRowClass(index: number) {
           @update:show-ipa="showIpa = $event"
           @update:video-hidden="videoHidden = $event"
         />
+        <CurrentSubtitleBar
+          v-if="displaySub"
+          :sub="displaySub"
+          :current-time="playbackTime"
+          :subtitle-mode="subtitleMode"
+          :show-ipa="showIpa"
+          :english-html="renderHtml(displaySub.english_html)"
+          @seek="player.seekTo(displaySub)"
+          @click="onSubtitleClick"
+        />
       </aside>
 
       <!-- 字幕区：独立滚动 -->
-      <section class="flex-1 min-h-0 flex flex-col overflow-hidden bg-neutral-50 border-t lg:border-t-0 border-black/5">
+      <section class="subtitle-panel flex-1 min-h-0 flex flex-col overflow-hidden bg-neutral-50 border-t lg:border-t-0 border-black/5">
         <div class="shrink-0 flex flex-wrap items-center gap-1 p-3 bg-white border-b border-black/5 text-sm z-10">
           <button
             v-for="m in modeButtons"
@@ -316,5 +348,6 @@ function subtitleRowClass(index: number) {
       @close="closeEntryPanel"
     />
     <KeyboardHelp v-if="player.showHelp.value" @close="player.showHelp.value = false" />
+    <SettingsPanel v-if="showSettings" @close="showSettings = false" />
   </div>
 </template>
