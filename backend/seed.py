@@ -257,6 +257,26 @@ def load_media_subtitles(video_id: str) -> list[dict] | None:
     return json.loads(subs_file.read_text(encoding="utf-8"))
 
 
+def load_qiniu_manifest(video_id: str) -> dict | None:
+    manifest = DATA_DIR / "media" / video_id / "qiniu-manifest.json"
+    if not manifest.is_file():
+        return None
+    return json.loads(manifest.read_text(encoding="utf-8"))
+
+
+def apply_qiniu_manifest_to_detail(detail: dict, manifest: dict) -> None:
+    ep = detail["episode"]
+    media = ep.setdefault("media", {})
+    if manifest.get("video_url"):
+        media["video_url"] = manifest["video_url"]
+    if manifest.get("audio_url"):
+        media["audio_url"] = manifest["audio_url"]
+    if manifest.get("thumbnail_url"):
+        media["thumbnail_url"] = manifest["thumbnail_url"]
+    if manifest.get("cover"):
+        ep["cover"] = manifest["cover"]
+
+
 def main(fetch_remote: bool = False, force_fetch: bool = False):
     if not SAMPLE.exists():
         print(f"Missing {SAMPLE}")
@@ -280,6 +300,12 @@ def main(fetch_remote: bool = False, force_fetch: bool = False):
                 upsert_episode_from_summary(db, item, is_demo=True)
             for detail in extra.get("details", []):
                 vid = detail["episode"]["video_id"]
+                manifest = load_qiniu_manifest(vid)
+                if manifest:
+                    apply_qiniu_manifest_to_detail(detail, manifest)
+                    for item in extra.get("episodes", []):
+                        if item.get("video_id") == vid and manifest.get("cover"):
+                            item["cover"] = manifest["cover"]
                 subs = load_media_subtitles(vid)
                 if subs:
                     detail["episode"]["subtitles"] = subs

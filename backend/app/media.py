@@ -87,13 +87,21 @@ def episode_video_api_url(video_id: str) -> str:
     return f"/api/episode/{video_id}/video/"
 
 
+def is_remote_media_url(url: str) -> bool:
+    return url.startswith("http://") or url.startswith("https://")
+
+
 def resolve_video_url(*, video_id: str, video_url: str, original_video_url: str) -> str:
+    if is_remote_media_url(video_url) and "youtube.com/embed" not in video_url:
+        return video_url
     if find_episode_video_file(video_id):
         return episode_video_api_url(video_id)
     return video_url
 
 
 def resolve_audio_url(*, video_id: str, audio_url: str, video_url: str, original_video_url: str) -> str:
+    if is_remote_media_url(audio_url):
+        return audio_url
     found = find_episode_audio_file(video_id)
     if found:
         return episode_audio_api_url(video_id)
