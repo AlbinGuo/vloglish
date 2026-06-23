@@ -1,0 +1,1844 @@
+{
+  "device_id": "e2339c00-65b4-416a-909c-33ad6cbe840f",
+  "verify": {
+    "status": 200,
+    "data": {
+      "success": true,
+      "message": "体验码验证成功",
+      "affiliate_code": null
+    }
+  },
+  "episodes": {
+    "status": 200,
+    "data": [
+      {
+        "video_id": "074upYDO5FBjKTE",
+        "tags": [
+          {
+            "id": 30,
+            "name": "生活"
+          },
+          {
+            "id": 57,
+            "name": "建议"
+          }
+        ],
+        "cover": "https://media.teco-lab.com/clip74.webp?x-oss-date=20260622T163732Z&x-oss-expires=600&x-oss-signature-version=OSS4-HMAC-SHA256&x-oss-credential=LTAI5tN1TohVjHMCp1fW16yV%2F20260622%2Fcn-hangzhou%2Foss%2Faliyun_v4_request&x-oss-signature=c66e2a4adbae94dcd2d32fc52e2938c675780b997ac56095265aa5487ba7d3cf",
+        "short_title": "谈财务自由的真相",
+        "summary": "Tyson 指出，越是急切渴望金钱，反而越难得到它。真正的财务自由源于先成为配得上它的人：通过阅读积累认知、打磨高价值技能、在实践中拥抱失败。别想走捷径，只有重塑自我，财富才会自然向你靠拢。",
+        "remark": "",
+        "stars": 4,
+        "voca_size": 276,
+        "subtitle_count": 142,
+        "author": {
+          "name": "Tyson Liberto",
+          "gender": "m",
+          "nationality": "🇺🇸",
+          "accent": "美国"
+        },
+        "created_at": "2025-08-29T18:38:32Z",
+        "clip_length": 610.986667,
+        "is_learned": false,
+        "is_favorite": false
+      },
+      {
+        "video_id": "071LsfyHOZD0Vr7",
+        "tags": [
+          {
+            "id": 1,
+            "name": "旅行"
+          },
+          {
+            "id": 26,
+            "name": "娱乐"
+          },
+          {
+            "id": 30,
+            "name": "生活"
+          }
+        ],
+        "cover": "https://media.teco-lab.com/clip71.webp?x-oss-date=20260622T163732Z&x-oss-expires=600&x-oss-signature-version=OSS4-HMAC-SHA256&x-oss-credential=LTAI5tN1TohVjHMCp1fW16yV%2F20260622%2Fcn-hangzhou%2Foss%2Faliyun_v4_request&x-oss-signature=2b776f8cc685d534eaf73e10a12d8da748bca7ff02933509208884d9808196b3",
+        "short_title": "岘港咖啡馆漫游学英语",
+        "summary": "带你打卡岘港两家特色咖啡馆，从点单购物到街头穿行，在真实场景中轻松掌握地道英语表达。边喝咖啡边做创意写作，感受充满复古气息的悠闲午后，让学习变得像度假一样有趣。",
+        "remark": "",
+        "stars": 1,
+        "voca_size": 353,
+        "subtitle_count": 199,
+        "author": {
+          "name": "English by Jay",
+          "gender": "m",
+          "nationality": "🇬🇧",
+          "accent": "英国"
+        },
+        "created_at": "2025-08-23T04:23:11Z",
+        "clip_length": 784.001,
+        "is_learned": false,
+        "is_favorite": false
+      },
+      {
+        "video_id": "066p1Gu2ETQwliG",
+        "tags": [
+          {
+            "id": 1,
+            "name": "旅行"
+          }
+        ],
+        "cover": "https://media.teco-lab.com/clip66.webp?x-oss-date=20260622T163732Z&x-oss-expires=600&x-oss-signature-version=OSS4-HMAC-SHA256&x-oss-credential=LTAI5tN1TohVjHMCp1fW16yV%2F20260622%2Fcn-hangzhou%2Foss%2Faliyun_v4_request&x-oss-signature=b22605bcd66e3297530ad8b01757cfc70ea55810571f452a2e6f0d2d486a0f6f",
+        "short_title": "墨西哥城旅行学英语",
+        "summary": "博主历经转机折腾抵达墨西哥城，分享机场英语与行李分类知识。随后入住青旅，冒雨打卡米其林星级街头塔可，体验地道美食与城市氛围。",
+        "remark": "",
+        "stars": 2,
+        "voca_size": 371,
+        "subtitle_count": 155,
+        "author": {
+          "name": "Volka English",
+          "gender": "m",
+          "nationality": "🇺🇸",
+          "accent": "美国"
+        },
+        "created_at": "2025-08-17T02:19:44Z",
+        "clip_length": 730.066667,
+        "is_learned": false,
+        "is_favorite": false
+      },
+      {
+        "video_id": "048daaeM6zLVq8v",
+        "tags": [
+          {
+            "id": 25,
+            "name": "知识"
+          },
+          {
+            "id": 43,
+            "name": "超市"
+          },
+          {
+            "id": 44,
+            "name": "商业"
+          }
+        ],
+        "cover": "https://media.teco-lab.com/clip48.webp?x-oss-date=20260622T163732Z&x-oss-expires=600&x-oss-signature-version=OSS4-HMAC-SHA256&x-oss-credential=LTAI5tN1TohVjHMCp1fW16yV%2F20260622%2Fcn-hangzhou%2Foss%2Faliyun_v4_request&x-oss-signature=6aece518bb4e8263e1c7305eedd471d4b5b267c55d902f02b5728da006535cf9",
+        "short_title": "探秘全球最贵超市 Erewhon",
+        "summary": "Erewhon 不仅是卖天价草莓的杂货店，更是洛杉矶的身份象征。它把健康食品做成了风投项目和精英社交圈，让人甘愿排队只为喝一杯明星同款奶昔。",
+        "remark": "",
+        "stars": 5,
+        "voca_size": 274,
+        "subtitle_count": 67,
+        "author": {
+          "name": "Taylor Bell",
+          "gender": "f",
+          "nationality": "🇺🇸",
+          "accent": "美国"
+        },
+        "created_at": "2025-07-13T04:13:22Z",
+        "clip_length": 273.166667,
+        "is_learned": false,
+        "is_favorite": false
+      },
+      {
+        "video_id": "015TVreRGVVMqPl",
+        "tags": [
+          {
+            "id": 3,
+            "name": "购物"
+          },
+          {
+            "id": 28,
+            "name": "美食"
+          },
+          {
+            "id": 31,
+            "name": "健身"
+          }
+        ],
+        "cover": "https://media.teco-lab.com/clip15.webp?x-oss-date=20260622T163732Z&x-oss-expires=600&x-oss-signature-version=OSS4-HMAC-SHA256&x-oss-credential=LTAI5tN1TohVjHMCp1fW16yV%2F20260622%2Fcn-hangzhou%2Foss%2Faliyun_v4_request&x-oss-signature=fd79d0b839e4f38a536e90685c62d555ba63dbc9002d80090a83875b71b43c47",
+        "short_title": "Costco 超市采购",
+        "summary": "博主去 Costco 囤高蛋白食材，精算鸡胸肉和彩椒的性价比。结果因禽流感导致鸡蛋缺货，不得不转战其他超市，真实展现了健身餐备料的波折。",
+        "remark": "",
+        "stars": 3,
+        "voca_size": 71,
+        "subtitle_count": 26,
+        "author": {
+          "name": "Noah Anderson",
+          "gender": "m",
+          "nationality": "🇺🇸",
+          "accent": "美国"
+        },
+        "created_at": "2025-06-02T07:36:05Z",
+        "clip_length": 80.5,
+        "is_learned": false,
+        "is_favorite": false
+      },
+      {
+        "video_id": "26PrgjTboVQ",
+        "index": 999,
+        "tags": [
+          {
+            "id": 25,
+            "name": "知识"
+          }
+        ],
+        "cover": "https://i.ytimg.com/vi/26PrgjTboVQ/hqdefault.jpg",
+        "short_title": "BBC 六分钟英语：追随梦想",
+        "summary": "Neil 和 Beth 讨论「追随梦想」的话题，分享两位勇敢追梦者的真实故事，并学习 utopia、struggle with、outlandish 等相关词汇。",
+        "remark": "",
+        "stars": 2,
+        "voca_size": 180,
+        "subtitle_count": 79,
+        "author": {
+          "name": "BBC Learning English",
+          "gender": "m",
+          "nationality": "🇬🇧",
+          "accent": "英国"
+        },
+        "created_at": "2022-09-08T14:30:01Z",
+        "clip_length": 379,
+        "is_learned": false,
+        "is_favorite": false
+      }
+    ]
+  },
+  "episode_details": {
+    "074upYDO5FBjKTE": {
+      "status": 200
+    },
+    "071LsfyHOZD0Vr7": {
+      "status": 200
+    },
+    "066p1Gu2ETQwliG": {
+      "status": 200
+    },
+    "048daaeM6zLVq8v": {
+      "status": 200
+    },
+    "015TVreRGVVMqPl": {
+      "status": 200
+    }
+  },
+  "first_episode_detail": {
+    "episode": {
+      "index": 74,
+      "video_id": "074upYDO5FBjKTE",
+      "media": {
+        "video_url": "https://media.teco-lab.com/074upYDO5FBjKTE/video.mp4?x-oss-date=20260622T163732Z&x-oss-expires=86400&x-oss-signature-version=OSS4-HMAC-SHA256&x-oss-credential=LTAI5tN1TohVjHMCp1fW16yV%2F20260622%2Fcn-hangzhou%2Foss%2Faliyun_v4_request&x-oss-signature=ba12b920693373131175a7d0b6eb85b99391d4cd4d5eb07b4401132324432f02",
+        "audio_url": "https://media.teco-lab.com/074upYDO5FBjKTE/audio.mp3?x-oss-date=20260622T163732Z&x-oss-expires=86400&x-oss-signature-version=OSS4-HMAC-SHA256&x-oss-credential=LTAI5tN1TohVjHMCp1fW16yV%2F20260622%2Fcn-hangzhou%2Foss%2Faliyun_v4_request&x-oss-signature=c82a626eb98358e8f47e3744131f718ab663a68e9bc6b8f34f01fcc82f29039b",
+        "thumbnail_url": "https://media.teco-lab.com/074upYDO5FBjKTE/thumbnail.webp?x-oss-date=20260622T163732Z&x-oss-expires=86400&x-oss-signature-version=OSS4-HMAC-SHA256&x-oss-credential=LTAI5tN1TohVjHMCp1fW16yV%2F20260622%2Fcn-hangzhou%2Foss%2Faliyun_v4_request&x-oss-signature=d07d2328cf20a1dcf85fc8b6c32424f56f721d704258b6dc84d13d8dc7c3fd3c"
+      },
+      "short_title": "谈财务自由的真相",
+      "summary": "Tyson 指出，越是急切渴望金钱，反而越难得到它。真正的财务自由源于先成为配得上它的人：通过阅读积累认知、打磨高价值技能、在实践中拥抱失败。别想走捷径，只有重塑自我，财富才会自然向你靠拢。",
+      "remark": "",
+      "stars": 4,
+      "voca_size": 276,
+      "subtitle_count": 142,
+      "author": {
+        "name": "Tyson Liberto",
+        "gender": "m",
+        "nationality": "🇺🇸",
+        "accent": "美国"
+      },
+      "tags": [
+        {
+          "id": 57,
+          "name": "建议"
+        },
+        {
+          "id": 30,
+          "name": "生活"
+        }
+      ],
+      "subtitles": [
+        {
+          "id": 8557,
+          "index": 31,
+          "start": 113.38,
+          "end": 114.9,
+          "english": "You need to experience failure.",
+          "chinese": "你需要经历失败。",
+          "ipa": "/juː niːd tʊ ɛkspiəɹɪəns feɪlɪɹ./",
+          "english_html": "<span>You</span><span tid=\"51809\">need</span><span>to</span><span tid=\"51811\">experience</span><span tid=\"51812\">failure.</span>"
+        },
+        {
+          "id": 8567,
+          "index": 41,
+          "start": 142.7,
+          "end": 144.8,
+          "english": "And so they look for the quickest way to get there.",
+          "chinese": "所以他们总是寻找最快的捷径。",
+          "ipa": "/ænd soʊ ðeɪ lʊk fɚðə kwɪkɪst weɪ tə ɡɛt ðɛɹ./",
+          "english_html": "<span>And</span><span>so</span><span>they</span><span pid=\"283\" class=\"highlight highlight-d\">look for</span><span>the</span><span tid=\"51909\">quickest</span><span tid=\"51910\" class=\"highlight highlight-a\">way</span><span>to</span><span>get</span><span>there.</span>"
+        },
+        {
+          "id": 8622,
+          "index": 96,
+          "start": 395.22,
+          "end": 397.0,
+          "english": "And you do that through practice.",
+          "chinese": "而你是通过练习来做到的。",
+          "ipa": "/ænd juː duː ðæt θɹuː pɹæktɪs./",
+          "english_html": "<span>And</span><span>you</span><span>do</span><span>that</span><span tid=\"52580\">through</span><span tid=\"52581\" class=\"highlight highlight-a\">practice.</span>"
+        },
+        {
+          "id": 8560,
+          "index": 34,
+          "start": 123.82,
+          "end": 128.7,
+          "english": "You see, the harder something is to overcome, the more valuable the reward.",
+          "chinese": "越难克服的事，回报就越有价值。",
+          "ipa": "/juː siː, ðə hɑːɹdɚ sʌmθɪŋ ɪz tʊ oʊvɚkʌm, ðə mɔːɹ væljuːəbəl ðə ɹᵻwɔːɹd./",
+          "english_html": "<span>You</span><span tid=\"51845\">see,</span><span>the</span><span tid=\"51847\">harder</span><span>something</span><span>is</span><span>to</span><span tid=\"51851\" class=\"highlight highlight-a\">overcome,</span><span>the</span><span>more</span><span tid=\"51854\" class=\"highlight highlight-a\">valuable</span><span>the</span><span tid=\"51856\" class=\"highlight highlight-a\">reward.</span>"
+        },
+        {
+          "id": 8562,
+          "index": 36,
+          "start": 132.32,
+          "end": 134.52,
+          "english": "Let's not kid ourselves here.",
+          "chinese": "我们别自欺欺人了。",
+          "ipa": "/lɛts nɑːt kɪd aʊɚsɛlvz hɪɹ./",
+          "english_html": "<span>Let's</span><span>not</span><span pid=\"282\" class=\"highlight highlight-i\">kid ourselves</span><span>here.</span>"
+        },
+        {
+          "id": 8564,
+          "index": 38,
+          "start": 136.28,
+          "end": 137.14,
+          "english": "They see the struggle.",
+          "chinese": "他们看到的是挣扎。",
+          "ipa": "/ðeɪ siː ðə stɹʌɡəl./",
+          "english_html": "<span>They</span><span tid=\"51880\">see</span><span>the</span><span tid=\"51882\" class=\"highlight highlight-a\">struggle.</span>"
+        },
+        {
+          "id": 8577,
+          "index": 51,
+          "start": 182.38,
+          "end": 183.36,
+          "english": "It just doesn't.",
+          "chinese": "就是不会。",
+          "ipa": "/ɪt dʒʌst dʌzənt./",
+          "english_html": "<span>It</span><span>just</span><span>doesn't.</span>"
+        },
+        {
+          "id": 8533,
+          "index": 7,
+          "start": 32.04,
+          "end": 34.2,
+          "english": "It's just the world we live in today.",
+          "chinese": "这就是我们今天所处的世界。",
+          "ipa": "/ɪts dʒʌst ðə wɜːld wiː lɪv ɪn tədeɪ./",
+          "english_html": "<span>It's</span><span>just</span><span>the</span><span tid=\"51540\">world</span><span>we</span><span tid=\"51542\">live</span><span>in</span><span tid=\"51544\">today.</span>"
+        },
+        {
+          "id": 8551,
+          "index": 25,
+          "start": 102.12,
+          "end": 103.34,
+          "english": "That takes patience.",
+          "chinese": "这需要耐心。",
+          "ipa": "/ðæt teɪks peɪʃəns./",
+          "english_html": "<span>That</span><span tid=\"51773\">takes</span><span tid=\"51774\" class=\"highlight highlight-a\">patience.</span>"
+        },
+        {
+          "id": 8527,
+          "index": 1,
+          "start": 0.0,
+          "end": 3.62,
+          "english": "I don't really ever talk about money and there's a reason for that.",
+          "chinese": "我其实很少谈论金钱，这是有原因的。",
+          "ipa": "/aɪ doʊnt ɹiəli ɛvɚ tɔːk ɐbaʊt mʌni ænd ðɛɹz ɐ ɹiːzən fɔːɹ ðæt./",
+          "english_html": "<span>I</span><span>don't</span><span tid=\"51448\">really</span><span tid=\"51449\" class=\"highlight highlight-a\">ever</span><span tid=\"51450\">talk</span><span>about</span><span tid=\"51452\">money</span><span>and</span><span pid=\"261\" class=\"highlight highlight-l\">there's a reason for that.</span>"
+        },
+        {
+          "id": 8537,
+          "index": 11,
+          "start": 44.88,
+          "end": 46.68,
+          "english": "And so I get it.",
+          "chinese": "所以我理解。",
+          "ipa": "/ænd soʊ aɪ ɡɛt ɪt./",
+          "english_html": "<span>And</span><span>so</span><span>I</span><span>get</span><span>it.</span>"
+        },
+        {
+          "id": 8565,
+          "index": 39,
+          "start": 137.14,
+          "end": 141.16,
+          "english": "They see the difficulty that you must bear in order to reap that reward.",
+          "chinese": "他们看到的是必须承担的困难才能收获那个回报。",
+          "ipa": "/ðeɪ siː ðə dɪfɪkʌlti ðæt juː mʌst bɛɹ ɪn ɔːɹdɚ tə ɹiːp ðæt ɹᵻwɔːɹd./",
+          "english_html": "<span>They</span><span tid=\"51884\">see</span><span>the</span><span tid=\"51886\">difficulty</span><span>that</span><span>you</span><span tid=\"51889\" class=\"highlight highlight-a\">must</span><span tid=\"51890\" class=\"highlight highlight-a\">bear</span><span pid=\"262\" class=\"highlight highlight-c\">in order to</span><span tid=\"51894\" class=\"highlight highlight-a\">reap</span><span>that</span><span tid=\"51896\" class=\"highlight highlight-a\">reward.</span>"
+        },
+        {
+          "id": 8566,
+          "index": 40,
+          "start": 141.16,
+          "end": 142.7,
+          "english": "And they want to skip it.",
+          "chinese": "可他们想跳过这一切。",
+          "ipa": "/ænd ðeɪ wɔnt tə skɪp ɪt./",
+          "english_html": "<span>And</span><span>they</span><span>want</span><span>to</span><span tid=\"51901\" class=\"highlight highlight-a\">skip</span><span>it.</span>"
+        },
+        {
+          "id": 8568,
+          "index": 42,
+          "start": 144.8,
+          "end": 150.56,
+          "english": "And so the question of how do I have it now immediately strays you away from the path that you need to be on.",
+          "chinese": "于是“我怎样才能立刻拥有它”这个问题，立刻把你带偏离了正确的道路。",
+          "ipa": "/ænd soʊ ðə kwɛstʃən ʌv haʊ duː aɪ hæv ɪt naʊ ɪmiːdɪətli stɹeɪz juː ɐweɪ fɹʌmðə pæθ ðæt juː niːd təbi ɔn./",
+          "english_html": "<span>And</span><span>so</span><span>the</span><span tid=\"51917\">question</span><span>of</span><span>how</span><span>do</span><span>I</span><span>have</span><span>it</span><span tid=\"51924\">now</span><span tid=\"51925\" class=\"highlight highlight-a\">immediately</span><span tid=\"51926\" class=\"highlight highlight-a\">strays</span><span>you</span><span tid=\"51928\">away</span><span>from</span><span>the</span><span tid=\"51931\">path</span><span>that</span><span>you</span><span tid=\"51934\">need</span><span>to</span><span>be</span><span>on.</span>"
+        },
+        {
+          "id": 8569,
+          "index": 43,
+          "start": 150.56,
+          "end": 152.82,
+          "english": "You know, it's almost kind of paradoxical because.",
+          "chinese": "这几乎有点像悖论，因为——",
+          "ipa": "/juː noʊ, ɪts ɔːlmoʊst kaɪnd ʌv pæɹədɑːksɪkəl bɪkʌz./",
+          "english_html": "<span>You</span><span>know,</span><span>it's</span><span tid=\"51941\">almost</span><span tid=\"51942\">kind</span><span>of</span><span tid=\"51944\" class=\"highlight highlight-a\">paradoxical</span><span>because.</span>"
+        },
+        {
+          "id": 8570,
+          "index": 44,
+          "start": 152.82,
+          "end": 156.2,
+          "english": "as soon as you detach yourself from the desire itself.",
+          "chinese": "一旦你把自己从这种渴望里抽离出来。",
+          "ipa": "/æz suːn æz juː dɪtætʃ jɔːɹsɛlf fɹʌmðə dɪzaɪɚɹ ɪtsɛlf./",
+          "english_html": "<span>as</span><span tid=\"51947\">soon</span><span>as</span><span>you</span><span tid=\"51950\" class=\"highlight highlight-a\">detach</span><span tid=\"51951\">yourself</span><span>from</span><span>the</span><span tid=\"51954\" class=\"highlight highlight-a\">desire</span><span tid=\"51955\">itself.</span>"
+        },
+        {
+          "id": 8572,
+          "index": 46,
+          "start": 162.94,
+          "end": 166.62,
+          "english": "it gravitates to you automatically given time.",
+          "chinese": "只要时间够，它就会自然而然地靠近你。",
+          "ipa": "/ɪt ɡɹævᵻteɪts tə juː ɔːɾəmæɾɪkli ɡɪvən taɪm./",
+          "english_html": "<span>it</span><span tid=\"51980\" class=\"highlight highlight-a\">gravitates</span><span>to</span><span>you</span><span tid=\"51983\" class=\"highlight highlight-a\">automatically</span><span pid=\"284\" class=\"highlight highlight-c\">given time.</span>"
+        },
+        {
+          "id": 8573,
+          "index": 47,
+          "start": 166.62,
+          "end": 168.16,
+          "english": "I mean, think back in your life.",
+          "chinese": "想想你的人生经历。",
+          "ipa": "/aɪ miːn, θɪŋk bæk ɪn jʊɹ laɪf./",
+          "english_html": "<span>I</span><span tid=\"51987\">mean,</span><span>think</span><span tid=\"51989\" class=\"highlight highlight-a\">back</span><span>in</span><span>your</span><span tid=\"51992\">life.</span>"
+        },
+        {
+          "id": 8589,
+          "index": 63,
+          "start": 225.68,
+          "end": 227.66,
+          "english": "Like that's not what this is.",
+          "chinese": "这不是这么回事。",
+          "ipa": "/laɪk ðæts nɑːt wʌt ðɪs ɪz./",
+          "english_html": "<span>Like</span><span>that's</span><span>not</span><span>what</span><span>this</span><span>is.</span>"
+        },
+        {
+          "id": 8599,
+          "index": 73,
+          "start": 293.46,
+          "end": 295.46,
+          "english": "This isn't TikTok shop.",
+          "chinese": "这不是TikTok小店。",
+          "ipa": "/ðɪs ɪzənt tɪk tɑːk ʃɑːp./",
+          "english_html": "<span>This</span><span tid=\"52307\">isn't</span><span tid=\"52308\">TikTok</span><span tid=\"52309\">shop.</span>"
+        },
+        {
+          "id": 8604,
+          "index": 78,
+          "start": 316.06,
+          "end": 319.34,
+          "english": "These are going to be, these aren't going to be flashy.",
+          "chinese": "这些不会很花哨。",
+          "ipa": "/ðiːz ɑːɹ ɡoʊɪŋ tə biː, ðiːz ɑːɹnt ɡoʊɪŋ təbi flæʃi./",
+          "english_html": "<span>These</span><span>are</span><span>going</span><span>to</span><span>be,</span><span>these</span><span tid=\"52369\">aren't</span><span>going</span><span>to</span><span>be</span><span tid=\"52373\" class=\"highlight highlight-a\">flashy.</span>"
+        },
+        {
+          "id": 8605,
+          "index": 79,
+          "start": 319.34,
+          "end": 321.84,
+          "english": "These aren't going to be exciting, probably.",
+          "chinese": "可能也不会很刺激。",
+          "ipa": "/ðiːz ɑːɹnt ɡoʊɪŋ təbi ɛksaɪɾɪŋ, pɹɑːbəbli./",
+          "english_html": "<span>These</span><span tid=\"52375\">aren't</span><span>going</span><span>to</span><span>be</span><span tid=\"52379\">exciting,</span><span tid=\"52380\" class=\"highlight highlight-a\">probably.</span>"
+        },
+        {
+          "id": 8606,
+          "index": 80,
+          "start": 321.84,
+          "end": 327.92,
+          "english": "But reading is important because it's where you're going to get knowledge and knowledge is power.",
+          "chinese": "但阅读很重要，因为那是你获得知识的地方，而知识就是力量。",
+          "ipa": "/bʌt ɹiːdɪŋ ɪz ɪmpɔːɹtənt bɪkʌz ɪts wɛɹ jʊɹ ɡoʊɪŋ tə ɡɛt nɑːlɪdʒ ænd nɑːlɪdʒ ɪz paʊɚ./",
+          "english_html": "<span>But</span><span tid=\"52382\">reading</span><span>is</span><span tid=\"52384\">important</span><span>because</span><span>it's</span><span>where</span><span>you're</span><span>going</span><span>to</span><span>get</span><span tid=\"52392\">knowledge</span><span>and</span><span tid=\"52394\">knowledge</span><span>is</span><span tid=\"52396\">power.</span>"
+        },
+        {
+          "id": 8608,
+          "index": 82,
+          "start": 337.32,
+          "end": 338.58,
+          "english": "I practice what I preach.",
+          "chinese": "我自己就是在践行我说的。",
+          "ipa": "/aɪ pɹæktɪs wʌt aɪ pɹiːtʃ./",
+          "english_html": "<span>I</span><span pid=\"248\" class=\"highlight highlight-i\">practice what I preach.</span>"
+        },
+        {
+          "id": 8614,
+          "index": 88,
+          "start": 363.66,
+          "end": 366.2,
+          "english": "It could be movies. I love horror movies, right?",
+          "chinese": "比如电影。我自己就喜欢恐怖片，对吧？",
+          "ipa": "/ɪt kʊd biː muːvɪz. aɪ lʌv hɔɹɚ muːvɪz, ɹaɪt?/",
+          "english_html": "<span>It</span><span>could</span><span>be</span><span tid=\"52487\">movies.</span><span>I</span><span tid=\"52489\">love</span><span pid=\"291\" class=\"highlight highlight-c\">horror movies,</span><span tid=\"52492\" class=\"highlight highlight-a\">right?</span>"
+        },
+        {
+          "id": 8624,
+          "index": 98,
+          "start": 402.48,
+          "end": 404.04,
+          "english": "That's the skill that you're building.",
+          "chinese": "那就是你正在打造的技能。",
+          "ipa": "/ðæts ðə skɪl ðæt jʊɹ bɪldɪŋ./",
+          "english_html": "<span>That's</span><span>the</span><span tid=\"52599\">skill</span><span>that</span><span>you're</span><span tid=\"52602\">building.</span>"
+        },
+        {
+          "id": 8626,
+          "index": 100,
+          "start": 410.2,
+          "end": 414.66,
+          "english": "you're starting from not the top level, right?",
+          "chinese": "你不是从顶层开始的，对吧？",
+          "ipa": "/jʊɹ stɑːɹɾɪŋ fɹʌm nɑːt ðə tɑːp lɛvəl, ɹaɪt?/",
+          "english_html": "<span>you're</span><span tid=\"52626\">starting</span><span>from</span><span>not</span><span>the</span><span tid=\"52630\" class=\"highlight highlight-a\">top</span><span tid=\"52631\">level,</span><span tid=\"52632\" class=\"highlight highlight-a\">right?</span>"
+        },
+        {
+          "id": 8637,
+          "index": 111,
+          "start": 462.46,
+          "end": 464.18,
+          "english": "And that leads us to the fourth step.",
+          "chinese": "这就引出了第四步。",
+          "ipa": "/ænd ðæt liːdz ʌs tə ðə fɔːɹθ stɛp./",
+          "english_html": "<span>And</span><span>that</span><span tid=\"52803\">leads</span><span>us</span><span>to</span><span>the</span><span tid=\"52807\">fourth</span><span tid=\"52808\">step.</span>"
+        },
+        {
+          "id": 8647,
+          "index": 121,
+          "start": 497.3,
+          "end": 503.56,
+          "english": "And so if you implement these four steps, reading, which is giving you a general foundation for financial freedom.",
+          "chinese": "所以如果你落实这四步：阅读，为财务自由打下基础。",
+          "ipa": "/ænd soʊ ɪf juː ɪmplɪmənt ðiːz fɔːɹ stɛps, ɹiːdɪŋ, wɪtʃ ɪz ɡɪvɪŋ juː ɐ dʒɛnɚɹəl faʊndeɪʃən fɔːɹ faɪnænʃəl fɹiːdəm./",
+          "english_html": "<span>And</span><span>so</span><span>if</span><span>you</span><span tid=\"52923\" class=\"highlight highlight-a\">implement</span><span>these</span><span>four</span><span tid=\"52926\">steps,</span><span tid=\"52927\">reading,</span><span>which</span><span>is</span><span tid=\"52930\">giving</span><span>you</span><span>a</span><span tid=\"52933\">general</span><span tid=\"52934\" class=\"highlight highlight-a\">foundation</span><span>for</span><span pid=\"276\" class=\"highlight highlight-c\">financial freedom.</span>"
+        },
+        {
+          "id": 8665,
+          "index": 139,
+          "start": 586.7,
+          "end": 590.16,
+          "english": "I'm giving you real advice that you can start doing now.",
+          "chinese": "我给你的是可以立刻开始执行的真实建议。",
+          "ipa": "/aɪm ɡɪvɪŋ juː ɹiːəl ɐdvaɪs ðæt juː kæn stɑːɹt duːɪŋ naʊ./",
+          "english_html": "<span>I'm</span><span tid=\"53190\">giving</span><span>you</span><span tid=\"53192\">real</span><span tid=\"53193\">advice</span><span>that</span><span>you</span><span>can</span><span tid=\"53197\">start</span><span>doing</span><span tid=\"53199\">now.</span>"
+        },
+        {
+          "id": 8667,
+          "index": 141,
+          "start": 596.4,
+          "end": 601.06,
+          "english": "Because the more you try to attach to something, the further it runs away from you.",
+          "chinese": "因为你越是拼命去抓住某样东西，它就越会离你远去。",
+          "ipa": "/bɪkʌz ðə mɔːɹ juː tɹaɪ tʊ ɐtætʃ tə sʌmθɪŋ, ðə fɜːðɚɹ ɪt ɹʌnz ɐweɪ fɹʌm juː./",
+          "english_html": "<span>Because</span><span>the</span><span>more</span><span>you</span><span tid=\"53220\">try</span><span>to</span><span pid=\"306\" class=\"highlight highlight-d\">attach to</span><span>something,</span><span>the</span><span tid=\"53226\" class=\"highlight highlight-a\">further</span><span>it</span><span pid=\"307\" class=\"highlight highlight-d\">runs away from</span><span>you.</span>"
+        },
+        {
+          "id": 8528,
+          "index": 2,
+          "start": 3.62,
+          "end": 11.36,
+          "english": "In order to have something, you need to become the person that's capable of doing the things that are required to have it.",
+          "chinese": "要想拥有某样东西，你必须先成为能做到获得它所需事情的人。",
+          "ipa": "/ɪn ɔːɹdɚ tə hæv sʌmθɪŋ, juː niːd tə bɪkʌm ðə pɜːsən ðæts keɪpəbəl ʌv duːɪŋ ðə θɪŋz ðæt ɑːɹ ɹᵻkwaɪɚd tə hæv ɪt./",
+          "english_html": "<span>In</span><span tid=\"51460\" class=\"highlight highlight-a\">order</span><span>to</span><span>have</span><span>something,</span><span>you</span><span tid=\"51465\">need</span><span>to</span><span tid=\"51467\">become</span><span>the</span><span tid=\"51469\">person</span><span>that's</span><span tid=\"51471\" class=\"highlight highlight-a\">capable</span><span>of</span><span>doing</span><span>the</span><span>things</span><span>that</span><span>are</span><span tid=\"51478\">required</span><span>to</span><span>have</span><span>it.</span>"
+        },
+        {
+          "id": 8536,
+          "index": 10,
+          "start": 43.14,
+          "end": 44.88,
+          "english": "then finances are required.",
+          "chinese": "那就必须有钱。",
+          "ipa": "/ðɛn faɪnænsᵻz ɑːɹ ɹᵻkwaɪɚd./",
+          "english_html": "<span>then</span><span tid=\"51581\" class=\"highlight highlight-a\">finances</span><span>are</span><span tid=\"51583\">required.</span>"
+        },
+        {
+          "id": 8538,
+          "index": 12,
+          "start": 46.68,
+          "end": 51.86,
+          "english": "But a lot of people make this mistake of asking for financial freedom mentally.",
+          "chinese": "但很多人犯的错误是，在心态上直接去追求“财务自由”。",
+          "ipa": "/bʌt ɐ lɑːt ʌv piːpəl meɪk ðɪs mɪsteɪk ʌv æskɪŋ fɔːɹ faɪnænʃəl fɹiːdəm mɛntəli./",
+          "english_html": "<span>But</span><span>a</span><span tid=\"51591\">lot</span><span>of</span><span tid=\"51593\">people</span><span tid=\"51594\">make</span><span>this</span><span tid=\"51596\" class=\"highlight highlight-a\">mistake</span><span>of</span><span tid=\"51598\">asking</span><span>for</span><span pid=\"269\" class=\"highlight highlight-c\">financial freedom</span><span tid=\"51602\" class=\"highlight highlight-a\">mentally.</span>"
+        },
+        {
+          "id": 8539,
+          "index": 13,
+          "start": 51.86,
+          "end": 54.4,
+          "english": "They desire, they wish for it.",
+          "chinese": "他们渴望它，他们许愿得到它。",
+          "ipa": "/ðeɪ dɪzaɪɚ, ðeɪ wɪʃ fɔːɹ ɪt./",
+          "english_html": "<span>They</span><span tid=\"51604\" class=\"highlight highlight-a\">desire,</span><span>they</span><span tid=\"51606\">wish</span><span>for</span><span>it.</span>"
+        },
+        {
+          "id": 8540,
+          "index": 14,
+          "start": 54.4,
+          "end": 59.7,
+          "english": "And when that's the first question that you ask, you immediately distance yourself from it.",
+          "chinese": "可当这是你问的第一个问题时，你就立刻把自己和它拉开了距离。",
+          "ipa": "/ænd wɛn ðæts ðə fɜːst kwɛstʃən ðæt juː æsk, juː ɪmiːdɪətli dɪstəns jɔːɹsɛlf fɹʌm ɪt./",
+          "english_html": "<span>And</span><span>when</span><span>that's</span><span>the</span><span tid=\"51613\">first</span><span tid=\"51614\">question</span><span>that</span><span>you</span><span tid=\"51617\">ask,</span><span>you</span><span tid=\"51619\" class=\"highlight highlight-a\">immediately</span><span pid=\"278\" class=\"highlight highlight-d\">distance yourself from</span><span>it.</span>"
+        },
+        {
+          "id": 8541,
+          "index": 15,
+          "start": 59.7,
+          "end": 65.7,
+          "english": "And the reason that is, is because if the first question you're asking is regarding the thing that you want.",
+          "chinese": "原因就在于，如果你开口问的第一个问题是关于你想要的东西。",
+          "ipa": "/ænd ðə ɹiːzən ðæt ɪz, ɪz bɪkʌz ɪf ðə fɜːst kwɛstʃən jʊɹ æskɪŋ ɪz ɹᵻɡɑːɹdɪŋ ðə θɪŋ ðæt juː wɔnt./",
+          "english_html": "<span>And</span><span>the</span><span tid=\"51626\">reason</span><span>that</span><span>is,</span><span>is</span><span>because</span><span>if</span><span>the</span><span tid=\"51633\">first</span><span tid=\"51634\">question</span><span>you're</span><span tid=\"51636\">asking</span><span>is</span><span tid=\"51638\">regarding</span><span>the</span><span>thing</span><span>that</span><span>you</span><span>want.</span>"
+        },
+        {
+          "id": 8542,
+          "index": 16,
+          "start": 65.7,
+          "end": 72.06,
+          "english": "then you're skipping over every single vital step that is required in order to have that thing, right?",
+          "chinese": "那你就跳过了获得它所必须的每一个关键步骤，对吧？",
+          "ipa": "/ðɛn jʊɹ skɪpɪŋ oʊvɚɹ ɛvɹi sɪŋɡəl vaɪɾəl stɛp ðæt ɪz ɹᵻkwaɪɚd ɪn ɔːɹdɚ tə hæv ðæt θɪŋ, ɹaɪt?/",
+          "english_html": "<span>then</span><span>you're</span><span tid=\"51646\" class=\"highlight highlight-a\">skipping</span><span tid=\"51647\">over</span><span pid=\"256\" class=\"highlight highlight-i\">every single</span><span tid=\"51650\" class=\"highlight highlight-a\">vital</span><span tid=\"51651\">step</span><span>that</span><span>is</span><span tid=\"51654\">required</span><span pid=\"264\" class=\"highlight highlight-c\">in order to</span><span>have</span><span>that</span><span>thing,</span><span tid=\"51661\" class=\"highlight highlight-a\">right?</span>"
+        },
+        {
+          "id": 8543,
+          "index": 17,
+          "start": 72.06,
+          "end": 76.72,
+          "english": "Like there's a process that needs to happen in between where you are now and where you want to be.",
+          "chinese": "就像你现在的位置和你想去的地方之间，其实需要一个过程。",
+          "ipa": "/laɪk ðɛɹz ɐ pɹɑːsɛs ðæt niːdz tə hæpən ɪn bᵻtwiːn wɛɹ juː ɑːɹ naʊ ænd wɛɹ juː wɔnt tə biː./",
+          "english_html": "<span>Like</span><span>there's</span><span>a</span><span tid=\"51665\" class=\"highlight highlight-a\">process</span><span>that</span><span tid=\"51667\">needs</span><span>to</span><span tid=\"51669\">happen</span><span pid=\"247\" class=\"highlight highlight-i\">in between</span><span>where</span><span>you</span><span>are</span><span tid=\"51675\">now</span><span>and</span><span>where</span><span>you</span><span>want</span><span>to</span><span>be.</span>"
+        },
+        {
+          "id": 8544,
+          "index": 18,
+          "start": 76.72,
+          "end": 81.14,
+          "english": "So if you don't have financial freedom and you want to be financially free.",
+          "chinese": "所以如果你还没有财务自由，但你想要财务自由。",
+          "ipa": "/soʊ ɪf juː doʊnt hæv faɪnænʃəl fɹiːdəm ænd juː wɔnt təbi faɪnænʃəli fɹiː./",
+          "english_html": "<span>So</span><span>if</span><span>you</span><span>don't</span><span>have</span><span pid=\"270\" class=\"highlight highlight-c\">financial freedom</span><span>and</span><span>you</span><span>want</span><span>to</span><span>be</span><span tid=\"51694\" class=\"highlight highlight-a\">financially</span><span tid=\"51695\">free.</span>"
+        },
+        {
+          "id": 8545,
+          "index": 19,
+          "start": 81.14,
+          "end": 88.78,
+          "english": "there's a ton of experiences that need to take place and actions that need to be done in order for you to get from point A to point B.",
+          "chinese": "那你必须经历很多事情，采取很多行动，才能从A点走到B点。",
+          "ipa": "/ðɛɹz ɐ tʌn ʌv ɛkspiəɹɪənsᵻz ðæt niːd tə teɪk pleɪs ænd ækʃənz ðæt niːd təbi dʌn ɪn ɔːɹdɚ fɔːɹ juː tə ɡɛt fɹʌm pɔɪnt ɐ tə pɔɪnt biː./",
+          "english_html": "<span>there's</span><span>a</span><span tid=\"51698\">ton</span><span>of</span><span tid=\"51700\">experiences</span><span>that</span><span tid=\"51702\">need</span><span>to</span><span pid=\"257\" class=\"highlight highlight-d\">take place</span><span>and</span><span tid=\"51707\" class=\"highlight highlight-a\">actions</span><span>that</span><span tid=\"51709\">need</span><span>to</span><span>be</span><span>done</span><span>in</span><span tid=\"51714\" class=\"highlight highlight-a\">order</span><span>for</span><span>you</span><span>to</span><span>get</span><span>from</span><span tid=\"51720\">point</span><span>A</span><span>to</span><span tid=\"51723\">point</span><span>B.</span>"
+        },
+        {
+          "id": 8546,
+          "index": 20,
+          "start": 88.78,
+          "end": 90.24,
+          "english": "Now let's just think real quick.",
+          "chinese": "我们先快速想一下。",
+          "ipa": "/naʊ lɛts dʒʌst θɪŋk ɹiːəl kwɪk./",
+          "english_html": "<span tid=\"51725\">Now</span><span>let's</span><span>just</span><span>think</span><span pid=\"280\" class=\"highlight highlight-i\">real quick.</span>"
+        },
+        {
+          "id": 8547,
+          "index": 21,
+          "start": 90.24,
+          "end": 94.58,
+          "english": "What could be some things that you have to do in order to have financial freedom?",
+          "chinese": "要获得财务自由，你必须做哪些事？",
+          "ipa": "/wʌt kʊd biː sʌm θɪŋz ðæt juː hæv tə duː ɪn ɔːɹdɚ tə hæv faɪnænʃəl fɹiːdəm?/",
+          "english_html": "<span>What</span><span>could</span><span>be</span><span>some</span><span>things</span><span>that</span><span>you</span><span>have</span><span>to</span><span>do</span><span pid=\"265\" class=\"highlight highlight-c\">in order to</span><span>have</span><span pid=\"271\" class=\"highlight highlight-c\">financial freedom?</span>"
+        },
+        {
+          "id": 8548,
+          "index": 22,
+          "start": 94.58,
+          "end": 98.3,
+          "english": "Well, you need to have a skill, a high income skill.",
+          "chinese": "首先，你得有一项技能，一项高收入技能。",
+          "ipa": "/wɛl, juː niːd tə hæv ɐ skɪl, ɐ haɪ ɪŋkʌm skɪl./",
+          "english_html": "<span tid=\"51747\">Well,</span><span>you</span><span tid=\"51749\">need</span><span>to</span><span>have</span><span>a</span><span tid=\"51753\">skill,</span><span>a</span><span tid=\"51755\">high</span><span tid=\"51756\" class=\"highlight highlight-a\">income</span><span tid=\"51757\">skill.</span>"
+        },
+        {
+          "id": 8549,
+          "index": 23,
+          "start": 98.3,
+          "end": 100.68,
+          "english": "And so you need to be really good at something.",
+          "chinese": "所以你必须真的精通某件事。",
+          "ipa": "/ænd soʊ juː niːd təbi ɹiəli ɡʊd æt sʌmθɪŋ./",
+          "english_html": "<span>And</span><span>so</span><span>you</span><span tid=\"51761\">need</span><span>to</span><span>be</span><span tid=\"51764\">really</span><span>good</span><span>at</span><span>something.</span>"
+        },
+        {
+          "id": 8550,
+          "index": 24,
+          "start": 100.68,
+          "end": 102.12,
+          "english": "And that takes time.",
+          "chinese": "这需要时间。",
+          "ipa": "/ænd ðæt teɪks taɪm./",
+          "english_html": "<span>And</span><span>that</span><span tid=\"51770\">takes</span><span tid=\"51771\">time.</span>"
+        },
+        {
+          "id": 8552,
+          "index": 26,
+          "start": 103.34,
+          "end": 104.7,
+          "english": "That takes discipline.",
+          "chinese": "这需要自律。",
+          "ipa": "/ðæt teɪks dɪsɪplɪn./",
+          "english_html": "<span>That</span><span tid=\"51776\">takes</span><span tid=\"51777\" class=\"highlight highlight-a\">discipline.</span>"
+        },
+        {
+          "id": 8553,
+          "index": 27,
+          "start": 104.7,
+          "end": 106.6,
+          "english": "You need to be financially literate.",
+          "chinese": "你需要具备财务知识。",
+          "ipa": "/juː niːd təbi faɪnænʃəli lɪɾɚɹət./",
+          "english_html": "<span>You</span><span tid=\"51779\">need</span><span>to</span><span>be</span><span tid=\"51782\" class=\"highlight highlight-a\">financially</span><span tid=\"51783\" class=\"highlight highlight-a\">literate.</span>"
+        },
+        {
+          "id": 8554,
+          "index": 28,
+          "start": 106.6,
+          "end": 108.82,
+          "english": "You need to understand how to manage finances.",
+          "chinese": "你需要懂得如何管理金钱。",
+          "ipa": "/juː niːd tʊ ʌndɚstænd haʊ tə mænɪdʒ faɪnænsᵻz./",
+          "english_html": "<span>You</span><span tid=\"51785\">need</span><span>to</span><span tid=\"51787\">understand</span><span>how</span><span>to</span><span tid=\"51790\">manage</span><span tid=\"51791\" class=\"highlight highlight-a\">finances.</span>"
+        },
+        {
+          "id": 8555,
+          "index": 29,
+          "start": 108.82,
+          "end": 111.74,
+          "english": "You need to understand how money is exchanged.",
+          "chinese": "你需要理解金钱是如何流通的。",
+          "ipa": "/juː niːd tʊ ʌndɚstænd haʊ mʌni ɪz ɛkstʃeɪndʒd./",
+          "english_html": "<span>You</span><span tid=\"51793\">need</span><span>to</span><span tid=\"51795\">understand</span><span>how</span><span tid=\"51797\">money</span><span>is</span><span tid=\"51799\" class=\"highlight highlight-a\">exchanged.</span>"
+        },
+        {
+          "id": 8556,
+          "index": 30,
+          "start": 111.74,
+          "end": 113.38,
+          "english": "You need to try a bunch of things.",
+          "chinese": "你需要尝试很多事情。",
+          "ipa": "/juː niːd tə tɹaɪ ɐ bʌntʃ ʌv θɪŋz./",
+          "english_html": "<span>You</span><span tid=\"51801\">need</span><span>to</span><span tid=\"51803\">try</span><span pid=\"246\" class=\"highlight highlight-i\">a bunch of</span><span>things.</span>"
+        },
+        {
+          "id": 8558,
+          "index": 32,
+          "start": 114.9,
+          "end": 117.86,
+          "english": "You need to fall flat on your face and have those humbling moments.",
+          "chinese": "你需要摔个大跟头，经历那些让你清醒的时刻。",
+          "ipa": "/juː niːd tə fɔːl flæt ɔn jʊɹ feɪs ænd hæv ðoʊz hʌmblɪŋ moʊmənts./",
+          "english_html": "<span>You</span><span tid=\"51814\">need</span><span>to</span><span pid=\"281\" class=\"highlight highlight-f\">fall flat on your face</span><span>and</span><span>have</span><span>those</span><span tid=\"51824\" class=\"highlight highlight-a\">humbling</span><span tid=\"51825\" class=\"highlight highlight-a\">moments.</span>"
+        },
+        {
+          "id": 8559,
+          "index": 33,
+          "start": 117.86,
+          "end": 123.82,
+          "english": "All of these things are required in order for you to have something as valuable as financial freedom.",
+          "chinese": "所有这些都是你要获得像财务自由这样宝贵的东西所必需的。",
+          "ipa": "/ɔːl ʌv ðiːz θɪŋz ɑːɹ ɹᵻkwaɪɚd ɪn ɔːɹdɚ fɔːɹ juː tə hæv sʌmθɪŋ æz væljuːəbəl æz faɪnænʃəl fɹiːdəm./",
+          "english_html": "<span>All</span><span>of</span><span>these</span><span>things</span><span>are</span><span tid=\"51831\">required</span><span>in</span><span tid=\"51833\" class=\"highlight highlight-a\">order</span><span>for</span><span>you</span><span>to</span><span>have</span><span>something</span><span>as</span><span tid=\"51840\" class=\"highlight highlight-a\">valuable</span><span>as</span><span pid=\"267\" class=\"highlight highlight-c\">financial freedom.</span>"
+        },
+        {
+          "id": 8561,
+          "index": 35,
+          "start": 128.7,
+          "end": 132.32,
+          "english": "And financial freedom would fix a lot of issues in our life.",
+          "chinese": "财务自由确实能解决我们生活中的很多问题。",
+          "ipa": "/ænd faɪnænʃəl fɹiːdəm wʊd fɪks ɐ lɑːt ʌv ɪʃuːz ɪn aʊɚ laɪf./",
+          "english_html": "<span>And</span><span pid=\"268\" class=\"highlight highlight-c\">financial freedom</span><span>would</span><span tid=\"51861\">fix</span><span>a</span><span tid=\"51863\">lot</span><span>of</span><span tid=\"51865\" class=\"highlight highlight-a\">issues</span><span>in</span><span>our</span><span tid=\"51868\">life.</span>"
+        },
+        {
+          "id": 8563,
+          "index": 37,
+          "start": 134.52,
+          "end": 136.28,
+          "english": "But people see the time.",
+          "chinese": "但人们看到的是时间。",
+          "ipa": "/bʌt piːpəl siː ðə taɪm./",
+          "english_html": "<span>But</span><span tid=\"51875\">people</span><span tid=\"51876\">see</span><span>the</span><span tid=\"51878\">time.</span>"
+        },
+        {
+          "id": 8571,
+          "index": 45,
+          "start": 156.2,
+          "end": 162.94,
+          "english": "and you just understand that it will be gravitated into your life so long as you become the person that can have it.",
+          "chinese": "你就会明白，只要你成为那个能够拥有它的人，它自然会进入你的生活。",
+          "ipa": "/ænd juː dʒʌst ʌndɚstænd ðɐɾɪt wɪl biː ɡɹævᵻteɪɾᵻd ɪntʊ jʊɹ laɪf soʊ lɔŋ æz juː bɪkʌm ðə pɜːsən ðæt kæn hæv ɪt./",
+          "english_html": "<span>and</span><span>you</span><span>just</span><span tid=\"51959\">understand</span><span>that</span><span>it</span><span>will</span><span>be</span><span tid=\"51964\" class=\"highlight highlight-a\">gravitated</span><span tid=\"51965\" class=\"highlight highlight-a\">into</span><span>your</span><span tid=\"51967\">life</span><span>so</span><span tid=\"51969\">long</span><span>as</span><span>you</span><span tid=\"51972\">become</span><span>the</span><span tid=\"51974\">person</span><span>that</span><span>can</span><span>have</span><span>it.</span>"
+        },
+        {
+          "id": 8574,
+          "index": 48,
+          "start": 168.16,
+          "end": 173.08,
+          "english": "How many times have you been so desperate for a certain outcome and it actually came to you?",
+          "chinese": "你有多少次是拼命渴望某个结果，它真的就来了？",
+          "ipa": "/haʊ mɛni taɪmz hæv juː bɪn soʊ dɛspɚɹət fɚɹə sɜːʔn̩ aʊtkʌm ænd ɪɾ æktʃuːəli keɪm tə juː?/",
+          "english_html": "<span>How</span><span>many</span><span tid=\"51995\">times</span><span>have</span><span>you</span><span>been</span><span>so</span><span tid=\"52000\" class=\"highlight highlight-a\">desperate</span><span>for</span><span>a</span><span tid=\"52003\" class=\"highlight highlight-a\">certain</span><span tid=\"52004\" class=\"highlight highlight-a\">outcome</span><span>and</span><span>it</span><span tid=\"52007\">actually</span><span tid=\"52008\">came</span><span>to</span><span>you?</span>"
+        },
+        {
+          "id": 8575,
+          "index": 49,
+          "start": 173.08,
+          "end": 176.26,
+          "english": "Very, very, very rarely does it ever happen like that.",
+          "chinese": "几乎极少极少会那样发生。",
+          "ipa": "/vɛɹi, vɛɹi, vɛɹi ɹɛɹli dʌz ɪɾ ɛvɚ hæpən laɪk ðæt./",
+          "english_html": "<span>Very,</span><span>very,</span><span>very</span><span tid=\"52014\" class=\"highlight highlight-a\">rarely</span><span>does</span><span>it</span><span tid=\"52017\" class=\"highlight highlight-a\">ever</span><span tid=\"52018\">happen</span><span>like</span><span>that.</span>"
+        },
+        {
+          "id": 8576,
+          "index": 50,
+          "start": 176.26,
+          "end": 182.38,
+          "english": "Every time we're like, I wish this would happen I wish this would happen I wish this would happen It never happens.",
+          "chinese": "每次我们都在说“我希望这能发生，我希望这能发生，我希望这能发生”，结果它从没发生。",
+          "ipa": "/ɛvɹi taɪm wɪɹ laɪk, aɪ wɪʃ ðɪs wʊd hæpən aɪ wɪʃ ðɪs wʊd hæpən aɪ wɪʃ ðɪs wʊd hæpən ɪt nɛvɚ hæpənz./",
+          "english_html": "<span tid=\"52021\">Every</span><span tid=\"52022\">time</span><span>we're</span><span>like,</span><span>I</span><span tid=\"52026\">wish</span><span>this</span><span>would</span><span tid=\"52029\">happen</span><span>I</span><span tid=\"52031\">wish</span><span>this</span><span>would</span><span tid=\"52034\">happen</span><span>I</span><span tid=\"52036\">wish</span><span>this</span><span>would</span><span tid=\"52039\">happen</span><span>It</span><span tid=\"52041\">never</span><span tid=\"52042\">happens.</span>"
+        },
+        {
+          "id": 8578,
+          "index": 52,
+          "start": 183.36,
+          "end": 184.28,
+          "english": "Why is that?",
+          "chinese": "为什么呢？",
+          "ipa": "/waɪ ɪz ðæt?/",
+          "english_html": "<span>Why</span><span>is</span><span>that?</span>"
+        },
+        {
+          "id": 8579,
+          "index": 53,
+          "start": 184.28,
+          "end": 186.62,
+          "english": "Well, it's for all the reasons that I just listed.",
+          "chinese": "正是因为我刚才说的那些原因。",
+          "ipa": "/wɛl, ɪts fɔːɹ ɔːl ðə ɹiːzənz ðæt aɪ dʒʌst lɪstᵻd./",
+          "english_html": "<span tid=\"52049\">Well,</span><span>it's</span><span>for</span><span>all</span><span>the</span><span tid=\"52054\">reasons</span><span>that</span><span>I</span><span>just</span><span tid=\"52058\">listed.</span>"
+        },
+        {
+          "id": 8580,
+          "index": 54,
+          "start": 186.62,
+          "end": 194.02,
+          "english": "And you'd be right to ask, well, Tyson, how do I actually become the person that's capable of gravitating financial freedom into my life?",
+          "chinese": "而你可能会问：“Tyson，那我该怎么才能成为那个能把财务自由吸引到自己生活中的人呢？”",
+          "ipa": "/ænd juːd biː ɹaɪt tʊ æsk, wɛl, taɪsən, haʊ duː aɪ æktʃuːəli bɪkʌm ðə pɜːsən ðæts keɪpəbəl ʌv ɡɹævᵻteɪɾɪŋ faɪnænʃəl fɹiːdəm ɪntʊ maɪ laɪf?/",
+          "english_html": "<span>And</span><span>you'd</span><span>be</span><span tid=\"52062\" class=\"highlight highlight-a\">right</span><span>to</span><span tid=\"52064\">ask,</span><span tid=\"52065\">well,</span><span tid=\"52066\">Tyson,</span><span>how</span><span>do</span><span>I</span><span tid=\"52070\">actually</span><span tid=\"52071\">become</span><span>the</span><span tid=\"52073\">person</span><span>that's</span><span tid=\"52075\" class=\"highlight highlight-a\">capable</span><span>of</span><span tid=\"52077\" class=\"highlight highlight-a\">gravitating</span><span pid=\"272\" class=\"highlight highlight-c\">financial freedom</span><span tid=\"52080\" class=\"highlight highlight-a\">into</span><span>my</span><span tid=\"52082\">life?</span>"
+        },
+        {
+          "id": 8581,
+          "index": 55,
+          "start": 194.02,
+          "end": 198.56,
+          "english": "And it's really just about understanding this concept that what you identify with, you will be.",
+          "chinese": "其实就是要明白一个概念：你认同什么，你就会成为什么。",
+          "ipa": "/ænd ɪts ɹiəli dʒʌst ɐbaʊt ʌndɚstændɪŋ ðɪs kɑːnsɛpt ðæt wʌt juː aɪdɛntᵻfaɪ wɪð, juː wɪl biː./",
+          "english_html": "<span>And</span><span>it's</span><span tid=\"52085\">really</span><span>just</span><span>about</span><span tid=\"52088\">understanding</span><span>this</span><span tid=\"52090\" class=\"highlight highlight-a\">concept</span><span>that</span><span>what</span><span>you</span><span tid=\"52094\" class=\"highlight highlight-a\">identify</span><span>with,</span><span>you</span><span>will</span><span>be.</span>"
+        },
+        {
+          "id": 8582,
+          "index": 56,
+          "start": 198.56,
+          "end": 205.66,
+          "english": "So if you constantly are identifying as someone who struggles with money, who's always broke, who wishes they could be rich.",
+          "chinese": "所以如果你总是认为自己是个在金钱上挣扎的人、总是破产、总希望自己变有钱。",
+          "ipa": "/soʊ ɪf juː kɑːnstəntli ɑːɹ aɪdɛntᵻfaɪɪŋ æz sʌmwʌn huː stɹʌɡəlz wɪð mʌni, huːz ɔːlweɪz bɹoʊk, huː wɪʃᵻz ðeɪ kʊd biː ɹɪtʃ./",
+          "english_html": "<span>So</span><span>if</span><span>you</span><span tid=\"52102\" class=\"highlight highlight-a\">constantly</span><span>are</span><span tid=\"52104\" class=\"highlight highlight-a\">identifying</span><span>as</span><span tid=\"52106\">someone</span><span>who</span><span tid=\"52108\" class=\"highlight highlight-a\">struggles</span><span>with</span><span tid=\"52110\">money,</span><span>who's</span><span tid=\"52112\">always</span><span tid=\"52113\">broke,</span><span>who</span><span tid=\"52115\">wishes</span><span>they</span><span>could</span><span>be</span><span tid=\"52119\">rich.</span>"
+        },
+        {
+          "id": 8583,
+          "index": 57,
+          "start": 205.66,
+          "end": 209.1,
+          "english": "you're immediately distancing yourself from financial freedom.",
+          "chinese": "你就立刻把自己和财务自由拉远了。",
+          "ipa": "/jʊɹ ɪmiːdɪətli dɪstənsɪŋ jɔːɹsɛlf fɹʌm faɪnænʃəl fɹiːdəm./",
+          "english_html": "<span>you're</span><span tid=\"52121\" class=\"highlight highlight-a\">immediately</span><span pid=\"279\" class=\"highlight highlight-d\">distancing yourself from</span><span pid=\"273\" class=\"highlight highlight-c\">financial freedom.</span>"
+        },
+        {
+          "id": 8584,
+          "index": 58,
+          "start": 209.1,
+          "end": 214.44,
+          "english": "So if you instead identify as someone who's building their finances, who's becoming financially literate.",
+          "chinese": "但如果你认为自己是一个正在建立财富、正在学习财务知识的人。",
+          "ipa": "/soʊ ɪf juː ɪnstɛd aɪdɛntᵻfaɪ æz sʌmwʌn huːz bɪldɪŋ ðɛɹ faɪnænsᵻz, huːz bᵻkʌmɪŋ faɪnænʃəli lɪɾɚɹət./",
+          "english_html": "<span>So</span><span>if</span><span>you</span><span tid=\"52130\" class=\"highlight highlight-a\">instead</span><span tid=\"52131\" class=\"highlight highlight-a\">identify</span><span>as</span><span tid=\"52133\">someone</span><span>who's</span><span tid=\"52135\">building</span><span>their</span><span tid=\"52137\" class=\"highlight highlight-a\">finances,</span><span>who's</span><span tid=\"52139\">becoming</span><span tid=\"52140\" class=\"highlight highlight-a\">financially</span><span tid=\"52141\" class=\"highlight highlight-a\">literate.</span>"
+        },
+        {
+          "id": 8585,
+          "index": 59,
+          "start": 214.44,
+          "end": 218.2,
+          "english": "someone who's becoming smarter with their money, then that's exactly what will happen.",
+          "chinese": "一个正变得更聪明管理钱财的人，那这就真的会发生。",
+          "ipa": "/sʌmwʌn huːz bᵻkʌmɪŋ smɑːɹɾɚ wɪð ðɛɹ mʌni, ðɛn ðæts ɛɡzæktli wʌt wɪl hæpən./",
+          "english_html": "<span tid=\"52142\">someone</span><span>who's</span><span tid=\"52144\">becoming</span><span tid=\"52145\">smarter</span><span>with</span><span>their</span><span tid=\"52148\">money,</span><span>then</span><span>that's</span><span tid=\"52151\">exactly</span><span>what</span><span>will</span><span tid=\"52154\">happen.</span>"
+        },
+        {
+          "id": 8586,
+          "index": 60,
+          "start": 218.2,
+          "end": 221.04,
+          "english": "Now, it's not as simple as just saying, I am rich, right?",
+          "chinese": "当然，这并不是像说“我很有钱”那么简单，对吧？",
+          "ipa": "/naʊ, ɪts nɑːt æz sɪmpəl æz dʒʌst seɪɪŋ, aɪɐm ɹɪtʃ, ɹaɪt?/",
+          "english_html": "<span tid=\"52155\">Now,</span><span>it's</span><span>not</span><span>as</span><span tid=\"52159\">simple</span><span>as</span><span>just</span><span tid=\"52162\">saying,</span><span>I</span><span>am</span><span tid=\"52165\">rich,</span><span tid=\"52166\" class=\"highlight highlight-a\">right?</span>"
+        },
+        {
+          "id": 8587,
+          "index": 61,
+          "start": 221.04,
+          "end": 223.52,
+          "english": "Like going in the mirror in the morning for 10 minutes and saying.",
+          "chinese": "不是说每天早上对着镜子念十分钟。",
+          "ipa": "/laɪk ɡoʊɪŋ ɪnðə mɪɹɚɹ ɪnðə mɔːɹnɪŋ fɔːɹ tɛn mɪnɪts ænd seɪɪŋ./",
+          "english_html": "<span>Like</span><span>going</span><span>in</span><span>the</span><span tid=\"52171\">mirror</span><span>in</span><span>the</span><span tid=\"52174\">morning</span><span>for</span><span>10</span><span tid=\"52177\">minutes</span><span>and</span><span tid=\"52179\">saying.</span>"
+        },
+        {
+          "id": 8588,
+          "index": 62,
+          "start": 223.52,
+          "end": 225.68,
+          "english": "I'm rich I'm rich I'm financially free.",
+          "chinese": "“我很有钱，我很有钱，我财务自由。”",
+          "ipa": "/aɪm ɹɪtʃ aɪm ɹɪtʃ aɪm faɪnænʃəli fɹiː./",
+          "english_html": "<span>I'm</span><span tid=\"52181\">rich</span><span>I'm</span><span tid=\"52183\">rich</span><span>I'm</span><span tid=\"52185\" class=\"highlight highlight-a\">financially</span><span tid=\"52186\">free.</span>"
+        },
+        {
+          "id": 8590,
+          "index": 64,
+          "start": 227.66,
+          "end": 229.3,
+          "english": "You know, let's at least be realistic.",
+          "chinese": "咱们至少要现实一点。",
+          "ipa": "/juː noʊ, lɛts æt liːst biː ɹiːəlɪstɪk./",
+          "english_html": "<span>You</span><span>know,</span><span>let's</span><span pid=\"251\" class=\"highlight highlight-c\">at least</span><span>be</span><span tid=\"52199\" class=\"highlight highlight-a\">realistic.</span>"
+        },
+        {
+          "id": 8591,
+          "index": 65,
+          "start": 229.3,
+          "end": 232.96,
+          "english": "but change your language, change how you identify yourself.",
+          "chinese": "但你要改变你的语言，改变你对自己的认同。",
+          "ipa": "/bʌt tʃeɪndʒ jʊɹ læŋɡwɪdʒ, tʃeɪndʒ haʊ juː aɪdɛntᵻfaɪ jɔːɹsɛlf./",
+          "english_html": "<span>but</span><span tid=\"52201\">change</span><span>your</span><span tid=\"52203\">language,</span><span tid=\"52204\">change</span><span>how</span><span>you</span><span tid=\"52207\" class=\"highlight highlight-a\">identify</span><span tid=\"52208\">yourself.</span>"
+        },
+        {
+          "id": 8592,
+          "index": 66,
+          "start": 232.96,
+          "end": 237.52,
+          "english": "change yourself as someone that is developing, that's becoming smarter and more calculated.",
+          "chinese": "把自己定位成一个正在成长、变得更聪明、更有计划的人。",
+          "ipa": "/tʃeɪndʒ jɔːɹsɛlf æz sʌmwʌn ðæt ɪz dɪvɛləpɪŋ, ðæts bᵻkʌmɪŋ smɑːɹɾɚ ænd mɔːɹ kælkjʊleɪɾᵻd./",
+          "english_html": "<span tid=\"52209\">change</span><span tid=\"52210\">yourself</span><span>as</span><span tid=\"52212\">someone</span><span>that</span><span>is</span><span tid=\"52215\">developing,</span><span>that's</span><span tid=\"52217\">becoming</span><span tid=\"52218\">smarter</span><span>and</span><span>more</span><span tid=\"52221\">calculated.</span>"
+        },
+        {
+          "id": 8593,
+          "index": 67,
+          "start": 237.52,
+          "end": 242.68,
+          "english": "How you talk to yourself is exactly how the world will treat you, my friend Okay Okay.",
+          "chinese": "你如何对自己说话，世界就会如何对待你，朋友。好吗？好的。",
+          "ipa": "/haʊ juː tɔːk tə jɔːɹsɛlf ɪz ɛɡzæktli haʊ ðə wɜːld wɪl tɹiːt juː, maɪ fɹɛnd oʊkeɪ oʊkeɪ./",
+          "english_html": "<span>How</span><span>you</span><span tid=\"52224\">talk</span><span>to</span><span tid=\"52226\">yourself</span><span>is</span><span tid=\"52228\">exactly</span><span>how</span><span>the</span><span tid=\"52231\">world</span><span>will</span><span tid=\"52233\" class=\"highlight highlight-a\">treat</span><span>you,</span><span>my</span><span tid=\"52236\">friend</span><span>Okay</span><span>Okay.</span>"
+        },
+        {
+          "id": 8594,
+          "index": 68,
+          "start": 242.68,
+          "end": 244.12,
+          "english": "Now we're going to go inside.",
+          "chinese": "好了，现在我们进去吧。",
+          "ipa": "/naʊ wɪɹ ɡoʊɪŋ tə ɡoʊ ɪnsaɪd./",
+          "english_html": "<span tid=\"52239\">Now</span><span>we're</span><span>going</span><span>to</span><span pid=\"285\" class=\"highlight highlight-c\">go inside.</span>"
+        },
+        {
+          "id": 8595,
+          "index": 69,
+          "start": 244.12,
+          "end": 250.26,
+          "english": "We're going to sit down and I'm going to tell you actionable steps that you can take today to get you closer to that goal.",
+          "chinese": "我们坐下来，我要告诉你今天就能采取的实际步骤，帮你更接近那个目标。",
+          "ipa": "/wɪɹ ɡoʊɪŋ tə sɪt daʊn ænd aɪm ɡoʊɪŋ tə tɛl juː ækʃənəbəl stɛps ðæt juː kæn teɪk tədeɪ tə ɡɛt juː kloʊsɚ tə ðæt ɡoʊl./",
+          "english_html": "<span>We're</span><span>going</span><span>to</span><span pid=\"258\" class=\"highlight highlight-d\">sit down</span><span>and</span><span>I'm</span><span>going</span><span>to</span><span tid=\"52254\">tell</span><span>you</span><span pid=\"286\" class=\"highlight highlight-c\">actionable steps</span><span>that</span><span>you</span><span>can</span><span tid=\"52261\">take</span><span tid=\"52262\">today</span><span>to</span><span>get</span><span>you</span><span tid=\"52266\">closer</span><span>to</span><span>that</span><span tid=\"52269\">goal.</span>"
+        },
+        {
+          "id": 8596,
+          "index": 70,
+          "start": 278.56,
+          "end": 283.62,
+          "english": "All right. So firstly, this is not going to be how to make money quick.",
+          "chinese": "好。首先，这不是教你如何快速赚钱的方法。",
+          "ipa": "/ɔːl ɹaɪt. soʊ fɜːstli, ðɪs ɪz nɑːt ɡoʊɪŋ təbi haʊ tə meɪk mʌni kwɪk./",
+          "english_html": "<span>All</span><span tid=\"52271\" class=\"highlight highlight-a\">right.</span><span>So</span><span tid=\"52273\">firstly,</span><span>this</span><span>is</span><span>not</span><span>going</span><span>to</span><span>be</span><span>how</span><span>to</span><span tid=\"52282\">make</span><span tid=\"52283\">money</span><span tid=\"52284\">quick.</span>"
+        },
+        {
+          "id": 8597,
+          "index": 71,
+          "start": 283.62,
+          "end": 291.68,
+          "english": "This isn't going to be the newest and best business model to make $100,000 in your first month.",
+          "chinese": "这不是最新、最好的商业模式，能让你第一个月就赚十万美金。",
+          "ipa": "/ðɪs ɪzənt ɡoʊɪŋ təbi ðə nuːɪst ænd bɛst bɪznəs mɑːdəl tə meɪk dɑːlɚ wʌnhʌndɹɪd ,ziəɹoʊziəɹoʊ ziəɹoʊ ɪn jʊɹ fɜːst mʌnθ./",
+          "english_html": "<span>This</span><span tid=\"52286\">isn't</span><span>going</span><span>to</span><span>be</span><span>the</span><span tid=\"52291\">newest</span><span>and</span><span>best</span><span pid=\"254\" class=\"highlight highlight-c\">business model</span><span>to</span><span tid=\"52297\">make</span><span>$100,000</span><span>in</span><span>your</span><span tid=\"52301\">first</span><span tid=\"52302\">month.</span>"
+        },
+        {
+          "id": 8600,
+          "index": 74,
+          "start": 295.46,
+          "end": 300.68,
+          "english": "This isn't how to start a coaching business or any of that.",
+          "chinese": "这也不是怎么开一个教练业务或类似的东西。",
+          "ipa": "/ðɪs ɪzənt haʊ tə stɑːɹt ɐ koʊtʃɪŋ bɪznəs ɔːɹ ɛni ʌv ðæt./",
+          "english_html": "<span>This</span><span tid=\"52311\">isn't</span><span>how</span><span>to</span><span tid=\"52314\">start</span><span>a</span><span tid=\"52316\" class=\"highlight highlight-a\">coaching</span><span tid=\"52317\">business</span><span>or</span><span tid=\"52319\">any</span><span>of</span><span>that.</span>"
+        },
+        {
+          "id": 8601,
+          "index": 75,
+          "start": 300.68,
+          "end": 305.38,
+          "english": "These are going to be practical things that you can start doing today.",
+          "chinese": "我要讲的是你今天就能开始做的实际事情。",
+          "ipa": "/ðiːz ɑːɹ ɡoʊɪŋ təbi pɹæktɪkəl θɪŋz ðæt juː kæn stɑːɹt duːɪŋ tədeɪ./",
+          "english_html": "<span>These</span><span>are</span><span>going</span><span>to</span><span>be</span><span tid=\"52327\" class=\"highlight highlight-a\">practical</span><span>things</span><span>that</span><span>you</span><span>can</span><span tid=\"52332\">start</span><span>doing</span><span tid=\"52334\">today.</span>"
+        },
+        {
+          "id": 8602,
+          "index": 76,
+          "start": 305.38,
+          "end": 314.16,
+          "english": "Now, right after you watch this video on a day-to-day basis that will ensure that you get to your goal of financial freedom with time.",
+          "chinese": "在你看完这个视频之后，日复一日去做，就能确保你最终实现财务自由。",
+          "ipa": "/naʊ, ɹaɪt æftɚ juː wɑːtʃ ðɪs vɪdɪoʊ ɔn ɐ deɪ tə deɪ beɪsɪs ðæt wɪl ɛnʃʊɹ ðæt juː ɡɛt tə jʊɹ ɡoʊl ʌv faɪnænʃəl fɹiːdəm wɪð taɪm./",
+          "english_html": "<span tid=\"52335\">Now,</span><span tid=\"52336\" class=\"highlight highlight-a\">right</span><span tid=\"52337\">after</span><span>you</span><span tid=\"52339\">watch</span><span>this</span><span tid=\"52341\">video</span><span pid=\"287\" class=\"highlight highlight-i\">on a day-to-day basis</span><span>that</span><span>will</span><span tid=\"52348\" class=\"highlight highlight-a\">ensure</span><span>that</span><span>you</span><span>get</span><span>to</span><span>your</span><span tid=\"52354\">goal</span><span>of</span><span pid=\"274\" class=\"highlight highlight-c\">financial freedom</span><span pid=\"288\" class=\"highlight highlight-c\">with time.</span>"
+        },
+        {
+          "id": 8603,
+          "index": 77,
+          "start": 314.16,
+          "end": 316.06,
+          "english": "first thing, read.",
+          "chinese": "第一件事，阅读。",
+          "ipa": "/fɜːst θɪŋ, ɹiːd./",
+          "english_html": "<span tid=\"52360\">first</span><span>thing,</span><span tid=\"52362\">read.</span>"
+        },
+        {
+          "id": 8607,
+          "index": 81,
+          "start": 327.92,
+          "end": 337.32,
+          "english": "If you can learn more about financial literacy, investments, how money works, the psychology of money, right?",
+          "chinese": "如果你能多学习财务知识、投资、金钱的运作方式、金钱心理学，对吧？",
+          "ipa": "/ɪf juː kæn lɜːn mɔːɹ ɐbaʊt faɪnænʃəl lɪɾɚɹəsi, ɪnvɛstmənts, haʊ mʌni wɜːks, ðə saɪkɑːlədʒi ʌv mʌni, ɹaɪt?/",
+          "english_html": "<span>If</span><span>you</span><span>can</span><span tid=\"52400\">learn</span><span>more</span><span>about</span><span tid=\"52403\">financial</span><span tid=\"52404\" class=\"highlight highlight-a\">literacy,</span><span tid=\"52405\" class=\"highlight highlight-a\">investments,</span><span>how</span><span tid=\"52407\">money</span><span tid=\"52408\">works,</span><span>the</span><span tid=\"52410\" class=\"highlight highlight-a\">psychology</span><span>of</span><span tid=\"52412\">money,</span><span tid=\"52413\" class=\"highlight highlight-a\">right?</span>"
+        },
+        {
+          "id": 8609,
+          "index": 83,
+          "start": 338.58,
+          "end": 346.72,
+          "english": "You're going to learn more and more and more, and you're going to be orienting your mind in alignment with financial freedom.",
+          "chinese": "你会学到越来越多，你的大脑会越来越与财务自由对齐。",
+          "ipa": "/jʊɹ ɡoʊɪŋ tə lɜːn mɔːɹ ænd mɔːɹ ænd mɔːɹ, ænd jʊɹ ɡoʊɪŋ təbi ɔːɹiəntɪŋ jʊɹ maɪnd ɪn ɐlaɪnmənt wɪð faɪnænʃəl fɹiːdəm./",
+          "english_html": "<span>You're</span><span>going</span><span>to</span><span tid=\"52422\">learn</span><span>more</span><span>and</span><span>more</span><span>and</span><span>more,</span><span>and</span><span>you're</span><span>going</span><span>to</span><span>be</span><span tid=\"52433\" class=\"highlight highlight-a\">orienting</span><span>your</span><span tid=\"52435\" class=\"highlight highlight-a\">mind</span><span pid=\"290\" class=\"highlight highlight-c\">in alignment with</span><span pid=\"275\" class=\"highlight highlight-c\">financial freedom.</span>"
+        },
+        {
+          "id": 8610,
+          "index": 84,
+          "start": 346.72,
+          "end": 351.02,
+          "english": "And so the better you understand the game, the higher your chances are of winning.",
+          "chinese": "你越懂得这个游戏，你赢的几率就越大。",
+          "ipa": "/ænd soʊ ðə bɛɾɚ juː ʌndɚstænd ðə ɡeɪm, ðə haɪɚ jʊɹ tʃænsᵻz ɑːɹ ʌv wɪnɪŋ./",
+          "english_html": "<span>And</span><span>so</span><span>the</span><span tid=\"52444\">better</span><span>you</span><span tid=\"52446\">understand</span><span>the</span><span tid=\"52448\" class=\"highlight highlight-a\">game,</span><span>the</span><span tid=\"52450\">higher</span><span>your</span><span tid=\"52452\">chances</span><span>are</span><span>of</span><span tid=\"52455\">winning.</span>"
+        },
+        {
+          "id": 8611,
+          "index": 85,
+          "start": 351.02,
+          "end": 355.56,
+          "english": "Second, develop a skill, a high-value skill.",
+          "chinese": "第二，培养一项技能，一项有价值的技能。",
+          "ipa": "/sɛkənd, dɪvɛləp ɐ skɪl, ɐ haɪ væljuː skɪl./",
+          "english_html": "<span tid=\"52456\">Second,</span><span tid=\"52457\">develop</span><span>a</span><span tid=\"52459\">skill,</span><span>a</span><span tid=\"52461\" class=\"highlight highlight-a\">high-value</span><span tid=\"52462\">skill.</span>"
+        },
+        {
+          "id": 8612,
+          "index": 86,
+          "start": 355.56,
+          "end": 359.84,
+          "english": "You have something that you're good at, or at least interested in.",
+          "chinese": "你一定有擅长的，或者至少感兴趣的东西。",
+          "ipa": "/juː hæv sʌmθɪŋ ðæt jʊɹ ɡʊd æt, ɔːɹ æt liːst ɪntɹɛstᵻd ɪn./",
+          "english_html": "<span>You</span><span>have</span><span>something</span><span>that</span><span>you're</span><span>good</span><span>at,</span><span>or</span><span pid=\"252\" class=\"highlight highlight-c\">at least</span><span tid=\"52473\">interested</span><span>in.</span>"
+        },
+        {
+          "id": 8613,
+          "index": 87,
+          "start": 359.84,
+          "end": 363.66,
+          "english": "Everyone has something, a passion, a hobby, an interest.",
+          "chinese": "每个人都有某种热情、爱好、兴趣。",
+          "ipa": "/ɛvɹɪwʌn hɐz sʌmθɪŋ, ɐ pæʃən, ɐ hɑːbi, ɐn ɪntɹɛst./",
+          "english_html": "<span tid=\"52475\">Everyone</span><span>has</span><span>something,</span><span>a</span><span tid=\"52479\" class=\"highlight highlight-a\">passion,</span><span>a</span><span tid=\"52481\">hobby,</span><span>an</span><span tid=\"52483\" class=\"highlight highlight-a\">interest.</span>"
+        },
+        {
+          "id": 8615,
+          "index": 89,
+          "start": 366.2,
+          "end": 375.58,
+          "english": "You could be really, really, really good at breaking down horror movies and doing it in a way that is entertaining and unique and in captivating.",
+          "chinese": "你完全可以非常擅长分析恐怖片，并用一种有趣、独特、吸引人的方式呈现出来。",
+          "ipa": "/juː kʊd biː ɹiəli, ɹiəli, ɹiəli ɡʊd æt bɹeɪkɪŋ daʊn hɔɹɚ muːvɪz ænd duːɪŋ ɪɾ ɪn ɐ weɪ ðæt ɪz ɛntɚteɪnɪŋ ænd juːniːk ænd ɪn kæptᵻveɪɾɪŋ./",
+          "english_html": "<span>You</span><span>could</span><span>be</span><span tid=\"52496\">really,</span><span tid=\"52497\">really,</span><span tid=\"52498\">really</span><span>good</span><span>at</span><span pid=\"249\" class=\"highlight highlight-d\">breaking down</span><span pid=\"292\" class=\"highlight highlight-c\">horror movies</span><span>and</span><span>doing</span><span>it</span><span pid=\"293\" class=\"highlight highlight-c\">in a way that is</span><span tid=\"52513\">entertaining</span><span>and</span><span tid=\"52515\" class=\"highlight highlight-a\">unique</span><span>and</span><span>in</span><span tid=\"52518\">captivating.</span>"
+        },
+        {
+          "id": 8616,
+          "index": 90,
+          "start": 375.58,
+          "end": 377.4,
+          "english": "Anything can be monetized nowadays.",
+          "chinese": "如今任何东西都能被变现。",
+          "ipa": "/ɛnɪθɪŋ kæn biː mɑːnɪtaɪzd naʊədeɪz./",
+          "english_html": "<span tid=\"52519\">Anything</span><span>can</span><span>be</span><span tid=\"52522\" class=\"highlight highlight-a\">monetized</span><span tid=\"52523\" class=\"highlight highlight-a\">nowadays.</span>"
+        },
+        {
+          "id": 8617,
+          "index": 91,
+          "start": 377.4,
+          "end": 380.28,
+          "english": "You just have to do it well, really well.",
+          "chinese": "关键是你得做得好，非常好。",
+          "ipa": "/juː dʒʌst hæv tə duː ɪt wɛl, ɹiəli wɛl./",
+          "english_html": "<span>You</span><span>just</span><span>have</span><span>to</span><span>do</span><span>it</span><span tid=\"52530\">well,</span><span tid=\"52531\">really</span><span tid=\"52532\">well.</span>"
+        },
+        {
+          "id": 8618,
+          "index": 92,
+          "start": 380.28,
+          "end": 383.4,
+          "english": "Number three, you're going to implement said skill.",
+          "chinese": "第三步，你要把这项技能运用起来。",
+          "ipa": "/nʌmbɚ θɹiː, jʊɹ ɡoʊɪŋ tʊ ɪmplɪmənt sɛd skɪl./",
+          "english_html": "<span tid=\"52533\">Number</span><span>three,</span><span>you're</span><span>going</span><span>to</span><span tid=\"52538\" class=\"highlight highlight-a\">implement</span><span tid=\"52539\">said</span><span tid=\"52540\">skill.</span>"
+        },
+        {
+          "id": 8619,
+          "index": 93,
+          "start": 383.4,
+          "end": 386.2,
+          "english": "You're not going to be great at it at first.",
+          "chinese": "一开始你不会很厉害。",
+          "ipa": "/jʊɹ nɑːt ɡoʊɪŋ təbi ɡɹeɪt æɾ ɪɾ æt fɜːst./",
+          "english_html": "<span>You're</span><span>not</span><span>going</span><span>to</span><span>be</span><span tid=\"52546\">great</span><span>at</span><span>it</span><span pid=\"255\" class=\"highlight highlight-c\">at first.</span>"
+        },
+        {
+          "id": 8620,
+          "index": 94,
+          "start": 386.2,
+          "end": 389.7,
+          "english": "Money's not going to just fall into your lap immediately.",
+          "chinese": "钱也不会立刻从天而降。",
+          "ipa": "/mʌniz nɑːt ɡoʊɪŋ tə dʒʌst fɔːl ɪntʊ jʊɹ læp ɪmiːdɪətli./",
+          "english_html": "<span tid=\"52551\">Money's</span><span>not</span><span>going</span><span>to</span><span>just</span><span pid=\"294\" class=\"highlight highlight-f\">fall into your lap</span><span tid=\"52560\" class=\"highlight highlight-a\">immediately.</span>"
+        },
+        {
+          "id": 8621,
+          "index": 95,
+          "start": 389.7,
+          "end": 395.22,
+          "english": "And so it's a process of learning the skill, spending time with it, implementing it.",
+          "chinese": "所以这就是一个学习技能、投入时间、实践运用的过程。",
+          "ipa": "/ænd soʊ ɪts ɐ pɹɑːsɛs ʌv lɜːnɪŋ ðə skɪl, spɛndɪŋ taɪm wɪð ɪt, ɪmplɪməntɪŋ ɪt./",
+          "english_html": "<span>And</span><span>so</span><span>it's</span><span>a</span><span tid=\"52565\" class=\"highlight highlight-a\">process</span><span>of</span><span tid=\"52567\">learning</span><span>the</span><span tid=\"52569\">skill,</span><span tid=\"52570\" class=\"highlight highlight-a\">spending</span><span tid=\"52571\">time</span><span>with</span><span>it,</span><span tid=\"52574\" class=\"highlight highlight-a\">implementing</span><span>it.</span>"
+        },
+        {
+          "id": 8623,
+          "index": 97,
+          "start": 397.0,
+          "end": 402.48,
+          "english": "You should dedicate time, an hour a day at least, to your craft, your adventure.",
+          "chinese": "你应该每天至少花一个小时在你的技能、你的事业上。",
+          "ipa": "/juː ʃʊd dɛdᵻkeɪt taɪm, ɐn aʊɚɹ ɐ deɪ æt liːst, tə jʊɹ kɹæft, jʊɹ ɐdvɛntʃɚ./",
+          "english_html": "<span>You</span><span tid=\"52583\">should</span><span tid=\"52584\" class=\"highlight highlight-a\">dedicate</span><span tid=\"52585\">time,</span><span>an</span><span tid=\"52587\">hour</span><span>a</span><span>day</span><span pid=\"253\" class=\"highlight highlight-c\">at least,</span><span>to</span><span>your</span><span tid=\"52594\" class=\"highlight highlight-a\">craft,</span><span>your</span><span tid=\"52596\" class=\"highlight highlight-a\">adventure.</span>"
+        },
+        {
+          "id": 8625,
+          "index": 99,
+          "start": 404.04,
+          "end": 410.2,
+          "english": "And so if you're developing the skill of being a really good communicator and you want to be a communication coach eventually.",
+          "chinese": "所以如果你在培养沟通能力，未来想成为一名沟通教练。",
+          "ipa": "/ænd soʊ ɪf jʊɹ dɪvɛləpɪŋ ðə skɪl ʌv biːɪŋ ɐ ɹiəli ɡʊd kəmjuːnᵻkeɪɾɚ ænd juː wɔnt təbi ɐ kəmjuːnɪkeɪʃən koʊtʃ ᵻvɛntʃuːəli./",
+          "english_html": "<span>And</span><span>so</span><span>if</span><span>you're</span><span tid=\"52607\">developing</span><span>the</span><span tid=\"52609\">skill</span><span>of</span><span>being</span><span>a</span><span tid=\"52613\">really</span><span>good</span><span tid=\"52615\">communicator</span><span>and</span><span>you</span><span>want</span><span>to</span><span>be</span><span>a</span><span tid=\"52622\">communication</span><span tid=\"52623\" class=\"highlight highlight-a\">coach</span><span tid=\"52624\" class=\"highlight highlight-a\">eventually.</span>"
+        },
+        {
+          "id": 8627,
+          "index": 101,
+          "start": 414.66,
+          "end": 416.9,
+          "english": "You're going to expand your vocabulary.",
+          "chinese": "你会扩展自己的词汇量。",
+          "ipa": "/jʊɹ ɡoʊɪŋ tʊ ɛkspænd jʊɹ voʊkæbjʊlɛɹi./",
+          "english_html": "<span>You're</span><span>going</span><span>to</span><span tid=\"52636\" class=\"highlight highlight-a\">expand</span><span>your</span><span tid=\"52638\" class=\"highlight highlight-a\">vocabulary.</span>"
+        },
+        {
+          "id": 8628,
+          "index": 102,
+          "start": 416.9,
+          "end": 419.3,
+          "english": "You're going to experiment with different styles of speaking.",
+          "chinese": "你会尝试不同的表达风格。",
+          "ipa": "/jʊɹ ɡoʊɪŋ tʊ ɛkspɛɹɪmənt wɪð dɪfɹənt staɪlz ʌv spiːkɪŋ./",
+          "english_html": "<span>You're</span><span>going</span><span>to</span><span tid=\"52642\" class=\"highlight highlight-a\">experiment</span><span>with</span><span tid=\"52644\">different</span><span tid=\"52645\">styles</span><span>of</span><span tid=\"52647\">speaking.</span>"
+        },
+        {
+          "id": 8629,
+          "index": 103,
+          "start": 419.3,
+          "end": 423.84,
+          "english": "You're going to watch videos on how to, you're going to watch videos on how to speak better.",
+          "chinese": "你会去看视频，学习如何说得更好。",
+          "ipa": "/jʊɹ ɡoʊɪŋ tə wɑːtʃ vɪdɪoʊz ɔn haʊ tuː, jʊɹ ɡoʊɪŋ tə wɑːtʃ vɪdɪoʊz ɔn haʊ tə spiːk bɛɾɚ./",
+          "english_html": "<span>You're</span><span>going</span><span>to</span><span tid=\"52651\">watch</span><span tid=\"52652\">videos</span><span>on</span><span>how</span><span>to,</span><span>you're</span><span>going</span><span>to</span><span tid=\"52659\">watch</span><span tid=\"52660\">videos</span><span>on</span><span>how</span><span>to</span><span tid=\"52664\">speak</span><span tid=\"52665\">better.</span>"
+        },
+        {
+          "id": 8630,
+          "index": 104,
+          "start": 423.84,
+          "end": 426.0,
+          "english": "And then you're going to have to implement that.",
+          "chinese": "然后你必须去实践。",
+          "ipa": "/ænd ðɛn jʊɹ ɡoʊɪŋ tə hæv tʊ ɪmplɪmənt ðæt./",
+          "english_html": "<span>And</span><span>then</span><span>you're</span><span>going</span><span>to</span><span>have</span><span>to</span><span tid=\"52673\" class=\"highlight highlight-a\">implement</span><span>that.</span>"
+        },
+        {
+          "id": 8631,
+          "index": 105,
+          "start": 426.0,
+          "end": 433.08,
+          "english": "And so next time you go to your job or a social event, you're hanging out with friends or doing a presentation in school or at work.",
+          "chinese": "所以下次你去上班，或者去参加社交活动，和朋友聚会，或在学校、公司做演讲时。",
+          "ipa": "/ænd soʊ nɛkst taɪm juː ɡoʊ tə jʊɹ dʒɑːb ɔːɹ ɐ soʊʃəl ᵻvɛnt, jʊɹ hæŋɪŋ aʊt wɪð fɹɛndz ɔːɹ duːɪŋ ɐ pɹɛzənteɪʃən ɪn skuːl ɔːɹ æt wɜːk./",
+          "english_html": "<span>And</span><span>so</span><span tid=\"52677\">next</span><span tid=\"52678\">time</span><span>you</span><span>go</span><span>to</span><span>your</span><span tid=\"52683\">job</span><span>or</span><span>a</span><span tid=\"52686\">social</span><span tid=\"52687\" class=\"highlight highlight-a\">event,</span><span>you're</span><span pid=\"250\" class=\"highlight highlight-d\">hanging out</span><span>with</span><span tid=\"52692\">friends</span><span>or</span><span>doing</span><span>a</span><span tid=\"52696\" class=\"highlight highlight-a\">presentation</span><span>in</span><span tid=\"52698\" class=\"highlight highlight-a\">school</span><span>or</span><span>at</span><span tid=\"52701\">work.</span>"
+        },
+        {
+          "id": 8632,
+          "index": 106,
+          "start": 433.08,
+          "end": 438.28,
+          "english": "you're going to implement these skills and you're going to practice them in real time, right?",
+          "chinese": "你要把这些技能用上，并在现场练习。对吧？",
+          "ipa": "/jʊɹ ɡoʊɪŋ tʊ ɪmplɪmənt ðiːz skɪlz ænd jʊɹ ɡoʊɪŋ tə pɹæktɪs ðɛm ɪn ɹiːəl taɪm, ɹaɪt?/",
+          "english_html": "<span>you're</span><span>going</span><span>to</span><span tid=\"52705\" class=\"highlight highlight-a\">implement</span><span>these</span><span tid=\"52707\">skills</span><span>and</span><span>you're</span><span>going</span><span>to</span><span tid=\"52712\" class=\"highlight highlight-a\">practice</span><span>them</span><span pid=\"295\" class=\"highlight highlight-c\">in real time,</span><span tid=\"52717\" class=\"highlight highlight-a\">right?</span>"
+        },
+        {
+          "id": 8633,
+          "index": 107,
+          "start": 438.28,
+          "end": 441.62,
+          "english": "Like you can watch as many YouTube videos as you want.",
+          "chinese": "你可以看再多的YouTube视频。",
+          "ipa": "/laɪk juː kæn wɑːtʃ æz mɛni juː tuːb vɪdɪoʊz æz juː wɔnt./",
+          "english_html": "<span>Like</span><span>you</span><span>can</span><span tid=\"52721\">watch</span><span>as</span><span>many</span><span tid=\"52724\">YouTube</span><span tid=\"52725\">videos</span><span>as</span><span>you</span><span>want.</span>"
+        },
+        {
+          "id": 8634,
+          "index": 108,
+          "start": 441.62,
+          "end": 448.44,
+          "english": "You can watch as many of my videos as you want, but if you don't implement what I'm saying to you, then it's not going to amount to anything.",
+          "chinese": "你可以看我再多的视频，但如果你不去实践我说的，这一切都毫无意义。",
+          "ipa": "/juː kæn wɑːtʃ æz mɛnɪəv maɪ vɪdɪoʊz æz juː wɔnt, bʌt ɪf juː doʊnt ɪmplɪmənt wʌt aɪm seɪɪŋ tə juː, ðɛn ɪts nɑːt ɡoʊɪŋ tʊ ɐmaʊnt tʊ ɛnɪθɪŋ./",
+          "english_html": "<span>You</span><span>can</span><span tid=\"52731\">watch</span><span>as</span><span>many</span><span>of</span><span>my</span><span tid=\"52736\">videos</span><span>as</span><span>you</span><span>want,</span><span>but</span><span>if</span><span>you</span><span>don't</span><span tid=\"52744\" class=\"highlight highlight-a\">implement</span><span>what</span><span>I'm</span><span tid=\"52747\">saying</span><span>to</span><span>you,</span><span>then</span><span>it's</span><span>not</span><span>going</span><span>to</span><span pid=\"296\" class=\"highlight highlight-d\">amount to</span><span tid=\"52757\">anything.</span>"
+        },
+        {
+          "id": 8635,
+          "index": 109,
+          "start": 448.44,
+          "end": 453.22,
+          "english": "Your brain is wired to get rid of and dispose of information that you don't use.",
+          "chinese": "你的大脑天生会丢弃你不用的信息。",
+          "ipa": "/jʊɹ bɹeɪn ɪz waɪɚd tə ɡɛt ɹɪd ʌv ænd dɪspoʊz ʌv ɪnfɚmeɪʃən ðæt juː doʊnt juːz./",
+          "english_html": "<span>Your</span><span tid=\"52759\">brain</span><span>is</span><span tid=\"52761\" class=\"highlight highlight-a\">wired</span><span>to</span><span pid=\"259\" class=\"highlight highlight-d\">get rid of</span><span>and</span><span pid=\"297\" class=\"highlight highlight-d\">dispose of</span><span tid=\"52769\">information</span><span>that</span><span>you</span><span>don't</span><span tid=\"52773\">use.</span>"
+        },
+        {
+          "id": 8636,
+          "index": 110,
+          "start": 453.22,
+          "end": 462.46,
+          "english": "And so if we want to capitalize on the way that we're biologically wired, we must implement or put to use the information that we're taking in.",
+          "chinese": "所以如果我们想利用这种生物本能，就必须把我们学到的信息付诸实践。",
+          "ipa": "/ænd soʊ ɪf wiː wɔnt tə kæpɪɾəlaɪz ɔnðə weɪ ðæt wɪɹ baɪəlɑːdʒɪkli waɪɚd, wiː mʌst ɪmplɪmənt ɔːɹ pʊt tə juːz ðɪ ɪnfɚmeɪʃən ðæt wɪɹ teɪkɪŋ ɪn./",
+          "english_html": "<span>And</span><span>so</span><span>if</span><span>we</span><span>want</span><span>to</span><span tid=\"52780\">capitalize</span><span>on</span><span>the</span><span tid=\"52783\" class=\"highlight highlight-a\">way</span><span>that</span><span>we're</span><span tid=\"52786\" class=\"highlight highlight-a\">biologically</span><span tid=\"52787\" class=\"highlight highlight-a\">wired,</span><span>we</span><span tid=\"52789\" class=\"highlight highlight-a\">must</span><span tid=\"52790\" class=\"highlight highlight-a\">implement</span><span>or</span><span pid=\"298\" class=\"highlight highlight-c\">put to use</span><span>the</span><span tid=\"52796\">information</span><span>that</span><span>we're</span><span pid=\"299\" class=\"highlight highlight-d\">taking in.</span>"
+        },
+        {
+          "id": 8638,
+          "index": 112,
+          "start": 464.18,
+          "end": 467.18,
+          "english": "And that leads us to the fourth step, failure.",
+          "chinese": "第四步就是失败。",
+          "ipa": "/ænd ðæt liːdz ʌs tə ðə fɔːɹθ stɛp, feɪlɪɹ./",
+          "english_html": "<span>And</span><span>that</span><span tid=\"52811\">leads</span><span>us</span><span>to</span><span>the</span><span tid=\"52815\">fourth</span><span tid=\"52816\">step,</span><span tid=\"52817\">failure.</span>"
+        },
+        {
+          "id": 8639,
+          "index": 113,
+          "start": 467.18,
+          "end": 470.46,
+          "english": "When you implement these skills, you're not going to do them perfect.",
+          "chinese": "当你运用这些技能时，你不会做得完美。",
+          "ipa": "/wɛn juː ɪmplɪmənt ðiːz skɪlz, jʊɹ nɑːt ɡoʊɪŋ tə duː ðɛm pɜːfɛkt./",
+          "english_html": "<span>When</span><span>you</span><span tid=\"52820\" class=\"highlight highlight-a\">implement</span><span>these</span><span tid=\"52822\">skills,</span><span>you're</span><span>not</span><span>going</span><span>to</span><span>do</span><span>them</span><span tid=\"52829\">perfect.</span>"
+        },
+        {
+          "id": 8640,
+          "index": 114,
+          "start": 470.46,
+          "end": 473.98,
+          "english": "You're going to do them, you're going to be like, I could have did that better.",
+          "chinese": "你会觉得“我本可以做得更好”。",
+          "ipa": "/jʊɹ ɡoʊɪŋ tə duː ðɛm, jʊɹ ɡoʊɪŋ təbi laɪk, aɪ kʊdɐv dɪd ðæt bɛɾɚ./",
+          "english_html": "<span>You're</span><span>going</span><span>to</span><span>do</span><span>them,</span><span>you're</span><span>going</span><span>to</span><span>be</span><span>like,</span><span>I</span><span>could</span><span>have</span><span>did</span><span>that</span><span tid=\"52845\">better.</span>"
+        },
+        {
+          "id": 8641,
+          "index": 115,
+          "start": 473.98,
+          "end": 475.04,
+          "english": "But it's repetition.",
+          "chinese": "但这就是重复的过程。",
+          "ipa": "/bʌt ɪts ɹɛpətɪʃən./",
+          "english_html": "<span>But</span><span>it's</span><span tid=\"52848\" class=\"highlight highlight-a\">repetition.</span>"
+        },
+        {
+          "id": 8642,
+          "index": 116,
+          "start": 475.04,
+          "end": 479.4,
+          "english": "And you need to be okay with failure because failure is a stepping stone to success.",
+          "chinese": "你必须接受失败，因为失败是通向成功的垫脚石。",
+          "ipa": "/ænd juː niːd təbi oʊkeɪ wɪð feɪlɪɹ bɪkʌz feɪlɪɹ ɪz ɐ stɛpɪŋ stoʊn tə səksɛs./",
+          "english_html": "<span>And</span><span>you</span><span tid=\"52851\">need</span><span>to</span><span>be</span><span>okay</span><span>with</span><span tid=\"52856\">failure</span><span>because</span><span pid=\"301\" class=\"highlight highlight-i\">failure is a stepping stone to success.</span>"
+        },
+        {
+          "id": 8643,
+          "index": 117,
+          "start": 479.4,
+          "end": 481.99,
+          "english": "You cannot have one without the other.",
+          "chinese": "没有失败，也就没有成功。",
+          "ipa": "/juː kænɑːt hæv wʌn wɪðaʊt ðɪ ʌðɚ./",
+          "english_html": "<span>You</span><span>cannot</span><span>have</span><span>one</span><span tid=\"52869\">without</span><span>the</span><span tid=\"52871\">other.</span>"
+        },
+        {
+          "id": 8644,
+          "index": 118,
+          "start": 481.99,
+          "end": 485.54,
+          "english": "success wouldn't be success if you didn't also know what failure was.",
+          "chinese": "如果你不懂失败是什么，成功也不会成立。",
+          "ipa": "/səksɛs wʊdənt biː səksɛs ɪf juː dɪdnt ɔːlsoʊ noʊ wʌt feɪlɪɹ wʌz./",
+          "english_html": "<span tid=\"52872\">success</span><span>wouldn't</span><span>be</span><span tid=\"52875\">success</span><span>if</span><span>you</span><span>didn't</span><span>also</span><span>know</span><span>what</span><span tid=\"52882\">failure</span><span>was.</span>"
+        },
+        {
+          "id": 8645,
+          "index": 119,
+          "start": 485.54,
+          "end": 493.16,
+          "english": "And so this process of developing this high income skill, this high-value skill, you're going to have to experience a lot of failure.",
+          "chinese": "所以在培养这项高收入技能的过程中，你必然会经历很多失败。",
+          "ipa": "/ænd soʊ ðɪs pɹɑːsɛs ʌv dɪvɛləpɪŋ ðɪs haɪ ɪŋkʌm skɪl, ðɪs haɪ væljuː skɪl, jʊɹ ɡoʊɪŋ tə hæv tʊ ɛkspiəɹɪəns ɐ lɑːt ʌv feɪlɪɹ./",
+          "english_html": "<span>And</span><span>so</span><span>this</span><span tid=\"52887\" class=\"highlight highlight-a\">process</span><span>of</span><span tid=\"52889\">developing</span><span>this</span><span tid=\"52891\">high</span><span tid=\"52892\" class=\"highlight highlight-a\">income</span><span tid=\"52893\">skill,</span><span>this</span><span tid=\"52895\" class=\"highlight highlight-a\">high-value</span><span tid=\"52896\">skill,</span><span>you're</span><span>going</span><span>to</span><span>have</span><span>to</span><span tid=\"52902\">experience</span><span>a</span><span tid=\"52904\">lot</span><span>of</span><span tid=\"52906\">failure.</span>"
+        },
+        {
+          "id": 8646,
+          "index": 120,
+          "start": 493.16,
+          "end": 497.3,
+          "english": "But every time you fail is another opportunity to learn from it.",
+          "chinese": "但每一次失败都是一次学习的机会。",
+          "ipa": "/bʌt ɛvɹi taɪm juː feɪl ɪz ɐnʌðɚɹ ɑːpɚtuːnᵻɾi tə lɜːn fɹʌm ɪt./",
+          "english_html": "<span>But</span><span tid=\"52908\">every</span><span tid=\"52909\">time</span><span>you</span><span tid=\"52911\">fail</span><span>is</span><span tid=\"52913\">another</span><span tid=\"52914\">opportunity</span><span>to</span><span tid=\"52916\">learn</span><span>from</span><span>it.</span>"
+        },
+        {
+          "id": 8648,
+          "index": 122,
+          "start": 503.56,
+          "end": 511.6,
+          "english": "an understanding of money, how it moves, how it works, the psychology of it, to developing a skill that will attract money.",
+          "chinese": "理解金钱，理解它如何流动、如何运作，以及它的心理学；然后培养一项能吸引财富的技能。",
+          "ipa": "/ɐn ʌndɚstændɪŋ ʌv mʌni, haʊ ɪt muːvz, haʊ ɪt wɜːks, ðə saɪkɑːlədʒi ʌv ɪt, tə dɪvɛləpɪŋ ɐ skɪl ðæt wɪl ɐtɹækt mʌni./",
+          "english_html": "<span>an</span><span tid=\"52939\" class=\"highlight highlight-a\">understanding</span><span>of</span><span tid=\"52941\">money,</span><span>how</span><span>it</span><span tid=\"52944\">moves,</span><span>how</span><span>it</span><span tid=\"52947\">works,</span><span>the</span><span tid=\"52949\" class=\"highlight highlight-a\">psychology</span><span>of</span><span>it,</span><span>to</span><span tid=\"52953\">developing</span><span>a</span><span tid=\"52955\">skill</span><span>that</span><span>will</span><span tid=\"52958\" class=\"highlight highlight-a\">attract</span><span tid=\"52959\">money.</span>"
+        },
+        {
+          "id": 8649,
+          "index": 123,
+          "start": 511.6,
+          "end": 518.92,
+          "english": "We're not doing it for money, but we're developing this skill, something that we're naturally good at or have an interest in.",
+          "chinese": "我们不是为了钱而做，而是培养一项我们天生擅长或感兴趣的技能。",
+          "ipa": "/wɪɹ nɑːt duːɪŋ ɪt fɔːɹ mʌni, bʌt wɪɹ dɪvɛləpɪŋ ðɪs skɪl, sʌmθɪŋ ðæt wɪɹ nætʃɚɹəli ɡʊd æt ɔːɹ hæv ɐn ɪntɹɛst ɪn./",
+          "english_html": "<span>We're</span><span>not</span><span>doing</span><span>it</span><span>for</span><span tid=\"52965\">money,</span><span>but</span><span>we're</span><span tid=\"52968\">developing</span><span>this</span><span tid=\"52970\">skill,</span><span>something</span><span>that</span><span>we're</span><span tid=\"52974\">naturally</span><span>good</span><span>at</span><span>or</span><span>have</span><span>an</span><span tid=\"52980\" class=\"highlight highlight-a\">interest</span><span>in.</span>"
+        },
+        {
+          "id": 8650,
+          "index": 124,
+          "start": 518.92,
+          "end": 524.12,
+          "english": "that will as a byproduct attract money and gravitate money to us.",
+          "chinese": "而这项技能会自然而然带来财富，吸引财富。",
+          "ipa": "/ðæt wɪl æz ɐ baɪpɹədʌkt ɐtɹækt mʌni ænd ɡɹævᵻteɪt mʌni tʊ ʌs./",
+          "english_html": "<span>that</span><span>will</span><span pid=\"302\" class=\"highlight highlight-c\">as a byproduct</span><span tid=\"52987\" class=\"highlight highlight-a\">attract</span><span tid=\"52988\">money</span><span>and</span><span tid=\"52990\" class=\"highlight highlight-a\">gravitate</span><span tid=\"52991\">money</span><span>to</span><span>us.</span>"
+        },
+        {
+          "id": 8651,
+          "index": 125,
+          "start": 524.12,
+          "end": 533.08,
+          "english": "Three, implementing that skill so that we can put the knowledge and information that we're taking in about said skill to use so that we can continue to experiment.",
+          "chinese": "第三，运用这项技能，把我们学到的知识用起来，持续实验。",
+          "ipa": "/θɹiː, ɪmplɪməntɪŋ ðæt skɪl soʊ ðæt wiː kæn pʊt ðə nɑːlɪdʒ ænd ɪnfɚmeɪʃən ðæt wɪɹ teɪkɪŋ ɪn ɐbaʊt sɛd skɪl tə juːz soʊ ðæt wiː kæn kəntɪnjuː tʊ ɛkspɛɹɪmənt./",
+          "english_html": "<span>Three,</span><span tid=\"52995\" class=\"highlight highlight-a\">implementing</span><span>that</span><span tid=\"52997\">skill</span><span>so</span><span>that</span><span>we</span><span>can</span><span tid=\"53002\">put</span><span>the</span><span tid=\"53004\">knowledge</span><span>and</span><span tid=\"53006\">information</span><span>that</span><span>we're</span><span pid=\"300\" class=\"highlight highlight-d\">taking in</span><span>about</span><span tid=\"53012\">said</span><span tid=\"53013\">skill</span><span>to</span><span tid=\"53015\">use</span><span>so</span><span>that</span><span>we</span><span>can</span><span tid=\"53020\">continue</span><span>to</span><span tid=\"53022\" class=\"highlight highlight-a\">experiment.</span>"
+        },
+        {
+          "id": 8652,
+          "index": 126,
+          "start": 533.08,
+          "end": 540.72,
+          "english": "And number four, fail so that we can continue to reiterate and refine and retune and with time continue to grow.",
+          "chinese": "第四，经历失败，这样我们才能不断迭代、精进、调整，随着时间推移持续成长。",
+          "ipa": "/ænd nʌmbɚ fɔːɹ, feɪl soʊ ðæt wiː kæn kəntɪnjuː tə ɹiːɪɾɚɹeɪt ænd ɹᵻfaɪn ænd ɹᵻtuːn ænd wɪð taɪm kəntɪnjuː tə ɡɹoʊ./",
+          "english_html": "<span>And</span><span tid=\"53024\">number</span><span>four,</span><span tid=\"53026\">fail</span><span>so</span><span>that</span><span>we</span><span>can</span><span tid=\"53031\">continue</span><span>to</span><span tid=\"53033\" class=\"highlight highlight-a\">reiterate</span><span>and</span><span tid=\"53035\" class=\"highlight highlight-a\">refine</span><span>and</span><span tid=\"53037\" class=\"highlight highlight-a\">retune</span><span>and</span><span pid=\"289\" class=\"highlight highlight-c\">with time</span><span tid=\"53041\">continue</span><span>to</span><span tid=\"53043\">grow.</span>"
+        },
+        {
+          "id": 8653,
+          "index": 127,
+          "start": 540.72,
+          "end": 548.48,
+          "english": "And eventually what this will look like down the line is you will have a complete understanding of money, of finances, of investments.",
+          "chinese": "最终，你会对金钱、财务、投资有全面的理解。",
+          "ipa": "/ænd ᵻvɛntʃuːəli wʌt ðɪs wɪl lʊk laɪk daʊn ðə laɪn ɪz juː wɪl hæv ɐ kəmpliːt ʌndɚstændɪŋ ʌv mʌni, ʌv faɪnænsᵻz, ʌv ɪnvɛstmənts./",
+          "english_html": "<span>And</span><span tid=\"53045\" class=\"highlight highlight-a\">eventually</span><span>what</span><span>this</span><span>will</span><span tid=\"53049\" class=\"highlight highlight-a\">look</span><span>like</span><span pid=\"303\" class=\"highlight highlight-c\">down the line</span><span>is</span><span>you</span><span>will</span><span>have</span><span>a</span><span tid=\"53059\">complete</span><span tid=\"53060\" class=\"highlight highlight-a\">understanding</span><span>of</span><span tid=\"53062\">money,</span><span>of</span><span tid=\"53064\" class=\"highlight highlight-a\">finances,</span><span>of</span><span tid=\"53066\" class=\"highlight highlight-a\">investments.</span>"
+        },
+        {
+          "id": 8654,
+          "index": 128,
+          "start": 548.48,
+          "end": 554.02,
+          "english": "you will have a firm foundation so that you are ready to accept the money to receive the money.",
+          "chinese": "你会有一个坚实的基础，准备好接纳财富。",
+          "ipa": "/juː wɪl hæv ɐ fɜːm faʊndeɪʃən soʊ ðæt juː ɑːɹ ɹɛdi tʊ ɐksɛpt ðə mʌni tə ɹᵻsiːv ðə mʌni./",
+          "english_html": "<span>you</span><span>will</span><span>have</span><span>a</span><span tid=\"53071\" class=\"highlight highlight-a\">firm</span><span tid=\"53072\" class=\"highlight highlight-a\">foundation</span><span>so</span><span>that</span><span>you</span><span>are</span><span tid=\"53077\">ready</span><span>to</span><span tid=\"53079\">accept</span><span>the</span><span tid=\"53081\">money</span><span>to</span><span tid=\"53083\">receive</span><span>the</span><span tid=\"53085\">money.</span>"
+        },
+        {
+          "id": 8655,
+          "index": 129,
+          "start": 554.02,
+          "end": 557.98,
+          "english": "And you will also have a skill that will gravitate it towards you.",
+          "chinese": "同时你也会有一项能把财富吸引到你身边的技能。",
+          "ipa": "/ænd juː wɪl ɔːlsoʊ hæv ɐ skɪl ðæt wɪl ɡɹævᵻteɪt ɪt təwɔːɹdz juː./",
+          "english_html": "<span>And</span><span>you</span><span>will</span><span>also</span><span>have</span><span>a</span><span tid=\"53092\">skill</span><span>that</span><span>will</span><span tid=\"53095\" class=\"highlight highlight-a\">gravitate</span><span>it</span><span tid=\"53097\">towards</span><span>you.</span>"
+        },
+        {
+          "id": 8656,
+          "index": 130,
+          "start": 557.98,
+          "end": 561.8,
+          "english": "And all sorts of things, it doesn't just stop at financial freedom.",
+          "chinese": "而且这不仅仅止步于财务自由。",
+          "ipa": "/ænd ɔːl sɔːɹts ʌv θɪŋz, ɪt dʌzənt dʒʌst stɑːp æt faɪnænʃəl fɹiːdəm./",
+          "english_html": "<span>And</span><span>all</span><span tid=\"53101\">sorts</span><span>of</span><span>things,</span><span>it</span><span>doesn't</span><span>just</span><span tid=\"53107\">stop</span><span>at</span><span pid=\"277\" class=\"highlight highlight-c\">financial freedom.</span>"
+        },
+        {
+          "id": 8657,
+          "index": 131,
+          "start": 561.8,
+          "end": 564.34,
+          "english": "All sorts of things stem from this.",
+          "chinese": "从中会延伸出许多其他的事。",
+          "ipa": "/ɔːl sɔːɹts ʌv θɪŋz stɛm fɹʌm ðɪs./",
+          "english_html": "<span>All</span><span tid=\"53112\">sorts</span><span>of</span><span>things</span><span pid=\"304\" class=\"highlight highlight-d\">stem from</span><span>this.</span>"
+        },
+        {
+          "id": 8658,
+          "index": 132,
+          "start": 564.34,
+          "end": 568.4,
+          "english": "you meet great people, you become a more well-rounded person altogether.",
+          "chinese": "你会遇见优秀的人，你会成为一个更全面的人。",
+          "ipa": "/juː miːt ɡɹeɪt piːpəl, juː bɪkʌm ɐ mɔːɹ wɛl ɹaʊndᵻd pɜːsən ɔːltəɡɛðɚ./",
+          "english_html": "<span>you</span><span tid=\"53119\">meet</span><span tid=\"53120\">great</span><span tid=\"53121\">people,</span><span>you</span><span tid=\"53123\">become</span><span>a</span><span>more</span><span tid=\"53126\" class=\"highlight highlight-a\">well-rounded</span><span tid=\"53127\">person</span><span tid=\"53128\" class=\"highlight highlight-a\">altogether.</span>"
+        },
+        {
+          "id": 8659,
+          "index": 133,
+          "start": 568.4,
+          "end": 574.16,
+          "english": "you have new experiences, your life just starts to unfold towards things that are aligned with abundance.",
+          "chinese": "你会拥有新的体验，你的人生会逐渐展开，走向丰盛。",
+          "ipa": "/juː hæv nuː ɛkspiəɹɪənsᵻz, jʊɹ laɪf dʒʌst stɑːɹts tʊ ʌnfoʊld təwɔːɹdz θɪŋz ðæt ɑːɹ ɐlaɪnd wɪð ɐbʌndəns./",
+          "english_html": "<span>you</span><span>have</span><span tid=\"53131\">new</span><span tid=\"53132\">experiences,</span><span>your</span><span tid=\"53134\">life</span><span>just</span><span tid=\"53136\">starts</span><span>to</span><span tid=\"53138\" class=\"highlight highlight-a\">unfold</span><span tid=\"53139\">towards</span><span>things</span><span>that</span><span>are</span><span pid=\"305\" class=\"highlight highlight-c\">aligned with</span><span tid=\"53145\" class=\"highlight highlight-a\">abundance.</span>"
+        },
+        {
+          "id": 8661,
+          "index": 135,
+          "start": 576.32,
+          "end": 578.36,
+          "english": "So implement these things, my friend.",
+          "chinese": "所以去落实这些吧，朋友。",
+          "ipa": "/soʊ ɪmplɪmənt ðiːz θɪŋz, maɪ fɹɛnd./",
+          "english_html": "<span>So</span><span tid=\"53151\" class=\"highlight highlight-a\">implement</span><span>these</span><span>things,</span><span>my</span><span tid=\"53155\">friend.</span>"
+        },
+        {
+          "id": 8663,
+          "index": 137,
+          "start": 579.62,
+          "end": 582.98,
+          "english": "That's why I gave you these practical, you can do all of these things starting today.",
+          "chinese": "这就是我为什么给你这些实际的建议，你今天就能开始做。",
+          "ipa": "/ðæts waɪ aɪ ɡeɪv juː ðiːz pɹæktɪkəl, juː kæn duː ɔːl ʌv ðiːz θɪŋz stɑːɹɾɪŋ tədeɪ./",
+          "english_html": "<span>That's</span><span>why</span><span>I</span><span tid=\"53162\">gave</span><span>you</span><span>these</span><span tid=\"53165\" class=\"highlight highlight-a\">practical,</span><span>you</span><span>can</span><span>do</span><span>all</span><span>of</span><span>these</span><span>things</span><span tid=\"53173\">starting</span><span tid=\"53174\">today.</span>"
+        },
+        {
+          "id": 8664,
+          "index": 138,
+          "start": 582.98,
+          "end": 586.7,
+          "english": "I'm not giving you the top 10 tricks to make 10 grand this month.",
+          "chinese": "我不是在给你“本月赚一万美金的十大技巧”。",
+          "ipa": "/aɪm nɑːt ɡɪvɪŋ juː ðə tɑːp tɛn tɹɪks tə meɪk tɛn ɡɹænd ðɪs mʌnθ./",
+          "english_html": "<span>I'm</span><span>not</span><span tid=\"53177\">giving</span><span>you</span><span>the</span><span tid=\"53180\" class=\"highlight highlight-a\">top</span><span>10</span><span tid=\"53182\" class=\"highlight highlight-a\">tricks</span><span>to</span><span tid=\"53184\">make</span><span>10</span><span tid=\"53186\" class=\"highlight highlight-a\">grand</span><span>this</span><span tid=\"53188\">month.</span>"
+        },
+        {
+          "id": 8666,
+          "index": 140,
+          "start": 590.16,
+          "end": 596.4,
+          "english": "And I've walked you through the mental aspect, the psychology of detaching yourself from this want.",
+          "chinese": "而且我已经带你走过了心态层面，带你理解如何在心理上把自己从“想要”里抽离出来。",
+          "ipa": "/ænd aɪv wɔːkt juː θɹuː ðə mɛntəl æspɛkt, ðə saɪkɑːlədʒi ʌv dɪtætʃɪŋ jɔːɹsɛlf fɹʌm ðɪs wɔnt./",
+          "english_html": "<span>And</span><span>I've</span><span pid=\"260\" class=\"highlight highlight-d\">walked you through</span><span>the</span><span tid=\"53206\" class=\"highlight highlight-a\">mental</span><span tid=\"53207\" class=\"highlight highlight-a\">aspect,</span><span>the</span><span tid=\"53209\" class=\"highlight highlight-a\">psychology</span><span>of</span><span tid=\"53211\" class=\"highlight highlight-a\">detaching</span><span tid=\"53212\">yourself</span><span>from</span><span>this</span><span>want.</span>"
+        },
+        {
+          "id": 8668,
+          "index": 142,
+          "start": 601.06,
+          "end": 604.62,
+          "english": "I appreciate your time, and I will see you soon.",
+          "chinese": "感谢你的时间，我们很快再见。",
+          "ipa": "/aɪ ɐpɹiːʃɪeɪt jʊɹ taɪm, ænd aɪ wɪl siː juː suːn./",
+          "english_html": "<span>I</span><span tid=\"53233\" class=\"highlight highlight-a\">appreciate</span><span>your</span><span tid=\"53235\">time,</span><span>and</span><span>I</span><span>will</span><span tid=\"53239\">see</span><span>you</span><span tid=\"53241\">soon.</span>"
+        },
+        {
+          "id": 8598,
+          "index": 72,
+          "start": 291.68,
+          "end": 293.46,
+          "english": "This isn't dropshipping.",
+          "chinese": "这不是代发货。",
+          "ipa": "/ðɪs ɪzənt dɹɑːp ʃɪpɪŋ./",
+          "english_html": "<span>This</span><span tid=\"52304\">isn't</span><span tid=\"52305\">dropshipping.</span>"
+        },
+        {
+          "id": 8660,
+          "index": 134,
+          "start": 574.16,
+          "end": 576.32,
+          "english": "Do you understand Cool.",
+          "chinese": "你明白了吗？很好。",
+          "ipa": "/duː juː ʌndɚstænd kuːl./",
+          "english_html": "<span>Do</span><span>you</span><span tid=\"53148\">understand</span><span tid=\"53149\" class=\"highlight highlight-a\">Cool.</span>"
+        },
+        {
+          "id": 8534,
+          "index": 8,
+          "start": 34.2,
+          "end": 39.96,
+          "english": "If you want to be able to go places and experience new things and try new foods and meet new people.",
+          "chinese": "如果你想去不同的地方，体验新鲜事物，尝试新食物，结识新朋友。",
+          "ipa": "/ɪf juː wɔnt təbi eɪbəl tə ɡoʊ pleɪsᵻz ænd ɛkspiəɹɪəns nuː θɪŋz ænd tɹaɪ nuː fuːdz ænd miːt nuː piːpəl./",
+          "english_html": "<span>If</span><span>you</span><span>want</span><span>to</span><span>be</span><span tid=\"51550\">able</span><span>to</span><span>go</span><span tid=\"51553\">places</span><span>and</span><span tid=\"51555\">experience</span><span tid=\"51556\">new</span><span>things</span><span>and</span><span tid=\"51559\">try</span><span tid=\"51560\">new</span><span tid=\"51561\">foods</span><span>and</span><span tid=\"51563\">meet</span><span tid=\"51564\">new</span><span tid=\"51565\">people.</span>"
+        },
+        {
+          "id": 8535,
+          "index": 9,
+          "start": 39.96,
+          "end": 43.14,
+          "english": "and, you know, just be able to do what you want when you want.",
+          "chinese": "想在你想做的时候就能做你想做的事。",
+          "ipa": "/ænd, juː noʊ, dʒʌst biː eɪbəl tə duː wʌt juː wɔnt wɛn juː wɔnt./",
+          "english_html": "<span>and,</span><span>you</span><span>know,</span><span>just</span><span>be</span><span tid=\"51571\">able</span><span>to</span><span>do</span><span>what</span><span>you</span><span>want</span><span>when</span><span>you</span><span>want.</span>"
+        },
+        {
+          "id": 8529,
+          "index": 3,
+          "start": 11.36,
+          "end": 13.56,
+          "english": "Be, do, have. Remember those things.",
+          "chinese": "成为、去做、然后拥有——记住这几点。",
+          "ipa": "/biː, duː, hæv ɹᵻmɛmbɚ ðoʊz θɪŋz./",
+          "english_html": "<span>Be,</span><span>do,</span><span>have.</span><span tid=\"51485\">Remember</span><span>those</span><span>things.</span>"
+        },
+        {
+          "id": 8530,
+          "index": 4,
+          "start": 13.56,
+          "end": 24.34,
+          "english": "And so really this whole game, this whole process of development and pursuing a life of fulfillment and prosperity and success is a mental game.",
+          "chinese": "所以其实整个游戏，这个关于成长、追求充实、繁荣和成功的人生过程，本质上是一场心理游戏。",
+          "ipa": "/ænd soʊ ɹiəli ðɪs hoʊl ɡeɪm, ðɪs hoʊl pɹɑːsɛs ʌv dɪvɛləpmənt ænd pɚsuːɪŋ ɐ laɪf ʌv fʊlfɪlmənt ænd pɹəspɛɹᵻɾi ænd səksɛs ɪz ɐ mɛntəl ɡeɪm./",
+          "english_html": "<span>And</span><span>so</span><span tid=\"51490\">really</span><span>this</span><span tid=\"51492\">whole</span><span tid=\"51493\" class=\"highlight highlight-a\">game,</span><span>this</span><span tid=\"51495\">whole</span><span tid=\"51496\" class=\"highlight highlight-a\">process</span><span>of</span><span tid=\"51498\" class=\"highlight highlight-a\">development</span><span>and</span><span tid=\"51500\" class=\"highlight highlight-a\">pursuing</span><span>a</span><span tid=\"51502\">life</span><span>of</span><span tid=\"51504\" class=\"highlight highlight-a\">fulfillment</span><span>and</span><span tid=\"51506\" class=\"highlight highlight-a\">prosperity</span><span>and</span><span tid=\"51508\">success</span><span>is</span><span>a</span><span tid=\"51511\" class=\"highlight highlight-a\">mental</span><span tid=\"51512\" class=\"highlight highlight-a\">game.</span>"
+        },
+        {
+          "id": 8531,
+          "index": 5,
+          "start": 24.34,
+          "end": 26.7,
+          "english": "And of course, like let's not beat around the bush here.",
+          "chinese": "当然，我就直说了。",
+          "ipa": "/ænd ʌv kɔːɹs, laɪk lɛts nɑːt biːt ɚɹaʊnd ðə bʊʃ hɪɹ./",
+          "english_html": "<span>And</span><span>of</span><span tid=\"51515\" class=\"highlight highlight-a\">course,</span><span>like</span><span>let's</span><span>not</span><span pid=\"266\" class=\"highlight highlight-f\">beat around the bush</span><span>here.</span>"
+        },
+        {
+          "id": 8532,
+          "index": 6,
+          "start": 26.7,
+          "end": 32.04,
+          "english": "finances, healthy finances are required in order to live a life of freedom.",
+          "chinese": "要过上自由的生活，财务健康是必需的。",
+          "ipa": "/faɪnænsᵻz, hɛlθi faɪnænsᵻz ɑːɹ ɹᵻkwaɪɚd ɪn ɔːɹdɚ tə lɪv ɐ laɪf ʌv fɹiːdəm./",
+          "english_html": "<span tid=\"51524\" class=\"highlight highlight-a\">finances,</span><span tid=\"51525\">healthy</span><span tid=\"51526\" class=\"highlight highlight-a\">finances</span><span>are</span><span tid=\"51528\">required</span><span pid=\"263\" class=\"highlight highlight-c\">in order to</span><span tid=\"51532\">live</span><span>a</span><span tid=\"51534\">life</span><span>of</span><span tid=\"51536\">freedom.</span>"
+        },
+        {
+          "id": 8662,
+          "index": 136,
+          "start": 578.36,
+          "end": 579.62,
+          "english": "It starts now.",
+          "chinese": "从现在开始。",
+          "ipa": "/ɪt stɑːɹts naʊ./",
+          "english_html": "<span>It</span><span tid=\"53157\">starts</span><span tid=\"53158\">now.</span>"
+        }
+      ],
+      "original_video_url": "https://www.youtube.com/watch?v=sGfUMNB_xxs"
+    },
+    "total_episodes": 190
+  },
+  "first_episode_meta": {
+    "video_id": "074upYDO5FBjKTE",
+    "tags": [
+      {
+        "id": 30,
+        "name": "生活"
+      },
+      {
+        "id": 57,
+        "name": "建议"
+      }
+    ],
+    "cover": "https://media.teco-lab.com/clip74.webp?x-oss-date=20260622T163732Z&x-oss-expires=600&x-oss-signature-version=OSS4-HMAC-SHA256&x-oss-credential=LTAI5tN1TohVjHMCp1fW16yV%2F20260622%2Fcn-hangzhou%2Foss%2Faliyun_v4_request&x-oss-signature=c66e2a4adbae94dcd2d32fc52e2938c675780b997ac56095265aa5487ba7d3cf",
+    "short_title": "谈财务自由的真相",
+    "summary": "Tyson 指出，越是急切渴望金钱，反而越难得到它。真正的财务自由源于先成为配得上它的人：通过阅读积累认知、打磨高价值技能、在实践中拥抱失败。别想走捷径，只有重塑自我，财富才会自然向你靠拢。",
+    "remark": "",
+    "stars": 4,
+    "voca_size": 276,
+    "subtitle_count": 142,
+    "author": {
+      "name": "Tyson Liberto",
+      "gender": "m",
+      "nationality": "🇺🇸",
+      "accent": "美国"
+    },
+    "created_at": "2025-08-29T18:38:32Z",
+    "clip_length": 610.986667,
+    "is_learned": false,
+    "is_favorite": false
+  },
+  "entries": {
+    "status": 404,
+    "data": {
+      "raw": "\n<!doctype html>\n<html lang=\"en\">\n<head>\n  <title>Not Found</title>\n</head>\n<body>\n  <h1>Not Found</h1><p>The requested resource was not found on this server.</p>\n</body>\n</html>\n"
+    }
+  },
+  "subtitle_entries": {
+    "status": 200,
+    "count": 364,
+    "sample": [
+      {
+        "id": 52,
+        "headword": "top",
+        "forms": "",
+        "category": "单词",
+        "exam_tags": []
+      },
+      {
+        "id": 129,
+        "headword": "probably",
+        "forms": "",
+        "category": "单词",
+        "exam_tags": []
+      },
+      {
+        "id": 157,
+        "headword": "must",
+        "forms": "",
+        "category": "单词",
+        "exam_tags": []
+      }
+    ]
+  },
+  "entry_detail_sample": {
+    "status": 200,
+    "data": {
+      "id": 52,
+      "headword": "top",
+      "category": "单词",
+      "pronunciations": [
+        {
+          "ipa": "/tɑːp/",
+          "audio_url": "https://pronunciations.oss-cn-hangzhou.aliyuncs.com/top_us.mp3?x-oss-date=20260622T163733Z&x-oss-expires=86400&x-oss-signature-version=OSS4-HMAC-SHA256&x-oss-credential=LTAI5tN1TohVjHMCp1fW16yV%2F20260622%2Fcn-hangzhou%2Foss%2Faliyun_v4_request&x-oss-signature=77c91c659d85f048434062896d35beeffed6789176d72c3ec41c1aae005d1b81",
+          "accent_type": "US",
+          "is_primary": true
+        },
+        {
+          "ipa": "/tɒp/",
+          "audio_url": "https://pronunciations.oss-cn-hangzhou.aliyuncs.com/top_uk.mp3?x-oss-date=20260622T163733Z&x-oss-expires=86400&x-oss-signature-version=OSS4-HMAC-SHA256&x-oss-credential=LTAI5tN1TohVjHMCp1fW16yV%2F20260622%2Fcn-hangzhou%2Foss%2Faliyun_v4_request&x-oss-signature=11c07017bcf6c3195753d5bc24afaec42977d638e9cd598dbfb0177fed91a0b4",
+          "accent_type": "UK",
+          "is_primary": false
+        }
+      ],
+      "definitions": [
+        {
+          "id": 57,
+          "pos": "noun",
+          "definition_en": "a piece of clothing worn on the upper part of the body",
+          "definition_cn": "上衣，穿在上半身的衣物",
+          "usage_pattern": "black top, crop top, tank top",
+          "note": "",
+          "order": 1,
+          "examples": [
+            {
+              "example_en": "She picked out a red top to match her skirt.",
+              "example_cn": "她挑了一件红色上衣来搭配裙子。",
+              "order": 1
+            }
+          ]
+        },
+        {
+          "id": 5885,
+          "pos": "noun",
+          "definition_en": "the highest point, surface, or position of something",
+          "definition_cn": "顶部，上面，最上层",
+          "usage_pattern": "",
+          "note": "",
+          "order": 1,
+          "examples": [
+            {
+              "example_en": "She placed the cherry on top of the cake.",
+              "example_cn": "她把樱桃放在蛋糕的顶部。",
+              "order": 1
+            }
+          ]
+        },
+        {
+          "id": 6806,
+          "pos": "adjective",
+          "definition_en": "best or highest in rank, quality, or importance",
+          "definition_cn": "最好的，最高等级的，最重要的",
+          "usage_pattern": "",
+          "note": "",
+          "order": 1,
+          "examples": [
+            {
+              "example_en": "These are my top five favorite restaurants in the city.",
+              "example_cn": "这些是我在这个城市最喜欢的五家餐厅。",
+              "order": 1
+            }
+          ]
+        },
+        {
+          "id": 11685,
+          "pos": "noun",
+          "definition_en": "a limit or boundary that, when exceeded, indicates excess or going beyond what is reasonable",
+          "definition_cn": "限度或边界，超过即表示过度或不合理",
+          "usage_pattern": "",
+          "note": "",
+          "order": 1,
+          "examples": [
+            {
+              "example_en": "His behavior went over the top when he started shouting at everyone.",
+              "example_cn": "当他开始对每个人大喊大叫时，他的行为就太过分了。",
+              "order": 1
+            }
+          ]
+        },
+        {
+          "id": 12039,
+          "pos": "noun",
+          "definition_en": "the highest level of authority, leadership, or management in an organization or hierarchy",
+          "definition_cn": "组织或等级制度中的最高权威、领导或管理层级",
+          "usage_pattern": "",
+          "note": "",
+          "order": 1,
+          "examples": [
+            {
+              "example_en": "The decision was made without consulting the top.",
+              "example_cn": "这个决定是在没有咨询高层的情况下做出的。",
+              "order": 1
+            }
+          ]
+        }
+      ],
+      "exam_tags": [],
+      "favorite": null
+    }
+  }
+}

@@ -1,0 +1,792 @@
+[
+  {
+    "id": 90001,
+    "index": 0,
+    "start": 7.778,
+    "end": 8.54,
+    "english": "Hello.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Hello.</span>"
+  },
+  {
+    "id": 90002,
+    "index": 1,
+    "start": 8.54,
+    "end": 11.41,
+    "english": "This is 6 Minute English from BBC Learning English.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>This</span> <span>is</span> <span>6</span> <span>Minute</span> <span>English</span> <span>from</span> <span>BBC</span> <span>Learning</span> <span>English.</span>"
+  },
+  {
+    "id": 90003,
+    "index": 2,
+    "start": 11.41,
+    "end": 12.311,
+    "english": "I’m Neil.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>I’m</span> <span>Neil.</span>"
+  },
+  {
+    "id": 90004,
+    "index": 3,
+    "start": 12.311,
+    "end": 13.5,
+    "english": "And I’m Beth.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>And</span> <span>I’m</span> <span>Beth.</span>"
+  },
+  {
+    "id": 90005,
+    "index": 4,
+    "start": 13.5,
+    "end": 17.72,
+    "english": "When I was a boy, I wanted to be a fireman when I grew up.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>When</span> <span>I</span> <span>was</span> <span>a</span> <span>boy,</span> <span>I</span> <span>wanted</span> <span>to</span> <span>be</span> <span>a</span> <span>fireman</span> <span>when</span> <span>I</span> <span>grew</span> <span>up.</span>"
+  },
+  {
+    "id": 90006,
+    "index": 5,
+    "start": 17.72,
+    "end": 18.72,
+    "english": "How about you, Beth?",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>How</span> <span>about</span> <span>you,</span> <span>Beth?</span>"
+  },
+  {
+    "id": 90007,
+    "index": 6,
+    "start": 18.72,
+    "end": 20.72,
+    "english": "Did you have any childhood dreams?",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Did</span> <span>you</span> <span>have</span> <span>any</span> <span>childhood</span> <span>dreams?</span>"
+  },
+  {
+    "id": 90008,
+    "index": 7,
+    "start": 20.72,
+    "end": 24.47,
+    "english": "I wanted to be an astronaut and fly to the Moon…",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>I</span> <span>wanted</span> <span>to</span> <span>be</span> <span>an</span> <span>astronaut</span> <span>and</span> <span>fly</span> <span>to</span> <span>the</span> <span>Moon…</span>"
+  },
+  {
+    "id": 90009,
+    "index": 8,
+    "start": 24.47,
+    "end": 28.92,
+    "english": "When we’re young most of us have big dreams and plans for the future.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>When</span> <span>we’re</span> <span>young</span> <span>most</span> <span>of</span> <span>us</span> <span>have</span> <span>big</span> <span>dreams</span> <span>and</span> <span>plans</span> <span>for</span> <span>the</span> <span>future.</span>"
+  },
+  {
+    "id": 90010,
+    "index": 9,
+    "start": 28.92,
+    "end": 36.979,
+    "english": "Unfortunately, as we grow up these childhood dreams often get lost in the adult world of jobs, money,",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Unfortunately,</span> <span>as</span> <span>we</span> <span>grow</span> <span>up</span> <span>these</span> <span>childhood</span> <span>dreams</span> <span>often</span> <span>get</span> <span>lost</span> <span>in</span> <span>the</span> <span>adult</span> <span>world</span> <span>of</span> <span>jobs,</span> <span>money,</span>"
+  },
+  {
+    "id": 90011,
+    "index": 10,
+    "start": 36.979,
+    "end": 38.519,
+    "english": "families and careers.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>families</span> <span>and</span> <span>careers.</span>"
+  },
+  {
+    "id": 90012,
+    "index": 11,
+    "start": 38.519,
+    "end": 39.989,
+    "english": "But not for everyone…",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>But</span> <span>not</span> <span>for</span> <span>everyone…</span>"
+  },
+  {
+    "id": 90013,
+    "index": 12,
+    "start": 39.989,
+    "end": 48.059,
+    "english": "Daisy, from New Zealand, and, Herman, from Argentina are two people who decided to follow their childhood dreams.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Daisy,</span> <span>from</span> <span>New</span> <span>Zealand,</span> <span>and,</span> <span>Herman,</span> <span>from</span> <span>Argentina</span> <span>are</span> <span>two</span> <span>people</span> <span>who</span> <span>decided</span> <span>to</span> <span>follow</span> <span>their</span> <span>childhood</span> <span>dreams.</span>"
+  },
+  {
+    "id": 90014,
+    "index": 13,
+    "start": 48.059,
+    "end": 56.85,
+    "english": "They wanted the world to become a utopia – a perfect, ideal society where everyone is happy and gets along with each other.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>They</span> <span>wanted</span> <span>the</span> <span>world</span> <span>to</span> <span>become</span> <span>a</span> <span>utopia</span> <span>–</span> <span>a</span> <span>perfect,</span> <span>ideal</span> <span>society</span> <span>where</span> <span>everyone</span> <span>is</span> <span>happy</span> <span>and</span> <span>gets</span> <span>along</span> <span>with</span> <span>each</span> <span>other.</span>"
+  },
+  {
+    "id": 90015,
+    "index": 14,
+    "start": 56.85,
+    "end": 64.629,
+    "english": "In this programme, we’ll be hearing how Daisy and Herman made their dreams come true – not by changing the world,",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>In</span> <span>this</span> <span>programme,</span> <span>we’ll</span> <span>be</span> <span>hearing</span> <span>how</span> <span>Daisy</span> <span>and</span> <span>Herman</span> <span>made</span> <span>their</span> <span>dreams</span> <span>come</span> <span>true</span> <span>–</span> <span>not</span> <span>by</span> <span>changing</span> <span>the</span> <span>world,</span>"
+  },
+  {
+    "id": 90016,
+    "index": 15,
+    "start": 64.629,
+    "end": 66.25,
+    "english": "but by changing themselves.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>but</span> <span>by</span> <span>changing</span> <span>themselves.</span>"
+  },
+  {
+    "id": 90017,
+    "index": 16,
+    "start": 66.25,
+    "end": 70.43,
+    "english": "And, as usual, we’ll be learning some new vocabulary too.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>And,</span> <span>as</span> <span>usual,</span> <span>we’ll</span> <span>be</span> <span>learning</span> <span>some</span> <span>new</span> <span>vocabulary</span> <span>too.</span>"
+  },
+  {
+    "id": 90018,
+    "index": 17,
+    "start": 70.43,
+    "end": 74.42,
+    "english": "But before that I have a question for you, Beth.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>But</span> <span>before</span> <span>that</span> <span>I</span> <span>have</span> <span>a</span> <span>question</span> <span>for</span> <span>you,</span> <span>Beth.</span>"
+  },
+  {
+    "id": 90019,
+    "index": 18,
+    "start": 74.42,
+    "end": 80.32,
+    "english": "Following your dreams can be tough, but not following them can leave you regretting all the things you wanted",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Following</span> <span>your</span> <span>dreams</span> <span>can</span> <span>be</span> <span>tough,</span> <span>but</span> <span>not</span> <span>following</span> <span>them</span> <span>can</span> <span>leave</span> <span>you</span> <span>regretting</span> <span>all</span> <span>the</span> <span>things</span> <span>you</span> <span>wanted</span>"
+  },
+  {
+    "id": 90020,
+    "index": 19,
+    "start": 80.32,
+    "end": 82.28,
+    "english": "to do but didn’t.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>to</span> <span>do</span> <span>but</span> <span>didn’t.</span>"
+  },
+  {
+    "id": 90021,
+    "index": 20,
+    "start": 82.28,
+    "end": 88.731,
+    "english": "In 2012, Australian nurse, Bronnie Ware, wrote her bestselling book, The Top Five Regrets of the Dying, after",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>In</span> <span>2012,</span> <span>Australian</span> <span>nurse,</span> <span>Bronnie</span> <span>Ware,</span> <span>wrote</span> <span>her</span> <span>bestselling</span> <span>book,</span> <span>The</span> <span>Top</span> <span>Five</span> <span>Regrets</span> <span>of</span> <span>the</span> <span>Dying,</span> <span>after</span>"
+  },
+  {
+    "id": 90022,
+    "index": 21,
+    "start": 88.731,
+    "end": 92.7,
+    "english": "interviewing terminally ill patients about their life regrets.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>interviewing</span> <span>terminally</span> <span>ill</span> <span>patients</span> <span>about</span> <span>their</span> <span>life</span> <span>regrets.</span>"
+  },
+  {
+    "id": 90023,
+    "index": 22,
+    "start": 92.7,
+    "end": 96.56,
+    "english": "So, what do you think their top regret was?",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>So,</span> <span>what</span> <span>do</span> <span>you</span> <span>think</span> <span>their</span> <span>top</span> <span>regret</span> <span>was?</span>"
+  },
+  {
+    "id": 90024,
+    "index": 23,
+    "start": 96.56,
+    "end": 99.95,
+    "english": "Was it: a) I wish I hadn’t worked so hard?",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Was</span> <span>it:</span> <span>a)</span> <span>I</span> <span>wish</span> <span>I</span> <span>hadn’t</span> <span>worked</span> <span>so</span> <span>hard?</span>"
+  },
+  {
+    "id": 90025,
+    "index": 24,
+    "start": 99.95,
+    "end": 102.65,
+    "english": "b) I wish I had followed my dreams?",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>b)</span> <span>I</span> <span>wish</span> <span>I</span> <span>had</span> <span>followed</span> <span>my</span> <span>dreams?</span>"
+  },
+  {
+    "id": 90026,
+    "index": 25,
+    "start": 102.65,
+    "end": 105.14,
+    "english": "or c) I wish I’d made more money?",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>or</span> <span>c)</span> <span>I</span> <span>wish</span> <span>I’d</span> <span>made</span> <span>more</span> <span>money?</span>"
+  },
+  {
+    "id": 90027,
+    "index": 26,
+    "start": 105.14,
+    "end": 109.58,
+    "english": "Well, I’ll guess it’s b) they wish they had followed their dreams.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Well,</span> <span>I’ll</span> <span>guess</span> <span>it’s</span> <span>b)</span> <span>they</span> <span>wish</span> <span>they</span> <span>had</span> <span>followed</span> <span>their</span> <span>dreams.</span>"
+  },
+  {
+    "id": 90028,
+    "index": 27,
+    "start": 109.58,
+    "end": 110.58,
+    "english": "OK, Beth.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>OK,</span> <span>Beth.</span>"
+  },
+  {
+    "id": 90029,
+    "index": 28,
+    "start": 110.58,
+    "end": 113.75,
+    "english": "I’ll reveal the correct answer at the end of the programme.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>I’ll</span> <span>reveal</span> <span>the</span> <span>correct</span> <span>answer</span> <span>at</span> <span>the</span> <span>end</span> <span>of</span> <span>the</span> <span>programme.</span>"
+  },
+  {
+    "id": 90030,
+    "index": 29,
+    "start": 113.75,
+    "end": 121.409,
+    "english": "The first dreamer we’re going to meet lives in Riverside, a peace-loving community in New Zealand where everyone shares",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>The</span> <span>first</span> <span>dreamer</span> <span>we’re</span> <span>going</span> <span>to</span> <span>meet</span> <span>lives</span> <span>in</span> <span>Riverside,</span> <span>a</span> <span>peace-loving</span> <span>community</span> <span>in</span> <span>New</span> <span>Zealand</span> <span>where</span> <span>everyone</span> <span>shares</span>"
+  },
+  {
+    "id": 90031,
+    "index": 30,
+    "start": 121.409,
+    "end": 122.79,
+    "english": "everything.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>everything.</span>"
+  },
+  {
+    "id": 90032,
+    "index": 31,
+    "start": 122.79,
+    "end": 130.11,
+    "english": "Riverside members work for the community’s businesses, including a farm, a hotel and a café.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Riverside</span> <span>members</span> <span>work</span> <span>for</span> <span>the</span> <span>community’s</span> <span>businesses,</span> <span>including</span> <span>a</span> <span>farm,</span> <span>a</span> <span>hotel</span> <span>and</span> <span>a</span> <span>café.</span>"
+  },
+  {
+    "id": 90033,
+    "index": 32,
+    "start": 130.11,
+    "end": 134.78,
+    "english": "All the money they earn is collected and shared between everyone equally.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>All</span> <span>the</span> <span>money</span> <span>they</span> <span>earn</span> <span>is</span> <span>collected</span> <span>and</span> <span>shared</span> <span>between</span> <span>everyone</span> <span>equally.</span>"
+  },
+  {
+    "id": 90034,
+    "index": 33,
+    "start": 134.78,
+    "end": 140.18,
+    "english": "Daisy, who was born in East Germany, joined Riverside in 2004.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Daisy,</span> <span>who</span> <span>was</span> <span>born</span> <span>in</span> <span>East</span> <span>Germany,</span> <span>joined</span> <span>Riverside</span> <span>in</span> <span>2004.</span>"
+  },
+  {
+    "id": 90035,
+    "index": 34,
+    "start": 140.18,
+    "end": 146.56,
+    "english": "Here she explains her belief in sharing to BBC World Service programme, The Documentary.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Here</span> <span>she</span> <span>explains</span> <span>her</span> <span>belief</span> <span>in</span> <span>sharing</span> <span>to</span> <span>BBC</span> <span>World</span> <span>Service</span> <span>programme,</span> <span>The</span> <span>Documentary.</span>"
+  },
+  {
+    "id": 90036,
+    "index": 35,
+    "start": 146.56,
+    "end": 153.7,
+    "english": "What I think I always believed in is that the sharing of resources can provide a group of people with quite a great",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>What</span> <span>I</span> <span>think</span> <span>I</span> <span>always</span> <span>believed</span> <span>in</span> <span>is</span> <span>that</span> <span>the</span> <span>sharing</span> <span>of</span> <span>resources</span> <span>can</span> <span>provide</span> <span>a</span> <span>group</span> <span>of</span> <span>people</span> <span>with</span> <span>quite</span> <span>a</span> <span>great</span>"
+  },
+  {
+    "id": 90037,
+    "index": 36,
+    "start": 153.7,
+    "end": 159.159,
+    "english": "advantage, but it doesn’t matter how many hours you work or what work you do, everyone is getting the",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>advantage,</span> <span>but</span> <span>it</span> <span>doesn’t</span> <span>matter</span> <span>how</span> <span>many</span> <span>hours</span> <span>you</span> <span>work</span> <span>or</span> <span>what</span> <span>work</span> <span>you</span> <span>do,</span> <span>everyone</span> <span>is</span> <span>getting</span> <span>the</span>"
+  },
+  {
+    "id": 90038,
+    "index": 37,
+    "start": 159.159,
+    "end": 160.819,
+    "english": "same amount.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>same</span> <span>amount.</span>"
+  },
+  {
+    "id": 90039,
+    "index": 38,
+    "start": 160.819,
+    "end": 168.04,
+    "english": "And that is something that many people outside of Riverside struggle with, and where we’re often getting this ‘communism’",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>And</span> <span>that</span> <span>is</span> <span>something</span> <span>that</span> <span>many</span> <span>people</span> <span>outside</span> <span>of</span> <span>Riverside</span> <span>struggle</span> <span>with,</span> <span>and</span> <span>where</span> <span>we’re</span> <span>often</span> <span>getting</span> <span>this</span> <span>‘communism’</span>"
+  },
+  {
+    "id": 90040,
+    "index": 39,
+    "start": 168.04,
+    "end": 171.769,
+    "english": "label attached to us, because it’s so…",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>label</span> <span>attached</span> <span>to</span> <span>us,</span> <span>because</span> <span>it’s</span> <span>so…</span>"
+  },
+  {
+    "id": 90041,
+    "index": 40,
+    "start": 171.769,
+    "end": 174.849,
+    "english": "it seems so outlandish for people.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>it</span> <span>seems</span> <span>so</span> <span>outlandish</span> <span>for</span> <span>people.</span>"
+  },
+  {
+    "id": 90042,
+    "index": 41,
+    "start": 174.849,
+    "end": 177.76,
+    "english": "Riverside isn’t a communist community.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Riverside</span> <span>isn’t</span> <span>a</span> <span>communist</span> <span>community.</span>"
+  },
+  {
+    "id": 90043,
+    "index": 42,
+    "start": 177.76,
+    "end": 182.2,
+    "english": "In fact, people with many different political views live there.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>In</span> <span>fact,</span> <span>people</span> <span>with</span> <span>many</span> <span>different</span> <span>political</span> <span>views</span> <span>live</span> <span>there.</span>"
+  },
+  {
+    "id": 90044,
+    "index": 43,
+    "start": 182.2,
+    "end": 188.029,
+    "english": "But Daisy says that local people struggle with the idea that everything is shared.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>But</span> <span>Daisy</span> <span>says</span> <span>that</span> <span>local</span> <span>people</span> <span>struggle</span> <span>with</span> <span>the</span> <span>idea</span> <span>that</span> <span>everything</span> <span>is</span> <span>shared.</span>"
+  },
+  {
+    "id": 90045,
+    "index": 44,
+    "start": 188.029,
+    "end": 193.499,
+    "english": "If you struggle with an idea, you find it difficult to accept or think about it.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>If</span> <span>you</span> <span>struggle</span> <span>with</span> <span>an</span> <span>idea,</span> <span>you</span> <span>find</span> <span>it</span> <span>difficult</span> <span>to</span> <span>accept</span> <span>or</span> <span>think</span> <span>about</span> <span>it.</span>"
+  },
+  {
+    "id": 90046,
+    "index": 45,
+    "start": 193.499,
+    "end": 200.299,
+    "english": "Daisy also says some local people call Riverside outlandish – strange and unusual.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Daisy</span> <span>also</span> <span>says</span> <span>some</span> <span>local</span> <span>people</span> <span>call</span> <span>Riverside</span> <span>outlandish</span> <span>–</span> <span>strange</span> <span>and</span> <span>unusual.</span>"
+  },
+  {
+    "id": 90047,
+    "index": 46,
+    "start": 200.299,
+    "end": 204.73,
+    "english": "Our second group of dreamers are a family - the Zapps.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Our</span> <span>second</span> <span>group</span> <span>of</span> <span>dreamers</span> <span>are</span> <span>a</span> <span>family</span> <span>-</span> <span>the</span> <span>Zapps.</span>"
+  },
+  {
+    "id": 90048,
+    "index": 47,
+    "start": 204.73,
+    "end": 213.529,
+    "english": "In 2000, childhood sweethearts, Herman and Candelaria Zapp, bought a vintage car and set off from Argentina to travel around",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>In</span> <span>2000,</span> <span>childhood</span> <span>sweethearts,</span> <span>Herman</span> <span>and</span> <span>Candelaria</span> <span>Zapp,</span> <span>bought</span> <span>a</span> <span>vintage</span> <span>car</span> <span>and</span> <span>set</span> <span>off</span> <span>from</span> <span>Argentina</span> <span>to</span> <span>travel</span> <span>around</span>"
+  },
+  {
+    "id": 90049,
+    "index": 48,
+    "start": 213.529,
+    "end": 218.86,
+    "english": "the world with less than 3.500 dollars in their pockets.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>the</span> <span>world</span> <span>with</span> <span>less</span> <span>than</span> <span>3.500</span> <span>dollars</span> <span>in</span> <span>their</span> <span>pockets.</span>"
+  },
+  {
+    "id": 90050,
+    "index": 49,
+    "start": 218.86,
+    "end": 226.95,
+    "english": "Twenty-two years and three children later they have visited over a hundred countries, meeting with countless people and",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Twenty-two</span> <span>years</span> <span>and</span> <span>three</span> <span>children</span> <span>later</span> <span>they</span> <span>have</span> <span>visited</span> <span>over</span> <span>a</span> <span>hundred</span> <span>countries,</span> <span>meeting</span> <span>with</span> <span>countless</span> <span>people</span> <span>and</span>"
+  },
+  {
+    "id": 90051,
+    "index": 50,
+    "start": 226.95,
+    "end": 229.049,
+    "english": "experiences on the way.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>experiences</span> <span>on</span> <span>the</span> <span>way.</span>"
+  },
+  {
+    "id": 90052,
+    "index": 51,
+    "start": 229.049,
+    "end": 237.139,
+    "english": "Here, Herman Zapp explains to BBC World Service’s, The Documentary, how following his dream has changed him for the better.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Here,</span> <span>Herman</span> <span>Zapp</span> <span>explains</span> <span>to</span> <span>BBC</span> <span>World</span> <span>Service’s,</span> <span>The</span> <span>Documentary,</span> <span>how</span> <span>following</span> <span>his</span> <span>dream</span> <span>has</span> <span>changed</span> <span>him</span> <span>for</span> <span>the</span> <span>better.</span>"
+  },
+  {
+    "id": 90053,
+    "index": 52,
+    "start": 237.139,
+    "end": 244.439,
+    "english": "I am so happy with the Herman there is now, that I know now – not the one who wanted to conquer the world, but the one",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>I</span> <span>am</span> <span>so</span> <span>happy</span> <span>with</span> <span>the</span> <span>Herman</span> <span>there</span> <span>is</span> <span>now,</span> <span>that</span> <span>I</span> <span>know</span> <span>now</span> <span>–</span> <span>not</span> <span>the</span> <span>one</span> <span>who</span> <span>wanted</span> <span>to</span> <span>conquer</span> <span>the</span> <span>world,</span> <span>but</span> <span>the</span> <span>one</span>"
+  },
+  {
+    "id": 90054,
+    "index": 53,
+    "start": 244.439,
+    "end": 246.199,
+    "english": "who was conquered by the world.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>who</span> <span>was</span> <span>conquered</span> <span>by</span> <span>the</span> <span>world.</span>"
+  },
+  {
+    "id": 90055,
+    "index": 54,
+    "start": 246.199,
+    "end": 252.269,
+    "english": "I learn so much from people, and it’s amazing how the more you meet people, the more you know stories, how",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>I</span> <span>learn</span> <span>so</span> <span>much</span> <span>from</span> <span>people,</span> <span>and</span> <span>it’s</span> <span>amazing</span> <span>how</span> <span>the</span> <span>more</span> <span>you</span> <span>meet</span> <span>people,</span> <span>the</span> <span>more</span> <span>you</span> <span>know</span> <span>stories,</span> <span>how</span>"
+  },
+  {
+    "id": 90056,
+    "index": 55,
+    "start": 252.269,
+    "end": 260.46,
+    "english": "much more humble you become because you notice that you are a beautiful, tiny piece of sand, but a very important piece",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>much</span> <span>more</span> <span>humble</span> <span>you</span> <span>become</span> <span>because</span> <span>you</span> <span>notice</span> <span>that</span> <span>you</span> <span>are</span> <span>a</span> <span>beautiful,</span> <span>tiny</span> <span>piece</span> <span>of</span> <span>sand,</span> <span>but</span> <span>a</span> <span>very</span> <span>important</span> <span>piece</span>"
+  },
+  {
+    "id": 90057,
+    "index": 56,
+    "start": 260.46,
+    "end": 263.44,
+    "english": "of sand like everyone is, right?",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>of</span> <span>sand</span> <span>like</span> <span>everyone</span> <span>is,</span> <span>right?</span>"
+  },
+  {
+    "id": 90058,
+    "index": 57,
+    "start": 263.44,
+    "end": 271.38,
+    "english": "After many years travelling, meeting new people and hearing their stories, Herman is more humble – not proud or",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>After</span> <span>many</span> <span>years</span> <span>travelling,</span> <span>meeting</span> <span>new</span> <span>people</span> <span>and</span> <span>hearing</span> <span>their</span> <span>stories,</span> <span>Herman</span> <span>is</span> <span>more</span> <span>humble</span> <span>–</span> <span>not</span> <span>proud</span> <span>or</span>"
+  },
+  {
+    "id": 90059,
+    "index": 58,
+    "start": 271.38,
+    "end": 272.76,
+    "english": "arrogant.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>arrogant.</span>"
+  },
+  {
+    "id": 90060,
+    "index": 59,
+    "start": 272.76,
+    "end": 281.04,
+    "english": "He no longer wants to conquer the world – to control it by force; rather, he has been conquered by his experiences.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>He</span> <span>no</span> <span>longer</span> <span>wants</span> <span>to</span> <span>conquer</span> <span>the</span> <span>world</span> <span>–</span> <span>to</span> <span>control</span> <span>it</span> <span>by</span> <span>force;</span> <span>rather,</span> <span>he</span> <span>has</span> <span>been</span> <span>conquered</span> <span>by</span> <span>his</span> <span>experiences.</span>"
+  },
+  {
+    "id": 90061,
+    "index": 60,
+    "start": 281.04,
+    "end": 289.27,
+    "english": "Herman compares himself to a beautiful but tiny piece of sand and uses the phrase 'a grain of sand' to describe things which",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Herman</span> <span>compares</span> <span>himself</span> <span>to</span> <span>a</span> <span>beautiful</span> <span>but</span> <span>tiny</span> <span>piece</span> <span>of</span> <span>sand</span> <span>and</span> <span>uses</span> <span>the</span> <span>phrase</span> <span>'a</span> <span>grain</span> <span>of</span> <span>sand'</span> <span>to</span> <span>describe</span> <span>things</span> <span>which</span>"
+  },
+  {
+    "id": 90062,
+    "index": 61,
+    "start": 289.27,
+    "end": 295.7,
+    "english": "are insignificant in themselves, but at the same time are an important part of the whole.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>are</span> <span>insignificant</span> <span>in</span> <span>themselves,</span> <span>but</span> <span>at</span> <span>the</span> <span>same</span> <span>time</span> <span>are</span> <span>an</span> <span>important</span> <span>part</span> <span>of</span> <span>the</span> <span>whole.</span>"
+  },
+  {
+    "id": 90063,
+    "index": 62,
+    "start": 295.7,
+    "end": 302.76,
+    "english": "Daisy and Herman are rare examples of dreamers who followed their dream and found a happy life, lived without",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Daisy</span> <span>and</span> <span>Herman</span> <span>are</span> <span>rare</span> <span>examples</span> <span>of</span> <span>dreamers</span> <span>who</span> <span>followed</span> <span>their</span> <span>dream</span> <span>and</span> <span>found</span> <span>a</span> <span>happy</span> <span>life,</span> <span>lived</span> <span>without</span>"
+  },
+  {
+    "id": 90064,
+    "index": 63,
+    "start": 302.76,
+    "end": 305.88,
+    "english": "regret – which reminds me of your question, Neil.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>regret</span> <span>–</span> <span>which</span> <span>reminds</span> <span>me</span> <span>of</span> <span>your</span> <span>question,</span> <span>Neil.</span>"
+  },
+  {
+    "id": 90065,
+    "index": 64,
+    "start": 305.88,
+    "end": 311.36,
+    "english": "Yes, I asked about Bronnie Ware’s book, The Top Five Regrets of the Dying.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Yes,</span> <span>I</span> <span>asked</span> <span>about</span> <span>Bronnie</span> <span>Ware’s</span> <span>book,</span> <span>The</span> <span>Top</span> <span>Five</span> <span>Regrets</span> <span>of</span> <span>the</span> <span>Dying.</span>"
+  },
+  {
+    "id": 90066,
+    "index": 65,
+    "start": 311.36,
+    "end": 314.42,
+    "english": "What do you think the number one regret was, Beth?",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>What</span> <span>do</span> <span>you</span> <span>think</span> <span>the</span> <span>number</span> <span>one</span> <span>regret</span> <span>was,</span> <span>Beth?</span>"
+  },
+  {
+    "id": 90067,
+    "index": 66,
+    "start": 314.42,
+    "end": 318.05,
+    "english": "I guessed it was b) not following your dreams.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>I</span> <span>guessed</span> <span>it</span> <span>was</span> <span>b)</span> <span>not</span> <span>following</span> <span>your</span> <span>dreams.</span>"
+  },
+  {
+    "id": 90068,
+    "index": 67,
+    "start": 318.05,
+    "end": 320.64,
+    "english": "Which was the right answer!",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Which</span> <span>was</span> <span>the</span> <span>right</span> <span>answer!</span>"
+  },
+  {
+    "id": 90069,
+    "index": 68,
+    "start": 320.64,
+    "end": 326.56,
+    "english": "Not having the courage to follow your dreams was listed as the top life regret.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Not</span> <span>having</span> <span>the</span> <span>courage</span> <span>to</span> <span>follow</span> <span>your</span> <span>dreams</span> <span>was</span> <span>listed</span> <span>as</span> <span>the</span> <span>top</span> <span>life</span> <span>regret.</span>"
+  },
+  {
+    "id": 90070,
+    "index": 69,
+    "start": 326.56,
+    "end": 330.99,
+    "english": "At least we have people like Daisy and Herman to remind us dreams can come true!",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>At</span> <span>least</span> <span>we</span> <span>have</span> <span>people</span> <span>like</span> <span>Daisy</span> <span>and</span> <span>Herman</span> <span>to</span> <span>remind</span> <span>us</span> <span>dreams</span> <span>can</span> <span>come</span> <span>true!</span>"
+  },
+  {
+    "id": 90071,
+    "index": 70,
+    "start": 330.99,
+    "end": 339.66,
+    "english": "OK, let’s recap the vocabulary from this programme, starting with 'utopia' – a perfect world where everyone is happy.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>OK,</span> <span>let’s</span> <span>recap</span> <span>the</span> <span>vocabulary</span> <span>from</span> <span>this</span> <span>programme,</span> <span>starting</span> <span>with</span> <span>'utopia'</span> <span>–</span> <span>a</span> <span>perfect</span> <span>world</span> <span>where</span> <span>everyone</span> <span>is</span> <span>happy.</span>"
+  },
+  {
+    "id": 90072,
+    "index": 71,
+    "start": 339.66,
+    "end": 343.57,
+    "english": "If you 'struggle with an idea', you find it difficult to accept.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>If</span> <span>you</span> <span>'struggle</span> <span>with</span> <span>an</span> <span>idea',</span> <span>you</span> <span>find</span> <span>it</span> <span>difficult</span> <span>to</span> <span>accept.</span>"
+  },
+  {
+    "id": 90073,
+    "index": 72,
+    "start": 343.57,
+    "end": 348.02,
+    "english": "The adjective, outlandish, means strange and unusual.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>The</span> <span>adjective,</span> <span>outlandish,</span> <span>means</span> <span>strange</span> <span>and</span> <span>unusual.</span>"
+  },
+  {
+    "id": 90074,
+    "index": 73,
+    "start": 348.02,
+    "end": 351.79,
+    "english": "'To conquer' something means to control it by force.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>'To</span> <span>conquer'</span> <span>something</span> <span>means</span> <span>to</span> <span>control</span> <span>it</span> <span>by</span> <span>force.</span>"
+  },
+  {
+    "id": 90075,
+    "index": 74,
+    "start": 351.79,
+    "end": 355.4,
+    "english": "Someone who is 'humble' is not proud or arrogant.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Someone</span> <span>who</span> <span>is</span> <span>'humble'</span> <span>is</span> <span>not</span> <span>proud</span> <span>or</span> <span>arrogant.</span>"
+  },
+  {
+    "id": 90076,
+    "index": 75,
+    "start": 355.4,
+    "end": 362.69,
+    "english": "And finally, the phrase 'a grain of sand' describes something which is both insignificant yet somehow important.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>And</span> <span>finally,</span> <span>the</span> <span>phrase</span> <span>'a</span> <span>grain</span> <span>of</span> <span>sand'</span> <span>describes</span> <span>something</span> <span>which</span> <span>is</span> <span>both</span> <span>insignificant</span> <span>yet</span> <span>somehow</span> <span>important.</span>"
+  },
+  {
+    "id": 90077,
+    "index": 76,
+    "start": 362.69,
+    "end": 364.952,
+    "english": "Once again, our six minutes are up.",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Once</span> <span>again,</span> <span>our</span> <span>six</span> <span>minutes</span> <span>are</span> <span>up.</span>"
+  },
+  {
+    "id": 90078,
+    "index": 77,
+    "start": 364.952,
+    "end": 365.719,
+    "english": "Bye for now!",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Bye</span> <span>for</span> <span>now!</span>"
+  },
+  {
+    "id": 90079,
+    "index": 78,
+    "start": 365.719,
+    "end": 366.69,
+    "english": "Goodbye!",
+    "chinese": "",
+    "ipa": "",
+    "english_html": "<span>Goodbye!</span>"
+  }
+]

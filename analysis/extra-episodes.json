@@ -1,0 +1,280 @@
+{
+  "episodes": [
+    {
+      "video_id": "26PrgjTboVQ",
+      "index": 999,
+      "tags": [
+        { "id": 25, "name": "知识" }
+      ],
+      "cover": "https://i.ytimg.com/vi/26PrgjTboVQ/hqdefault.jpg",
+      "short_title": "BBC 六分钟英语：追随梦想",
+      "summary": "Neil 和 Beth 讨论「追随梦想」的话题，分享两位勇敢追梦者的真实故事，并学习 utopia、struggle with、outlandish 等相关词汇。",
+      "remark": "",
+      "stars": 2,
+      "voca_size": 180,
+      "subtitle_count": 79,
+      "author": {
+        "name": "BBC Learning English",
+        "gender": "m",
+        "nationality": "🇬🇧",
+        "accent": "英国"
+      },
+      "created_at": "2022-09-08T14:30:01Z",
+      "clip_length": 379,
+      "is_learned": false,
+      "is_favorite": false
+    }
+  ],
+  "details": [
+    {
+      "episode": {
+        "index": 999,
+        "video_id": "26PrgjTboVQ",
+        "short_title": "BBC 六分钟英语：追随梦想",
+        "summary": "Neil 和 Beth 讨论「追随梦想」的话题，分享两位勇敢追梦者的真实故事，并学习 utopia、struggle with、outlandish 等相关词汇。",
+        "remark": "",
+        "stars": 2,
+        "voca_size": 180,
+        "subtitle_count": 79,
+        "original_video_url": "https://youtu.be/26PrgjTboVQ",
+        "author": {
+          "name": "BBC Learning English",
+          "gender": "m",
+          "nationality": "🇬🇧",
+          "accent": "英国"
+        },
+        "tags": [
+          { "id": 25, "name": "知识" }
+        ],
+        "media": {
+          "video_url": "https://www.youtube.com/embed/26PrgjTboVQ?rel=0",
+          "audio_url": "/api/episode/26PrgjTboVQ/audio/",
+          "thumbnail_url": "https://i.ytimg.com/vi/26PrgjTboVQ/hqdefault.jpg"
+        },
+        "subtitles": [
+          {
+            "id": 90001,
+            "index": 0,
+            "start": 0,
+            "end": 6,
+            "english": "Hello. This is 6 Minute English from BBC Learning English. I'm Neil. And I'm Beth.",
+            "chinese": "你好，欢迎收听 BBC 六分钟英语。我是 Neil，我是 Beth。",
+            "ipa": "",
+            "english_html": "<span>Hello.</span> <span>This</span> <span>is</span> <span>6</span> <span>Minute</span> <span>English</span> <span>from</span> <span>BBC</span> <span>Learning</span> <span>English.</span> <span>I'm</span> <span>Neil.</span> <span>And</span> <span>I'm</span> <span>Beth.</span>"
+          },
+          {
+            "id": 90002,
+            "index": 1,
+            "start": 6,
+            "end": 18,
+            "english": "When I was a boy, I wanted to be a fireman when I grew up. How about you, Beth? Did you have any childhood dreams?",
+            "chinese": "小时候我想长大后当消防员。Beth，你呢？有过童年梦想吗？",
+            "ipa": "",
+            "english_html": "<span>When</span> <span>I</span> <span>was</span> <span>a</span> <span>boy,</span> <span>I</span> <span>wanted</span> <span>to</span> <span>be</span> <span>a</span> <span>fireman</span> <span>when</span> <span>I</span> <span>grew</span> <span>up.</span>"
+          },
+          {
+            "id": 90003,
+            "index": 2,
+            "start": 18,
+            "end": 28,
+            "english": "I wanted to be an astronaut and fly to the Moon… When we're young most of us have big dreams and plans for the future.",
+            "chinese": "我想当宇航员，飞去月球……年轻时，我们大多都有远大的梦想和计划。",
+            "ipa": "",
+            "english_html": "<span>I</span> <span>wanted</span> <span>to</span> <span>be</span> <span>an</span> <span>astronaut</span> <span>and</span> <span>fly</span> <span>to</span> <span>the</span> <span>Moon…</span>"
+          },
+          {
+            "id": 90004,
+            "index": 3,
+            "start": 28,
+            "end": 42,
+            "english": "Unfortunately, as we grow up these childhood dreams often get lost in the adult world of jobs, money, families and careers.",
+            "chinese": "可惜长大后，这些童年梦想常被工作、金钱、家庭和事业淹没。",
+            "ipa": "",
+            "english_html": "<span>Unfortunately,</span> <span>as</span> <span>we</span> <span>grow</span> <span>up</span> <span>these</span> <span>childhood</span> <span>dreams</span> <span>often</span> <span>get</span> <span>lost</span>"
+          },
+          {
+            "id": 90005,
+            "index": 4,
+            "start": 42,
+            "end": 58,
+            "english": "But not for everyone… Daisy, from New Zealand, and Herman, from Argentina are two people who decided to follow their childhood dreams.",
+            "chinese": "但并非人人如此……来自新西兰的 Daisy 和来自阿根廷的 Herman 选择追随童年梦想。",
+            "ipa": "",
+            "english_html": "<span>But</span> <span>not</span> <span>for</span> <span>everyone…</span> <span>Daisy,</span> <span>from</span> <span>New</span> <span>Zealand,</span> <span>and</span> <span>Herman,</span> <span>from</span> <span>Argentina</span>"
+          },
+          {
+            "id": 90006,
+            "index": 5,
+            "start": 58,
+            "end": 72,
+            "english": "They wanted the world to become a utopia – a perfect, ideal society where everyone is happy and gets along with each other.",
+            "chinese": "他们曾希望世界成为 utopia——人人幸福、和睦相处的理想社会。",
+            "ipa": "",
+            "english_html": "<span>They</span> <span>wanted</span> <span>the</span> <span>world</span> <span>to</span> <span>become</span> <span>a</span> <span>utopia</span> <span>–</span> <span>a</span> <span>perfect,</span> <span>ideal</span> <span>society</span>"
+          },
+          {
+            "id": 90007,
+            "index": 6,
+            "start": 72,
+            "end": 88,
+            "english": "In this programme, we'll be hearing how Daisy and Herman made their dreams come true – not by changing the world, but by changing themselves.",
+            "chinese": "本期节目将讲述他们如何实现梦想——不是改变世界，而是改变自己。",
+            "ipa": "",
+            "english_html": "<span>In</span> <span>this</span> <span>programme,</span> <span>we'll</span> <span>be</span> <span>hearing</span> <span>how</span> <span>Daisy</span> <span>and</span> <span>Herman</span> <span>made</span> <span>their</span> <span>dreams</span> <span>come</span> <span>true</span>"
+          },
+          {
+            "id": 90008,
+            "index": 7,
+            "start": 88,
+            "end": 108,
+            "english": "Following your dreams can be tough, but not following them can leave you regretting all the things you wanted to do but didn't.",
+            "chinese": "追梦很难，但不追可能让你后悔那些想做却没做的事。",
+            "ipa": "",
+            "english_html": "<span>Following</span> <span>your</span> <span>dreams</span> <span>can</span> <span>be</span> <span>tough,</span> <span>but</span> <span>not</span> <span>following</span> <span>them</span> <span>can</span> <span>leave</span> <span>you</span> <span>regretting</span>"
+          },
+          {
+            "id": 90009,
+            "index": 8,
+            "start": 108,
+            "end": 130,
+            "english": "In 2012, Australian nurse, Bronnie Ware, wrote her bestselling book, The Top Five Regrets of the Dying, after interviewing terminally ill patients about their life regrets.",
+            "chinese": "2012 年，澳大利亚护士 Bronnie Ware 采访临终病人后写下畅销书《临终五大遗憾》。",
+            "ipa": "",
+            "english_html": "<span>In</span> <span>2012,</span> <span>Australian</span> <span>nurse,</span> <span>Bronnie</span> <span>Ware,</span> <span>wrote</span> <span>her</span> <span>bestselling</span> <span>book,</span> <span>The</span> <span>Top</span> <span>Five</span> <span>Regrets</span> <span>of</span> <span>the</span> <span>Dying,</span>"
+          },
+          {
+            "id": 90010,
+            "index": 9,
+            "start": 130,
+            "end": 148,
+            "english": "So, what do you think their top regret was? Was it: a) I wish I hadn't worked so hard? b) I wish I had followed my dreams? or c) I wish I'd made more money?",
+            "chinese": "你觉得他们最大的遗憾是什么？a) 工作太拼 b) 没追随梦想 c) 没赚够钱？",
+            "ipa": "",
+            "english_html": "<span>So,</span> <span>what</span> <span>do</span> <span>you</span> <span>think</span> <span>their</span> <span>top</span> <span>regret</span> <span>was?</span>"
+          },
+          {
+            "id": 90011,
+            "index": 10,
+            "start": 148,
+            "end": 168,
+            "english": "The first dreamer we're going to meet lives in Riverside, a peace-loving community in New Zealand where everyone shares everything.",
+            "chinese": "第一位追梦者住在 Riverside——新西兰一个共享一切的和平社区。",
+            "ipa": "",
+            "english_html": "<span>The</span> <span>first</span> <span>dreamer</span> <span>we're</span> <span>going</span> <span>to</span> <span>meet</span> <span>lives</span> <span>in</span> <span>Riverside,</span> <span>a</span> <span>peace-loving</span> <span>community</span>"
+          },
+          {
+            "id": 90012,
+            "index": 11,
+            "start": 168,
+            "end": 195,
+            "english": "What I think I always believed in is that the sharing of resources can provide a group of people with quite a great advantage, but it doesn't matter how many hours you work or what work you do, everyone is getting the same amount.",
+            "chinese": "我一直相信，共享资源能给一群人很大优势，无论干多少活、干什么活，收入都一样。",
+            "ipa": "",
+            "english_html": "<span>What</span> <span>I</span> <span>think</span> <span>I</span> <span>always</span> <span>believed</span> <span>in</span> <span>is</span> <span>that</span> <span>the</span> <span>sharing</span> <span>of</span> <span>resources</span>"
+          },
+          {
+            "id": 90013,
+            "index": 12,
+            "start": 195,
+            "end": 215,
+            "english": "And that is something that many people outside of Riverside struggle with, and where we're often getting this 'communism' label attached to us, because it seems so outlandish for people.",
+            "chinese": "很多外人难以接受这一点，还常给我们贴上「共产主义」标签，因为这想法在他们看来太 outlandish（离奇）。",
+            "ipa": "",
+            "english_html": "<span>And</span> <span>that</span> <span>is</span> <span>something</span> <span>that</span> <span>many</span> <span>people</span> <span>outside</span> <span>of</span> <span>Riverside</span> <span>struggle</span> <span>with,</span>"
+          },
+          {
+            "id": 90014,
+            "index": 13,
+            "start": 215,
+            "end": 228,
+            "english": "If you struggle with an idea, you find it difficult to accept or think about it. Daisy also says some local people call Riverside outlandish – strange and unusual.",
+            "chinese": "struggle with 指难以接受某观念；outlandish 意为古怪、离奇。",
+            "ipa": "",
+            "english_html": "<span>If</span> <span>you</span> <span>struggle</span> <span>with</span> <span>an</span> <span>idea,</span> <span>you</span> <span>find</span> <span>it</span> <span>difficult</span> <span>to</span> <span>accept</span>"
+          },
+          {
+            "id": 90015,
+            "index": 14,
+            "start": 228,
+            "end": 252,
+            "english": "Our second group of dreamers are a family - the Zapps. In 2000, childhood sweethearts, Herman and Candelaria Zapp, bought a vintage car and set off from Argentina to travel around the world.",
+            "chinese": "第二组追梦者是 Zapp 一家。2000 年，Herman 和 Candelaria 买辆老爷车，从阿根廷出发环游世界。",
+            "ipa": "",
+            "english_html": "<span>Our</span> <span>second</span> <span>group</span> <span>of</span> <span>dreamers</span> <span>are</span> <span>a</span> <span>family</span> <span>-</span> <span>the</span> <span>Zapps.</span>"
+          },
+          {
+            "id": 90016,
+            "index": 15,
+            "start": 252,
+            "end": 278,
+            "english": "I am so happy with the Herman there is now, that I know now – not the one who wanted to conquer the world, but the one who was conquered by the world.",
+            "chinese": "我很满意现在的自己——不再是想征服世界的人，而是被世界改变的人。",
+            "ipa": "",
+            "english_html": "<span>I</span> <span>am</span> <span>so</span> <span>happy</span> <span>with</span> <span>the</span> <span>Herman</span> <span>there</span> <span>is</span> <span>now,</span> <span>that</span> <span>I</span> <span>know</span> <span>now</span>"
+          },
+          {
+            "id": 90017,
+            "index": 16,
+            "start": 278,
+            "end": 302,
+            "english": "I learn so much from people, and it's amazing how the more you meet people, the more you know stories, how much more humble you become because you notice that you are a beautiful, tiny piece of sand.",
+            "chinese": "我从人们身上学到很多，见的人越多、听的故事越多，就越 humble（谦逊），意识到自己只是沙粒般微小却重要的一部分。",
+            "ipa": "",
+            "english_html": "<span>I</span> <span>learn</span> <span>so</span> <span>much</span> <span>from</span> <span>people,</span> <span>and</span> <span>it's</span> <span>amazing</span> <span>how</span> <span>the</span> <span>more</span> <span>you</span> <span>meet</span> <span>people,</span>"
+          },
+          {
+            "id": 90018,
+            "index": 17,
+            "start": 302,
+            "end": 318,
+            "english": "I guessed it was b) not following your dreams. Which was the right answer! Not having the courage to follow your dreams was listed as the top life regret.",
+            "chinese": "我猜是 b) 没追随梦想——答对了！「没有勇气追梦」被列为第一大人生遗憾。",
+            "ipa": "",
+            "english_html": "<span>I</span> <span>guessed</span> <span>it</span> <span>was</span> <span>b)</span> <span>not</span> <span>following</span> <span>your</span> <span>dreams.</span> <span>Which</span> <span>was</span> <span>the</span> <span>right</span> <span>answer!</span>"
+          },
+          {
+            "id": 90019,
+            "index": 18,
+            "start": 318,
+            "end": 338,
+            "english": "OK, let's recap the vocabulary from this programme, starting with 'utopia' – a perfect world where everyone is happy.",
+            "chinese": "来复习词汇：utopia——人人幸福的理想世界。",
+            "ipa": "",
+            "english_html": "<span>OK,</span> <span>let's</span> <span>recap</span> <span>the</span> <span>vocabulary</span> <span>from</span> <span>this</span> <span>programme,</span> <span>starting</span> <span>with</span> <span>'utopia'</span>"
+          },
+          {
+            "id": 90020,
+            "index": 19,
+            "start": 338,
+            "end": 358,
+            "english": "If you 'struggle with an idea', you find it difficult to accept. The adjective, outlandish, means strange and unusual. 'To conquer' something means to control it by force.",
+            "chinese": "struggle with 指难以接受；outlandish 指离奇；conquer 指用武力控制、征服。",
+            "ipa": "",
+            "english_html": "<span>If</span> <span>you</span> <span>'struggle</span> <span>with</span> <span>an</span> <span>idea',</span> <span>you</span> <span>find</span> <span>it</span> <span>difficult</span> <span>to</span> <span>accept.</span>"
+          },
+          {
+            "id": 90021,
+            "index": 20,
+            "start": 358,
+            "end": 372,
+            "english": "Someone who is 'humble' is not proud or arrogant. And finally, the phrase 'a grain of sand' describes something which is both insignificant yet somehow important.",
+            "chinese": "humble 指不骄傲、不傲慢；a grain of sand 指渺小却重要的一部分。",
+            "ipa": "",
+            "english_html": "<span>Someone</span> <span>who</span> <span>is</span> <span>'humble'</span> <span>is</span> <span>not</span> <span>proud</span> <span>or</span> <span>arrogant.</span>"
+          },
+          {
+            "id": 90022,
+            "index": 21,
+            "start": 372,
+            "end": 379,
+            "english": "Once again, our six minutes are up. Bye for now! Goodbye!",
+            "chinese": "又到了六分钟，再见！",
+            "ipa": "",
+            "english_html": "<span>Once</span> <span>again,</span> <span>our</span> <span>six</span> <span>minutes</span> <span>are</span> <span>up.</span> <span>Bye</span> <span>for</span> <span>now!</span> <span>Goodbye!</span>"
+          }
+        ]
+      },
+      "total_episodes": 191
+    }
+  ]
+}

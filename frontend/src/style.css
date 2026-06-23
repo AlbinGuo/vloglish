@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+:root {
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  color: #111;
+  background: #fafafa;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+#app {
+  min-height: 100dvh;
+}
+
+/* 字幕 token 样式（对齐 teco-lab.com） */
+.subtitle-english span {
+  cursor: pointer;
+  border-radius: 0.125rem;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.subtitle-english span:hover {
+  background-color: rgb(0 0 0 / 0.06);
+}
+
+.subtitle-english--active span:hover {
+  background-color: rgb(255 255 255 / 0.15);
+}
+
+.subtitle-english span.highlight {
+  text-decoration-line: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+}
+
+.subtitle-english span.highlight-a {
+  text-decoration-color: #f59e0b;
+  color: #b45309;
+}
+
+.subtitle-english span.highlight-d {
+  text-decoration-color: #8b5cf6;
+  color: #6d28d9;
+}
+
+.subtitle-english span.highlight-i {
+  text-decoration-color: #06b6d4;
+  color: #0e7490;
+}
+
+.subtitle-english span.highlight-l {
+  text-decoration-color: #ec4899;
+  color: #be185d;
+}
+
+.subtitle-english span.highlight-c {
+  text-decoration-color: #10b981;
+  color: #047857;
+}
+
+.subtitle-english--active span.highlight-a,
+.subtitle-english--active span.highlight-d,
+.subtitle-english--active span.highlight-i,
+.subtitle-english--active span.highlight-l,
+.subtitle-english--active span.highlight-c {
+  color: #fde68a;
+  text-decoration-color: #fbbf24;
+}
+
+.subtitle-english span.token-clicked {
+  background-color: rgb(245 158 11 / 0.2);
+}
+
+.subtitle-english--active span.token-clicked {
+  background-color: rgb(255 255 255 / 0.2);
+}
+
+.subtitle-english span.text-transparent {
+  color: transparent !important;
+  text-decoration-color: rgb(0 0 0 / 0.2);
+}
+
+.subtitle-english--active span.text-transparent {
+  text-decoration-color: rgb(255 255 255 / 0.35);
+}
+
+/* 短语 token：整段不换行（pid） */
+.subtitle-english span.phrase-token,
+.subtitle-english span[pid] {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: baseline;
+}
+
+/* IPA 音标行 */
+.subtitle-ipa {
+  font-family: 'Times New Roman', Times, 'Noto Serif', serif;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+.subtitle-english--active + .subtitle-chinese,
+.subtitle-ipa:has(+ .subtitle-english.subtitle-english--active) {
+  color: inherit;
+}

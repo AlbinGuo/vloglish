@@ -1,0 +1,63 @@
+# TEco Lab 复刻项目
+
+基于 [TEco Lab](https://www.teco-lab.com) 的分析与复刻实现。
+
+## 文档
+
+- [全面分析](./docs/ANALYSIS.md)
+
+## 快速开始
+
+### 1. 后端（FastAPI + SQLite）
+
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+pip install -r requirements.txt
+python seed.py                  # 导入样本数据
+python seed.py --fetch          # 可选：从线上下载其余剧集详情
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+或使用 `scripts\run-backend.bat`
+
+### 2. 前端
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+API 默认代理到 `http://127.0.0.1:8000`（可在 `VITE_API_PROXY` 环境变量中修改）。
+
+## 功能进度
+
+### Phase 1 — 播放器增强 ✅
+- 单句循环（次数 / 无限 / 句末暂停）
+- A-B 区间循环
+- 键盘快捷键（空格、方向键、L/R、[/]、?）
+
+### Phase 2 — FastAPI 后端 ✅
+- Demo 体验码验证（ALICE）
+- 剧集列表 / 详情 / 词条 API
+- SQLite 种子数据
+
+### Phase 3 — 首页目录 ✅
+- `/english` 语料目录
+- 难度 / 口音 / 性别 / 主题 / 排序筛选
+- 分页
+
+## 路由
+
+| 路径 | 说明 |
+|------|------|
+| `/english` | 语料目录 |
+| `/english/episode/:id` | 学习页 |
+| `/demo` | 体验码 + 试用列表 |
+| `/english/demo/:id` | 试用学习页 |
+
+## 体验码
+
+默认 `ALICE`
