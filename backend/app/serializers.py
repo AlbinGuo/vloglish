@@ -15,8 +15,10 @@ def tags_list(episode: Episode) -> list[dict]:
     return [{"id": t.id, "name": t.name} for t in episode.tags]
 
 
-def episode_summary(episode: Episode) -> dict:
+def episode_summary(episode: Episode, *, is_favorite: bool = False, is_learned: bool = False) -> dict:
+    created_at = episode.created_at.isoformat() + "Z" if episode.created_at else ""
     return {
+        "index": episode.index,
         "video_id": episode.video_id,
         "short_title": episode.short_title,
         "summary": episode.summary,
@@ -28,8 +30,9 @@ def episode_summary(episode: Episode) -> dict:
         "cover": episode.cover,
         "author": author_dict(episode.author),
         "tags": tags_list(episode),
-        "is_learned": False,
-        "is_favorite": False,
+        "created_at": created_at,
+        "is_learned": is_learned,
+        "is_favorite": is_favorite,
     }
 
 

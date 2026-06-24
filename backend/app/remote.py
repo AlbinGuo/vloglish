@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 import uuid
 import http.cookiejar
@@ -10,6 +11,8 @@ import urllib.request
 
 BASE_URL = "https://www.teco-lab.com"
 DEMO_CODE = "ALICE"
+
+logger = logging.getLogger(__name__)
 
 
 class RemoteClient:
@@ -46,6 +49,9 @@ class RemoteClient:
                 return e.code, json.loads(raw)
             except json.JSONDecodeError:
                 return e.code, raw
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
+            logger.warning("Remote request failed %s %s: %s", method, path, e)
+            return 0, {"message": str(e)}
 
     def ensure_demo_session(self) -> bool:
         if self._verified:
@@ -58,6 +64,7 @@ class RemoteClient:
         if status == 200 and isinstance(data, dict) and data.get("success"):
             self._verified = True
             return True
+        logger.warning("Demo session verify failed: status=%s data=%s", status, data)
         return False
 
 
@@ -77,6 +84,7 @@ def remote_lookup(token_id: int, token_type: int) -> dict | None:
         return None
     status, data = client.request("GET", f"/api/lookup/?id={token_id}&type={token_type}")
     if status != 200 or not isinstance(data, dict) or not data.get("headword"):
+        logger.warning("Remote lookup failed id=%s type=%s status=%s", token_id, token_type, status)
         return None
     return data
 
@@ -87,5 +95,6 @@ def remote_entry_detail(entry_id: int) -> dict | None:
         return None
     status, data = client.request("GET", f"/api/entry-detail/?entry_id={entry_id}")
     if status != 200 or not isinstance(data, dict) or not data.get("headword"):
+        logger.warning("Remote entry detail failed entry_id=%s status=%s", entry_id, status)
         return None
     return data

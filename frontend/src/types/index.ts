@@ -11,6 +11,7 @@ export interface Tag {
 }
 
 export interface EpisodeSummary {
+  index: number
   video_id: string
   short_title: string
   summary: string
@@ -21,6 +22,7 @@ export interface EpisodeSummary {
   cover: string
   author: Author
   tags: Tag[]
+  created_at?: string
   is_learned?: boolean
   is_favorite?: boolean
 }

@@ -321,3 +321,145 @@ html.highlight-style-background .subtitle-panel .subtitle-english--active span.h
 html.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-f {
   color: #fca5a5;
 }
+
+/* 浅色聚焦区（视频下方当前句 + 右侧动态模式）：统一高亮，覆盖 subtitle-panel / --active */
+.subtitle-focus-light .subtitle-english span.highlight {
+  font-weight: 600;
+}
+
+.subtitle-focus-light .subtitle-english span.highlight-a {
+  color: #b45309;
+  text-decoration-color: #f59e0b;
+}
+
+.subtitle-focus-light .subtitle-english span.highlight-d {
+  color: #6d28d9;
+  text-decoration-color: #8b5cf6;
+}
+
+.subtitle-focus-light .subtitle-english span.highlight-i {
+  color: #0e7490;
+  text-decoration-color: #06b6d4;
+}
+
+.subtitle-focus-light .subtitle-english span.highlight-l {
+  color: #be185d;
+  text-decoration-color: #ec4899;
+}
+
+.subtitle-focus-light .subtitle-english span.highlight-c {
+  color: #047857;
+  text-decoration-color: #10b981;
+}
+
+.subtitle-focus-light .subtitle-english span.highlight-f {
+  color: #b91c1c;
+  text-decoration-color: #ef4444;
+}
+
+html.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-a {
+  background-color: rgb(254 243 199);
+  color: #b45309;
+}
+
+html.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-d {
+  background-color: rgb(237 233 254);
+  color: #6d28d9;
+}
+
+html.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-i {
+  background-color: rgb(207 250 254);
+  color: #0e7490;
+}
+
+html.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-l {
+  background-color: rgb(252 231 243);
+  color: #be185d;
+}
+
+html.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-c {
+  background-color: rgb(209 250 229);
+  color: #047857;
+}
+
+html.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-f {
+  background-color: rgb(254 226 226);
+  color: #b91c1c;
+}
+
+html.highlight-style-background .subtitle-focus-light .subtitle-english span.text-transparent {
+  text-decoration-line: none;
+  background-color: rgb(0 0 0 / 0.06);
+}
+
+.subtitle-panel .subtitle-focus-light .subtitle-english span.highlight-a,
+.subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-a {
+  color: #b45309;
+  text-decoration-color: #f59e0b;
+}
+
+.subtitle-panel .subtitle-focus-light .subtitle-english span.highlight-d,
+.subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-d {
+  color: #6d28d9;
+  text-decoration-color: #8b5cf6;
+}
+
+.subtitle-panel .subtitle-focus-light .subtitle-english span.highlight-i,
+.subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-i {
+  color: #0e7490;
+  text-decoration-color: #06b6d4;
+}
+
+.subtitle-panel .subtitle-focus-light .subtitle-english span.highlight-l,
+.subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-l {
+  color: #be185d;
+  text-decoration-color: #ec4899;
+}
+
+.subtitle-panel .subtitle-focus-light .subtitle-english span.highlight-c,
+.subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-c {
+  color: #047857;
+  text-decoration-color: #10b981;
+}
+
+.subtitle-panel .subtitle-focus-light .subtitle-english span.highlight-f,
+.subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-f {
+  color: #b91c1c;
+  text-decoration-color: #ef4444;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english span.highlight-a,
+html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-a {
+  background-color: rgb(254 243 199);
+  color: #b45309;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english span.highlight-d,
+html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-d {
+  background-color: rgb(237 233 254);
+  color: #6d28d9;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english span.highlight-i,
+html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-i {
+  background-color: rgb(207 250 254);
+  color: #0e7490;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english span.highlight-l,
+html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-l {
+  background-color: rgb(252 231 243);
+  color: #be185d;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english span.highlight-c,
+html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-c {
+  background-color: rgb(209 250 229);
+  color: #047857;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english span.highlight-f,
+html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-f {
+  background-color: rgb(254 226 226);
+  color: #b91c1c;
+}

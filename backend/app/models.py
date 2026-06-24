@@ -100,6 +100,39 @@ class Entry(Base):
         return json.loads(self.data_json or "{}")
 
 
+class TokenRef(Base):
+    """Legacy: 字幕 token 映射（已由 LookupCache 替代）。"""
+
+    __tablename__ = "token_refs"
+
+    token_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token_type: Mapped[int] = mapped_column(Integer, primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
+
+
+class LookupCache(Base):
+    """DeepSeek 查词结果缓存。"""
+
+    __tablename__ = "lookup_cache"
+
+    cache_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    word: Mapped[str] = mapped_column(String(512))
+    token_type: Mapped[int] = mapped_column(Integer)
+    context: Mapped[str] = mapped_column(Text, default="")
+    entry_id: Mapped[int] = mapped_column(Integer, index=True)
+    response_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class EpisodeFavorite(Base):
+    __tablename__ = "episode_favorites"
+
+    device_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class DemoCode(Base):
     __tablename__ = "demo_codes"
 

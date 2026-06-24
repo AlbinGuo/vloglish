@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
+from ..deps import get_device_id
+from ..favorites import favorite_video_ids
 from ..models import DemoCode, Episode, Entry
 from ..schemas import DemoVerifyIn, DemoVerifyOut
 from ..serializers import episode_summary, entry_detail
@@ -27,7 +29,8 @@ def verify_code(body: DemoVerifyIn, db: Session = Depends(get_db)):
 
 
 @router.get("/get-episodes/")
-def get_demo_episodes(db: Session = Depends(get_db)):
+def get_demo_episodes(db: Session = Depends(get_db), device_id: str = Depends(get_device_id)):
+    fav_ids = favorite_video_ids(db, device_id)
     demo = (
         db.query(DemoCode)
         .options(
@@ -47,4 +50,4 @@ def get_demo_episodes(db: Session = Depends(get_db)):
             .order_by(Episode.index.desc())
             .all()
         )
-    return [episode_summary(ep) for ep in episodes]
+    return [episode_summary(ep, is_favorite=ep.video_id in fav_ids) for ep in episodes]

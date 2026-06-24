@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { getEpisodeDetail, getEntryDetail, lookupToken } from '@/api/demo'
+import { getEpisodeDetail, lookupWord } from '@/api/demo'
 import type { EntryDetail, EpisodeDetail } from '@/types'
 import EntryCard from '@/components/EntryCard.vue'
 import PlayerControls from '@/components/PlayerControls.vue'
@@ -147,6 +147,16 @@ function scrollCurrentIntoView(behavior: ScrollBehavior = 'smooth') {
   container.scrollTo({ top: Math.max(0, top), behavior })
 }
 
+function resolveSentenceContext(target: HTMLElement): string {
+  const row = target.closest('[data-sub-index]')
+  if (row) {
+    const idx = parseInt(row.getAttribute('data-sub-index') ?? '', 10)
+    const sub = sortedSubs.value[idx]
+    if (sub) return sub.english
+  }
+  return displaySub.value?.english ?? currentSub.value?.english ?? ''
+}
+
 async function onSubtitleClick(e: MouseEvent) {
   const target = (e.target as HTMLElement).closest('span')
   if (!target) return
@@ -154,22 +164,21 @@ async function onSubtitleClick(e: MouseEvent) {
   const pid = target.getAttribute('pid')
   if (!tid && !pid) return
 
+  const word = target.textContent?.trim() ?? ''
+  if (!word) return
+
   showEntryPanel.value = true
   entryLoading.value = true
   entryError.value = ''
   selectedEntry.value = null
 
-  const id = parseInt(tid ?? pid!, 10)
   const type = pid ? 2 : 1
+  const context = resolveSentenceContext(target)
   try {
-    try {
-      selectedEntry.value = await lookupToken(id, type as 1 | 2)
-    } catch {
-      selectedEntry.value = await getEntryDetail(id)
-    }
+    selectedEntry.value = await lookupWord(word, type as 1 | 2, context)
     target.classList.add('highlight', 'token-clicked')
   } catch {
-    entryError.value = '词条加载失败，请稍后重试'
+    entryError.value = '词条加载失败，请确认后端已启动且 DeepSeek API 配置正确'
   } finally {
     entryLoading.value = false
   }
@@ -288,7 +297,7 @@ function subtitleRowClass(index: number) {
         <!-- 动态模式 -->
         <div
           v-if="modeIsDynamicFocus(subtitleMode) && currentSub"
-          class="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-center p-6 sm:p-10"
+          class="subtitle-focus-light flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-center p-6 sm:p-10"
           :class="subtitleAlign === 'left' ? 'items-start text-left' : 'items-center text-center'"
           @click="currentSub && player.seekTo(currentSub)"
         >
@@ -296,7 +305,7 @@ function subtitleRowClass(index: number) {
             :english-html="renderHtml(currentSub.english_html)"
             :chinese="currentSub.chinese"
             :ipa="currentSub.ipa"
-            :active="true"
+            :active="false"
             :large="true"
             :align="subtitleAlign"
             :chinese-focus="isChineseOnly"

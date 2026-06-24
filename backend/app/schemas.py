@@ -14,6 +14,7 @@ class TagOut(BaseModel):
 
 
 class EpisodeSummaryOut(BaseModel):
+    index: int
     video_id: str
     short_title: str
     summary: str
@@ -24,6 +25,7 @@ class EpisodeSummaryOut(BaseModel):
     cover: str
     author: AuthorOut
     tags: list[TagOut]
+    created_at: str = ""
     is_learned: bool = False
     is_favorite: bool = False
     remark: str = ""

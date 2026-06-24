@@ -6,9 +6,14 @@ export interface EpisodeListParams {
   page_size?: number
   stars?: number
   accent?: string
+  accents?: string
   gender?: string
   tag?: number
+  tags?: string
+  date?: string
+  status?: 'all' | 'learned' | 'unlearned' | 'favorite'
   ordering?: string
+  search?: string
 }
 
 export interface EpisodeListResponse {
@@ -38,6 +43,19 @@ export async function getEpisodeDetail(videoId: string) {
   return data
 }
 
+export async function setEpisodeFavorite(videoId: string, favorite: boolean) {
+  if (favorite) {
+    const { data } = await api.post<{ success: boolean; is_favorite: boolean }>(
+      `/api/episodes/${videoId}/favorite/`,
+    )
+    return data
+  }
+  const { data } = await api.delete<{ success: boolean; is_favorite: boolean }>(
+    `/api/episodes/${videoId}/favorite/`,
+  )
+  return data
+}
+
 export async function getEntryDetail(entryId: number) {
   const { data } = await api.get<EntryDetail>('/api/entry-detail/', {
     params: { entry_id: entryId },
@@ -45,9 +63,14 @@ export async function getEntryDetail(entryId: number) {
   return data
 }
 
-export async function lookupToken(id: number, type: 1 | 2) {
-  const { data } = await api.get<EntryDetail & { eid: number }>('/api/lookup/', {
-    params: { id, type },
+export async function lookupWord(word: string, type: 1 | 2, context: string) {
+  const { data } = await api.get<EntryDetail>('/api/lookup/', {
+    params: { word, type, context },
   })
   return data
+}
+
+/** @deprecated 使用 lookupWord */
+export async function lookupToken(id: number, type: 1 | 2) {
+  return lookupWord(String(id), type, '')
 }

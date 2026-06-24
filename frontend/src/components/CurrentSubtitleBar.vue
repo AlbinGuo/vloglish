@@ -61,7 +61,7 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
     </div>
 
     <div
-      class="flex flex-1 min-h-0 flex-col justify-center items-center text-center px-4 py-4 sm:px-5 sm:py-5 overflow-y-auto"
+      class="subtitle-focus-light flex flex-1 min-h-0 flex-col justify-center items-center text-center px-4 py-4 sm:px-5 sm:py-5 overflow-y-auto"
     >
       <SubtitleBlock
         class="w-full"

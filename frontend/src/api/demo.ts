@@ -17,4 +17,4 @@ export async function getDemoEpisodes() {
   return data
 }
 
-export { getEpisodeDetail, getEntryDetail, lookupToken } from './episodes'
+export { getEpisodeDetail, getEntryDetail, lookupWord } from './episodes'
