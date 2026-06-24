@@ -7,10 +7,25 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .database import Base, engine
-from .routers import demo, entries, episodes
+from sqlalchemy import inspect, text
 
-app = FastAPI(title="TEco Lab Clone API", version="0.1.0")
+from .database import Base, SessionLocal, engine
+from .models import ActivationCode
+from .schemas import AuthTokensOut
+from .routers import auth, demo, entries, episodes
+from .routers.admin import activation_codes as admin_activation_codes
+from .routers.admin import auth as admin_auth
+from .routers.admin import authors as admin_authors
+from .routers.admin import dashboard as admin_dashboard
+from .routers.admin import demo_codes as admin_demo_codes
+from .routers.admin import episode_import as admin_episode_import
+from .routers.admin import episode_tools as admin_episode_tools
+from .routers.admin import episodes as admin_episodes
+from .routers.admin import tags as admin_tags
+from .routers.admin import users as admin_users
+from .services.admin_bootstrap import ensure_admin_user
+
+app = FastAPI(title="Vloglish API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,9 +35,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(demo.router)
 app.include_router(episodes.router)
 app.include_router(entries.router)
+app.include_router(admin_auth.router)
+app.include_router(admin_dashboard.router)
+app.include_router(admin_activation_codes.router)
+app.include_router(admin_users.router)
+app.include_router(admin_episodes.router)
+app.include_router(admin_episode_tools.router)
+app.include_router(admin_episode_import.router)
+app.include_router(admin_demo_codes.router)
+app.include_router(admin_authors.router)
+app.include_router(admin_tags.router)
+app.add_api_route(
+    "/api/token/refresh/",
+    auth.refresh_token,
+    methods=["POST"],
+    tags=["auth"],
+    response_model=AuthTokensOut,
+)
 
 
 @app.exception_handler(Exception)
@@ -41,3 +74,29 @@ def health():
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
+    _migrate_schema()
+    db = SessionLocal()
+    try:
+        if not db.query(ActivationCode).filter(ActivationCode.code == "DEV1").first():
+            db.add(ActivationCode(code="DEV1"))
+            db.commit()
+        ensure_admin_user(db)
+    finally:
+        db.close()
+
+
+def _migrate_schema():
+    insp = inspect(engine)
+    if "users" not in insp.get_table_names():
+        return
+    cols = {c["name"] for c in insp.get_columns("users")}
+    if "is_staff" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN is_staff BOOLEAN NOT NULL DEFAULT 0"))
+    if "episodes" in insp.get_table_names():
+        ep_cols = {c["name"] for c in insp.get_columns("episodes")}
+        if "status" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE episodes ADD COLUMN status VARCHAR(16) NOT NULL DEFAULT 'published'")
+                )

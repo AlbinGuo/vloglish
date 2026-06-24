@@ -35,7 +35,7 @@ function openEpisode(videoId: string) {
     <div v-if="!store.verified" class="flex-1 flex items-center justify-center p-6">
       <div class="w-full max-w-sm space-y-6 text-center">
         <div>
-          <p class="text-4xl font-semibold border-b border-black/10 pb-2 mb-2">TEco Lab</p>
+          <p class="text-4xl font-semibold border-b border-black/10 pb-2 mb-2">Vloglish</p>
           <p class="text-lg text-neutral-600">请输入体验码</p>
         </div>
         <form class="space-y-4" @submit.prevent="submit">
@@ -61,8 +61,8 @@ function openEpisode(videoId: string) {
     <div v-else class="flex-1 p-6 sm:p-8 max-w-5xl mx-auto w-full">
       <div class="flex justify-between items-center mb-8">
         <div>
-          <p class="text-2xl font-semibold">TEco Lab</p>
-          <p class="text-sm text-neutral-500">真实语料学英语 · 试用</p>
+          <p class="text-2xl font-semibold">Vloglish</p>
+          <p class="text-sm text-neutral-500">Real vlogs · Real English · 试用</p>
         </div>
         <h2 class="text-2xl font-semibold">试看内容</h2>
       </div>

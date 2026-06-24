@@ -1,2 +1,2 @@
-"""TEco Lab clone backend."""
+"""Vloglish backend."""
 __version__ = "0.1.0"

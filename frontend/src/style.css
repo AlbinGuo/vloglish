@@ -15,6 +15,19 @@ body {
   min-height: 100dvh;
 }
 
+.page-container {
+  width: 100%;
+  max-width: 1600px;
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+@media (min-width: 640px) {
+  .page-container {
+    padding-inline: 1.5rem;
+  }
+}
+
 /* 字幕 token 样式（对齐 teco-lab.com） */
 .subtitle-english span {
   cursor: pointer;

@@ -3,12 +3,14 @@ import { toRef } from 'vue'
 import { RouterLink } from 'vue-router'
 import { accentIconFor } from '@/constants/accentOptions'
 import { useEpisodeFavorite } from '@/composables/useEpisodeFavorite'
+import { useAuthStore } from '@/stores/auth'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import type { EpisodeSummary } from '@/types'
 
 const props = defineProps<{ episode: EpisodeSummary; to: string }>()
 
 const episodeRef = toRef(props, 'episode')
+const auth = useAuthStore()
 const { favorited, loading: favoriteLoading, toggle: toggleFavorite } = useEpisodeFavorite(episodeRef)
 
 const accentIcon = accentIconFor(props.episode.author.accent)
@@ -53,6 +55,7 @@ function formatDate(iso?: string) {
           {{ formatDuration(episode.clip_length) }}
         </span>
         <button
+          v-if="auth.isMember"
           type="button"
           class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/40 backdrop-blur flex items-center justify-center hover:bg-black/55 transition z-20 disabled:opacity-60"
           :disabled="favoriteLoading"

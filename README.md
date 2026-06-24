@@ -1,10 +1,10 @@
-# TEco Lab 复刻项目
+# Vloglish
 
-基于 [TEco Lab](https://www.teco-lab.com) 的分析与复刻实现。
+**Real vlogs · Real English** — 真实 YouTube Vlog 语料 + 沉浸式精听/跟读学习平台。
 
 ## 文档
 
-- [全面分析](./docs/ANALYSIS.md)
+- [产品与技术指南](./docs/ANALYSIS.md)
 
 ## 快速开始
 
@@ -16,7 +16,7 @@ python -m venv .venv
 .venv\Scripts\activate          # Windows
 pip install -r requirements.txt
 python seed.py                  # 导入样本数据
-python seed.py --fetch          # 可选：从线上下载其余剧集详情
+python seed.py --fetch          # 可选：从参考站点下载其余剧集详情
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -49,6 +49,10 @@ API 默认代理到 `http://127.0.0.1:8000`（可在 `VITE_API_PROXY` 环境变�
 - 难度 / 口音 / 性别 / 主题 / 排序筛选
 - 分页
 
+### 管理后台 `/gnadmin` ✅
+- 管理员登录、仪表盘、用户、激活码
+- 剧集与字幕管理、批量导入导出、体验码配置
+
 ## 路由
 
 | 路径 | 说明 |
@@ -57,6 +61,7 @@ API 默认代理到 `http://127.0.0.1:8000`（可在 `VITE_API_PROXY` 环境变�
 | `/english/episode/:id` | 学习页 |
 | `/demo` | 体验码 + 试用列表 |
 | `/english/demo/:id` | 试用学习页 |
+| `/gnadmin` | 管理后台 |
 
 ## 体验码
 

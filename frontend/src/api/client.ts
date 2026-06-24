@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { clearTokens, getAccessToken, getRefreshToken } from '@/api/tokens'
 
 const DEVICE_KEY = 'device_id'
 const DEMO_CODE_KEY = 'demo_code'
@@ -39,8 +40,60 @@ api.interceptors.request.use((config) => {
   config.headers['X-Device-Id'] = getDeviceId()
   config.headers['X-Timestamp'] = String(Math.floor(Date.now() / 1000))
   config.headers['X-Nonce'] = crypto.randomUUID()
+
+  const token = getAccessToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
   return config
 })
+
+let refreshPromise: Promise<string | null> | null = null
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const original = error.config
+    if (!original || error.response?.status !== 401 || original._authRetry) {
+      return Promise.reject(error)
+    }
+
+    const url = String(original.url ?? '')
+    if (url.includes('/api/auth/login') || url.includes('/api/auth/register') || url.includes('/api/token/refresh') || url.includes('/api/auth/forgot-password') || url.includes('/api/auth/reset-password')) {
+      return Promise.reject(error)
+    }
+
+    const refresh = getRefreshToken()
+    if (!refresh) {
+      clearTokens()
+      const { useAuthStore } = await import('@/stores/auth')
+      useAuthStore().clearSession()
+      return Promise.reject(error)
+    }
+
+    if (!refreshPromise) {
+      refreshPromise = import('@/stores/auth')
+        .then(({ useAuthStore }) => useAuthStore().refreshAccess())
+        .catch(async () => {
+          clearTokens()
+          const { useAuthStore } = await import('@/stores/auth')
+          useAuthStore().clearSession()
+          return null
+        })
+        .finally(() => {
+          refreshPromise = null
+        })
+    }
+
+    const newAccess = await refreshPromise
+    if (!newAccess) return Promise.reject(error)
+
+    original._authRetry = true
+    original.headers = original.headers ?? {}
+    original.headers.Authorization = `Bearer ${newAccess}`
+    return api(original)
+  },
+)
 
 export default api
 

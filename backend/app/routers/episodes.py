@@ -6,10 +6,11 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
-from ..deps import get_device_id
+from ..demo_access import can_access_episode, get_episode_limit, user_is_member
+from ..deps import get_current_user_optional, get_device_id
 from ..favorites import favorite_video_ids
 from ..media import find_episode_audio_file, find_episode_video_file
-from ..models import Author, Episode, EpisodeFavorite, Tag
+from ..models import Author, Episode, EpisodeFavorite, Tag, User, UserEpisodeFavorite
 from ..serializers import episode_detail, episode_summary
 
 router = APIRouter(prefix="/api", tags=["episodes"])
@@ -31,9 +32,13 @@ def episode_list(
     search: str | None = None,
     db: Session = Depends(get_db),
     device_id: str = Depends(get_device_id),
+    user: User | None = Depends(get_current_user_optional),
 ):
-    fav_ids = favorite_video_ids(db, device_id)
+    user_id = user.id if user else None
+    fav_ids = favorite_video_ids(db, device_id, user_id)
     q = db.query(Episode).options(joinedload(Episode.author), joinedload(Episode.tags))
+    q = q.filter(Episode.status == "published")
+
     author_joined = False
 
     def ensure_author_join():
@@ -88,11 +93,24 @@ def episode_list(
     }
     q = q.order_by(order_map.get(ordering, Episode.index.desc()))
 
-    total = q.count()
-    items = q.offset((page - 1) * page_size).limit(page_size).all()
+    limit = get_episode_limit(user)
+    if limit is not None:
+        matched = q.limit(limit).all()
+        total = len(matched)
+        start = (page - 1) * page_size
+        items = matched[start : start + page_size]
+    else:
+        total = q.count()
+        items = q.offset((page - 1) * page_size).limit(page_size).all()
     return {
         "count": total,
-        "results": [episode_summary(ep, is_favorite=ep.video_id in fav_ids) for ep in items],
+        "results": [
+            episode_summary(
+                ep,
+                is_favorite=ep.video_id in fav_ids if user_is_member(user) else False,
+            )
+            for ep in items
+        ],
     }
 
 
@@ -101,17 +119,23 @@ def add_episode_favorite(
     video_id: str,
     db: Session = Depends(get_db),
     device_id: str = Depends(get_device_id),
+    user: User | None = Depends(get_current_user_optional),
 ):
-    episode = db.query(Episode).filter(Episode.video_id == video_id).first()
+    episode = db.query(Episode).filter(Episode.video_id == video_id, Episode.status == "published").first()
     if not episode:
         raise HTTPException(status_code=404, detail="Episode not found")
+    if not user_is_member(user):
+        raise HTTPException(status_code=403, detail="需要激活会员")
+    if not can_access_episode(db, episode, user):
+        raise HTTPException(status_code=403, detail="无权访问该内容")
+
     exists = (
-        db.query(EpisodeFavorite)
-        .filter(EpisodeFavorite.device_id == device_id, EpisodeFavorite.episode_id == episode.id)
+        db.query(UserEpisodeFavorite)
+        .filter(UserEpisodeFavorite.user_id == user.id, UserEpisodeFavorite.episode_id == episode.id)
         .first()
     )
     if not exists:
-        db.add(EpisodeFavorite(device_id=device_id, episode_id=episode.id))
+        db.add(UserEpisodeFavorite(user_id=user.id, episode_id=episode.id))
         db.commit()
     return {"success": True, "is_favorite": True}
 
@@ -121,37 +145,57 @@ def remove_episode_favorite(
     video_id: str,
     db: Session = Depends(get_db),
     device_id: str = Depends(get_device_id),
+    user: User | None = Depends(get_current_user_optional),
 ):
-    episode = db.query(Episode).filter(Episode.video_id == video_id).first()
+    episode = db.query(Episode).filter(Episode.video_id == video_id, Episode.status == "published").first()
     if not episode:
         raise HTTPException(status_code=404, detail="Episode not found")
-    db.query(EpisodeFavorite).filter(
-        EpisodeFavorite.device_id == device_id,
-        EpisodeFavorite.episode_id == episode.id,
+    if not user_is_member(user):
+        raise HTTPException(status_code=403, detail="需要激活会员")
+
+    db.query(UserEpisodeFavorite).filter(
+        UserEpisodeFavorite.user_id == user.id,
+        UserEpisodeFavorite.episode_id == episode.id,
     ).delete()
     db.commit()
     return {"success": True, "is_favorite": False}
 
 
 @router.get("/episode/{video_id}/detail/")
-def get_episode_detail(video_id: str, db: Session = Depends(get_db)):
+def get_episode_detail(
+    video_id: str,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user_optional),
+):
     episode = (
         db.query(Episode)
         .options(joinedload(Episode.author), joinedload(Episode.tags), joinedload(Episode.subtitles))
-        .filter(Episode.video_id == video_id)
+        .filter(Episode.video_id == video_id, Episode.status == "published")
         .first()
     )
     if not episode:
         raise HTTPException(status_code=404, detail="Episode not found")
-    total = db.query(Episode).count()
+    if not can_access_episode(db, episode, user):
+        raise HTTPException(status_code=403, detail="需要激活会员")
+
+    total = db.query(Episode).filter(Episode.status == "published").count()
+    if not user_is_member(user):
+        limit = get_episode_limit(user) or 0
+        total = limit
     return episode_detail(episode, total)
 
 
 @router.get("/episode/{video_id}/audio/")
-def get_episode_audio(video_id: str, db: Session = Depends(get_db)):
-    episode = db.query(Episode).filter(Episode.video_id == video_id).first()
+def get_episode_audio(
+    video_id: str,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user_optional),
+):
+    episode = db.query(Episode).filter(Episode.video_id == video_id, Episode.status == "published").first()
     if not episode:
         raise HTTPException(status_code=404, detail="Episode not found")
+    if not can_access_episode(db, episode, user):
+        raise HTTPException(status_code=403, detail="需要激活会员")
 
     found = find_episode_audio_file(video_id)
     if found:
@@ -165,10 +209,16 @@ def get_episode_audio(video_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/episode/{video_id}/video/")
-def get_episode_video(video_id: str, db: Session = Depends(get_db)):
-    episode = db.query(Episode).filter(Episode.video_id == video_id).first()
+def get_episode_video(
+    video_id: str,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user_optional),
+):
+    episode = db.query(Episode).filter(Episode.video_id == video_id, Episode.status == "published").first()
     if not episode:
         raise HTTPException(status_code=404, detail="Episode not found")
+    if not can_access_episode(db, episode, user):
+        raise HTTPException(status_code=403, detail="需要激活会员")
 
     found = find_episode_video_file(video_id)
     if found:
@@ -190,7 +240,6 @@ def episode_tags(db: Session = Depends(get_db)):
 @router.get("/author-accents/")
 def author_accents(db: Session = Depends(get_db)):
     from sqlalchemy import distinct
-    from ..models import Author
 
     rows = db.query(distinct(Author.accent)).filter(Author.accent != "").all()
     return [{"accent": r[0]} for r in rows if r[0]]

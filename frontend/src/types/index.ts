@@ -1,3 +1,11 @@
+export interface User {
+  id: number
+  email: string
+  nickname: string | null
+  phone: string | null
+  is_member: boolean
+}
+
 export interface Author {
   name: string
   gender: 'm' | 'f'

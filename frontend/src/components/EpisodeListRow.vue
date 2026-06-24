@@ -3,6 +3,7 @@ import { toRef } from 'vue'
 import { RouterLink } from 'vue-router'
 import { accentIconFor } from '@/constants/accentOptions'
 import { useEpisodeFavorite } from '@/composables/useEpisodeFavorite'
+import { useAuthStore } from '@/stores/auth'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import type { EpisodeSummary } from '@/types'
 
@@ -13,6 +14,7 @@ const props = defineProps<{
 }>()
 
 const episodeRef = toRef(props, 'episode')
+const auth = useAuthStore()
 const { favorited, loading, toggle } = useEpisodeFavorite(episodeRef)
 
 const accentIcon = accentIconFor(props.episode.author.accent)
@@ -71,7 +73,7 @@ function formatDuration(sec: number) {
       </div>
     </RouterLink>
 
-    <div class="shrink-0 flex items-center pr-3">
+    <div v-if="auth.isMember" class="shrink-0 flex items-center pr-3">
       <button
         type="button"
         class="w-8 h-8 rounded-full border border-black/10 flex items-center justify-center hover:bg-neutral-100 transition disabled:opacity-60"
