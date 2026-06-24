@@ -9,8 +9,17 @@ from ..models import Episode, Subtitle
 from .episode_admin import get_or_create_author, replace_subtitles, resolve_tags, subtitle_stats
 
 
-def _resolve_tags_from_json(db: Session, tags: list[dict]) -> list:
-    names = [t.get("name", "").strip() for t in tags if t.get("name")]
+def _resolve_tags_from_json(db: Session, tags: list) -> list:
+    names: list[str] = []
+    for t in tags:
+        if isinstance(t, str):
+            name = t.strip()
+        elif isinstance(t, dict):
+            name = (t.get("name") or "").strip()
+        else:
+            continue
+        if name:
+            names.append(name)
     return resolve_tags(db, names)
 
 
