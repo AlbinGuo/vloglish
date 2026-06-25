@@ -54,15 +54,15 @@ if (-not $healthy) {
     Write-Error "后端健康检查超时，请执行: docker compose logs backend"
 }
 
-$dbExists = $false
+$dbHasData = $false
 try {
-    docker compose @ComposeArgs exec -T backend test -f /app/backend/data/teco.db | Out-Null
-    $dbExists = $true
+    docker compose @ComposeArgs exec -T backend python -c "from app.database import SessionLocal; from app.models import Episode; db=SessionLocal(); import sys; sys.exit(0 if db.query(Episode).count()>0 else 1); db.close()" | Out-Null
+    $dbHasData = $true
 } catch {
-    $dbExists = $false
+    $dbHasData = $false
 }
 
-if (-not $dbExists) {
+if (-not $dbHasData) {
     Write-Host "==> 初始化数据库..."
     docker compose @ComposeArgs exec -T backend python seed.py
 }

@@ -46,7 +46,16 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
-if ! $COMPOSE --env-file "$ENV_FILE" exec -T backend test -f /app/backend/data/teco.db; then
+if ! $COMPOSE --env-file "$ENV_FILE" exec -T backend python - <<'PY' >/dev/null 2>&1
+from app.database import SessionLocal
+from app.models import Episode
+db = SessionLocal()
+try:
+    raise SystemExit(0 if db.query(Episode).count() > 0 else 1)
+finally:
+    db.close()
+PY
+then
   echo "==> 初始化数据库..."
   $COMPOSE --env-file "$ENV_FILE" exec -T backend python seed.py
 fi

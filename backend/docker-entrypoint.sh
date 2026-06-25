@@ -3,8 +3,21 @@ set -e
 
 cd /app/backend
 
-if [ ! -f data/teco.db ]; then
-  echo "[entrypoint] Database not found, running seed.py..."
+python <<'PY'
+from app.database import SessionLocal
+from app.models import Episode
+
+db = SessionLocal()
+try:
+    if db.query(Episode).count() == 0:
+        raise SystemExit(1)
+except Exception:
+    raise SystemExit(1)
+finally:
+    db.close()
+PY
+if [ $? -ne 0 ]; then
+  echo "[entrypoint] Empty database, running seed.py..."
   python seed.py
 fi
 

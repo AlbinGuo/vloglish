@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 
 from sqlalchemy import inspect, text
 
-from .database import Base, SessionLocal, engine
+from .database import Base, SessionLocal, engine, is_postgresql
 from .models import ActivationCode
 from .schemas import AuthTokensOut
 from .routers import auth, demo, entries, episode_submit, episodes, learning, notifications
@@ -96,13 +96,21 @@ def _migrate_schema():
     insp = inspect(engine)
     if "users" not in insp.get_table_names():
         return
+
+    bool_default = "false" if is_postgresql() else "0"
+    datetime_type = "TIMESTAMP" if is_postgresql() else "DATETIME"
+
     cols = {c["name"] for c in insp.get_columns("users")}
     if "is_staff" not in cols:
         with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE users ADD COLUMN is_staff BOOLEAN NOT NULL DEFAULT 0"))
+            conn.execute(
+                text(f"ALTER TABLE users ADD COLUMN is_staff BOOLEAN NOT NULL DEFAULT {bool_default}")
+            )
     if "session_version" not in cols:
         with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 1"))
+            conn.execute(
+                text("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 1")
+            )
     if "episodes" in insp.get_table_names():
         ep_cols = {c["name"] for c in insp.get_columns("episodes")}
         if "status" not in ep_cols:
@@ -118,7 +126,9 @@ def _migrate_schema():
                 conn.execute(text("ALTER TABLE episodes ADD COLUMN rejection_reason TEXT"))
         if "published_at" not in ep_cols:
             with engine.begin() as conn:
-                conn.execute(text("ALTER TABLE episodes ADD COLUMN published_at DATETIME"))
+                conn.execute(
+                    text(f"ALTER TABLE episodes ADD COLUMN published_at {datetime_type}")
+                )
                 conn.execute(
                     text(
                         "UPDATE episodes SET published_at = created_at "
