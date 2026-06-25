@@ -48,16 +48,16 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
 
 <template>
   <div
-    class="current-subtitle-bar relative flex-1 min-h-0 flex flex-col rounded-2xl border bg-white cursor-pointer shadow-sm transition-shadow hover:shadow-md overflow-hidden"
-    :class="showBarProgress ? 'border-black/8 border-t-0' : 'border-black/8'"
+    class="current-subtitle-bar relative flex-1 min-h-0 flex flex-col rounded-2xl border bg-white dark:bg-neutral-900 dark:border-white/10 cursor-pointer shadow-sm transition-shadow hover:shadow-md overflow-hidden"
+    :class="showBarProgress ? 'border-black/8 border-t-0 dark:border-white/10' : 'border-black/8 dark:border-white/10'"
     @click="$emit('seek')"
   >
     <div
       v-if="showBarProgress"
-      class="sentence-progress-track absolute inset-x-0 top-0 z-10 h-[3px] rounded-t-2xl bg-black/8 pointer-events-none overflow-hidden"
+      class="sentence-progress-track absolute inset-x-0 top-0 z-10 h-[3px] rounded-t-2xl bg-black/8 dark:bg-white/10 pointer-events-none overflow-hidden"
       aria-hidden="true"
     >
-      <div class="sentence-progress-fill h-full w-full bg-neutral-700/70" :style="progressFillStyle" />
+      <div class="sentence-progress-fill h-full w-full bg-neutral-700/70 dark:bg-neutral-300/70" :style="progressFillStyle" />
     </div>
 
     <div
@@ -110,6 +110,10 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
   opacity: 1;
 }
 
+:global(.dark) .current-subtitle-bar :deep(.subtitle-ipa) {
+  color: rgb(163 163 163);
+}
+
 @media (min-width: 640px) {
   .current-subtitle-bar :deep(.subtitle-ipa) {
     font-size: 1.125rem;
@@ -120,5 +124,9 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
   font-size: 1rem;
   color: rgb(38 38 38);
   opacity: 1;
+}
+
+:global(.dark) .current-subtitle-bar :deep(.subtitle-chinese) {
+  color: rgb(212 212 212);
 }
 </style>

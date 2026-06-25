@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import type { usePlayerControls } from '@/composables/usePlayerControls'
+import playIcon from '@/assets/svg/play2.svg'
 
 const props = defineProps<{
   src: string
   poster?: string
   hidden?: boolean
+  autoplay?: boolean
   registerVideo?: (el: HTMLVideoElement | null) => void
   player: ReturnType<typeof usePlayerControls>
 }>()
@@ -27,6 +29,13 @@ function parseYoutubeId(src: string): string | null {
 }
 
 const youtubeId = computed(() => parseYoutubeId(props.src))
+
+const youtubeEmbedSrc = computed(() => {
+  if (!youtubeId.value) return ''
+  const params = new URLSearchParams({ rel: '0' })
+  if (props.autoplay) params.set('autoplay', '1')
+  return `https://www.youtube.com/embed/${youtubeId.value}?${params.toString()}`
+})
 
 watch(videoEl, (el) => {
   if (!youtubeId.value) props.registerVideo?.(el)
@@ -55,6 +64,9 @@ function formatTime(sec: number) {
 function onLoadedMetadata() {
   const v = videoEl.value
   if (v && Number.isFinite(v.duration)) duration.value = v.duration
+  if (props.autoplay && v) {
+    void v.play().catch(() => {})
+  }
 }
 
 function onTimeUpdate() {
@@ -127,7 +139,8 @@ onUnmounted(() => {
   >
     <iframe
       v-if="youtubeId && !hidden"
-      :src="`https://www.youtube.com/embed/${youtubeId}?rel=0`"
+      :key="youtubeEmbedSrc"
+      :src="youtubeEmbedSrc"
       title="YouTube video"
       class="w-full h-full border-0 bg-black"
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -161,19 +174,12 @@ onUnmounted(() => {
           v-if="showCenterPlay"
           class="flex h-full items-center justify-center bg-black/10 pointer-events-none"
         >
-          <svg
-            class="w-16 h-16 sm:w-20 sm:h-20 text-white drop-shadow-md"
-            viewBox="0 0 48 48"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M18 12.5v23L36 24 18 12.5Z"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <img
+            :src="playIcon"
+            alt=""
+            class="w-10 h-10 sm:w-12 sm:h-12 drop-shadow-md pointer-events-none"
+            aria-hidden="true"
+          />
         </div>
       </div>
 

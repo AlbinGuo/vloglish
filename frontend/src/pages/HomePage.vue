@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getRecentEpisodes, type RecentEpisode } from '@/api/learning'
 import { useCatalogViewMode } from '@/composables/useCatalogViewMode'
+import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
 import { CARD_INITIAL_SIZE, LIST_INITIAL_SIZE, useCatalogStore } from '@/stores/catalog'
 import CatalogCalendar from '@/components/catalog/CatalogCalendar.vue'
@@ -123,20 +124,21 @@ watch(
       <section class="flex-1 min-w-0">
         <section
           v-if="auth.isLoggedIn && recentLearning.length"
-          class="mb-5 rounded-xl border border-black/5 bg-white p-4"
+          class="mb-5 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4"
         >
           <div class="flex items-center justify-between mb-3">
             <h2 class="text-sm font-semibold">继续学习</h2>
-            <RouterLink to="/english/learning" class="text-xs text-amber-700 hover:underline">全部统计</RouterLink>
+            <RouterLink to="/english/learning" class="text-xs text-amber-700 dark:text-amber-400 hover:underline">全部统计</RouterLink>
           </div>
           <div class="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
             <RouterLink
               v-for="item in recentLearning"
               :key="item.video_id"
               :to="episodePath(item.video_id)"
-              class="shrink-0 w-40 rounded-lg border border-black/5 overflow-hidden hover:shadow-sm transition"
+              class="shrink-0 w-40 rounded-lg border border-black/5 dark:border-white/10 overflow-hidden hover:shadow-sm transition cursor-pointer"
+              @click="requestEpisodeAutoplay"
             >
-              <div class="relative aspect-video bg-neutral-200">
+              <div class="relative aspect-video bg-neutral-200 dark:bg-neutral-800">
                 <img :src="item.cover" :alt="item.short_title" class="w-full h-full object-cover" loading="lazy" />
                 <span class="absolute bottom-1 right-1 text-[10px] text-white bg-black/60 px-1 rounded">
                   {{ Math.round(item.completion_percent) }}%
@@ -149,7 +151,7 @@ watch(
 
         <div
           v-if="previewBanner"
-          class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex flex-wrap items-center gap-x-2 gap-y-1"
+          class="mb-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-900 dark:text-amber-200 flex flex-wrap items-center gap-x-2 gap-y-1"
         >
           <span>{{ previewBanner.text }}</span>
           <RouterLink v-if="previewBanner.showLogin" to="/login" class="font-medium underline">登录</RouterLink>
@@ -157,7 +159,7 @@ watch(
           <RouterLink v-if="previewBanner.showActivate" to="/activate" class="font-medium underline">激活会员</RouterLink>
         </div>
 
-        <CatalogEpisodeSkeletons v-if="store.loading" :count="skeletonCount" />
+        <CatalogEpisodeSkeletons v-if="store.loading && !store.episodes.length" :count="skeletonCount" />
 
         <template v-else>
           <div v-if="viewMode === 'card'">
@@ -172,7 +174,7 @@ watch(
             </div>
           </div>
 
-          <div v-else class="rounded-xl border border-black/5 overflow-hidden bg-white">
+          <div v-else class="rounded-xl border border-black/5 dark:border-white/10 overflow-hidden bg-white dark:bg-neutral-900">
             <CatalogListToolbar />
             <div v-if="!store.episodes.length" class="text-center py-16 text-neutral-500">没有匹配的内容</div>
             <EpisodeListRow

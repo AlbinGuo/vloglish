@@ -176,7 +176,7 @@ function handleMainAction() {
 
 <template>
   <div
-    class="shrink-0 rounded-xl bg-neutral-200/60 px-2 py-2.5 sm:px-3 select-none text-black/70 cursor-pointer"
+    class="shrink-0 rounded-xl bg-neutral-200/60 dark:bg-neutral-800/80 px-2 py-2.5 sm:px-3 select-none text-black/70 dark:text-neutral-200 cursor-pointer"
   >
     <div class="flex items-end justify-between gap-1 sm:gap-0 max-w-full overflow-x-auto cursor-pointer">
       <!-- 倍速 -->
@@ -201,7 +201,7 @@ function handleMainAction() {
         class="flex flex-col items-center shrink-0 min-w-[3rem] text-xs transition-all active:scale-95 focus:outline-none cursor-pointer"
         @click="toggleHideVideo"
       >
-        <div class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5">
+        <div class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10">
           <svg v-if="videoHidden" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
           </svg>
@@ -219,7 +219,7 @@ function handleMainAction() {
         class="flex flex-col items-center shrink-0 min-w-[3rem] text-xs transition-all active:scale-95 focus:outline-none cursor-pointer"
         @click="toggleFullscreen"
       >
-        <div class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5">
+        <div class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10">
           <svg v-if="isFullscreen" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" />
           </svg>
@@ -236,7 +236,7 @@ function handleMainAction() {
         class="flex flex-col items-center shrink-0 min-w-[3rem] text-xs transition-all active:scale-95 focus:outline-none cursor-pointer"
         @click="toggleIpa"
       >
-        <div class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5">
+        <div class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10">
           <span
             class="font-serif text-xl pb-0.5 w-full h-full flex items-center justify-center rounded-full"
             :class="showIpa ? 'text-orange-500' : 'text-neutral-500'"
@@ -252,7 +252,7 @@ function handleMainAction() {
         title="上一句"
         @click="player.prevSentence()"
       >
-        <svg class="w-8 h-8 text-neutral-800" viewBox="0 0 24 24" fill="currentColor">
+        <svg class="w-8 h-8 text-neutral-800 dark:text-neutral-200" viewBox="0 0 24 24" fill="currentColor">
           <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-4.28 9.22a.75.75 0 0 0 0 1.06l3 3a.75.75 0 1 0 1.06-1.06l-1.72-1.72h5.69a.75.75 0 0 0 0-1.5h-5.69l1.72-1.72a.75.75 0 0 0-1.06-1.06l-3 3Z" />
         </svg>
         <span class="text-[11px] leading-tight mt-0.5">上一句</span>
@@ -265,10 +265,10 @@ function handleMainAction() {
         :title="player.mainActionLabel.value"
         @click="handleMainAction"
       >
-        <svg v-if="player.isPlaying.value" class="w-8 h-8 text-neutral-800" viewBox="0 0 24 24" fill="currentColor">
+        <svg v-if="player.isPlaying.value" class="w-8 h-8 text-neutral-800 dark:text-neutral-200" viewBox="0 0 24 24" fill="currentColor">
           <path fill-rule="evenodd" clip-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12ZM9 8.25a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75h.75a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H9Zm5.25 0a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75H15a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-.75Z" />
         </svg>
-        <svg v-else class="w-8 h-8 text-neutral-800" viewBox="0 0 24 24" fill="currentColor">
+        <svg v-else class="w-8 h-8 text-neutral-800 dark:text-neutral-200" viewBox="0 0 24 24" fill="currentColor">
           <path fill-rule="evenodd" clip-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm14.024-.983a1.125 1.125 0 0 1 0 1.966l-5.603 3.113A1.125 1.125 0 0 1 9 15.113V8.887c0-.857.921-1.4 1.671-.983l5.603 3.113Z" />
         </svg>
         <span class="text-[11px] leading-tight mt-0.5">{{ player.mainActionLabel.value }}</span>
@@ -281,7 +281,7 @@ function handleMainAction() {
         title="下一句"
         @click="player.nextSentence()"
       >
-        <svg class="w-8 h-8 text-neutral-800" viewBox="0 0 24 24" fill="currentColor">
+        <svg class="w-8 h-8 text-neutral-800 dark:text-neutral-200" viewBox="0 0 24 24" fill="currentColor">
           <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm4.28 10.28a.75.75 0 0 0 0-1.06l-3-3a.75.75 0 1 0-1.06 1.06l1.72 1.72H8.25a.75.75 0 0 0 0 1.5h5.69l-1.72 1.72a.75.75 0 0 0 1.06 1.06l3-3Z" />
         </svg>
         <span class="text-[11px] leading-tight mt-0.5">下一句</span>
@@ -337,7 +337,7 @@ function handleMainAction() {
         title="循环间隔"
         @click="cycleInterval"
       >
-        <div class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5">
+        <div class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10">
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
           </svg>
@@ -371,7 +371,7 @@ function handleMainAction() {
       <div
         v-if="speedOpen && speedMenuPos"
         data-player-popover
-        class="fixed z-[300] p-2 bg-white rounded-xl shadow-lg border border-black/10 min-w-[9rem]"
+        class="fixed z-[300] p-2 bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-black/10 dark:border-white/10 min-w-[9rem]"
         :style="{
           top: `${speedMenuPos.top}px`,
           left: `${speedMenuPos.left}px`,
@@ -389,7 +389,7 @@ function handleMainAction() {
             :class="
               player.playbackRate.value === r
                 ? 'bg-neutral-600 border-neutral-600 text-white'
-                : 'border-neutral-200 hover:bg-neutral-50'
+                : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800'
             "
             @click="selectRate(r)"
           >
@@ -401,7 +401,7 @@ function handleMainAction() {
       <div
         v-if="loopOpen && loopMenuPos"
         data-player-popover
-        class="fixed z-[300] p-2 bg-white rounded-xl shadow-lg border border-black/10 min-w-[10rem]"
+        class="fixed z-[300] p-2 bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-black/10 dark:border-white/10 min-w-[10rem]"
         :style="{
           top: `${loopMenuPos.top}px`,
           left: `${loopMenuPos.left}px`,
@@ -419,7 +419,7 @@ function handleMainAction() {
             :class="
               player.sentenceLoopCount.value === n
                 ? 'bg-neutral-600 border-neutral-600 text-white'
-                : 'border-neutral-200 hover:bg-neutral-50'
+                : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800'
             "
             @click="selectLoopCount(n)"
           >
@@ -431,7 +431,7 @@ function handleMainAction() {
 
     <p
       v-if="player.loopStatusText.value"
-      class="mt-2 text-[11px] text-amber-800 bg-amber-50/80 px-2 py-1 rounded-lg text-center"
+      class="mt-2 text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50/80 dark:bg-amber-950/40 px-2 py-1 rounded-lg text-center"
     >
       {{ player.loopStatusText.value }}
     </p>

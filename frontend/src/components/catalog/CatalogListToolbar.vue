@@ -27,14 +27,14 @@ watch(
 
 <template>
   <div
-    class="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-black/5 bg-neutral-50/80 rounded-t-xl"
+    class="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-black/5 dark:border-white/10 bg-neutral-50/80 dark:bg-neutral-800/50 rounded-t-xl"
   >
     <div class="relative flex-1 min-w-[12rem]">
       <input
         v-model="query"
         type="search"
         placeholder="搜索标题或作者"
-        class="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+        class="w-full rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 dark:text-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
       />
     </div>
 
@@ -43,11 +43,11 @@ watch(
         v-for="opt in accentOptions"
         :key="opt.value"
         type="button"
-        class="p-1.5 rounded-lg transition"
+        class="p-1.5 rounded-lg transition cursor-pointer"
         :class="
           store.filters.accents.includes(opt.value)
-            ? 'bg-neutral-900/10 ring-1 ring-neutral-900/15'
-            : 'opacity-50 hover:opacity-100 hover:bg-neutral-100'
+            ? 'bg-neutral-900/10 ring-1 ring-neutral-900/15 dark:bg-white/10 dark:ring-white/20'
+            : 'opacity-50 hover:opacity-100 hover:bg-neutral-100 dark:hover:bg-neutral-800'
         "
         :title="opt.label"
         @click="store.toggleAccent(opt.value)"

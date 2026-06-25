@@ -14,12 +14,12 @@ const learningFilters = [
 ]
 </script>
 <template>
-  <div class="rounded-2xl border border-black/5 bg-white p-4 space-y-4">
+  <div class="rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 space-y-4">
     <div class="flex items-center justify-between">
       <span class="text-sm font-medium">筛选条件</span>
       <button
         type="button"
-        class="text-xs px-2 py-1 rounded-lg border border-black/10 hover:bg-neutral-50"
+          class="text-xs px-2 py-1 rounded-lg border border-black/10 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer"
         @click="store.toggleOrdering()"
       >
         {{ store.filters.ordering === 'created_at' ? '最新优先' : '最早优先' }}
@@ -33,11 +33,11 @@ const learningFilters = [
           v-for="f in learningFilters"
           :key="f.key"
           type="button"
-          class="text-xs px-2.5 py-1 rounded-full border transition"
+          class="text-xs px-2.5 py-1 rounded-full border transition cursor-pointer"
           :class="
             store.filters.learningStatus === f.key
-              ? 'border-neutral-900 bg-neutral-900 text-white'
-              : 'border-black/10 bg-neutral-50 hover:border-neutral-300'
+              ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-300 dark:bg-neutral-100 dark:text-neutral-900'
+              : 'border-black/10 bg-neutral-50 hover:border-neutral-300 dark:border-white/10 dark:bg-neutral-800 dark:hover:border-neutral-600'
           "
           @click="store.setLearningStatus(f.key)"
         >
@@ -80,11 +80,11 @@ const learningFilters = [
           v-for="t in store.tags"
           :key="t.id"
           type="button"
-          class="text-xs px-2 py-1 rounded-full border transition"
+          class="text-xs px-2 py-1 rounded-full border transition cursor-pointer"
           :class="
             store.filters.tagIds.includes(t.id)
-              ? 'border-neutral-900 bg-neutral-900 text-white'
-              : 'border-black/10 bg-neutral-50 hover:border-neutral-300'
+              ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-300 dark:bg-neutral-100 dark:text-neutral-900'
+              : 'border-black/10 bg-neutral-50 hover:border-neutral-300 dark:border-white/10 dark:bg-neutral-800 dark:hover:border-neutral-600'
           "
           @click="store.toggleTag(t.id)"
         >

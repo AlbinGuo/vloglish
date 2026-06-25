@@ -10,6 +10,8 @@ import {
 
 } from '@/composables/useSentenceProgressStyle'
 
+import { useTheme, type ThemeMode } from '@/composables/useTheme'
+
 
 
 defineEmits<{ close: [] }>()
@@ -19,6 +21,20 @@ defineEmits<{ close: [] }>()
 const { highlightStyle, setHighlightStyle } = useHighlightStyle()
 
 const { sentenceProgressStyle, setSentenceProgressStyle } = useSentenceProgressStyle()
+
+const { themeMode, setThemeMode } = useTheme()
+
+
+
+const themeOptions: { key: ThemeMode; label: string; desc: string }[] = [
+
+  { key: 'light', label: '浅色', desc: '明亮界面，适合白天使用' },
+
+  { key: 'dark', label: '深色', desc: '暗色界面，适合夜间学习' },
+
+  { key: 'system', label: '跟随系统', desc: '自动匹配系统外观设置' },
+
+]
 
 
 
@@ -42,6 +58,12 @@ const progressOptions: { key: SentenceProgressStyle; label: string; desc: string
 
 ]
 
+
+
+const optionSelectedClass = 'border-neutral-900 bg-neutral-50 dark:border-neutral-400 dark:bg-neutral-800'
+
+const optionDefaultClass = 'border-black/8 hover:border-black/15 hover:bg-neutral-50/50 dark:border-white/10 dark:hover:border-white/20 dark:hover:bg-neutral-800/50'
+
 </script>
 
 
@@ -50,7 +72,7 @@ const progressOptions: { key: SentenceProgressStyle; label: string; desc: string
 
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="$emit('close')">
 
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[85vh] overflow-y-auto">
+    <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl shadow-black/15 dark:shadow-black/40 ring-1 ring-black/5 dark:ring-white/10 w-full max-w-md p-6 max-h-[85vh] overflow-y-auto settings-panel-scroll-hide">
 
       <div class="flex justify-between items-center mb-5">
 
@@ -60,7 +82,7 @@ const progressOptions: { key: SentenceProgressStyle; label: string; desc: string
 
           type="button"
 
-          class="text-neutral-400 hover:text-black text-xl leading-none"
+          class="text-neutral-400 hover:text-black dark:hover:text-white text-xl leading-none"
 
           aria-label="关闭"
 
@@ -78,7 +100,55 @@ const progressOptions: { key: SentenceProgressStyle; label: string; desc: string
 
       <section class="mb-6">
 
-        <h4 class="text-sm font-medium text-neutral-800 mb-3">文字高亮样式</h4>
+        <h4 class="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-3">外观主题</h4>
+
+        <div class="space-y-2">
+
+          <label
+
+            v-for="opt in themeOptions"
+
+            :key="opt.key"
+
+            class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors"
+
+            :class="themeMode === opt.key ? optionSelectedClass : optionDefaultClass"
+
+          >
+
+            <input
+
+              type="radio"
+
+              name="theme-mode"
+
+              class="mt-1 shrink-0"
+
+              :checked="themeMode === opt.key"
+
+              @change="setThemeMode(opt.key)"
+
+            />
+
+            <span>
+
+              <span class="block text-sm font-medium">{{ opt.label }}</span>
+
+              <span class="block text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ opt.desc }}</span>
+
+            </span>
+
+          </label>
+
+        </div>
+
+      </section>
+
+
+
+      <section class="mb-6">
+
+        <h4 class="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-3">文字高亮样式</h4>
 
         <div class="space-y-2">
 
@@ -90,15 +160,7 @@ const progressOptions: { key: SentenceProgressStyle; label: string; desc: string
 
             class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors"
 
-            :class="
-
-              highlightStyle === opt.key
-
-                ? 'border-black bg-neutral-50'
-
-                : 'border-black/8 hover:border-black/15 hover:bg-neutral-50/50'
-
-            "
+            :class="highlightStyle === opt.key ? optionSelectedClass : optionDefaultClass"
 
           >
 
@@ -120,7 +182,7 @@ const progressOptions: { key: SentenceProgressStyle; label: string; desc: string
 
               <span class="block text-sm font-medium">{{ opt.label }}</span>
 
-              <span class="block text-xs text-neutral-500 mt-0.5">{{ opt.desc }}</span>
+              <span class="block text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ opt.desc }}</span>
 
             </span>
 
@@ -134,7 +196,7 @@ const progressOptions: { key: SentenceProgressStyle; label: string; desc: string
 
       <section>
 
-        <h4 class="text-sm font-medium text-neutral-800 mb-3">当前句朗读进度</h4>
+        <h4 class="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-3">当前句朗读进度</h4>
 
         <div class="space-y-2">
 
@@ -146,15 +208,7 @@ const progressOptions: { key: SentenceProgressStyle; label: string; desc: string
 
             class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors"
 
-            :class="
-
-              sentenceProgressStyle === opt.key
-
-                ? 'border-black bg-neutral-50'
-
-                : 'border-black/8 hover:border-black/15 hover:bg-neutral-50/50'
-
-            "
+            :class="sentenceProgressStyle === opt.key ? optionSelectedClass : optionDefaultClass"
 
           >
 
@@ -176,7 +230,7 @@ const progressOptions: { key: SentenceProgressStyle; label: string; desc: string
 
               <span class="block text-sm font-medium">{{ opt.label }}</span>
 
-              <span class="block text-xs text-neutral-500 mt-0.5">{{ opt.desc }}</span>
+              <span class="block text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ opt.desc }}</span>
 
             </span>
 
@@ -192,3 +246,13 @@ const progressOptions: { key: SentenceProgressStyle; label: string; desc: string
 
 </template>
 
+<style scoped>
+.settings-panel-scroll-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.settings-panel-scroll-hide::-webkit-scrollbar {
+  display: none;
+}
+</style>
