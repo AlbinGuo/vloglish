@@ -7,7 +7,9 @@ import {
   markNotificationRead,
   type Notification,
 } from '@/api/notifications'
+import { useNotificationStore } from '@/stores/notifications'
 
+const notificationStore = useNotificationStore()
 const loading = ref(true)
 const error = ref('')
 const notifications = ref<Notification[]>([])
@@ -22,6 +24,7 @@ async function load() {
     notifications.value = data.results
     unreadCount.value = data.unread_count
     total.value = data.count
+    notificationStore.setCount(data.unread_count)
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
     error.value = msg || '加载失败'
@@ -36,6 +39,7 @@ async function readOne(item: Notification) {
     await markNotificationRead(item.id)
     item.is_read = true
     unreadCount.value = Math.max(0, unreadCount.value - 1)
+    notificationStore.decrement()
   } catch {
     // ignore
   }
@@ -49,6 +53,7 @@ async function readAll() {
       n.is_read = true
     })
     unreadCount.value = 0
+    notificationStore.clear()
   } catch {
     // ignore
   }

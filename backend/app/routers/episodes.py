@@ -5,10 +5,12 @@ from fastapi.responses import FileResponse
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
+from ..episode_visibility import published_visibility_filter
 from ..database import get_db
 from ..demo_access import can_access_episode, get_episode_limit, user_is_member
 from ..deps import get_current_user_optional, get_device_id
 from ..favorites import favorite_video_ids
+from ..services.learning import learned_episode_ids, progress_map_for_episodes
 from ..media import find_episode_audio_file, find_episode_video_file
 from ..models import Author, Episode, EpisodeFavorite, Tag, User, UserEpisodeFavorite
 from ..serializers import episode_detail, episode_summary
@@ -39,6 +41,7 @@ def episode_list(
     fav_ids = favorite_video_ids(db, device_id, user_id)
     q = db.query(Episode).options(joinedload(Episode.author), joinedload(Episode.tags))
     q = q.filter(Episode.status == "published")
+    q = q.filter(published_visibility_filter(user))
 
     author_joined = False
 
@@ -79,7 +82,21 @@ def episode_list(
         except ValueError:
             pass
     if status == "learned":
-        q = q.filter(Episode.id < 0)
+        if not user:
+            q = q.filter(Episode.id < 0)
+        else:
+            learned_ids = learned_episode_ids(db, user.id)
+            if learned_ids:
+                q = q.filter(Episode.id.in_(learned_ids))
+            else:
+                q = q.filter(Episode.id < 0)
+    elif status == "unlearned":
+        if not user:
+            q = q.filter(Episode.id < 0)
+        else:
+            learned_ids = learned_episode_ids(db, user.id)
+            if learned_ids:
+                q = q.filter(~Episode.id.in_(learned_ids))
     elif status == "favorite":
         if fav_ids:
             q = q.filter(Episode.video_id.in_(fav_ids))
@@ -105,12 +122,15 @@ def episode_list(
     else:
         total = q.count()
         items = q.offset(start).limit(page_size).all()
+    prog_map = progress_map_for_episodes(db, user.id, [ep.id for ep in items]) if user else {}
     return {
         "count": total,
         "results": [
             episode_summary(
                 ep,
                 is_favorite=ep.video_id in fav_ids if user_is_member(user) else False,
+                is_learned=prog_map.get(ep.id).is_completed if prog_map.get(ep.id) else False,
+                progress_percent=prog_map.get(ep.id).completion_percent if prog_map.get(ep.id) else 0,
             )
             for ep in items
         ],
@@ -179,9 +199,13 @@ def get_episode_detail(
     if not episode:
         raise HTTPException(status_code=404, detail="Episode not found")
     if not can_access_episode(db, episode, user):
-        raise HTTPException(status_code=403, detail="需要激活会员")
+        raise HTTPException(status_code=403, detail="无权访问该内容")
 
-    total = db.query(Episode).filter(Episode.status == "published").count()
+    total_q = db.query(Episode).filter(
+        Episode.status == "published",
+        published_visibility_filter(user),
+    )
+    total = total_q.count()
     if not user_is_member(user):
         limit = get_episode_limit(user) or 0
         total = limit
@@ -198,7 +222,7 @@ def get_episode_audio(
     if not episode:
         raise HTTPException(status_code=404, detail="Episode not found")
     if not can_access_episode(db, episode, user):
-        raise HTTPException(status_code=403, detail="需要激活会员")
+        raise HTTPException(status_code=403, detail="无权访问该内容")
 
     found = find_episode_audio_file(video_id)
     if found:
@@ -221,7 +245,7 @@ def get_episode_video(
     if not episode:
         raise HTTPException(status_code=404, detail="Episode not found")
     if not can_access_episode(db, episode, user):
-        raise HTTPException(status_code=403, detail="需要激活会员")
+        raise HTTPException(status_code=403, detail="无权访问该内容")
 
     found = find_episode_video_file(video_id)
     if found:

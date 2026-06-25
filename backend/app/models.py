@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Table, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -62,6 +62,7 @@ class Episode(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String(16), default="published")
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     author: Mapped["Author"] = relationship()
     tags: Mapped[list["Tag"]] = relationship(secondary=episode_tags)
@@ -226,3 +227,81 @@ class UserNotification(Base):
     broadcast_id: Mapped[int | None] = mapped_column(ForeignKey("admin_broadcasts.id"), nullable=True)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class UserEpisodeProgress(Base):
+    __tablename__ = "user_episode_progress"
+    __table_args__ = (UniqueConstraint("user_id", "episode_id", name="uq_user_episode_progress"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"), index=True)
+    last_subtitle_index: Mapped[int] = mapped_column(Integer, default=0)
+    last_position_sec: Mapped[float] = mapped_column(Float, default=0)
+    max_reached_index: Mapped[int] = mapped_column(Integer, default=0)
+    watch_time_sec: Mapped[int] = mapped_column(Integer, default=0)
+    completion_percent: Mapped[float] = mapped_column(Float, default=0)
+    is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    first_opened_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_watched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class UserSubtitleProgress(Base):
+    __tablename__ = "user_subtitle_progress"
+    __table_args__ = (UniqueConstraint("user_id", "subtitle_id", name="uq_user_subtitle_progress"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"), index=True)
+    subtitle_id: Mapped[int] = mapped_column(ForeignKey("subtitles.id"), index=True)
+    heard_count: Mapped[int] = mapped_column(Integer, default=0)
+    is_marked_learned: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_heard_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class UserWordLookup(Base):
+    __tablename__ = "user_word_lookups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    entry_id: Mapped[int] = mapped_column(Integer, index=True)
+    word: Mapped[str] = mapped_column(String(256))
+    token_type: Mapped[int] = mapped_column(Integer, default=1)
+    context: Mapped[str] = mapped_column(Text, default="")
+    episode_id: Mapped[int | None] = mapped_column(ForeignKey("episodes.id"), nullable=True)
+    subtitle_id: Mapped[int | None] = mapped_column(ForeignKey("subtitles.id"), nullable=True)
+    video_id: Mapped[str] = mapped_column(String(32), default="")
+    looked_up_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class UserVocabularyItem(Base):
+    __tablename__ = "user_vocabulary_items"
+    __table_args__ = (UniqueConstraint("user_id", "entry_id", name="uq_user_vocabulary_entry"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    entry_id: Mapped[int] = mapped_column(Integer, index=True)
+    word: Mapped[str] = mapped_column(String(256))
+    token_type: Mapped[int] = mapped_column(Integer, default=1)
+    source_episode_id: Mapped[int | None] = mapped_column(ForeignKey("episodes.id"), nullable=True)
+    source_subtitle_id: Mapped[int | None] = mapped_column(ForeignKey("subtitles.id"), nullable=True)
+    source_video_id: Mapped[str] = mapped_column(String(32), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class LearningSession(Base):
+    __tablename__ = "learning_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"), index=True)
+    video_id: Mapped[str] = mapped_column(String(32), default="")
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    watch_time_sec: Mapped[int] = mapped_column(Integer, default=0)
+    playback_rate_avg: Mapped[float] = mapped_column(Float, default=1.0)
+    sentences_replayed: Mapped[int] = mapped_column(Integer, default=0)
+    lookups_count: Mapped[int] = mapped_column(Integer, default=0)
+    subtitle_mode: Mapped[str] = mapped_column(String(16), default="both")
+    loop_mode: Mapped[str] = mapped_column(String(16), default="off")

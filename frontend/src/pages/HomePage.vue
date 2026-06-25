@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import { getRecentEpisodes, type RecentEpisode } from '@/api/learning'
 import { useCatalogViewMode } from '@/composables/useCatalogViewMode'
 import { useAuthStore } from '@/stores/auth'
 import { CARD_INITIAL_SIZE, LIST_INITIAL_SIZE, useCatalogStore } from '@/stores/catalog'
@@ -17,6 +18,7 @@ const auth = useAuthStore()
 const { viewMode } = useCatalogViewMode()
 
 const loadMoreSentinel = ref<HTMLElement | null>(null)
+const recentLearning = ref<RecentEpisode[]>([])
 let loadMoreObserver: IntersectionObserver | null = null
 
 const skeletonCount = computed(() =>
@@ -63,6 +65,13 @@ onMounted(async () => {
   await store.loadFilters()
   store.setListViewMode(viewMode.value)
   await store.loadEpisodes()
+  if (auth.isLoggedIn) {
+    try {
+      recentLearning.value = (await getRecentEpisodes()).filter((e) => !e.is_completed).slice(0, 5)
+    } catch {
+      recentLearning.value = []
+    }
+  }
   setupLoadMoreObserver()
 })
 
@@ -112,6 +121,32 @@ watch(
       </aside>
 
       <section class="flex-1 min-w-0">
+        <section
+          v-if="auth.isLoggedIn && recentLearning.length"
+          class="mb-5 rounded-xl border border-black/5 bg-white p-4"
+        >
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-semibold">继续学习</h2>
+            <RouterLink to="/english/learning" class="text-xs text-amber-700 hover:underline">全部统计</RouterLink>
+          </div>
+          <div class="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
+            <RouterLink
+              v-for="item in recentLearning"
+              :key="item.video_id"
+              :to="episodePath(item.video_id)"
+              class="shrink-0 w-40 rounded-lg border border-black/5 overflow-hidden hover:shadow-sm transition"
+            >
+              <div class="relative aspect-video bg-neutral-200">
+                <img :src="item.cover" :alt="item.short_title" class="w-full h-full object-cover" loading="lazy" />
+                <span class="absolute bottom-1 right-1 text-[10px] text-white bg-black/60 px-1 rounded">
+                  {{ Math.round(item.completion_percent) }}%
+                </span>
+              </div>
+              <p class="p-2 text-xs font-medium line-clamp-2 leading-snug">{{ item.short_title }}</p>
+            </RouterLink>
+          </div>
+        </section>
+
         <div
           v-if="previewBanner"
           class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex flex-wrap items-center gap-x-2 gap-y-1"

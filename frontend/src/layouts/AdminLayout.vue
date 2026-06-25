@@ -16,6 +16,7 @@ const nav = [
   { to: '/gnadmin/demo-codes', label: '体验码' },
   { to: '/gnadmin/activation-codes', label: '激活码' },
   { to: '/gnadmin/users', label: '用户' },
+  { to: '/gnadmin/learning', label: '学习统计' },
   { to: '/gnadmin/notifications', label: '通知' },
 ]
 
@@ -27,6 +28,7 @@ const pageTitle = computed(() => {
   if (route.path.startsWith('/gnadmin/authors')) return '作者'
   if (route.path.startsWith('/gnadmin/tags')) return '标签'
   if (route.path.startsWith('/gnadmin/notifications')) return '通知'
+  if (route.path.startsWith('/gnadmin/learning')) return '学习统计'
   const item = nav.find((n) => route.path.startsWith(n.to))
   return item?.label ?? '管理后台'
 })

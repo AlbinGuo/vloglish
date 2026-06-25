@@ -33,6 +33,8 @@ export interface EpisodeSummary {
   created_at?: string
   is_learned?: boolean
   is_favorite?: boolean
+  progress_percent?: number
+  is_new?: boolean
 }
 
 export interface Subtitle {
@@ -96,7 +98,7 @@ export interface EntryDetail {
   }[]
   definitions: EntryDefinition[]
   exam_tags: string[]
-  favorite: unknown | null
+  favorite: boolean
 }
 
 export interface DemoVerifyResponse {

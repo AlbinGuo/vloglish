@@ -43,11 +43,43 @@ function formatDuration(sec: number) {
         <span class="absolute bottom-1 right-1 text-white text-[10px] bg-black/60 px-1 py-0.5 rounded">
           {{ formatDuration(episode.clip_length) }}
         </span>
+        <div class="absolute top-1 left-1 flex flex-row items-center gap-1 z-10">
+          <span
+            v-if="episode.is_new"
+            class="text-xs px-2 py-0.5 rounded-md bg-red-500 text-white font-bold shadow-md leading-none"
+          >
+            新
+          </span>
+          <span
+            v-if="episode.is_learned"
+            class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-600/90 text-white font-medium whitespace-nowrap"
+          >
+            已看完
+          </span>
+        </div>
       </div>
 
       <div class="flex-1 min-w-0 space-y-1">
         <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span class="text-xs text-neutral-500">第 {{ episode.index }} 期</span>
+          <span
+            v-if="episode.is_new"
+            class="text-xs px-2 py-0.5 rounded-md bg-red-500 text-white font-bold leading-none"
+          >
+            新
+          </span>
+          <span
+            v-if="episode.is_learned"
+            class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 whitespace-nowrap"
+          >
+            已看完
+          </span>
+          <span
+            v-else-if="auth.isLoggedIn && episode.progress_percent && episode.progress_percent > 0"
+            class="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600"
+          >
+            {{ Math.round(episode.progress_percent) }}%
+          </span>
           <div class="flex items-center gap-0.5">
             <StarIcon v-for="n in 5" :key="n" :active="n <= episode.stars" />
           </div>

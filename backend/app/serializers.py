@@ -1,5 +1,6 @@
 from .models import Author, Episode, Entry, Tag
 from .media import resolve_audio_url, resolve_video_url
+from .services.episode_admin import episode_is_new
 
 
 def author_dict(author: Author) -> dict:
@@ -15,7 +16,13 @@ def tags_list(episode: Episode) -> list[dict]:
     return [{"id": t.id, "name": t.name} for t in episode.tags]
 
 
-def episode_summary(episode: Episode, *, is_favorite: bool = False, is_learned: bool = False) -> dict:
+def episode_summary(
+    episode: Episode,
+    *,
+    is_favorite: bool = False,
+    is_learned: bool = False,
+    progress_percent: float = 0,
+) -> dict:
     created_at = episode.created_at.isoformat() + "Z" if episode.created_at else ""
     return {
         "index": episode.index,
@@ -33,6 +40,8 @@ def episode_summary(episode: Episode, *, is_favorite: bool = False, is_learned: 
         "created_at": created_at,
         "is_learned": is_learned,
         "is_favorite": is_favorite,
+        "progress_percent": progress_percent,
+        "is_new": episode_is_new(episode),
     }
 
 

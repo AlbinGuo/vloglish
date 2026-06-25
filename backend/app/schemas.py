@@ -127,6 +127,9 @@ class AdminDashboardOut(BaseModel):
     activation_codes_total: int
     activation_codes_available: int
     activation_codes_used: int
+    learning_active_7d: int = 0
+    learning_completions_total: int = 0
+    learning_lookups_total: int = 0
 
 
 class AdminActivationCodeOut(BaseModel):
@@ -414,6 +417,8 @@ class EpisodeSummaryOut(BaseModel):
     created_at: str = ""
     is_learned: bool = False
     is_favorite: bool = False
+    progress_percent: float = 0
+    is_new: bool = False
     remark: str = ""
 
 
@@ -515,3 +520,131 @@ class AdminBroadcastOut(BaseModel):
 class AdminBroadcastListOut(BaseModel):
     count: int
     results: list[AdminBroadcastOut]
+
+
+class EpisodeProgressOut(BaseModel):
+    video_id: str
+    last_subtitle_index: int
+    last_position_sec: float
+    max_reached_index: int
+    watch_time_sec: int
+    completion_percent: float
+    is_completed: bool
+    last_watched_at: str
+    completed_at: str | None = None
+
+
+class EpisodeProgressUpdateIn(BaseModel):
+    last_subtitle_index: int | None = Field(default=None, ge=0)
+    last_position_sec: float | None = Field(default=None, ge=0)
+    max_reached_index: int | None = Field(default=None, ge=0)
+    watch_time_delta_sec: int = Field(default=0, ge=0)
+    heard_subtitle_id: int | None = Field(default=None, ge=1)
+    is_completed: bool = False
+    session_id: int | None = None
+    session_lookups_delta: int = Field(default=0, ge=0)
+    session_replays_delta: int = Field(default=0, ge=0)
+    playback_rate: float | None = Field(default=None, ge=0.25, le=3)
+    subtitle_mode: str | None = None
+    loop_mode: str | None = None
+
+
+class LearningSummaryOut(BaseModel):
+    total_watch_time_sec: int
+    completed_episodes: int
+    in_progress_episodes: int
+    vocabulary_count: int
+    lookup_count: int
+    learning_days: int
+    streak_days: int
+    today_watch_time_sec: int
+    today_completed: int
+    week_watch_time_sec: int
+
+
+class RecentEpisodeOut(BaseModel):
+    video_id: str
+    short_title: str
+    cover: str
+    completion_percent: float
+    is_completed: bool
+    last_subtitle_index: int
+    last_watched_at: str
+
+
+class VocabularyItemOut(BaseModel):
+    id: int
+    entry_id: int
+    word: str
+    token_type: int
+    source_video_id: str
+    source_episode_title: str
+    created_at: str
+
+
+class VocabularySaveIn(BaseModel):
+    entry_id: int = Field(ge=1)
+    word: str = Field(min_length=1, max_length=256)
+    token_type: int = Field(default=1, ge=1, le=2)
+    video_id: str = ""
+    episode_id: int | None = None
+    subtitle_id: int | None = None
+
+
+class WordLookupOut(BaseModel):
+    id: int
+    entry_id: int
+    word: str
+    token_type: int
+    context: str
+    video_id: str
+    episode_title: str
+    is_saved: bool
+    looked_up_at: str
+
+
+class WordLookupListOut(BaseModel):
+    count: int
+    results: list[WordLookupOut]
+
+
+class LearningSessionStartIn(BaseModel):
+    video_id: str = Field(min_length=1, max_length=32)
+    subtitle_mode: str = "both"
+    loop_mode: str = "off"
+
+
+class LearningSessionOut(BaseModel):
+    id: int
+    video_id: str
+    started_at: str
+
+
+class SubtitleProgressOut(BaseModel):
+    subtitle_id: int
+    heard_count: int
+    is_marked_learned: bool
+    last_heard_at: str
+
+
+class SubtitleProgressListOut(BaseModel):
+    results: list[SubtitleProgressOut]
+
+
+class SubtitleProgressUpdateIn(BaseModel):
+    is_marked_learned: bool | None = None
+
+
+class LearningCalendarOut(BaseModel):
+    days: list[dict]
+
+
+class AdminLearningStatsOut(BaseModel):
+    active_learners_7d: int
+    active_learners_30d: int
+    total_watch_hours: float
+    total_completions: int
+    total_lookups: int
+    total_vocabulary_items: int
+    top_episodes: list[dict]
+    daily_activity: list[dict]

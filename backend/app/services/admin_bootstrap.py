@@ -1,11 +1,10 @@
 import os
-from datetime import datetime
-
-from sqlalchemy.orm import Session
+from datetime import datetime, timedelta
 
 from sqlalchemy import or_
+from sqlalchemy.orm import Session
 
-from ..models import ActivationCode, Episode, User
+from ..models import ActivationCode, Episode, User, UserEpisodeProgress, UserWordLookup
 
 
 def ensure_admin_user(db: Session) -> None:
@@ -58,4 +57,19 @@ def dashboard_stats(db: Session) -> dict:
         "activation_codes_total": total_codes,
         "activation_codes_available": total_codes - used_codes,
         "activation_codes_used": used_codes,
+        "learning_active_7d": _active_learners_7d(db),
+        "learning_completions_total": db.query(UserEpisodeProgress)
+        .filter(UserEpisodeProgress.is_completed.is_(True))
+        .count(),
+        "learning_lookups_total": db.query(UserWordLookup).count(),
     }
+
+
+def _active_learners_7d(db: Session) -> int:
+    since = datetime.utcnow() - timedelta(days=7)
+    return (
+        db.query(UserEpisodeProgress.user_id)
+        .filter(UserEpisodeProgress.last_watched_at >= since)
+        .distinct()
+        .count()
+    )

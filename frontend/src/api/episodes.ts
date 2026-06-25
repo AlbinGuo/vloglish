@@ -64,9 +64,14 @@ export async function getEntryDetail(entryId: number) {
   return data
 }
 
-export async function lookupWord(word: string, type: 1 | 2, context: string) {
+export async function lookupWord(
+  word: string,
+  type: 1 | 2,
+  context: string,
+  meta?: { video_id?: string; subtitle_id?: number; episode_id?: number },
+) {
   const { data } = await api.get<EntryDetail>('/api/lookup/', {
-    params: { word, type, context },
+    params: { word, type, context, ...meta },
   })
   return data
 }

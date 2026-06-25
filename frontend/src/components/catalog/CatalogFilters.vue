@@ -1,9 +1,17 @@
 <script setup lang="ts">
 import { accentOptions } from '@/constants/accentOptions'
 import DifficultyStarsFilter from '@/components/catalog/DifficultyStarsFilter.vue'
+import { useAuthStore } from '@/stores/auth'
 import { useCatalogStore } from '@/stores/catalog'
 
 const store = useCatalogStore()
+const auth = useAuthStore()
+
+const learningFilters = [
+  { key: 'learned' as const, label: '已看' },
+  { key: 'unlearned' as const, label: '未看' },
+  { key: 'favorite' as const, label: '收藏' },
+]
 </script>
 <template>
   <div class="rounded-2xl border border-black/5 bg-white p-4 space-y-4">
@@ -16,6 +24,26 @@ const store = useCatalogStore()
       >
         {{ store.filters.ordering === 'created_at' ? '最新优先' : '最早优先' }}
       </button>
+    </div>
+
+    <div v-if="auth.isLoggedIn">
+      <div class="text-xs text-neutral-500 mb-2">学习状态</div>
+      <div class="flex flex-wrap gap-1.5">
+        <button
+          v-for="f in learningFilters"
+          :key="f.key"
+          type="button"
+          class="text-xs px-2.5 py-1 rounded-full border transition"
+          :class="
+            store.filters.learningStatus === f.key
+              ? 'border-neutral-900 bg-neutral-900 text-white'
+              : 'border-black/10 bg-neutral-50 hover:border-neutral-300'
+          "
+          @click="store.setLearningStatus(f.key)"
+        >
+          {{ f.label }}
+        </button>
+      </div>
     </div>
 
     <div>

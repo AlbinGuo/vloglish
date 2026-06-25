@@ -1,38 +1,39 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { getUnreadNotificationCount } from '@/api/notifications'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationStore } from '@/stores/notifications'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const notifications = useNotificationStore()
 
 const immersive = computed(() => Boolean(route.meta.immersive))
-const unreadCount = ref(0)
+
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
 async function refreshUnreadCount() {
   if (!auth.isLoggedIn) {
-    unreadCount.value = 0
+    notifications.clear()
     return
   }
-  try {
-    unreadCount.value = await getUnreadNotificationCount()
-  } catch {
-    unreadCount.value = 0
-  }
+  await notifications.refresh()
 }
 
 async function handleLogout() {
   await auth.logout()
-  unreadCount.value = 0
+  notifications.clear()
   await router.push('/login')
 }
 
 onMounted(() => {
-  refreshUnreadCount()
-  pollTimer = setInterval(refreshUnreadCount, 60000)
+  if (auth.ready && auth.isLoggedIn) {
+    refreshUnreadCount()
+  }
+  pollTimer = setInterval(() => {
+    if (auth.isLoggedIn) refreshUnreadCount()
+  }, 60000)
 })
 
 onUnmounted(() => {
@@ -40,16 +41,17 @@ onUnmounted(() => {
 })
 
 watch(
-  () => auth.isLoggedIn,
-  () => {
-    refreshUnreadCount()
+  () => [auth.ready, auth.isLoggedIn] as const,
+  ([ready, loggedIn]) => {
+    if (ready && loggedIn) refreshUnreadCount()
+    else if (ready) notifications.clear()
   },
 )
 
 watch(
   () => route.path,
   (path) => {
-    if (path === '/english/notifications') {
+    if (path === '/english/notifications' && auth.isLoggedIn) {
       refreshUnreadCount()
     }
   },
@@ -74,6 +76,12 @@ watch(
         <div class="flex items-center gap-3 text-sm shrink-0">
           <template v-if="auth.isLoggedIn">
             <RouterLink
+              to="/english/learning"
+              class="hidden sm:inline text-neutral-600 hover:text-black"
+            >
+              学习统计
+            </RouterLink>
+            <RouterLink
               to="/english/notifications"
               class="relative p-2 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 transition"
               aria-label="通知"
@@ -87,10 +95,10 @@ watch(
                 <path d="M9 18.75a3 3 0 0 0 6 0H9Z" />
               </svg>
               <span
-                v-if="unreadCount > 0"
-                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center"
+                v-if="notifications.unreadCount > 0"
+                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none"
               >
-                {{ unreadCount > 99 ? '99+' : unreadCount }}
+                {{ notifications.unreadCount > 99 ? '99+' : notifications.unreadCount }}
               </span>
             </RouterLink>
             <span v-if="auth.isMember" class="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800">

@@ -7,9 +7,10 @@ const props = defineProps<{
   entry: EntryDetail | null
   loading?: boolean
   error?: string
+  canSaveVocabulary?: boolean
 }>()
 
-defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; toggleVocabulary: [entry: EntryDetail] }>()
 
 const primaryPron = computed(() => {
   const list = props.entry?.pronunciations ?? []
@@ -19,12 +20,16 @@ const primaryPron = computed(() => {
 function playAudio(url: string) {
   new Audio(url).play()
 }
+
+function onToggleVocabulary() {
+  if (props.entry) emit('toggleVocabulary', props.entry)
+}
 </script>
 
 <template>
   <div
     class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/35 p-0 sm:p-4"
-    @click.self="$emit('close')"
+    @click.self="emit('close')"
   >
     <div
       class="relative w-full max-w-lg max-h-[88dvh] sm:max-h-[85dvh] flex flex-col rounded-t-[24px] sm:rounded-[24px] bg-[#FDF8F1] shadow-2xl overflow-hidden"
@@ -39,7 +44,7 @@ function playAudio(url: string) {
         type="button"
         class="absolute top-3 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-full text-neutral-400 hover:text-neutral-700 hover:bg-black/5 transition-colors"
         aria-label="关闭"
-        @click="$emit('close')"
+        @click="emit('close')"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M18 6L6 18M6 6l12 12" />
@@ -63,7 +68,7 @@ function playAudio(url: string) {
         <button
           type="button"
           class="px-4 py-2 rounded-full bg-neutral-900 text-white text-sm"
-          @click="$emit('close')"
+          @click="emit('close')"
         >
           关闭
         </button>
@@ -75,11 +80,21 @@ function playAudio(url: string) {
           <div class="flex items-start justify-between gap-3">
             <div class="flex items-center gap-2 min-w-0">
               <button
+                v-if="canSaveVocabulary"
                 type="button"
-                class="shrink-0 text-neutral-300 hover:text-amber-400 transition-colors"
-                aria-label="收藏"
+                class="shrink-0 transition-colors"
+                :class="entry.favorite ? 'text-amber-400 hover:text-amber-500' : 'text-neutral-300 hover:text-amber-400'"
+                :aria-label="entry.favorite ? '移出生词本' : '加入生词本'"
+                @click="onToggleVocabulary"
               >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  :fill="entry.favorite ? 'currentColor' : 'none'"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                >
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                 </svg>
               </button>

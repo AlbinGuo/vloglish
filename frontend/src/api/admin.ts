@@ -84,6 +84,20 @@ export interface DashboardStats {
   activation_codes_total: number
   activation_codes_available: number
   activation_codes_used: number
+  learning_active_7d: number
+  learning_completions_total: number
+  learning_lookups_total: number
+}
+
+export interface AdminLearningStats {
+  active_learners_7d: number
+  active_learners_30d: number
+  total_watch_hours: number
+  total_completions: number
+  total_lookups: number
+  total_vocabulary_items: number
+  top_episodes: { video_id: string; title: string; completions: number; learners: number }[]
+  daily_activity: { date: string; watch_time_sec: number; sessions: number; completions: number }[]
 }
 
 export interface ActivationCodeRow {
@@ -122,6 +136,11 @@ export async function adminFetchMe() {
 
 export async function adminFetchDashboard() {
   const { data } = await adminApi.get<DashboardStats>('/api/admin/dashboard/')
+  return data
+}
+
+export async function adminFetchLearningStats() {
+  const { data } = await adminApi.get<AdminLearningStats>('/api/admin/learning/stats/')
   return data
 }
 

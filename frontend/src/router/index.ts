@@ -52,6 +52,11 @@ const router = createRouter({
           component: () => import('@/pages/admin/AdminNotificationsPage.vue'),
         },
         {
+          path: 'learning',
+          name: 'AdminLearning',
+          component: () => import('@/pages/admin/AdminLearningPage.vue'),
+        },
+        {
           path: 'episodes',
           name: 'AdminEpisodes',
           component: () => import('@/pages/admin/AdminEpisodesPage.vue'),
@@ -153,6 +158,18 @@ const router = createRouter({
           path: 'english/notifications',
           name: 'Notifications',
           component: () => import('@/pages/NotificationsPage.vue'),
+          meta: { requiresDemo: true, requiresAuth: true },
+        },
+        {
+          path: 'english/learning',
+          name: 'Learning',
+          component: () => import('@/pages/LearningPage.vue'),
+          meta: { requiresDemo: true, requiresAuth: true },
+        },
+        {
+          path: 'english/vocabulary',
+          name: 'Vocabulary',
+          component: () => import('@/pages/VocabularyPage.vue'),
           meta: { requiresDemo: true, requiresAuth: true },
         },
       ],

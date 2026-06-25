@@ -3,10 +3,13 @@ import secrets
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from datetime import datetime, timedelta
+
 from ..models import Author, Episode, Subtitle, Tag
 from .vtt_import import words_to_html
 
 VALID_STATUSES = {"draft", "published", "archived", "rejected"}
+NEW_EPISODE_DAYS = 2
 
 
 def generate_video_id() -> str:
@@ -53,6 +56,15 @@ def subtitle_stats(subtitles: list[dict]) -> tuple[int, float]:
     if not subtitles:
         return 0, 0.0
     return len(subtitles), float(max(s["end"] for s in subtitles))
+
+
+def episode_is_new(episode: Episode) -> bool:
+    if episode.status != "published":
+        return False
+    ref = episode.published_at or episode.created_at
+    if not ref:
+        return False
+    return datetime.utcnow() - ref < timedelta(days=NEW_EPISODE_DAYS)
 
 
 def replace_subtitles(db: Session, episode_id: int, rows: list[dict]) -> None:
@@ -102,8 +114,11 @@ def apply_episode_fields(ep: Episode, data: dict, *, author: Author, tags: list[
     if "is_demo" in data:
         ep.is_demo = data.get("is_demo", False)
     if "status" in data and data.get("status") in VALID_STATUSES:
-        ep.status = data["status"]
-        if data["status"] != "rejected":
+        new_status = data["status"]
+        if new_status == "published" and (ep.status != "published" or ep.published_at is None):
+            ep.published_at = datetime.utcnow()
+        ep.status = new_status
+        if new_status != "rejected":
             ep.rejection_reason = None
     if "rejection_reason" in data and ep.status == "rejected":
         reason = (data.get("rejection_reason") or "").strip()

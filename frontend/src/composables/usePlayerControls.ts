@@ -26,6 +26,10 @@ export interface PlayerControlOptions {
 
   onIndexChange?: (index: number) => void
 
+  onPlaybackComplete?: () => void
+
+  onWatchTick?: (deltaSec: number) => void
+
 }
 
 
@@ -59,6 +63,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
   let sentenceLoopTimer: ReturnType<typeof setTimeout> | null = null
+
+  let lastWatchTime = 0
 
 
 
@@ -476,6 +482,11 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
     currentTime.value = t
 
+    if (opts.onWatchTick && lastWatchTime > 0 && t > lastWatchTime) {
+      opts.onWatchTick(Math.min(t - lastWatchTime, 2))
+    }
+    lastWatchTime = t
+
     const subs = opts.sortedSubs.value
 
     const playingIndex = opts.currentIndex.value
@@ -551,6 +562,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
     const v = getVideo()
 
     if (!v) return
+
+    opts.onPlaybackComplete?.()
 
     clearSentenceLoopTimer()
 

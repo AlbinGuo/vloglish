@@ -24,6 +24,9 @@ const cards = [
   { key: 'activation_codes_total', label: '激活码总数' },
   { key: 'activation_codes_available', label: '未使用激活码' },
   { key: 'activation_codes_used', label: '已使用激活码' },
+  { key: 'learning_active_7d', label: '7 日活跃学习用户' },
+  { key: 'learning_completions_total', label: '累计学完期数' },
+  { key: 'learning_lookups_total', label: '累计查词次数' },
 ] as const
 </script>
 

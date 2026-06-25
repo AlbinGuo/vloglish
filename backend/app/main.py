@@ -12,7 +12,8 @@ from sqlalchemy import inspect, text
 from .database import Base, SessionLocal, engine
 from .models import ActivationCode
 from .schemas import AuthTokensOut
-from .routers import auth, demo, entries, episode_submit, episodes, notifications
+from .routers import auth, demo, entries, episode_submit, episodes, learning, notifications
+from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import auth as admin_auth
 from .routers.admin import authors as admin_authors
@@ -41,6 +42,7 @@ app.include_router(demo.router)
 app.include_router(episodes.router)
 app.include_router(episode_submit.router)
 app.include_router(notifications.router)
+app.include_router(learning.router)
 app.include_router(entries.router)
 app.include_router(admin_auth.router)
 app.include_router(admin_dashboard.router)
@@ -53,6 +55,7 @@ app.include_router(admin_demo_codes.router)
 app.include_router(admin_authors.router)
 app.include_router(admin_tags.router)
 app.include_router(admin_notifications.router)
+app.include_router(admin_learning.router)
 app.add_api_route(
     "/api/token/refresh/",
     auth.refresh_token,
@@ -113,6 +116,15 @@ def _migrate_schema():
         if "rejection_reason" not in ep_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE episodes ADD COLUMN rejection_reason TEXT"))
+        if "published_at" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE episodes ADD COLUMN published_at DATETIME"))
+                conn.execute(
+                    text(
+                        "UPDATE episodes SET published_at = created_at "
+                        "WHERE status = 'published' AND published_at IS NULL"
+                    )
+                )
     if "user_notifications" in insp.get_table_names():
         notif_cols = {c["name"] for c in insp.get_columns("user_notifications")}
         if "broadcast_id" not in notif_cols:

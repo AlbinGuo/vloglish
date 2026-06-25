@@ -54,6 +54,26 @@ function formatDate(iso?: string) {
         <span class="absolute bottom-2 right-2 text-white text-xs bg-black/60 px-2 py-0.5 rounded">
           {{ formatDuration(episode.clip_length) }}
         </span>
+        <div class="absolute top-2 left-2 flex flex-row items-center gap-1.5 z-10">
+          <span
+            v-if="episode.is_new"
+            class="text-sm px-2.5 py-1 rounded-md bg-red-500 text-white font-bold shadow-md leading-none"
+          >
+            新
+          </span>
+          <span
+            v-if="episode.is_learned"
+            class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-600/90 text-white font-medium whitespace-nowrap"
+          >
+            已看完
+          </span>
+          <span
+            v-else-if="auth.isLoggedIn && episode.progress_percent && episode.progress_percent > 0"
+            class="text-[10px] px-1.5 py-0.5 rounded-full bg-black/55 text-white font-medium"
+          >
+            {{ Math.round(episode.progress_percent) }}%
+          </span>
+        </div>
         <button
           v-if="auth.isMember"
           type="button"

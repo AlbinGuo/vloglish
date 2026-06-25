@@ -16,6 +16,7 @@ export interface CatalogFilters {
   ordering: string
   date: string | undefined
   search: string
+  learningStatus: '' | 'learned' | 'unlearned' | 'favorite'
 }
 
 function defaultFilters(): CatalogFilters {
@@ -26,6 +27,7 @@ function defaultFilters(): CatalogFilters {
     ordering: 'created_at',
     date: undefined,
     search: '',
+    learningStatus: '',
   }
 }
 
@@ -67,6 +69,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     if (f.tagIds.length) params.tags = f.tagIds.join(',')
     if (f.date) params.date = f.date
     if (f.search) params.search = f.search
+    if (f.learningStatus) params.status = f.learningStatus
     return params
   }
 
@@ -143,6 +146,11 @@ export const useCatalogStore = defineStore('catalog', () => {
     return loadEpisodes(true)
   }
 
+  function setLearningStatus(status: '' | 'learned' | 'unlearned' | 'favorite') {
+    filters.learningStatus = filters.learningStatus === status ? '' : status
+    return loadEpisodes(true)
+  }
+
   return {
     episodes,
     total,
@@ -163,5 +171,6 @@ export const useCatalogStore = defineStore('catalog', () => {
     toggleTag,
     toggleOrdering,
     setSearch,
+    setLearningStatus,
   }
 })

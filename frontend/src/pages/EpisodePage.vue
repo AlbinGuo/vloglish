@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
+import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
+import { setEpisodeFavorite } from '@/api/episodes'
+import { useLearningProgress } from '@/composables/useLearningProgress'
+import { useAuthStore } from '@/stores/auth'
 import type { EntryDetail, EpisodeDetail } from '@/types'
 import EntryCard from '@/components/EntryCard.vue'
 import PlayerControls from '@/components/PlayerControls.vue'
@@ -27,6 +31,7 @@ import {
 
 const props = defineProps<{ videoId: string; backTo?: string; adminPreview?: boolean }>()
 const router = useRouter()
+const auth = useAuthStore()
 
 const episode = ref<EpisodeDetail | null>(null)
 const loading = ref(true)
@@ -44,6 +49,11 @@ const videoPanelRef = ref<HTMLElement | null>(null)
 const videoHidden = ref(false)
 const listRef = ref<HTMLElement | null>(null)
 const showSettings = ref(false)
+const showLookupHistory = ref(false)
+const lookupHistory = ref<WordLookupRecord[]>([])
+const isFavorite = ref(false)
+const favoriteLoading = ref(false)
+const learnedSubtitleIds = ref<Set<number>>(new Set())
 
 function registerVideoEl(el: HTMLVideoElement | null) {
   videoRef.value = el
@@ -54,6 +64,50 @@ const sortedSubs = computed(() =>
 )
 
 const currentSub = computed(() => sortedSubs.value[currentIndex.value] ?? null)
+
+const learningBridge = {
+  markComplete: () => {},
+  tickWatchTime: (_delta: number) => {},
+}
+
+const player = usePlayerControls({
+  videoRef,
+  sortedSubs,
+  currentIndex,
+  onPlaybackComplete: () => {
+    if (!props.adminPreview && auth.isLoggedIn) learningBridge.markComplete()
+  },
+  onWatchTick: (delta) => {
+    if (!props.adminPreview && auth.isLoggedIn) learningBridge.tickWatchTime(delta)
+  },
+})
+
+const learning = useLearningProgress({
+  videoId: toRef(props, 'videoId'),
+  currentIndex,
+  currentTime: player.currentTime,
+  sortedSubs,
+  subtitleMode,
+  loopMode: player.loopMode,
+  playbackRate: player.playbackRate,
+})
+
+const {
+  resumePrompt,
+  isCompleted,
+  init: initLearning,
+  clearResumePrompt,
+  noteLookup,
+  markComplete: markLearningComplete,
+  tickWatchTime: tickLearningWatchTime,
+} = learning
+
+learningBridge.markComplete = () => {
+  void markLearningComplete()
+}
+learningBridge.tickWatchTime = (delta) => {
+  tickLearningWatchTime(delta)
+}
 
 const playbackSrc = computed(() => {
   const media = episode.value?.media
@@ -77,12 +131,6 @@ const modeButtons: { key: SubtitleDisplayMode; label: string }[] = [
   { key: 'dynamic', label: '动态' },
   { key: 'ipa', label: 'IPA' },
 ]
-
-const player = usePlayerControls({
-  videoRef,
-  sortedSubs,
-  currentIndex,
-})
 
 const displaySub = computed(() => resolveDisplaySub(sortedSubs.value, player.currentTime.value))
 
@@ -122,17 +170,135 @@ watch(currentIndex, () => {
 async function load() {
   loading.value = true
   error.value = ''
+  showLookupHistory.value = false
+  lookupHistory.value = []
   try {
     const data = props.adminPreview
       ? await (await import('@/api/admin')).adminGetEpisodePreview(props.videoId)
       : await getEpisodeDetail(props.videoId)
     episode.value = data.episode
     currentIndex.value = 0
+    if (!props.adminPreview && auth.isLoggedIn) {
+      await initLearning()
+      try {
+        const rows = await getSubtitleProgress(props.videoId)
+        learnedSubtitleIds.value = new Set(
+          rows.filter((r: SubtitleProgress) => r.is_marked_learned).map((r) => r.subtitle_id),
+        )
+      } catch {
+        learnedSubtitleIds.value = new Set()
+      }
+    }
     nextTick(scrollCurrentIntoView)
   } catch {
     error.value = '加载失败'
   } finally {
     loading.value = false
+  }
+}
+
+async function applyResume() {
+  const prompt = resumePrompt.value
+  if (!prompt) return
+  clearResumePrompt()
+
+  const idx = Math.min(Math.max(0, prompt.index), sortedSubs.value.length - 1)
+  const sub = sortedSubs.value[idx]
+  if (!sub) return
+
+  const seekToResume = () => {
+    const v = videoRef.value
+    if (!v) return false
+
+    player.seekTo(sub)
+    const position = Math.max(
+      sub.start,
+      Math.min(prompt.position, sub.end > sub.start ? sub.end - 0.05 : prompt.position),
+    )
+    if (position > sub.start) {
+      v.currentTime = position
+      player.currentTime.value = position
+    }
+    void v.play().catch(() => {})
+    player.isPlaying.value = true
+    nextTick(() => scrollCurrentIntoView())
+    return true
+  }
+
+  await nextTick()
+  if (!seekToResume()) {
+    window.setTimeout(() => seekToResume(), 150)
+  }
+}
+
+function dismissResume() {
+  clearResumePrompt()
+}
+
+async function toggleFavorite() {
+  if (!auth.isMember || favoriteLoading.value) return
+  favoriteLoading.value = true
+  const next = !isFavorite.value
+  isFavorite.value = next
+  try {
+    const res = await setEpisodeFavorite(props.videoId, next)
+    isFavorite.value = res.is_favorite
+  } catch {
+    isFavorite.value = !next
+  } finally {
+    favoriteLoading.value = false
+  }
+}
+
+async function toggleLookupHistory() {
+  showLookupHistory.value = !showLookupHistory.value
+  if (showLookupHistory.value && !lookupHistory.value.length && auth.isLoggedIn) {
+    try {
+      const data = await getLookupHistory(props.videoId)
+      lookupHistory.value = data.results
+    } catch {
+      lookupHistory.value = []
+    }
+  }
+}
+
+async function toggleVocabulary(entry: EntryDetail) {
+  if (!auth.isLoggedIn || !entry) return
+  const sub = currentSub.value
+  try {
+    if (entry.favorite) {
+      await removeVocabulary(entry.id)
+      entry.favorite = false
+    } else {
+      await saveVocabulary({
+        entry_id: entry.id,
+        word: entry.headword,
+        token_type: entry.category === 'phrase' ? 2 : 1,
+        video_id: props.videoId,
+        subtitle_id: sub?.id,
+      })
+      entry.favorite = true
+      noteLookup()
+    }
+  } catch {
+    // ignore
+  }
+}
+
+async function reopenLookup(record: WordLookupRecord) {
+  showEntryPanel.value = true
+  entryLoading.value = true
+  entryError.value = ''
+  selectedEntry.value = null
+  try {
+    selectedEntry.value = await lookupWord(record.word, record.token_type as 1 | 2, record.context, {
+      video_id: props.videoId,
+      subtitle_id: undefined,
+    })
+  } catch {
+    entryError.value = '词条加载失败'
+  } finally {
+    entryLoading.value = false
   }
 }
 
@@ -176,8 +342,13 @@ async function onSubtitleClick(e: MouseEvent) {
 
   const type = pid ? 2 : 1
   const context = resolveSentenceContext(target)
+  const sub = currentSub.value
   try {
-    selectedEntry.value = await lookupWord(word, type as 1 | 2, context)
+    selectedEntry.value = await lookupWord(word, type as 1 | 2, context, {
+      video_id: props.videoId,
+      subtitle_id: sub?.id,
+    })
+    if (auth.isLoggedIn) noteLookup()
     target.classList.add('highlight', 'token-clicked')
   } catch {
     entryError.value = '词条加载失败，请确认后端已启动且 DeepSeek API 配置正确'
@@ -190,6 +361,21 @@ function closeEntryPanel() {
   showEntryPanel.value = false
   selectedEntry.value = null
   entryError.value = ''
+}
+
+async function toggleSubtitleLearned(sub: { id: number }, e: Event) {
+  e.stopPropagation()
+  if (!auth.isLoggedIn || props.adminPreview) return
+  const next = !learnedSubtitleIds.value.has(sub.id)
+  try {
+    await updateSubtitleProgress(sub.id, next)
+    const copy = new Set(learnedSubtitleIds.value)
+    if (next) copy.add(sub.id)
+    else copy.delete(sub.id)
+    learnedSubtitleIds.value = copy
+  } catch {
+    // ignore
+  }
 }
 
 function goBack() {
@@ -227,16 +413,61 @@ function subtitleRowClass(index: number) {
     <header class="shrink-0 flex items-center gap-4 px-4 py-3 bg-white border-b border-black/5 z-30">
       <button class="text-sm text-neutral-500 hover:text-black" @click="goBack">← 返回</button>
       <div v-if="episode" class="flex-1 min-w-0">
-        <p class="font-semibold truncate">{{ episode.short_title }}</p>
+        <p class="font-semibold truncate flex items-center gap-2">
+          <span>{{ episode.short_title }}</span>
+          <span
+            v-if="isCompleted"
+            class="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium"
+          >
+            已学完
+          </span>
+        </p>
         <p class="text-xs text-neutral-500">{{ episode.author.name }} · 第 {{ episode.index }} 期</p>
       </div>
       <div class="flex items-center gap-1 shrink-0">
+        <button
+          v-if="auth.isLoggedIn && !adminPreview"
+          type="button"
+          class="text-xs px-2 py-1 rounded-lg border transition-colors"
+          :class="
+            showLookupHistory
+              ? 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-800 hover:text-white'
+              : 'border-black/10 hover:bg-neutral-50'
+          "
+          @click="toggleLookupHistory"
+        >
+          查词历史
+        </button>
+        <button
+          v-if="auth.isMember && !adminPreview"
+          type="button"
+          class="text-xs px-2 py-1 rounded-lg border border-black/10 hover:bg-neutral-50 disabled:opacity-50"
+          :disabled="favoriteLoading"
+          @click="toggleFavorite"
+        >
+          {{ isFavorite ? '已收藏' : '收藏' }}
+        </button>
         <SettingsButton @click="showSettings = true" />
         <button class="text-xs text-neutral-400 hover:text-black px-2 py-1" @click="player.showHelp.value = true">
           ? 快捷键
         </button>
       </div>
     </header>
+
+    <div
+      v-if="resumePrompt && !adminPreview"
+      class="shrink-0 flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-amber-50 border-b border-amber-100 text-sm"
+    >
+      <span class="text-amber-900">检测到上次学习进度，是否从断点继续？</span>
+      <div class="flex items-center gap-2">
+        <button type="button" class="px-3 py-1 rounded-full bg-amber-600 text-white text-xs" @click="applyResume">
+          继续学习
+        </button>
+        <button type="button" class="px-3 py-1 rounded-full border border-amber-200 text-amber-800 text-xs" @click="dismissResume">
+          从头开始
+        </button>
+      </div>
+    </div>
 
     <div v-if="loading" class="flex-1 flex items-center justify-center text-neutral-500">加载中...</div>
     <div v-else-if="error" class="flex-1 flex items-center justify-center text-red-500">{{ error }}</div>
@@ -335,7 +566,21 @@ function subtitleRowClass(index: number) {
             :class="subtitleAlign === 'left' ? 'items-stretch' : 'items-center'"
             @click="player.seekTo(sub)"
           >
-            <div class="w-full" :class="subtitleRowClass(i)">
+            <div class="w-full relative" :class="subtitleRowClass(i)">
+              <button
+                v-if="auth.isLoggedIn && !adminPreview"
+                type="button"
+                class="absolute top-2 right-2 z-10 w-6 h-6 rounded-full text-xs flex items-center justify-center border transition"
+                :class="
+                  learnedSubtitleIds.has(sub.id)
+                    ? 'bg-emerald-500 border-emerald-500 text-white'
+                    : 'bg-white/80 border-black/10 text-neutral-400 hover:border-emerald-400'
+                "
+                :title="learnedSubtitleIds.has(sub.id) ? '取消已掌握' : '标记已掌握'"
+                @click="toggleSubtitleLearned(sub, $event)"
+              >
+                ✓
+              </button>
               <SubtitleBlock
                 :english-html="renderHtml(sub.english_html)"
                 :chinese="sub.chinese"
@@ -352,6 +597,34 @@ function subtitleRowClass(index: number) {
           </div>
         </div>
       </section>
+
+      <aside
+        v-if="showLookupHistory && auth.isLoggedIn"
+        class="shrink-0 w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-black/5 bg-white flex flex-col max-h-48 lg:max-h-none"
+      >
+        <div class="shrink-0 px-4 py-3 border-b border-black/5 flex items-center justify-between">
+          <span class="text-sm font-medium">本期查词历史</span>
+          <button type="button" class="text-xs text-neutral-400 hover:text-black" @click="showLookupHistory = false">
+            关闭
+          </button>
+        </div>
+        <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+          <p v-if="!lookupHistory.length" class="text-xs text-neutral-400 text-center py-6">暂无查词记录</p>
+          <button
+            v-for="item in lookupHistory"
+            :key="item.id"
+            type="button"
+            class="w-full text-left rounded-lg border border-black/5 px-3 py-2 hover:bg-neutral-50 transition"
+            @click="reopenLookup(item)"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-medium text-sm">{{ item.word }}</span>
+              <span v-if="item.is_saved" class="text-[10px] text-amber-700">生词</span>
+            </div>
+            <p class="text-xs text-neutral-400 line-clamp-1 mt-0.5">{{ item.context }}</p>
+          </button>
+        </div>
+      </aside>
     </div>
 
     <EntryCard
@@ -359,7 +632,9 @@ function subtitleRowClass(index: number) {
       :entry="selectedEntry"
       :loading="entryLoading"
       :error="entryError"
+      :can-save-vocabulary="auth.isLoggedIn && !adminPreview"
       @close="closeEntryPanel"
+      @toggle-vocabulary="toggleVocabulary"
     />
     <KeyboardHelp v-if="player.showHelp.value" @close="player.showHelp.value = false" />
     <SettingsPanel v-if="showSettings" @close="showSettings = false" />
