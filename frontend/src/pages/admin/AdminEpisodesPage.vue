@@ -145,6 +145,7 @@ onMounted(load)
             <th class="text-left px-4 py-3 font-medium">难度</th>
             <th class="text-left px-4 py-3 font-medium">字幕</th>
             <th class="text-left px-4 py-3 font-medium">时长</th>
+            <th class="text-left px-4 py-3 font-medium">标签</th>
             <th class="text-left px-4 py-3 font-medium">来源</th>
             <th class="text-left px-4 py-3 font-medium">状态</th>
             <th class="text-right px-4 py-3 font-medium">操作</th>
@@ -170,6 +171,18 @@ onMounted(load)
             <td class="px-4 py-3">{{ '★'.repeat(row.stars) }}</td>
             <td class="px-4 py-3">{{ row.subtitle_count }} 行</td>
             <td class="px-4 py-3">{{ formatDuration(row.clip_length) }}</td>
+            <td class="px-4 py-3">
+              <div v-if="row.tag_names?.length" class="flex flex-wrap gap-1 max-w-[12rem]">
+                <span
+                  v-for="name in row.tag_names"
+                  :key="name"
+                  class="inline-flex text-xs px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600"
+                >
+                  {{ name }}
+                </span>
+              </div>
+              <span v-else class="text-neutral-300">—</span>
+            </td>
             <td class="px-4 py-3">
               <span
                 v-if="row.is_user_submitted"
@@ -208,7 +221,7 @@ onMounted(load)
             </td>
           </tr>
           <tr v-if="!rows.length">
-            <td colspan="9" class="px-4 py-8 text-center text-neutral-500">暂无剧集</td>
+            <td colspan="10" class="px-4 py-8 text-center text-neutral-500">暂无剧集</td>
           </tr>
         </tbody>
       </table>

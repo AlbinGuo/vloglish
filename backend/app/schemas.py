@@ -248,6 +248,7 @@ class AdminEpisodeListItemOut(BaseModel):
     cover: str
     is_demo: bool
     is_user_submitted: bool = False
+    tag_names: list[str] = []
     created_at: str
 
 

@@ -105,7 +105,7 @@ def list_episodes(
     _admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    q = db.query(Episode).options(joinedload(Episode.author)).join(Author)
+    q = db.query(Episode).options(joinedload(Episode.author), joinedload(Episode.tags)).join(Author)
     if search and search.strip():
         term = f"%{search.strip()}%"
         q = q.filter(or_(Episode.short_title.ilike(term), Episode.video_id.ilike(term), Author.name.ilike(term)))
@@ -131,6 +131,7 @@ def list_episodes(
                 cover=ep.thumbnail_url or ep.cover or "",
                 is_demo=ep.is_demo,
                 is_user_submitted=ep.submitted_by_user_id is not None,
+                tag_names=[t.name for t in ep.tags],
                 created_at=_fmt_dt(ep.created_at),
             )
             for ep in items

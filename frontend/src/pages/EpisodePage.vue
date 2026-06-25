@@ -3,11 +3,13 @@ import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'v
 import { useRouter } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
 import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
-import { setEpisodeFavorite } from '@/api/episodes'
+import { getEpisodeList, setEpisodeFavorite } from '@/api/episodes'
+import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
 import { useLearningProgress } from '@/composables/useLearningProgress'
 import { useAuthStore } from '@/stores/auth'
-import type { EntryDetail, EpisodeDetail } from '@/types'
+import type { EntryDetail, EpisodeDetail, EpisodeSummary } from '@/types'
 import EntryCard from '@/components/EntryCard.vue'
+import StarIcon from '@/components/icons/StarIcon.vue'
 import PlayerControls from '@/components/PlayerControls.vue'
 import VideoPlayer from '@/components/player/VideoPlayer.vue'
 import KeyboardHelp from '@/components/KeyboardHelp.vue'
@@ -49,8 +51,12 @@ const videoPanelRef = ref<HTMLElement | null>(null)
 const videoHidden = ref(false)
 const listRef = ref<HTMLElement | null>(null)
 const showSettings = ref(false)
-const showLookupHistory = ref(false)
+const showSidePanel = ref(true)
+const sidePanelTab = ref<'related' | 'lookup'>('related')
+const relatedEpisodes = ref<EpisodeSummary[]>([])
+const relatedLoading = ref(false)
 const lookupHistory = ref<WordLookupRecord[]>([])
+const lookupLoading = ref(false)
 const isFavorite = ref(false)
 const favoriteLoading = ref(false)
 const learnedSubtitleIds = ref<Set<number>>(new Set())
@@ -167,10 +173,57 @@ watch(currentIndex, () => {
   nextTick(scrollCurrentIntoView)
 })
 
+function episodePath(videoId: string) {
+  return auth.isMember ? `/english/episode/${videoId}` : `/english/demo/${videoId}`
+}
+
+async function loadRelatedEpisodes() {
+  const tags = episode.value?.tags ?? []
+  if (!tags.length) {
+    relatedEpisodes.value = []
+    return
+  }
+  relatedLoading.value = true
+  try {
+    const seen = new Set<string>()
+    const merged: EpisodeSummary[] = []
+    for (const tag of tags) {
+      const data = await getEpisodeList({ tag: tag.id, page_size: 20 })
+      for (const ep of data.results) {
+        if (ep.video_id === props.videoId || seen.has(ep.video_id)) continue
+        seen.add(ep.video_id)
+        merged.push(ep)
+      }
+    }
+    relatedEpisodes.value = merged.slice(0, 24)
+  } catch {
+    relatedEpisodes.value = []
+  } finally {
+    relatedLoading.value = false
+  }
+}
+
+async function loadLookupHistory() {
+  if (!auth.isLoggedIn) {
+    lookupHistory.value = []
+    return
+  }
+  lookupLoading.value = true
+  try {
+    const data = await getLookupHistory(props.videoId)
+    lookupHistory.value = data.results
+  } catch {
+    lookupHistory.value = []
+  } finally {
+    lookupLoading.value = false
+  }
+}
+
 async function load() {
   loading.value = true
   error.value = ''
-  showLookupHistory.value = false
+  sidePanelTab.value = 'related'
+  relatedEpisodes.value = []
   lookupHistory.value = []
   try {
     const data = props.adminPreview
@@ -178,8 +231,12 @@ async function load() {
       : await getEpisodeDetail(props.videoId)
     episode.value = data.episode
     currentIndex.value = 0
+    if (!props.adminPreview) {
+      void loadRelatedEpisodes()
+    }
     if (!props.adminPreview && auth.isLoggedIn) {
       await initLearning()
+      void loadLookupHistory()
       try {
         const rows = await getSubtitleProgress(props.videoId)
         learnedSubtitleIds.value = new Set(
@@ -250,15 +307,18 @@ async function toggleFavorite() {
   }
 }
 
-async function toggleLookupHistory() {
-  showLookupHistory.value = !showLookupHistory.value
-  if (showLookupHistory.value && !lookupHistory.value.length && auth.isLoggedIn) {
-    try {
-      const data = await getLookupHistory(props.videoId)
-      lookupHistory.value = data.results
-    } catch {
-      lookupHistory.value = []
-    }
+function toggleSidePanel() {
+  showSidePanel.value = !showSidePanel.value
+}
+
+function closeSidePanel() {
+  showSidePanel.value = false
+}
+
+function onSidePanelTabChange(tab: 'related' | 'lookup') {
+  sidePanelTab.value = tab
+  if (tab === 'lookup' && auth.isLoggedIn && !lookupHistory.value.length && !lookupLoading.value) {
+    void loadLookupHistory()
   }
 }
 
@@ -349,6 +409,7 @@ async function onSubtitleClick(e: MouseEvent) {
       subtitle_id: sub?.id,
     })
     if (auth.isLoggedIn) noteLookup()
+    if (sidePanelTab.value === 'lookup') void loadLookupHistory()
     target.classList.add('highlight', 'token-clicked')
   } catch {
     entryError.value = '词条加载失败，请确认后端已启动且 DeepSeek API 配置正确'
@@ -426,26 +487,20 @@ function subtitleRowClass(index: number) {
       </div>
       <div class="flex items-center gap-1 shrink-0">
         <button
-          v-if="auth.isLoggedIn && !adminPreview"
-          type="button"
-          class="text-xs px-2 py-1 rounded-lg border transition-colors"
-          :class="
-            showLookupHistory
-              ? 'bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-800 hover:text-white'
-              : 'border-black/10 hover:bg-neutral-50'
-          "
-          @click="toggleLookupHistory"
-        >
-          查词历史
-        </button>
-        <button
           v-if="auth.isMember && !adminPreview"
           type="button"
-          class="text-xs px-2 py-1 rounded-lg border border-black/10 hover:bg-neutral-50 disabled:opacity-50"
+          class="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-neutral-100 transition-colors disabled:opacity-50"
           :disabled="favoriteLoading"
+          :aria-label="isFavorite ? '取消收藏' : '添加收藏'"
+          :title="isFavorite ? '取消收藏' : '添加收藏'"
           @click="toggleFavorite"
         >
-          {{ isFavorite ? '已收藏' : '收藏' }}
+          <StarIcon
+            :active="isFavorite"
+            size-class="w-5 h-5"
+            active-class="text-amber-400"
+            inactive-class="text-neutral-400"
+          />
         </button>
         <SettingsButton @click="showSettings = true" />
         <button class="text-xs text-neutral-400 hover:text-black px-2 py-1" @click="player.showHelp.value = true">
@@ -517,7 +572,7 @@ function subtitleRowClass(index: number) {
           >
             {{ m.label }}
           </button>
-          <div class="flex items-center gap-0.5 ml-1 pl-2 border-l border-black/10">
+          <div class="flex items-center gap-0.5 ml-1 pl-2 border-l border-black/10 flex-1 min-w-0">
             <button
               v-for="a in alignButtons"
               :key="a.key"
@@ -527,13 +582,21 @@ function subtitleRowClass(index: number) {
             >
               {{ a.label }}
             </button>
+            <button
+              v-if="!adminPreview && !showSidePanel"
+              type="button"
+              class="ml-auto text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 text-neutral-500 hover:bg-neutral-50 transition-colors"
+              @click="toggleSidePanel"
+            >
+              显示侧栏
+            </button>
           </div>
         </div>
 
         <!-- 动态模式 -->
         <div
           v-if="modeIsDynamicFocus(subtitleMode) && currentSub"
-          class="subtitle-focus-light flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-center p-6 sm:p-10"
+          class="subtitle-focus-light subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-center p-6 sm:p-10"
           :class="subtitleAlign === 'left' ? 'items-start text-left' : 'items-center text-center'"
           @click="currentSub && player.seekTo(currentSub)"
         >
@@ -556,7 +619,7 @@ function subtitleRowClass(index: number) {
         <div
           v-else
           ref="listRef"
-          class="flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] p-4 space-y-2"
+          class="subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] p-4 space-y-2"
         >
           <div
             v-for="(sub, i) in sortedSubs"
@@ -598,33 +661,19 @@ function subtitleRowClass(index: number) {
         </div>
       </section>
 
-      <aside
-        v-if="showLookupHistory && auth.isLoggedIn"
-        class="shrink-0 w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-black/5 bg-white flex flex-col max-h-48 lg:max-h-none"
-      >
-        <div class="shrink-0 px-4 py-3 border-b border-black/5 flex items-center justify-between">
-          <span class="text-sm font-medium">本期查词历史</span>
-          <button type="button" class="text-xs text-neutral-400 hover:text-black" @click="showLookupHistory = false">
-            关闭
-          </button>
-        </div>
-        <div class="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
-          <p v-if="!lookupHistory.length" class="text-xs text-neutral-400 text-center py-6">暂无查词记录</p>
-          <button
-            v-for="item in lookupHistory"
-            :key="item.id"
-            type="button"
-            class="w-full text-left rounded-lg border border-black/5 px-3 py-2 hover:bg-neutral-50 transition"
-            @click="reopenLookup(item)"
-          >
-            <div class="flex items-center justify-between gap-2">
-              <span class="font-medium text-sm">{{ item.word }}</span>
-              <span v-if="item.is_saved" class="text-[10px] text-amber-700">生词</span>
-            </div>
-            <p class="text-xs text-neutral-400 line-clamp-1 mt-0.5">{{ item.context }}</p>
-          </button>
-        </div>
-      </aside>
+      <EpisodeSidePanel
+        v-if="!adminPreview && showSidePanel"
+        :tab="sidePanelTab"
+        :related-episodes="relatedEpisodes"
+        :related-loading="relatedLoading"
+        :lookup-history="lookupHistory"
+        :lookup-loading="lookupLoading"
+        :show-lookup-tab="auth.isLoggedIn"
+        :episode-path="episodePath"
+        @update:tab="onSidePanelTabChange"
+        @reopen-lookup="reopenLookup"
+        @close="closeSidePanel"
+      />
     </div>
 
     <EntryCard
@@ -640,3 +689,14 @@ function subtitleRowClass(index: number) {
     <SettingsPanel v-if="showSettings" @close="showSettings = false" />
   </div>
 </template>
+
+<style scoped>
+.subtitle-scroll-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.subtitle-scroll-hide::-webkit-scrollbar {
+  display: none;
+}
+</style>

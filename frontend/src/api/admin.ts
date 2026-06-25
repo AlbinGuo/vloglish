@@ -221,6 +221,7 @@ export interface AdminEpisodeListItem {
   cover: string
   is_demo: boolean
   is_user_submitted: boolean
+  tag_names: string[]
   created_at: string
 }
 
