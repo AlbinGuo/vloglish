@@ -20,6 +20,7 @@ router = APIRouter(prefix="/api", tags=["episodes"])
 def episode_list(
     page: int = Query(1, ge=1),
     page_size: int = Query(12, ge=1, le=50),
+    offset: int | None = Query(None, ge=0),
     stars: int | None = None,
     accent: str | None = None,
     accents: str | None = None,
@@ -28,7 +29,7 @@ def episode_list(
     tags: str | None = None,
     date: str | None = None,
     status: str | None = Query(None, pattern="^(all|learned|unlearned|favorite)$"),
-    ordering: str = Query("index", pattern="^(index|-index|stars|-stars)$"),
+    ordering: str = Query("created_at", pattern="^(index|-index|stars|-stars|created_at|-created_at)$"),
     search: str | None = None,
     db: Session = Depends(get_db),
     device_id: str = Depends(get_device_id),
@@ -90,18 +91,20 @@ def episode_list(
         "-index": Episode.index.asc(),
         "stars": Episode.stars.desc(),
         "-stars": Episode.stars.asc(),
+        "created_at": Episode.created_at.desc(),
+        "-created_at": Episode.created_at.asc(),
     }
-    q = q.order_by(order_map.get(ordering, Episode.index.desc()))
+    q = q.order_by(order_map.get(ordering, Episode.created_at.desc()))
 
     limit = get_episode_limit(user)
+    start = offset if offset is not None else (page - 1) * page_size
     if limit is not None:
         matched = q.limit(limit).all()
         total = len(matched)
-        start = (page - 1) * page_size
         items = matched[start : start + page_size]
     else:
         total = q.count()
-        items = q.offset((page - 1) * page_size).limit(page_size).all()
+        items = q.offset(start).limit(page_size).all()
     return {
         "count": total,
         "results": [

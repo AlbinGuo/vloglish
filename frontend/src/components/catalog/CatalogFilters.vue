@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import StarIcon from '@/components/icons/StarIcon.vue'
 import { accentOptions } from '@/constants/accentOptions'
+import DifficultyStarsFilter from '@/components/catalog/DifficultyStarsFilter.vue'
 import { useCatalogStore } from '@/stores/catalog'
 
 const store = useCatalogStore()
@@ -14,24 +14,16 @@ const store = useCatalogStore()
         class="text-xs px-2 py-1 rounded-lg border border-black/10 hover:bg-neutral-50"
         @click="store.toggleOrdering()"
       >
-        {{ store.filters.ordering === 'index' ? '倒序' : '正序' }}
+        {{ store.filters.ordering === 'created_at' ? '最新优先' : '最早优先' }}
       </button>
     </div>
 
     <div>
       <div class="text-xs text-neutral-500 mb-2">难度</div>
-      <div class="flex items-center justify-center gap-0.5">
-        <button
-          v-for="n in 5"
-          :key="n"
-          type="button"
-          class="p-0.5 rounded-md hover:bg-neutral-100 transition"
-          :title="`${n} 星`"
-          @click="store.toggleStars(n)"
-        >
-          <StarIcon :active="store.filters.stars != null && n <= store.filters.stars" />
-        </button>
-      </div>
+      <DifficultyStarsFilter
+        :active-level="store.filters.stars"
+        @select="store.toggleStars"
+      />
     </div>
 
     <div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { consumeRemoteLoginNotice } from '@/api/tokens'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -11,9 +12,17 @@ const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
+const remoteNotice = ref('')
+
+onMounted(() => {
+  if (route.query.reason === 'remote' || consumeRemoteLoginNotice()) {
+    remoteNotice.value = '您的账号已在其他设备登录，当前登录已失效，请重新登录'
+  }
+})
 
 async function submit() {
   error.value = ''
+  remoteNotice.value = ''
   loading.value = true
   try {
     await auth.login(email.value.trim(), password.value)
@@ -33,6 +42,13 @@ async function submit() {
     <div class="w-full max-w-md rounded-2xl border border-black/5 bg-white p-6 sm:p-8 shadow-sm">
       <h1 class="text-xl font-semibold mb-1">登录</h1>
       <p class="text-sm text-neutral-500 mb-6">登录后可同步收藏，激活会员解锁全量语料</p>
+
+      <p
+        v-if="remoteNotice"
+        class="mb-4 text-sm text-amber-900 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5"
+      >
+        {{ remoteNotice }}
+      </p>
 
       <form class="space-y-4" @submit.prevent="submit">
         <div>

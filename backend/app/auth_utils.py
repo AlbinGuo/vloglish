@@ -11,6 +11,8 @@ JWT_ALGORITHM = "HS256"
 ACCESS_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_EXPIRE_MINUTES", "15"))
 REFRESH_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_EXPIRE_DAYS", "7"))
 
+REMOTE_LOGIN_DETAIL = "您的账号已在其他设备登录，请重新登录"
+
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -23,20 +25,35 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, session_version: int) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_EXPIRE_MINUTES)
-    payload = {"sub": str(user_id), "type": "access", "exp": expire}
+    payload = {
+        "sub": str(user_id),
+        "type": "access",
+        "sv": session_version,
+        "exp": expire,
+    }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
-def decode_access_token(token: str) -> int | None:
+def decode_access_claims(token: str) -> dict | None:
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         if payload.get("type") != "access":
             return None
-        return int(payload["sub"])
+        sv = payload.get("sv")
+        if sv is None:
+            return None
+        return {"user_id": int(payload["sub"]), "session_version": int(sv)}
     except (JWTError, KeyError, TypeError, ValueError):
         return None
+
+
+def decode_access_token(token: str) -> int | None:
+    claims = decode_access_claims(token)
+    if not claims:
+        return None
+    return claims["user_id"]
 
 
 def new_refresh_token() -> str:

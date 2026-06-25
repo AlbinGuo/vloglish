@@ -1,5 +1,12 @@
 import axios from 'axios'
-import { clearTokens, getAccessToken, getRefreshToken } from '@/api/tokens'
+import {
+  clearTokens,
+  getAccessToken,
+  getErrorDetail,
+  getRefreshToken,
+  isRemoteLoginDetail,
+  setRemoteLoginNotice,
+} from '@/api/tokens'
 
 const DEVICE_KEY = 'device_id'
 const DEMO_CODE_KEY = 'demo_code'
@@ -50,10 +57,28 @@ api.interceptors.request.use((config) => {
 
 let refreshPromise: Promise<string | null> | null = null
 
+async function handleForcedLogout() {
+  setRemoteLoginNotice()
+  clearTokens()
+  const { useAuthStore } = await import('@/stores/auth')
+  useAuthStore().clearSession()
+  const path = window.location.pathname
+  if (!path.startsWith('/login') && !path.startsWith('/signup') && !path.startsWith('/gnadmin')) {
+    window.location.href = '/login?reason=remote'
+  }
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config
+    const detail = getErrorDetail(error)
+
+    if (isRemoteLoginDetail(detail)) {
+      await handleForcedLogout()
+      return Promise.reject(error)
+    }
+
     if (!original || error.response?.status !== 401 || original._authRetry) {
       return Promise.reject(error)
     }
@@ -74,10 +99,14 @@ api.interceptors.response.use(
     if (!refreshPromise) {
       refreshPromise = import('@/stores/auth')
         .then(({ useAuthStore }) => useAuthStore().refreshAccess())
-        .catch(async () => {
-          clearTokens()
-          const { useAuthStore } = await import('@/stores/auth')
-          useAuthStore().clearSession()
+        .catch(async (err) => {
+          if (isRemoteLoginDetail(getErrorDetail(err))) {
+            await handleForcedLogout()
+          } else {
+            clearTokens()
+            const { useAuthStore } = await import('@/stores/auth')
+            useAuthStore().clearSession()
+          }
           return null
         })
         .finally(() => {

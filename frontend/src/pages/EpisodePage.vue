@@ -25,14 +25,14 @@ import {
   type SubtitleDisplayMode,
 } from '@/utils/subtitleHtml'
 
-const props = defineProps<{ videoId: string; backTo?: string }>()
+const props = defineProps<{ videoId: string; backTo?: string; adminPreview?: boolean }>()
 const router = useRouter()
 
 const episode = ref<EpisodeDetail | null>(null)
 const loading = ref(true)
 const error = ref('')
 const subtitleMode = ref<SubtitleDisplayMode>('both')
-const subtitleAlign = ref<SubtitleAlign>('center')
+const subtitleAlign = ref<SubtitleAlign>('left')
 const showIpa = ref(true)
 const selectedEntry = ref<EntryDetail | null>(null)
 const showEntryPanel = ref(false)
@@ -123,7 +123,9 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const data = await getEpisodeDetail(props.videoId)
+    const data = props.adminPreview
+      ? await (await import('@/api/admin')).adminGetEpisodePreview(props.videoId)
+      : await getEpisodeDetail(props.videoId)
     episode.value = data.episode
     currentIndex.value = 0
     nextTick(scrollCurrentIntoView)
@@ -218,7 +220,10 @@ function subtitleRowClass(index: number) {
 
 <template>
   <!-- h-dvh + overflow-hidden：整页不滚动，仅字幕列表区域滚动 -->
-  <div class="h-full flex flex-col overflow-hidden bg-neutral-100">
+  <div
+    class="flex flex-col overflow-hidden bg-neutral-100"
+    :class="adminPreview ? 'h-dvh' : 'h-full'"
+  >
     <header class="shrink-0 flex items-center gap-4 px-4 py-3 bg-white border-b border-black/5 z-30">
       <button class="text-sm text-neutral-500 hover:text-black" @click="goBack">← 返回</button>
       <div v-if="episode" class="flex-1 min-w-0">

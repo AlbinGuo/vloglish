@@ -16,7 +16,7 @@ const props = withDefaults(
     chineseFocus?: boolean
     readProgress?: number
   }>(),
-  { align: 'center', chineseFocus: false },
+  { align: 'left', chineseFocus: false },
 )
 
 defineEmits<{ click: [event: MouseEvent] }>()

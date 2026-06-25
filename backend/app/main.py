@@ -12,7 +12,7 @@ from sqlalchemy import inspect, text
 from .database import Base, SessionLocal, engine
 from .models import ActivationCode
 from .schemas import AuthTokensOut
-from .routers import auth, demo, entries, episodes
+from .routers import auth, demo, entries, episode_submit, episodes, notifications
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import auth as admin_auth
 from .routers.admin import authors as admin_authors
@@ -21,6 +21,7 @@ from .routers.admin import demo_codes as admin_demo_codes
 from .routers.admin import episode_import as admin_episode_import
 from .routers.admin import episode_tools as admin_episode_tools
 from .routers.admin import episodes as admin_episodes
+from .routers.admin import notifications as admin_notifications
 from .routers.admin import tags as admin_tags
 from .routers.admin import users as admin_users
 from .services.admin_bootstrap import ensure_admin_user
@@ -38,6 +39,8 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(demo.router)
 app.include_router(episodes.router)
+app.include_router(episode_submit.router)
+app.include_router(notifications.router)
 app.include_router(entries.router)
 app.include_router(admin_auth.router)
 app.include_router(admin_dashboard.router)
@@ -49,6 +52,7 @@ app.include_router(admin_episode_import.router)
 app.include_router(admin_demo_codes.router)
 app.include_router(admin_authors.router)
 app.include_router(admin_tags.router)
+app.include_router(admin_notifications.router)
 app.add_api_route(
     "/api/token/refresh/",
     auth.refresh_token,
@@ -93,6 +97,9 @@ def _migrate_schema():
     if "is_staff" not in cols:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN is_staff BOOLEAN NOT NULL DEFAULT 0"))
+    if "session_version" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 1"))
     if "episodes" in insp.get_table_names():
         ep_cols = {c["name"] for c in insp.get_columns("episodes")}
         if "status" not in ep_cols:
@@ -100,3 +107,14 @@ def _migrate_schema():
                 conn.execute(
                     text("ALTER TABLE episodes ADD COLUMN status VARCHAR(16) NOT NULL DEFAULT 'published'")
                 )
+        if "submitted_by_user_id" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE episodes ADD COLUMN submitted_by_user_id INTEGER"))
+        if "rejection_reason" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE episodes ADD COLUMN rejection_reason TEXT"))
+    if "user_notifications" in insp.get_table_names():
+        notif_cols = {c["name"] for c in insp.get_columns("user_notifications")}
+        if "broadcast_id" not in notif_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE user_notifications ADD COLUMN broadcast_id INTEGER"))

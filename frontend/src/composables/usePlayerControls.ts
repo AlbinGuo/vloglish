@@ -546,6 +546,36 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
 
+  function onVideoEnded() {
+
+    const v = getVideo()
+
+    if (!v) return
+
+    clearSentenceLoopTimer()
+
+    v.currentTime = 0
+
+    currentTime.value = 0
+
+    if (opts.sortedSubs.value.length) {
+
+      opts.currentIndex.value = 0
+
+      opts.onIndexChange?.(0)
+
+    }
+
+    sentenceLoopsDone.value = 0
+
+    void v.play()
+
+    isPlaying.value = true
+
+  }
+
+
+
   function handleKeydown(e: KeyboardEvent) {
 
     const tag = (e.target as HTMLElement)?.tagName
@@ -725,6 +755,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
     onTimeUpdate,
 
     onPlayState,
+
+    onVideoEnded,
 
     formatTime,
 

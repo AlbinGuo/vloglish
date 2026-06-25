@@ -1,20 +1,37 @@
 const ACCESS_KEY = 'admin_access_token'
 const REFRESH_KEY = 'admin_refresh_token'
 
+function migrateLegacyTokens() {
+  const access = sessionStorage.getItem(ACCESS_KEY)
+  const refresh = sessionStorage.getItem(REFRESH_KEY)
+  if (!access || !refresh) return
+  localStorage.setItem(ACCESS_KEY, access)
+  localStorage.setItem(REFRESH_KEY, refresh)
+  sessionStorage.removeItem(ACCESS_KEY)
+  sessionStorage.removeItem(REFRESH_KEY)
+}
+
+/** 管理员 token 使用 localStorage，以便新标签页预览等场景共享登录态 */
 export function getAdminAccessToken() {
-  return sessionStorage.getItem(ACCESS_KEY)
+  migrateLegacyTokens()
+  return localStorage.getItem(ACCESS_KEY)
 }
 
 export function getAdminRefreshToken() {
-  return sessionStorage.getItem(REFRESH_KEY)
+  migrateLegacyTokens()
+  return localStorage.getItem(REFRESH_KEY)
 }
 
 export function setAdminTokens(access: string, refresh: string) {
-  sessionStorage.setItem(ACCESS_KEY, access)
-  sessionStorage.setItem(REFRESH_KEY, refresh)
+  localStorage.setItem(ACCESS_KEY, access)
+  localStorage.setItem(REFRESH_KEY, refresh)
+  sessionStorage.removeItem(ACCESS_KEY)
+  sessionStorage.removeItem(REFRESH_KEY)
 }
 
 export function clearAdminTokens() {
+  localStorage.removeItem(ACCESS_KEY)
+  localStorage.removeItem(REFRESH_KEY)
   sessionStorage.removeItem(ACCESS_KEY)
   sessionStorage.removeItem(REFRESH_KEY)
 }

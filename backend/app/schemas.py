@@ -1,5 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field
 
+EPISODE_STATUS_PATTERN = "^(draft|published|archived|rejected)$"
+
 
 class UserOut(BaseModel):
     id: int
@@ -65,7 +67,7 @@ class AdminAuthTokensOut(BaseModel):
 class AdminEpisodeImportIn(BaseModel):
     episodes: list[dict] = []
     details: list[dict] = []
-    default_status: str = Field(default="draft", pattern="^(draft|published|archived)$")
+    default_status: str = Field(default="draft", pattern=EPISODE_STATUS_PATTERN)
     mark_demo: bool = False
 
 
@@ -204,7 +206,8 @@ class AdminEpisodeCreateIn(BaseModel):
     thumbnail_url: str = ""
     original_video_url: str = ""
     is_demo: bool = False
-    status: str = Field(default="draft", pattern="^(draft|published|archived)$")
+    status: str = Field(default="draft", pattern=EPISODE_STATUS_PATTERN)
+    rejection_reason: str = ""
     author: AdminAuthorIn
     tag_names: list[str] = []
     subtitles: list[AdminSubtitleIn] = []
@@ -223,7 +226,8 @@ class AdminEpisodeUpdateIn(BaseModel):
     thumbnail_url: str | None = None
     original_video_url: str | None = None
     is_demo: bool | None = None
-    status: str | None = Field(default=None, pattern="^(draft|published|archived)$")
+    status: str | None = Field(default=None, pattern=EPISODE_STATUS_PATTERN)
+    rejection_reason: str | None = None
     author: AdminAuthorIn | None = None
     tag_names: list[str] | None = None
     subtitles: list[AdminSubtitleIn] | None = None
@@ -238,7 +242,9 @@ class AdminEpisodeListItemOut(BaseModel):
     subtitle_count: int
     clip_length: float
     author_name: str
+    cover: str
     is_demo: bool
+    is_user_submitted: bool = False
     created_at: str
 
 
@@ -265,6 +271,8 @@ class AdminEpisodeDetailOut(BaseModel):
     original_video_url: str
     is_demo: bool
     status: str
+    rejection_reason: str = ""
+    is_user_submitted: bool = False
     author: AdminAuthorIn
     tag_names: list[str]
     subtitles: list[AdminSubtitleIn]
@@ -279,6 +287,59 @@ class AdminVttImportOut(BaseModel):
     subtitles: list[AdminSubtitleIn]
     subtitle_count: int
     clip_length: float
+    had_chinese: bool = False
+    translated_count: int = 0
+    ipa_count: int = 0
+
+
+class AdminFetchMediaIn(BaseModel):
+    url: str = Field(min_length=8)
+    slug: str = Field(default="", max_length=64)
+    enrich_subtitles: bool = True
+
+
+class AdminFetchMediaOut(BaseModel):
+    title: str
+    summary: str = ""
+    author_name: str = ""
+    original_video_url: str
+    cover: str
+    thumbnail_url: str
+    video_url: str
+    audio_url: str
+    subtitles: list[AdminSubtitleIn]
+    subtitle_count: int
+    clip_length: float
+    had_chinese: bool = False
+    translated_count: int = 0
+    ipa_count: int = 0
+    stars: int = 3
+    voca_size: int = 0
+    highlight_count: int = 0
+    source_id: str = ""
+    warnings: list[str] = []
+
+
+class UserEpisodeSubmitIn(BaseModel):
+    accent: str = Field(min_length=1, max_length=32)
+    title: str = Field(min_length=1, max_length=256)
+    summary: str = ""
+    author_name: str = ""
+    stars: int = Field(default=3, ge=1, le=5)
+    voca_size: int = Field(default=0, ge=0)
+    original_video_url: str = Field(min_length=8)
+    cover: str = ""
+    thumbnail_url: str = ""
+    video_url: str = Field(min_length=1)
+    audio_url: str = ""
+    subtitles: list[AdminSubtitleIn] = []
+
+
+class UserEpisodeSubmitOut(BaseModel):
+    video_id: str
+    short_title: str
+    status: str
+    message: str = "提交成功，审核通过后将出现在目录中"
 
 
 class AdminTagOut(BaseModel):
@@ -414,3 +475,43 @@ class EntryBriefOut(BaseModel):
 
 class EntriesResponse(BaseModel):
     entries: list[EntryBriefOut]
+
+
+class NotificationOut(BaseModel):
+    id: int
+    type: str
+    title: str
+    body: str
+    episode_id: int | None = None
+    video_id: str | None = None
+    is_read: bool
+    created_at: str
+
+
+class NotificationListOut(BaseModel):
+    count: int
+    unread_count: int
+    results: list[NotificationOut]
+
+
+class UnreadCountOut(BaseModel):
+    unread_count: int
+
+
+class AdminBroadcastCreateIn(BaseModel):
+    title: str = Field(min_length=1, max_length=256)
+    body: str = Field(min_length=1)
+
+
+class AdminBroadcastOut(BaseModel):
+    id: int
+    title: str
+    body: str
+    recipient_count: int
+    created_by_email: str = ""
+    created_at: str
+
+
+class AdminBroadcastListOut(BaseModel):
+    count: int
+    results: list[AdminBroadcastOut]

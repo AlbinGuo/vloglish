@@ -89,7 +89,7 @@ function formatDate(iso?: string) {
           </span>
         </div>
 
-        <h3 class="font-semibold text-sm leading-snug line-clamp-2">{{ episode.short_title }}</h3>
+        <h3 class="font-semibold text-sm leading-snug truncate min-w-0">{{ episode.short_title }}</h3>
         <p class="text-xs text-neutral-500 line-clamp-2 leading-relaxed">{{ episode.summary }}</p>
 
         <div class="flex items-center justify-between text-[11px] text-neutral-400 pt-1.5 border-t border-black/5">

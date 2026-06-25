@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from ..models import Author, Episode, Subtitle, Tag
 from .vtt_import import words_to_html
 
-VALID_STATUSES = {"draft", "published", "archived"}
+VALID_STATUSES = {"draft", "published", "archived", "rejected"}
 
 
 def generate_video_id() -> str:
@@ -103,6 +103,11 @@ def apply_episode_fields(ep: Episode, data: dict, *, author: Author, tags: list[
         ep.is_demo = data.get("is_demo", False)
     if "status" in data and data.get("status") in VALID_STATUSES:
         ep.status = data["status"]
+        if data["status"] != "rejected":
+            ep.rejection_reason = None
+    if "rejection_reason" in data and ep.status == "rejected":
+        reason = (data.get("rejection_reason") or "").strip()
+        ep.rejection_reason = reason or None
     if "index" in data:
         ep.index = data.get("index", ep.index)
     ep.author_id = author.id

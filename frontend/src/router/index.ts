@@ -15,6 +15,17 @@ const router = createRouter({
       meta: { adminGuest: true },
     },
     {
+      path: '/gnadmin/preview/:videoId',
+      name: 'AdminEpisodePreview',
+      component: () => import('@/pages/EpisodePage.vue'),
+      props: (route) => ({
+        videoId: route.params.videoId as string,
+        backTo: '/gnadmin/episodes',
+        adminPreview: true,
+      }),
+      meta: { requiresAdmin: true },
+    },
+    {
       path: '/gnadmin',
       component: AdminLayout,
       meta: { requiresAdmin: true },
@@ -34,6 +45,11 @@ const router = createRouter({
           path: 'users',
           name: 'AdminUsers',
           component: () => import('@/pages/admin/AdminUsersPage.vue'),
+        },
+        {
+          path: 'notifications',
+          name: 'AdminNotifications',
+          component: () => import('@/pages/admin/AdminNotificationsPage.vue'),
         },
         {
           path: 'episodes',
@@ -127,6 +143,18 @@ const router = createRouter({
           component: () => import('@/pages/ActivatePage.vue'),
           meta: { requiresAuth: true },
         },
+        {
+          path: 'english/submit',
+          name: 'SubmitEpisode',
+          component: () => import('@/pages/SubmitEpisodePage.vue'),
+          meta: { requiresDemo: true, requiresAuth: true, requiresMember: true },
+        },
+        {
+          path: 'english/notifications',
+          name: 'Notifications',
+          component: () => import('@/pages/NotificationsPage.vue'),
+          meta: { requiresDemo: true, requiresAuth: true },
+        },
       ],
     },
     {
@@ -162,6 +190,10 @@ router.beforeEach(async (to) => {
 
   if (to.meta.requiresAuth && !auth.isLoggedIn) {
     return { path: '/login', query: { next: to.fullPath } }
+  }
+
+  if (to.meta.requiresMember && !auth.isMember) {
+    return { path: '/activate' }
   }
 })
 

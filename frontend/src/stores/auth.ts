@@ -8,7 +8,7 @@ import {
   refreshAuthToken,
   register as registerApi,
 } from '@/api/auth'
-import { clearTokens, getAccessToken, getRefreshToken, setTokens } from '@/api/tokens'
+import { clearTokens, getAccessToken, getRefreshToken, isRemoteLoginDetail, setRemoteLoginNotice, setTokens } from '@/api/tokens'
 import type { User } from '@/types'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -85,7 +85,11 @@ export const useAuthStore = defineStore('auth', () => {
   async function hydrate() {
     try {
       if (accessToken.value) await fetchMe()
-    } catch {
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      if (isRemoteLoginDetail(detail)) {
+        setRemoteLoginNotice()
+      }
       clearSession()
     } finally {
       ready.value = true

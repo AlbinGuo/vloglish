@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import DifficultyStarsInput from '@/components/admin/DifficultyStarsInput.vue'
 import {
   adminCreateEpisode,
+  adminFetchMediaFromUrl,
   adminGetEpisode,
   adminImportVtt,
   adminListTags,
@@ -10,6 +12,8 @@ import {
   type AdminEpisodePayload,
   type AdminSubtitle,
 } from '@/api/admin'
+import { accentOptions } from '@/constants/accentOptions'
+import { nationalityOptions } from '@/constants/nationalityOptions'
 
 const route = useRoute()
 const router = useRouter()
@@ -20,10 +24,13 @@ const episodeId = computed(() => (isNew.value ? null : Number(route.params.id)))
 const loading = ref(!isNew.value)
 const saving = ref(false)
 const importing = ref(false)
+const fetching = ref(false)
 const error = ref('')
 const success = ref('')
 const tagSuggestions = ref<string[]>([])
 const vttText = ref('')
+const sourceUrl = ref('')
+const mediaSlug = ref('')
 
 const form = ref<AdminEpisodePayload>({
   video_id: '',
@@ -40,7 +47,8 @@ const form = ref<AdminEpisodePayload>({
   original_video_url: '',
   is_demo: false,
   status: 'draft',
-  author: { name: '', gender: 'm', nationality: '', accent: '' },
+  rejection_reason: '',
+  author: { name: '', gender: 'm', nationality: '', accent: '美国' },
   tag_names: [],
   subtitles: [],
 })
@@ -103,6 +111,7 @@ async function loadEpisode() {
       original_video_url: data.original_video_url,
       is_demo: data.is_demo,
       status: data.status,
+      rejection_reason: data.rejection_reason || '',
       author: { ...data.author },
       tag_names: [...data.tag_names],
       subtitles: data.subtitles.map((s) => ({ ...s })),
@@ -133,6 +142,10 @@ async function save() {
   }
   if (!form.value.author.name.trim()) {
     error.value = '请填写作者'
+    return
+  }
+  if (form.value.status === 'rejected' && !form.value.rejection_reason?.trim()) {
+    error.value = '驳回时需填写原因'
     return
   }
 
@@ -166,10 +179,20 @@ async function importVtt() {
   }
   importing.value = true
   error.value = ''
+  success.value = ''
   try {
     const data = await adminImportVtt(vttText.value)
     form.value.subtitles = data.subtitles.map((s: AdminSubtitle) => ({ ...s }))
-    success.value = `已导入 ${data.subtitle_count} 条字幕`
+    const parts = [`已导入 ${data.subtitle_count} 条字幕`]
+    if (data.had_chinese) {
+      parts.push('VTT 含中文，未自动翻译')
+    } else if (data.translated_count > 0) {
+      parts.push(`翻译 ${data.translated_count} 条中文`)
+    }
+    if (data.ipa_count > 0) {
+      parts.push(`生成 ${data.ipa_count} 条音标`)
+    }
+    success.value = parts.join('，')
     vttText.value = ''
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -185,20 +208,107 @@ async function onVttFileChange(event: Event) {
   if (!file) return
   vttText.value = await file.text()
   input.value = ''
+  await importVtt()
+}
+
+async function fetchFromSourceUrl() {
+  const url = sourceUrl.value.trim()
+  if (!url) {
+    error.value = '请粘贴 YouTube 或 TikTok 链接'
+    return
+  }
+  fetching.value = true
+  error.value = ''
+  success.value = ''
+  try {
+    const data = await adminFetchMediaFromUrl({
+      url,
+      slug: mediaSlug.value.trim() || form.value.video_id.trim() || undefined,
+      enrich_subtitles: true,
+    })
+    form.value.short_title = data.title || form.value.short_title
+    if (data.summary) {
+      form.value.summary = data.summary
+    }
+    if (data.author_name) {
+      form.value.author.name = data.author_name
+    }
+    form.value.original_video_url = data.original_video_url
+    form.value.cover = data.cover
+    form.value.thumbnail_url = data.thumbnail_url
+    form.value.video_url = data.video_url
+    form.value.audio_url = data.audio_url
+    form.value.subtitles = data.subtitles.map((s: AdminSubtitle) => ({ ...s }))
+    if (data.stars >= 1 && data.stars <= 5) {
+      form.value.stars = data.stars
+    }
+    if (data.voca_size > 0) {
+      form.value.voca_size = data.voca_size
+    }
+    const parts = [
+      `已抓取「${data.title}」`,
+      data.author_name ? `作者 ${data.author_name}` : null,
+      '已翻译标题/摘要',
+      `上传视频/音频/封面`,
+      `${data.subtitle_count} 条字幕`,
+    ].filter(Boolean) as string[]
+    if (data.translated_count > 0) parts.push(`翻译 ${data.translated_count} 条`)
+    if (data.ipa_count > 0) parts.push(`音标 ${data.ipa_count} 条`)
+    if (data.highlight_count > 0) parts.push(`高亮 ${data.highlight_count} 处`)
+    if (data.voca_size > 0) parts.push(`词汇量 ${data.voca_size}`)
+    if (data.stars >= 1) parts.push(`难度 ${data.stars} 星`)
+    if (data.warnings.length) parts.push(data.warnings.join('；'))
+    success.value = parts.join('，')
+    sourceUrl.value = ''
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+    error.value = msg || '抓取失败，请检查链接与 yt-dlp 配置'
+  } finally {
+    fetching.value = false
+  }
 }
 
 onMounted(async () => {
   await loadTags()
   await loadEpisode()
 })
+
+watch(
+  () => form.value.status,
+  (status) => {
+    if (status !== 'rejected') {
+      form.value.rejection_reason = ''
+    }
+  },
+)
 </script>
 
 <template>
-  <div class="space-y-6 max-w-5xl">
-    <div class="flex items-center gap-3 text-sm">
-      <RouterLink to="/gnadmin/episodes" class="text-neutral-500 hover:text-neutral-900">← 返回列表</RouterLink>
-      <span class="text-neutral-300">|</span>
-      <span class="font-medium">{{ isNew ? '新建剧集' : '编辑剧集' }}</span>
+  <div class="space-y-6 max-w-5xl pb-8">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3 text-sm min-w-0">
+        <RouterLink to="/gnadmin/episodes" class="text-neutral-500 hover:text-neutral-900 shrink-0">← 返回列表</RouterLink>
+        <span class="text-neutral-300 shrink-0">|</span>
+        <span class="font-medium truncate">{{ isNew ? '新建剧集' : '编辑剧集' }}</span>
+      </div>
+      <div v-if="!loading" class="flex flex-wrap items-center gap-3 shrink-0">
+        <a
+          v-if="!isNew && form.video_id"
+          :href="`/gnadmin/preview/${encodeURIComponent(form.video_id)}`"
+          target="_blank"
+          class="rounded-lg border px-4 py-2 text-sm hover:bg-neutral-50"
+        >
+          前台预览
+        </a>
+        <button
+          type="button"
+          class="rounded-lg bg-neutral-900 text-white px-5 py-2 text-sm hover:bg-neutral-800 disabled:opacity-50"
+          :disabled="saving"
+          @click="save"
+        >
+          {{ saving ? '保存中...' : '保存' }}
+        </button>
+      </div>
     </div>
 
     <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
@@ -228,17 +338,30 @@ onMounted(async () => {
             <span class="text-neutral-500">排序 index</span>
             <input v-model.number="form.index" type="number" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2" />
           </label>
-          <label class="block text-sm">
-            <span class="text-neutral-500">难度 (1-5)</span>
-            <input v-model.number="form.stars" type="number" min="1" max="5" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2" />
-          </label>
+          <div class="block text-sm md:col-span-2">
+            <span class="text-neutral-500">难度</span>
+            <div class="mt-2 flex flex-wrap items-center gap-4">
+              <DifficultyStarsInput v-model="form.stars" />
+              <span class="text-xs text-neutral-400">悬停星星查看各级典型特征，点击选择</span>
+            </div>
+          </div>
           <label class="block text-sm">
             <span class="text-neutral-500">状态</span>
             <select v-model="form.status" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2">
               <option value="draft">草稿</option>
               <option value="published">已发布</option>
               <option value="archived">已下架</option>
+              <option value="rejected">驳回</option>
             </select>
+          </label>
+          <label v-if="form.status === 'rejected'" class="block text-sm md:col-span-2">
+            <span class="text-neutral-500">驳回原因 *</span>
+            <textarea
+              v-model="form.rejection_reason"
+              rows="3"
+              placeholder="请说明驳回原因，用户将在通知中看到"
+              class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2"
+            />
           </label>
           <label class="block text-sm flex items-end gap-2 pb-2">
             <input v-model="form.is_demo" type="checkbox" class="rounded" />
@@ -278,14 +401,44 @@ onMounted(async () => {
             <span class="text-neutral-500">姓名 *</span>
             <input v-model="form.author.name" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2" />
           </label>
-          <label class="block text-sm">
+          <div class="block text-sm">
             <span class="text-neutral-500">口音</span>
-            <input v-model="form.author.accent" placeholder="美国 / 英国" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2" />
-          </label>
-          <label class="block text-sm">
-            <span class="text-neutral-500">国籍 emoji</span>
-            <input v-model="form.author.nationality" placeholder="🇺🇸" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2" />
-          </label>
+            <div class="mt-2 flex flex-wrap gap-4">
+              <label
+                v-for="opt in accentOptions"
+                :key="opt.value"
+                class="flex items-center gap-2 cursor-pointer"
+              >
+                <input
+                  v-model="form.author.accent"
+                  type="radio"
+                  :value="opt.value"
+                  class="text-neutral-900 focus:ring-neutral-400"
+                />
+                <img :src="opt.icon" :alt="opt.label" class="w-5 h-5 shrink-0 object-contain" />
+                <span>{{ opt.label }}</span>
+              </label>
+            </div>
+          </div>
+          <div class="block text-sm">
+            <span class="text-neutral-500">国籍</span>
+            <div class="mt-2 flex flex-wrap gap-4">
+              <label
+                v-for="opt in nationalityOptions"
+                :key="opt.value"
+                class="flex items-center gap-2 cursor-pointer"
+              >
+                <input
+                  v-model="form.author.nationality"
+                  type="radio"
+                  :value="opt.value"
+                  class="text-neutral-900 focus:ring-neutral-400"
+                />
+                <span class="text-lg leading-none">{{ opt.value }}</span>
+                <span>{{ opt.label }}</span>
+              </label>
+            </div>
+          </div>
           <label class="block text-sm">
             <span class="text-neutral-500">性别</span>
             <select v-model="form.author.gender" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2">
@@ -297,7 +450,61 @@ onMounted(async () => {
       </section>
 
       <section class="rounded-xl border border-black/5 bg-white p-5 space-y-4">
-        <h2 class="font-medium">媒体 URL（手动填写）</h2>
+        <h2 class="font-medium">从 YouTube / TikTok 抓取</h2>
+        <p class="text-sm text-neutral-600">
+          使用本机 yt-dlp 下载视频、封面、音频、英文字幕，上传七牛后自动回填标题、摘要、作者及字幕分析字段。
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label class="block text-sm md:col-span-2">
+            <span class="text-neutral-500">页面链接 *</span>
+            <input
+              v-model="sourceUrl"
+              placeholder="https://www.youtube.com/watch?v=... 或 https://www.tiktok.com/@.../video/..."
+              class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2"
+            />
+          </label>
+          <label class="block text-sm">
+            <span class="text-neutral-500">七牛目录名（可选）</span>
+            <input
+              v-model="mediaSlug"
+              placeholder="如 tk01，默认用 video_id 或平台 ID"
+              class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2"
+            />
+          </label>
+          <div class="flex items-end">
+            <button
+              type="button"
+              class="text-sm px-4 py-2 rounded-lg bg-neutral-900 text-white disabled:opacity-50"
+              :disabled="fetching"
+              @click="fetchFromSourceUrl"
+            >
+              {{ fetching ? '下载上传中（可能需要几分钟）...' : '抓取并上传七牛' }}
+            </button>
+          </div>
+        </div>
+        <div v-if="form.cover || form.video_url" class="flex flex-wrap gap-4 pt-2">
+          <div v-if="form.cover" class="space-y-1">
+            <p class="text-xs text-neutral-500">封面预览</p>
+            <img :src="form.cover" alt="cover" class="h-24 w-40 object-cover rounded-lg border border-black/10 bg-neutral-50" />
+          </div>
+          <div v-if="form.video_url" class="space-y-1 flex-1 min-w-[240px]">
+            <p class="text-xs text-neutral-500">视频预览</p>
+            <video
+              :src="form.video_url"
+              :poster="form.thumbnail_url || form.cover"
+              controls
+              preload="metadata"
+              class="w-full max-w-md rounded-lg border border-black/10 bg-black"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-xl border border-black/5 bg-white p-5 space-y-4">
+        <h2 class="font-medium">媒体 URL（可手动修改）</h2>
+        <p class="text-sm text-neutral-500">
+          video_url 必须是 mp4 直链；original_video_url 填 YouTube/TikTok 原页面。
+        </p>
         <div class="grid grid-cols-1 gap-4">
           <label class="block text-sm">
             <span class="text-neutral-500">封面 cover</span>
@@ -333,7 +540,9 @@ onMounted(async () => {
         </div>
 
         <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">
-          <p class="text-sm text-neutral-600">从 VTT 导入（粘贴内容或选择文件）</p>
+          <p class="text-sm text-neutral-600">
+            从 VTT 导入（粘贴内容或选择文件）。纯英文将自动翻译中文；所有字幕将自动生成美式 IPA 音标。
+          </p>
           <textarea
             v-model="vttText"
             rows="4"
@@ -351,13 +560,13 @@ onMounted(async () => {
               :disabled="importing"
               @click="importVtt"
             >
-              {{ importing ? '解析中...' : '解析并替换字幕' }}
+              {{ importing ? '解析/生成中...' : '解析并替换字幕' }}
             </button>
           </div>
         </div>
 
         <div class="overflow-auto max-h-[480px] border border-black/5 rounded-lg">
-          <table class="w-full text-sm min-w-[720px]">
+          <table class="w-full text-sm min-w-[960px]">
             <thead class="bg-neutral-50 text-neutral-500 sticky top-0">
               <tr>
                 <th class="px-2 py-2 text-left w-10">#</th>
@@ -365,6 +574,7 @@ onMounted(async () => {
                 <th class="px-2 py-2 text-left w-20">结束</th>
                 <th class="px-2 py-2 text-left">英文</th>
                 <th class="px-2 py-2 text-left">中文</th>
+                <th class="px-2 py-2 text-left w-48">音标 (IPA)</th>
                 <th class="px-2 py-2 w-12"></th>
               </tr>
             </thead>
@@ -384,35 +594,24 @@ onMounted(async () => {
                   <textarea v-model="sub.chinese" rows="2" class="w-full rounded border border-black/10 px-2 py-1" />
                 </td>
                 <td class="px-2 py-2">
+                  <textarea
+                    v-model="sub.ipa"
+                    rows="2"
+                    class="w-full rounded border border-black/10 px-2 py-1 font-serif text-xs"
+                    placeholder="/音标/"
+                  />
+                </td>
+                <td class="px-2 py-2">
                   <button type="button" class="text-red-600 text-xs hover:underline" @click="removeSubtitle(i)">删</button>
                 </td>
               </tr>
               <tr v-if="!form.subtitles.length">
-                <td colspan="6" class="px-4 py-6 text-center text-neutral-400">暂无字幕，可导入 VTT 或手动添加</td>
+                <td colspan="7" class="px-4 py-6 text-center text-neutral-400">暂无字幕，可导入 VTT 或手动添加</td>
               </tr>
             </tbody>
           </table>
         </div>
       </section>
-
-      <div class="flex flex-wrap gap-3 pb-8">
-        <button
-          type="button"
-          class="rounded-lg bg-neutral-900 text-white px-6 py-2.5 text-sm hover:bg-neutral-800 disabled:opacity-50"
-          :disabled="saving"
-          @click="save"
-        >
-          {{ saving ? '保存中...' : '保存' }}
-        </button>
-        <a
-          v-if="!isNew && form.status === 'published' && form.video_id"
-          :href="`/english/episode/${form.video_id}`"
-          target="_blank"
-          class="rounded-lg border px-6 py-2.5 text-sm hover:bg-neutral-50"
-        >
-          前台预览
-        </a>
-      </div>
     </template>
   </div>
 </template>

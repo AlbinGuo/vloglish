@@ -5,7 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..auth_utils import (
+    REMOTE_LOGIN_DETAIL,
     create_access_token,
+    decode_access_claims,
     hash_password,
     hash_password_reset_token,
     hash_refresh_token,
@@ -47,7 +49,10 @@ def user_out(user: User) -> UserOut:
 
 
 def issue_tokens(db: Session, user: User, device_id: str) -> AuthTokensOut:
-    access = create_access_token(user.id)
+    db.query(RefreshToken).filter(RefreshToken.user_id == user.id).delete()
+    user.session_version = (user.session_version or 0) + 1
+    db.flush()
+    access = create_access_token(user.id, user.session_version)
     refresh = new_refresh_token()
     db.add(
         RefreshToken(
@@ -58,6 +63,7 @@ def issue_tokens(db: Session, user: User, device_id: str) -> AuthTokensOut:
         )
     )
     db.commit()
+    db.refresh(user)
     return AuthTokensOut(access=access, refresh=refresh, user=user_out(user))
 
 
@@ -100,13 +106,11 @@ def login(
 @router.post("/token/refresh/", response_model=AuthTokensOut)
 def refresh_token(body: RefreshIn, db: Session = Depends(get_db)):
     token_hash = hash_refresh_token(body.refresh)
-    matched = (
-        db.query(RefreshToken)
-        .filter(RefreshToken.token_hash == token_hash, RefreshToken.expires_at > datetime.utcnow())
-        .first()
-    )
+    matched = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
     if not matched:
-        raise HTTPException(status_code=401, detail="无效的 refresh token")
+        raise HTTPException(status_code=401, detail=REMOTE_LOGIN_DETAIL)
+    if matched.expires_at <= datetime.utcnow():
+        raise HTTPException(status_code=401, detail="登录已过期，请重新登录")
 
     user = db.query(User).filter(User.id == matched.user_id, User.is_active.is_(True)).first()
     if not user:
@@ -208,5 +212,6 @@ def reset_password(body: ResetPasswordIn, db: Session = Depends(get_db)):
     user.password_hash = hash_password(body.password)
     db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete()
     db.query(RefreshToken).filter(RefreshToken.user_id == user.id).delete()
+    user.session_version = (user.session_version or 0) + 1
     db.commit()
     return {"success": True, "message": "密码已重置，请使用新密码登录"}

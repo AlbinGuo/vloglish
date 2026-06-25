@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useCatalogViewMode } from '@/composables/useCatalogViewMode'
 import { useAuthStore } from '@/stores/auth'
-import { useCatalogStore } from '@/stores/catalog'
+import { CARD_INITIAL_SIZE, LIST_INITIAL_SIZE, useCatalogStore } from '@/stores/catalog'
 import CatalogCalendar from '@/components/catalog/CatalogCalendar.vue'
 import CatalogFilters from '@/components/catalog/CatalogFilters.vue'
 import CatalogListToolbar from '@/components/catalog/CatalogListToolbar.vue'
@@ -16,11 +16,12 @@ const store = useCatalogStore()
 const auth = useAuthStore()
 const { viewMode } = useCatalogViewMode()
 
-const totalPages = computed(() => Math.max(1, Math.ceil(store.total / store.filters.page_size)))
+const loadMoreSentinel = ref<HTMLElement | null>(null)
+let loadMoreObserver: IntersectionObserver | null = null
 
-const pageRowOffset = computed(() => (store.filters.page - 1) * store.filters.page_size)
-
-const skeletonCount = computed(() => Math.min(store.filters.page_size, 12))
+const skeletonCount = computed(() =>
+  viewMode.value === 'card' ? CARD_INITIAL_SIZE : LIST_INITIAL_SIZE,
+)
 
 const previewBanner = computed(() => {
   if (auth.isMember) return null
@@ -40,9 +41,43 @@ const previewBanner = computed(() => {
   }
 })
 
+function setupLoadMoreObserver() {
+  loadMoreObserver?.disconnect()
+
+  loadMoreObserver = new IntersectionObserver(
+    (entries) => {
+      if (!entries[0]?.isIntersecting) return
+      if (store.hasMore && !store.loading && !store.loadingMore) {
+        store.loadMoreEpisodes()
+      }
+    },
+    { rootMargin: '240px' },
+  )
+
+  if (loadMoreSentinel.value) {
+    loadMoreObserver.observe(loadMoreSentinel.value)
+  }
+}
+
 onMounted(async () => {
   await store.loadFilters()
+  store.setListViewMode(viewMode.value)
   await store.loadEpisodes()
+  setupLoadMoreObserver()
+})
+
+onUnmounted(() => {
+  loadMoreObserver?.disconnect()
+})
+
+watch(loadMoreSentinel, () => {
+  setupLoadMoreObserver()
+})
+
+watch(viewMode, async (mode) => {
+  store.setListViewMode(mode)
+  await store.loadEpisodes(true)
+  setupLoadMoreObserver()
 })
 
 function episodePath(videoId: string) {
@@ -55,24 +90,22 @@ watch(
     store.loadEpisodes(true)
   },
 )
-
-function prevPage() {
-  if (store.filters.page <= 1) return
-  store.filters.page--
-  store.loadEpisodes()
-}
-
-function nextPage() {
-  if (store.filters.page >= totalPages.value) return
-  store.filters.page++
-  store.loadEpisodes()
-}
 </script>
 
 <template>
   <div class="page-container py-6">
     <div class="flex flex-col lg:flex-row gap-6 lg:gap-8">
       <aside class="w-full lg:w-72 xl:w-80 shrink-0 space-y-4">
+        <RouterLink
+          v-if="auth.isMember"
+          to="/english/submit"
+          class="flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold text-sm px-4 py-3.5 shadow-md shadow-amber-500/25 hover:from-amber-600 hover:to-orange-600 hover:shadow-lg hover:shadow-amber-500/30 transition-all"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 shrink-0">
+            <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+          </svg>
+          添加外链视频
+        </RouterLink>
         <CatalogCalendar />
         <CatalogFilters />
         <CatalogViewSettings />
@@ -91,49 +124,40 @@ function nextPage() {
 
         <CatalogEpisodeSkeletons v-if="store.loading" :count="skeletonCount" />
 
-        <div v-else-if="viewMode === 'card'">
-          <div v-if="!store.episodes.length" class="text-center py-24 text-neutral-500">没有匹配的内容</div>
-          <div v-else class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-            <EpisodeCard
-              v-for="ep in store.episodes"
+        <template v-else>
+          <div v-if="viewMode === 'card'">
+            <div v-if="!store.episodes.length" class="text-center py-24 text-neutral-500">没有匹配的内容</div>
+            <div v-else class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+              <EpisodeCard
+                v-for="ep in store.episodes"
+                :key="ep.video_id"
+                :episode="ep"
+                :to="episodePath(ep.video_id)"
+              />
+            </div>
+          </div>
+
+          <div v-else class="rounded-xl border border-black/5 overflow-hidden bg-white">
+            <CatalogListToolbar />
+            <div v-if="!store.episodes.length" class="text-center py-16 text-neutral-500">没有匹配的内容</div>
+            <EpisodeListRow
+              v-for="(ep, i) in store.episodes"
               :key="ep.video_id"
               :episode="ep"
+              :row-index="i + 1"
               :to="episodePath(ep.video_id)"
             />
           </div>
-        </div>
 
-        <div v-else class="rounded-xl border border-black/5 overflow-hidden bg-white">
-          <CatalogListToolbar />
-          <div v-if="!store.episodes.length" class="text-center py-16 text-neutral-500">没有匹配的内容</div>
-          <EpisodeListRow
-            v-for="(ep, i) in store.episodes"
-            :key="ep.video_id"
-            :episode="ep"
-            :row-index="pageRowOffset + i + 1"
-            :to="episodePath(ep.video_id)"
-          />
-        </div>
-
-        <div v-if="!store.loading && totalPages > 1" class="flex justify-center items-center gap-3 mt-10">
-          <button
-            type="button"
-            class="px-4 py-1.5 text-sm border rounded-lg disabled:opacity-40 hover:bg-neutral-50"
-            :disabled="store.filters.page <= 1"
-            @click="prevPage"
+          <div ref="loadMoreSentinel" class="h-1" aria-hidden="true" />
+          <div v-if="store.loadingMore" class="py-8 text-center text-sm text-neutral-500">加载中...</div>
+          <div
+            v-else-if="store.episodes.length && !store.hasMore"
+            class="py-8 text-center text-sm text-neutral-400"
           >
-            上一页
-          </button>
-          <span class="text-sm text-neutral-500">{{ store.filters.page }} / {{ totalPages }}</span>
-          <button
-            type="button"
-            class="px-4 py-1.5 text-sm border rounded-lg disabled:opacity-40 hover:bg-neutral-50"
-            :disabled="store.filters.page >= totalPages"
-            @click="nextPage"
-          >
-            下一页
-          </button>
-        </div>
+            已加载全部 {{ store.total }} 期
+          </div>
+        </template>
       </section>
     </div>
   </div>

@@ -102,6 +102,15 @@ function onVideoClick() {
   props.player.togglePlay()
 }
 
+function onVideoError() {
+  const code = videoEl.value?.error?.code
+  if (code === 4) {
+    console.error(
+      '视频无法播放：浏览器不支持该编码（常见于 HEVC/H.265）。请重新抓取素材或转码为 H.264。',
+    )
+  }
+}
+
 onUnmounted(() => {
   props.registerVideo?.(null)
 })
@@ -137,6 +146,8 @@ onUnmounted(() => {
       @timeupdate="onTimeUpdate"
       @play="player.onPlayState"
       @pause="player.onPlayState"
+      @ended="player.onVideoEnded"
+      @error="onVideoError"
     />
 
     <template v-if="!hidden && !youtubeId">

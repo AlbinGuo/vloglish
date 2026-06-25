@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { clearAdminTokens, getAdminAccessToken, getAdminRefreshToken, setAdminTokens } from '@/api/adminTokens'
 import { getDeviceId } from '@/api/client'
+import type { EpisodeDetail } from '@/types'
 
 const adminApi = axios.create({
   baseURL: '',
@@ -198,7 +199,9 @@ export interface AdminEpisodeListItem {
   subtitle_count: number
   clip_length: number
   author_name: string
+  cover: string
   is_demo: boolean
+  is_user_submitted: boolean
   created_at: string
 }
 
@@ -220,6 +223,8 @@ export interface AdminEpisodeDetail {
   original_video_url: string
   is_demo: boolean
   status: string
+  rejection_reason?: string
+  is_user_submitted?: boolean
   author: AdminAuthorInput
   tag_names: string[]
   subtitles: AdminSubtitle[]
@@ -241,6 +246,7 @@ export type AdminEpisodePayload = {
   original_video_url: string
   is_demo: boolean
   status: string
+  rejection_reason?: string
   author: AdminAuthorInput
   tag_names: string[]
   subtitles: AdminSubtitle[]
@@ -313,6 +319,13 @@ export async function adminGetEpisode(id: number) {
   return data
 }
 
+export async function adminGetEpisodePreview(videoId: string) {
+  const { data } = await adminApi.get<{ episode: EpisodeDetail; total_episodes: number }>(
+    `/api/admin/episodes/preview/${encodeURIComponent(videoId)}/`,
+  )
+  return data
+}
+
 export async function adminCreateEpisode(payload: AdminEpisodePayload) {
   const { data } = await adminApi.post<AdminEpisodeDetail>('/api/admin/episodes/', payload)
   return data
@@ -328,9 +341,48 @@ export async function adminDeleteEpisode(id: number) {
 }
 
 export async function adminImportVtt(vttText: string) {
-  const { data } = await adminApi.post<{ subtitles: AdminSubtitle[]; subtitle_count: number; clip_length: number }>(
-    '/api/admin/episodes/import-vtt/',
-    { vtt_text: vttText },
+  const { data } = await adminApi.post<{
+    subtitles: AdminSubtitle[]
+    subtitle_count: number
+    clip_length: number
+    had_chinese: boolean
+    translated_count: number
+    ipa_count: number
+  }>('/api/admin/episodes/import-vtt/', { vtt_text: vttText })
+  return data
+}
+
+export interface AdminFetchMediaResult {
+  title: string
+  summary: string
+  author_name: string
+  original_video_url: string
+  cover: string
+  thumbnail_url: string
+  video_url: string
+  audio_url: string
+  subtitles: AdminSubtitle[]
+  subtitle_count: number
+  clip_length: number
+  had_chinese: boolean
+  translated_count: number
+  ipa_count: number
+  stars: number
+  voca_size: number
+  highlight_count: number
+  source_id: string
+  warnings: string[]
+}
+
+export async function adminFetchMediaFromUrl(payload: {
+  url: string
+  slug?: string
+  enrich_subtitles?: boolean
+}) {
+  const { data } = await adminApi.post<AdminFetchMediaResult>(
+    '/api/admin/episodes/fetch-media/',
+    payload,
+    { timeout: 900000 },
   )
   return data
 }
@@ -402,5 +454,27 @@ export async function adminExportEpisodesJson() {
   const { data } = await adminApi.get<{ episodes: unknown[]; details: unknown[] }>(
     '/api/admin/episodes/export-json/',
   )
+  return data
+}
+
+export interface AdminBroadcast {
+  id: number
+  title: string
+  body: string
+  recipient_count: number
+  created_by_email: string
+  created_at: string
+}
+
+export async function adminListBroadcasts(page = 1, pageSize = 20) {
+  const { data } = await adminApi.get<{ count: number; results: AdminBroadcast[] }>(
+    '/api/admin/notifications/broadcasts/',
+    { params: { page, page_size: pageSize } },
+  )
+  return data
+}
+
+export async function adminCreateBroadcast(payload: { title: string; body: string }) {
+  const { data } = await adminApi.post<AdminBroadcast>('/api/admin/notifications/broadcasts/', payload)
   return data
 }

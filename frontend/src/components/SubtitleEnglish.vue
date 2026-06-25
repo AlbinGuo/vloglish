@@ -12,7 +12,7 @@ const props = withDefaults(
     /** 0–1，设置后启用「文字渐深」双层渲染 */
     readProgress?: number
   }>(),
-  { align: 'center' },
+  { align: 'left' },
 )
 
 const readClipStyle = computed(() => ({

@@ -9,7 +9,29 @@ from dataclasses import dataclass
 class Cue:
     start: float
     end: float
-    text: str
+    english: str
+    chinese: str = ""
+
+
+_CJK_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]")
+
+
+def contains_cjk(text: str) -> bool:
+    return bool(_CJK_RE.search(text))
+
+
+def split_bilingual_lines(text_lines: list[str]) -> tuple[str, str]:
+    english_parts: list[str] = []
+    chinese_parts: list[str] = []
+    for line in text_lines:
+        line = re.sub(r"\s+", " ", line.strip())
+        if not line:
+            continue
+        if contains_cjk(line):
+            chinese_parts.append(line)
+        else:
+            english_parts.append(line)
+    return " ".join(english_parts).strip(), " ".join(chinese_parts).strip()
 
 
 def parse_timestamp(value: str) -> float:
@@ -38,11 +60,19 @@ def parse_vtt(content: str) -> list[Cue]:
         else:
             timing, text_lines = lines[0], lines[1:]
         start_s, end_s = [p.strip() for p in timing.split("-->")]
-        text = " ".join(text_lines)
-        text = re.sub(r"\s+", " ", text).strip()
-        if not text:
+        english, chinese = split_bilingual_lines(text_lines)
+        if not english and not chinese:
             continue
-        cues.append(Cue(start=parse_timestamp(start_s), end=parse_timestamp(end_s), text=text))
+        if not english and chinese:
+            english, chinese = chinese, ""
+        cues.append(
+            Cue(
+                start=parse_timestamp(start_s),
+                end=parse_timestamp(end_s),
+                english=english,
+                chinese=chinese,
+            )
+        )
     return cues
 
 
@@ -51,7 +81,8 @@ def merge_into_sentences(cues: list[Cue], *, gap_threshold: float = 0.8) -> list
         return []
 
     merged: list[Cue] = []
-    buf_parts: list[str] = []
+    buf_eng: list[str] = []
+    buf_zh: list[str] = []
     buf_start: float | None = None
     buf_end = 0.0
     sentence_end = re.compile(r'[.!?…]["\')\]]*$')
@@ -59,14 +90,25 @@ def merge_into_sentences(cues: list[Cue], *, gap_threshold: float = 0.8) -> list
     for i, cue in enumerate(cues):
         if buf_start is None:
             buf_start = cue.start
-        buf_parts.append(cue.text)
+        if cue.english:
+            buf_eng.append(cue.english)
+        if cue.chinese:
+            buf_zh.append(cue.chinese)
         buf_end = cue.end
-        text = " ".join(buf_parts).strip()
+        english = " ".join(buf_eng).strip()
         next_gap = cues[i + 1].start - cue.end if i + 1 < len(cues) else gap_threshold
 
-        if sentence_end.search(text) or next_gap >= gap_threshold or len(text) >= 100:
-            merged.append(Cue(start=buf_start, end=buf_end, text=text))
-            buf_parts = []
+        if sentence_end.search(english) or next_gap >= gap_threshold or len(english) >= 100:
+            merged.append(
+                Cue(
+                    start=buf_start,
+                    end=buf_end,
+                    english=english,
+                    chinese=" ".join(buf_zh).strip(),
+                )
+            )
+            buf_eng = []
+            buf_zh = []
             buf_start = None
 
     return merged
@@ -86,10 +128,14 @@ def vtt_to_subtitle_dicts(vtt_text: str) -> list[dict]:
                 "index": i,
                 "start": round(cue.start, 3),
                 "end": round(cue.end, 3),
-                "english": cue.text,
-                "chinese": "",
+                "english": cue.english,
+                "chinese": cue.chinese,
                 "ipa": "",
-                "english_html": words_to_html(cue.text),
+                "english_html": words_to_html(cue.english),
             }
         )
     return subtitles
+
+
+def subtitles_have_chinese(subtitles: list[dict]) -> bool:
+    return any((s.get("chinese") or "").strip() for s in subtitles)

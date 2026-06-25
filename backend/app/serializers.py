@@ -62,7 +62,7 @@ def episode_detail(episode: Episode, total: int) -> dict:
                     video_url=episode.video_url,
                     original_video_url=episode.original_video_url,
                 ),
-                "thumbnail_url": episode.thumbnail_url,
+                "thumbnail_url": episode.thumbnail_url or episode.cover,
             },
             "subtitles": [
                 {

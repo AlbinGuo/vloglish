@@ -2,7 +2,7 @@ from fastapi import Depends, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from .auth_utils import decode_access_token
+from .auth_utils import REMOTE_LOGIN_DETAIL, decode_access_claims
 from .database import get_db
 from .models import User
 
@@ -22,11 +22,19 @@ def get_current_user_optional(
     if not credentials or credentials.scheme.lower() != "bearer":
         return None
 
-    user_id = decode_access_token(credentials.credentials)
-    if user_id is None:
+    claims = decode_access_claims(credentials.credentials)
+    if claims is None:
         return None
 
-    user = db.query(User).filter(User.id == user_id, User.is_active.is_(True)).first()
+    user = (
+        db.query(User)
+        .filter(User.id == claims["user_id"], User.is_active.is_(True))
+        .first()
+    )
+    if not user:
+        return None
+    if user.session_version != claims["session_version"]:
+        raise HTTPException(status_code=401, detail=REMOTE_LOGIN_DETAIL)
     return user
 
 
@@ -39,4 +47,10 @@ def get_current_user(user: User | None = Depends(get_current_user_optional)) -> 
 def get_current_admin(user: User = Depends(get_current_user)) -> User:
     if not user.is_staff:
         raise HTTPException(status_code=403, detail="需要管理员权限")
+    return user
+
+
+def get_current_member(user: User = Depends(get_current_user)) -> User:
+    if not user.is_member:
+        raise HTTPException(status_code=403, detail="需要激活会员")
     return user

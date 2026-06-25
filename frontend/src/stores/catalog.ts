@@ -1,11 +1,15 @@
 import { defineStore } from 'pinia'
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { getAuthorAccents, getEpisodeList, getEpisodeTags } from '@/api/episodes'
 import type { EpisodeSummary, Tag } from '@/types'
 
+export type CatalogListViewMode = 'card' | 'list'
+
+export const CARD_INITIAL_SIZE = 12
+export const LIST_INITIAL_SIZE = 8
+export const LOAD_MORE_SIZE = 8
+
 export interface CatalogFilters {
-  page: number
-  page_size: number
   stars: number | undefined
   accents: string[]
   tagIds: number[]
@@ -16,25 +20,31 @@ export interface CatalogFilters {
 
 function defaultFilters(): CatalogFilters {
   return {
-    page: 1,
-    page_size: 50,
     stars: undefined,
     accents: [],
     tagIds: [],
-    ordering: 'index',
+    ordering: 'created_at',
     date: undefined,
     search: '',
   }
+}
+
+function initialSizeForMode(mode: CatalogListViewMode) {
+  return mode === 'card' ? CARD_INITIAL_SIZE : LIST_INITIAL_SIZE
 }
 
 export const useCatalogStore = defineStore('catalog', () => {
   const episodes = ref<EpisodeSummary[]>([])
   const total = ref(0)
   const loading = ref(false)
+  const loadingMore = ref(false)
   const tags = ref<Tag[]>([])
   const accents = ref<string[]>([])
+  const listViewMode = ref<CatalogListViewMode>('card')
 
   const filters = reactive(defaultFilters())
+
+  const hasMore = computed(() => episodes.value.length < total.value)
 
   async function loadFilters() {
     const [t, a] = await Promise.all([getEpisodeTags(), getAuthorAccents()])
@@ -42,10 +52,14 @@ export const useCatalogStore = defineStore('catalog', () => {
     accents.value = a
   }
 
-  function buildParams(f: CatalogFilters): Record<string, string | number> {
+  function buildParams(
+    f: CatalogFilters,
+    options: { pageSize: number; offset: number },
+  ): Record<string, string | number> {
     const params: Record<string, string | number> = {
-      page: f.page,
-      page_size: f.page_size,
+      page_size: options.pageSize,
+      offset: options.offset,
+      page: 1,
       ordering: f.ordering,
     }
     if (f.stars) params.stars = f.stars
@@ -56,15 +70,42 @@ export const useCatalogStore = defineStore('catalog', () => {
     return params
   }
 
-  async function loadEpisodes(resetPage = false) {
-    if (resetPage) filters.page = 1
+  function setListViewMode(mode: CatalogListViewMode) {
+    listViewMode.value = mode
+  }
+
+  async function loadEpisodes(reset = false) {
+    if (reset) {
+      episodes.value = []
+      total.value = 0
+    }
     loading.value = true
     try {
-      const data = await getEpisodeList(buildParams(filters))
+      const pageSize = initialSizeForMode(listViewMode.value)
+      const data = await getEpisodeList(buildParams(filters, { pageSize, offset: 0 }))
       episodes.value = data.results
       total.value = data.count
     } finally {
       loading.value = false
+    }
+  }
+
+  async function loadMoreEpisodes() {
+    if (loading.value || loadingMore.value || !hasMore.value) return
+    loadingMore.value = true
+    try {
+      const data = await getEpisodeList(
+        buildParams(filters, {
+          pageSize: LOAD_MORE_SIZE,
+          offset: episodes.value.length,
+        }),
+      )
+      total.value = data.count
+      const seen = new Set(episodes.value.map((ep) => ep.video_id))
+      const fresh = data.results.filter((ep) => !seen.has(ep.video_id))
+      episodes.value = [...episodes.value, ...fresh]
+    } finally {
+      loadingMore.value = false
     }
   }
 
@@ -93,7 +134,7 @@ export const useCatalogStore = defineStore('catalog', () => {
   }
 
   function toggleOrdering() {
-    filters.ordering = filters.ordering === 'index' ? '-index' : 'index'
+    filters.ordering = filters.ordering === 'created_at' ? '-created_at' : 'created_at'
     return loadEpisodes(true)
   }
 
@@ -106,11 +147,16 @@ export const useCatalogStore = defineStore('catalog', () => {
     episodes,
     total,
     loading,
+    loadingMore,
+    hasMore,
     tags,
     accents,
     filters,
+    listViewMode,
     loadFilters,
+    setListViewMode,
     loadEpisodes,
+    loadMoreEpisodes,
     setDateFilter,
     toggleStars,
     toggleAccent,
