@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notifications'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -60,30 +61,43 @@ watch(
 
 <template>
   <div
-    class="flex flex-col bg-neutral-50"
+    class="flex flex-col bg-neutral-50 dark:bg-neutral-950"
     :class="immersive ? 'h-dvh overflow-hidden' : 'min-h-dvh'"
   >
     <header
       v-if="!immersive"
-      class="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-black/5"
+      class="sticky top-0 z-40 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-b border-black/5 dark:border-white/10"
     >
       <div class="page-container py-3 flex items-center justify-between gap-4">
         <RouterLink to="/english" class="flex flex-col shrink-0">
           <span class="text-lg font-semibold">Vloglish</span>
-          <span class="text-xs text-neutral-500">Real vlogs · Real English</span>
+          <span class="text-xs text-neutral-500 dark:text-neutral-400">Real vlogs · Real English</span>
         </RouterLink>
 
         <div class="flex items-center gap-3 text-sm shrink-0">
+          <ThemeToggle />
           <template v-if="auth.isLoggedIn">
             <RouterLink
               to="/english/learning"
-              class="hidden sm:inline text-neutral-600 hover:text-black"
+              class="hidden sm:inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition"
             >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                class="w-5 h-5 shrink-0"
+                aria-hidden="true"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 19V11M12 19V5M17 19V15" />
+                <path stroke-linecap="round" d="M4 19h16" />
+              </svg>
               学习统计
             </RouterLink>
             <RouterLink
               to="/english/notifications"
-              class="relative p-2 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 transition"
+              class="relative p-2 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition"
               aria-label="通知"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
@@ -101,26 +115,26 @@ watch(
                 {{ notifications.unreadCount > 99 ? '99+' : notifications.unreadCount }}
               </span>
             </RouterLink>
-            <span v-if="auth.isMember" class="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800">
+            <span v-if="auth.isMember" class="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
               会员
             </span>
             <RouterLink
               v-else
               to="/activate"
-              class="text-xs px-2 py-1 rounded-full bg-neutral-900 text-white hover:bg-neutral-800"
+              class="text-xs px-2 py-1 rounded-full bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
             >
               激活会员
             </RouterLink>
-            <span class="hidden sm:inline text-neutral-500 max-w-[10rem] truncate">
+            <span class="hidden sm:inline text-neutral-500 dark:text-neutral-400 max-w-[10rem] truncate">
               {{ auth.user?.nickname || auth.user?.email }}
             </span>
-            <button type="button" class="text-neutral-600 hover:text-black" @click="handleLogout">退出</button>
+            <button type="button" class="text-neutral-600 hover:text-black dark:text-neutral-400 dark:hover:text-white" @click="handleLogout">退出</button>
           </template>
           <template v-else>
-            <RouterLink to="/login" class="text-neutral-600 hover:text-black">登录</RouterLink>
+            <RouterLink to="/login" class="text-neutral-600 hover:text-black dark:text-neutral-400 dark:hover:text-white">登录</RouterLink>
             <RouterLink
               to="/signup"
-              class="px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-sm hover:bg-neutral-800"
+              class="px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-sm hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
             >
               注册
             </RouterLink>

@@ -24,12 +24,12 @@ defineEmits<{ click: [event: MouseEvent] }>()
 function chineseClasses() {
   if (props.chineseFocus) {
     return props.active
-      ? 'text-base sm:text-lg leading-relaxed font-bold text-white'
-      : 'text-base sm:text-lg leading-relaxed text-neutral-800'
+      ? 'text-base sm:text-lg leading-relaxed font-bold'
+      : 'text-base sm:text-lg leading-relaxed text-neutral-800 dark:text-neutral-200'
   }
   return [
     props.large ? 'text-base sm:text-lg' : 'text-sm',
-    props.active ? 'text-white/80' : 'text-neutral-600 opacity-70',
+    props.active ? 'opacity-80' : 'text-neutral-600 dark:text-neutral-400 opacity-70',
   ]
 }
 </script>
@@ -44,7 +44,7 @@ function chineseClasses() {
       class="subtitle-ipa font-serif tracking-wide opacity-60 max-w-full break-words"
       :class="[
         large ? 'text-base sm:text-lg' : 'text-base',
-        chineseFocus && !active ? 'text-neutral-500' : '',
+        chineseFocus && !active ? 'text-neutral-500 dark:text-neutral-400' : '',
       ]"
     >
       {{ ipa }}

@@ -78,11 +78,12 @@ export const useCatalogStore = defineStore('catalog', () => {
   }
 
   async function loadEpisodes(reset = false) {
-    if (reset) {
+    const keepContent = reset && episodes.value.length > 0
+    if (reset && !keepContent) {
       episodes.value = []
       total.value = 0
     }
-    loading.value = true
+    loading.value = !keepContent
     try {
       const pageSize = initialSizeForMode(listViewMode.value)
       const data = await getEpisodeList(buildParams(filters, { pageSize, offset: 0 }))

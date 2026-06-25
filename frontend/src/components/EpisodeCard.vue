@@ -3,6 +3,7 @@ import { toRef } from 'vue'
 import { RouterLink } from 'vue-router'
 import { accentIconFor } from '@/constants/accentOptions'
 import { useEpisodeFavorite } from '@/composables/useEpisodeFavorite'
+import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import type { EpisodeSummary } from '@/types'
@@ -31,9 +32,9 @@ function formatDate(iso?: string) {
 </script>
 
 <template>
-  <RouterLink :to="to" class="block group">
-    <article class="rounded-xl overflow-hidden border border-black/5 shadow-sm hover:shadow-md transition bg-white h-full">
-      <div class="relative aspect-video bg-neutral-200">
+  <RouterLink :to="to" class="block group cursor-pointer" @click="requestEpisodeAutoplay">
+    <article class="rounded-xl overflow-hidden border border-black/5 dark:border-white/10 shadow-sm hover:shadow-md transition bg-white dark:bg-neutral-900 h-full">
+      <div class="relative aspect-video bg-neutral-200 dark:bg-neutral-800">
         <img
           :src="episode.cover"
           :alt="episode.short_title"
@@ -103,7 +104,7 @@ function formatDate(iso?: string) {
           <span
             v-for="t in episode.tags.slice(0, 2)"
             :key="t.id"
-            class="text-[11px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded"
+            class="text-[11px] bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 px-1.5 py-0.5 rounded"
           >
             {{ t.name }}
           </span>
@@ -112,7 +113,7 @@ function formatDate(iso?: string) {
         <h3 class="font-semibold text-sm leading-snug truncate min-w-0">{{ episode.short_title }}</h3>
         <p class="text-xs text-neutral-500 line-clamp-2 leading-relaxed">{{ episode.summary }}</p>
 
-        <div class="flex items-center justify-between text-[11px] text-neutral-400 pt-1.5 border-t border-black/5">
+        <div class="flex items-center justify-between text-[11px] text-neutral-400 pt-1.5 border-t border-black/5 dark:border-white/10">
           <span>{{ episode.voca_size }} 词</span>
           <span>{{ episode.subtitle_count }} 句</span>
           <span v-if="episode.created_at">{{ formatDate(episode.created_at) }}</span>

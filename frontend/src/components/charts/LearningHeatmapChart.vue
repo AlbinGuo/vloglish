@@ -9,6 +9,7 @@ import { HeatmapChart } from 'echarts/charts'
 import * as echarts from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts'
+import { useTheme } from '@/composables/useTheme'
 
 export interface LearningCalendarDay {
   date: string
@@ -34,6 +35,7 @@ echarts.use([CalendarComponent, TooltipComponent, VisualMapComponent, HeatmapCha
 
 const chartRef = ref<HTMLDivElement | null>(null)
 let chart: echarts.ECharts | null = null
+const { resolvedTheme } = useTheme()
 
 function padDate(d: Date) {
   const y = d.getFullYear()
@@ -73,11 +75,21 @@ const maxValue = computed(() => {
 })
 
 const colorRange = computed(() => {
+  const isDark = resolvedTheme.value === 'dark'
   if (props.theme === 'blue') {
-    return ['#f5f5f5', '#dbeafe', '#93c5fd', '#3b82f6', '#1d4ed8']
+    return isDark
+      ? ['#262626', '#1e3a5f', '#1d4ed8', '#3b82f6', '#93c5fd']
+      : ['#f5f5f5', '#dbeafe', '#93c5fd', '#3b82f6', '#1d4ed8']
   }
-  return ['#f5f5f5', '#fef3c7', '#fcd34d', '#f59e0b', '#d97706']
+  return isDark
+    ? ['#262626', '#78350f', '#b45309', '#f59e0b', '#fcd34d']
+    : ['#f5f5f5', '#fef3c7', '#fcd34d', '#f59e0b', '#d97706']
 })
+
+const chartBorderColor = computed(() => (resolvedTheme.value === 'dark' ? '#171717' : '#fff'))
+const chartLabelColor = computed(() => (resolvedTheme.value === 'dark' ? '#a3a3a3' : '#a3a3a3'))
+const chartMonthColor = computed(() => (resolvedTheme.value === 'dark' ? '#d4d4d4' : '#737373'))
+const visualMapTextColor = computed(() => (resolvedTheme.value === 'dark' ? '#a3a3a3' : '#737373'))
 
 function buildOption(): EChartsOption {
   const { data, range } = buildSeriesData()
@@ -105,7 +117,7 @@ function buildOption(): EChartsOption {
       bottom: 0,
       inRange: { color: colorRange.value },
       text: ['多', '少'],
-      textStyle: { color: '#737373', fontSize: 11 },
+      textStyle: { color: visualMapTextColor.value, fontSize: 11 },
     },
     calendar: {
       top: 36,
@@ -117,18 +129,18 @@ function buildOption(): EChartsOption {
       splitLine: { show: false },
       itemStyle: {
         borderWidth: 3,
-        borderColor: '#fff',
+        borderColor: chartBorderColor.value,
         borderRadius: 2,
       },
       dayLabel: {
         firstDay: 1,
         nameMap: ['日', '一', '二', '三', '四', '五', '六'],
-        color: '#a3a3a3',
+        color: chartLabelColor.value,
         fontSize: 11,
       },
       monthLabel: {
         nameMap: 'cn',
-        color: '#737373',
+        color: chartMonthColor.value,
         fontSize: 11,
       },
       yearLabel: { show: false },
@@ -167,7 +179,7 @@ onUnmounted(() => {
 })
 
 watch(
-  () => [props.days, props.rangeDays, props.theme],
+  () => [props.days, props.rangeDays, props.theme, resolvedTheme.value],
   () => renderChart(),
   { deep: true },
 )

@@ -87,35 +87,35 @@ async function submit() {
 <template>
   <div class="page-container py-6 max-w-2xl">
     <div class="flex items-center gap-3 text-sm mb-6">
-      <RouterLink to="/english" class="text-neutral-500 hover:text-neutral-900">← 返回目录</RouterLink>
-      <span class="text-neutral-300">|</span>
+      <RouterLink to="/english" class="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">← 返回目录</RouterLink>
+      <span class="text-neutral-300 dark:text-neutral-600">|</span>
       <span class="font-medium">添加外链视频</span>
     </div>
 
-    <p v-if="error" class="mb-4 text-sm text-red-600 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+    <p v-if="error" class="mb-4 text-sm text-red-600 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/40 px-4 py-3">
       {{ error }}
     </p>
-    <p v-if="success" class="mb-4 text-sm text-green-700 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+    <p v-if="success" class="mb-4 text-sm text-green-700 dark:text-green-400 rounded-lg border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/40 px-4 py-3">
       {{ success }}
     </p>
 
-    <section class="rounded-xl border border-black/5 bg-white p-5 space-y-4 mb-6">
+    <section class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-5 space-y-4 mb-6">
       <h1 class="text-lg font-semibold">从 YouTube / TikTok 添加</h1>
-      <p class="text-sm text-neutral-600">
+      <p class="text-sm text-neutral-600 dark:text-neutral-300">
         粘贴视频链接后系统将自动下载、翻译字幕并分析难度。提交后需经审核，通过后将出现在目录中。
       </p>
       <label class="block text-sm">
-        <span class="text-neutral-500">视频链接</span>
+        <span class="text-neutral-500 dark:text-neutral-400">视频链接</span>
         <input
           v-model="sourceUrl"
           placeholder="https://www.youtube.com/watch?v=... 或 https://www.tiktok.com/@.../video/..."
-          class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2.5"
+          class="mt-1 w-full rounded-lg border border-black/10 dark:border-white/10 dark:bg-neutral-800 dark:text-white px-3 py-2.5"
           :disabled="fetching"
         />
       </label>
       <button
         type="button"
-        class="w-full sm:w-auto text-sm px-5 py-2.5 rounded-lg bg-neutral-900 text-white disabled:opacity-50 hover:bg-neutral-800 transition"
+        class="w-full sm:w-auto text-sm px-5 py-2.5 rounded-lg bg-neutral-900 text-white disabled:opacity-50 hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition"
         :disabled="fetching"
         @click="fetchFromSourceUrl"
       >
@@ -123,7 +123,7 @@ async function submit() {
       </button>
     </section>
 
-    <section v-if="fetched" class="rounded-xl border border-black/5 bg-white p-5 space-y-5">
+    <section v-if="fetched" class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-5 space-y-5">
       <h2 class="font-medium">视频信息</h2>
 
       <div v-if="fetched.cover" class="space-y-1">
@@ -131,18 +131,18 @@ async function submit() {
         <img
           :src="fetched.cover"
           alt="cover"
-          class="h-28 w-48 object-cover rounded-lg border border-black/10 bg-neutral-50"
+          class="h-28 w-48 object-cover rounded-lg border border-black/10 dark:border-white/10 bg-neutral-50 dark:bg-neutral-800"
         />
       </div>
 
       <div class="space-y-1">
         <p class="text-sm text-neutral-500">标题</p>
-        <p class="text-base font-medium text-neutral-900">{{ fetched.title }}</p>
+        <p class="text-base font-medium text-neutral-900 dark:text-neutral-100">{{ fetched.title }}</p>
       </div>
 
       <div v-if="fetched.summary" class="space-y-1">
         <p class="text-sm text-neutral-500">摘要</p>
-        <p class="text-sm text-neutral-700 leading-relaxed">{{ fetched.summary }}</p>
+        <p class="text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed">{{ fetched.summary }}</p>
       </div>
 
       <div class="space-y-2">
@@ -157,7 +157,7 @@ async function submit() {
             v-for="opt in accentOptions"
             :key="opt.value"
             class="flex items-center gap-2 cursor-pointer rounded-lg border px-4 py-2.5 transition"
-            :class="accent === opt.value ? 'border-neutral-900 bg-neutral-50' : 'border-black/10 hover:bg-neutral-50'"
+            :class="accent === opt.value ? 'border-neutral-900 bg-neutral-50 dark:border-neutral-300 dark:bg-neutral-800' : 'border-black/10 hover:bg-neutral-50 dark:border-white/10 dark:hover:bg-neutral-800'"
           >
             <input
               v-model="accent"

@@ -3,6 +3,7 @@ import { toRef } from 'vue'
 import { RouterLink } from 'vue-router'
 import { accentIconFor } from '@/constants/accentOptions'
 import { useEpisodeFavorite } from '@/composables/useEpisodeFavorite'
+import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import type { EpisodeSummary } from '@/types'
@@ -27,13 +28,13 @@ function formatDuration(sec: number) {
 </script>
 
 <template>
-  <div class="flex items-stretch gap-3 border-b border-black/5 bg-white hover:bg-neutral-50/80 transition">
+  <div class="flex items-stretch gap-3 border-b border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 hover:bg-neutral-50/80 dark:hover:bg-neutral-800/80 transition">
     <div class="w-10 shrink-0 flex items-center justify-center text-sm text-neutral-400 tabular-nums">
       {{ rowIndex }}
     </div>
 
-    <RouterLink :to="to" class="flex flex-1 min-w-0 items-center gap-3 py-3 pr-2">
-      <div class="relative w-28 sm:w-32 shrink-0 aspect-video rounded-lg overflow-hidden bg-neutral-200">
+    <RouterLink :to="to" class="flex flex-1 min-w-0 items-center gap-3 py-3 pr-2 cursor-pointer" @click="requestEpisodeAutoplay">
+      <div class="relative w-28 sm:w-32 shrink-0 aspect-video rounded-lg overflow-hidden bg-neutral-200 dark:bg-neutral-800">
         <img
           :src="episode.cover"
           :alt="episode.short_title"
@@ -43,20 +44,6 @@ function formatDuration(sec: number) {
         <span class="absolute bottom-1 right-1 text-white text-[10px] bg-black/60 px-1 py-0.5 rounded">
           {{ formatDuration(episode.clip_length) }}
         </span>
-        <div class="absolute top-1 left-1 flex flex-row items-center gap-1 z-10">
-          <span
-            v-if="episode.is_new"
-            class="text-xs px-2 py-0.5 rounded-md bg-red-500 text-white font-bold shadow-md leading-none"
-          >
-            新
-          </span>
-          <span
-            v-if="episode.is_learned"
-            class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-600/90 text-white font-medium whitespace-nowrap"
-          >
-            已看完
-          </span>
-        </div>
       </div>
 
       <div class="flex-1 min-w-0 space-y-1">
@@ -70,13 +57,13 @@ function formatDuration(sec: number) {
           </span>
           <span
             v-if="episode.is_learned"
-            class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 whitespace-nowrap"
+            class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 whitespace-nowrap"
           >
             已看完
           </span>
           <span
             v-else-if="auth.isLoggedIn && episode.progress_percent && episode.progress_percent > 0"
-            class="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600"
+            class="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
           >
             {{ Math.round(episode.progress_percent) }}%
           </span>
@@ -86,7 +73,7 @@ function formatDuration(sec: number) {
           <span
             v-for="t in episode.tags.slice(0, 2)"
             :key="t.id"
-            class="text-[10px] bg-neutral-100 text-neutral-600 px-1.5 py-0.5 rounded"
+            class="text-[10px] bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 px-1.5 py-0.5 rounded"
           >
             {{ t.name }}
           </span>
@@ -108,7 +95,7 @@ function formatDuration(sec: number) {
     <div v-if="auth.isMember" class="shrink-0 flex items-center pr-3">
       <button
         type="button"
-        class="w-8 h-8 rounded-full border border-black/10 flex items-center justify-center hover:bg-neutral-100 transition disabled:opacity-60"
+        class="w-8 h-8 rounded-full border border-black/10 dark:border-white/10 flex items-center justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition disabled:opacity-60"
         :disabled="loading"
         :title="favorited ? '取消收藏' : '添加收藏'"
         @click="toggle"

@@ -18,20 +18,20 @@ const props = defineProps<{
 
 const toneClass = computed(() => {
   const map = {
-    amber: 'bg-amber-100 text-amber-600',
-    emerald: 'bg-emerald-100 text-emerald-600',
-    blue: 'bg-blue-100 text-blue-600',
-    orange: 'bg-orange-100 text-orange-600',
-    sky: 'bg-sky-100 text-sky-600',
-    violet: 'bg-violet-100 text-violet-600',
-    rose: 'bg-rose-100 text-rose-600',
+    amber: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400',
+    emerald: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400',
+    blue: 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400',
+    orange: 'bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400',
+    sky: 'bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-400',
+    violet: 'bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400',
+    rose: 'bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400',
   }
   return map[props.tone ?? 'amber']
 })
 </script>
 
 <template>
-  <div class="rounded-xl border border-black/5 bg-white p-4">
+  <div class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4">
     <div class="flex items-center gap-2.5 mb-2">
       <div
         class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
