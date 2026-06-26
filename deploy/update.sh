@@ -15,10 +15,9 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
-# shellcheck disable=SC1090
-set -a
-source "$ENV_FILE"
-set +a
+# shellcheck source=lib/load-env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/load-env.sh"
+load_env_file "$ENV_FILE"
 
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 ACR_REGISTRY="${ACR_REGISTRY:-}"
@@ -52,7 +51,20 @@ if "${COMPOSE[@]}" ps db 2>/dev/null | grep -q 'Up'; then
 fi
 
 echo "==> 拉取镜像..."
-BACKEND_IMAGE="$BACKEND_IMAGE" WEB_IMAGE="$WEB_IMAGE" "${COMPOSE[@]}" pull backend web
+if ! BACKEND_IMAGE="$BACKEND_IMAGE" WEB_IMAGE="$WEB_IMAGE" "${COMPOSE[@]}" pull backend web; then
+  echo ""
+  echo "错误：无法从 ACR 拉取镜像（not found）。"
+  echo "  目标：${BACKEND_IMAGE} / ${WEB_IMAGE}"
+  echo ""
+  echo "常见原因："
+  echo "  1. 尚未在 ACR 创建 backend、web 两个镜像仓库"
+  echo "  2. Gitee Go 流水线还未成功构建并 push"
+  echo "  3. 镜像 tag 不是 latest（可设 IMAGE_TAG=构建号 后重试）"
+  echo ""
+  echo "首次部署请改用（在服务器本地构建，无需 ACR）："
+  echo "  bash deploy/deploy.sh"
+  exit 1
+fi
 
 echo "==> 启动服务..."
 BACKEND_IMAGE="$BACKEND_IMAGE" WEB_IMAGE="$WEB_IMAGE" "${COMPOSE[@]}" up -d

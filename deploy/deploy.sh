@@ -33,6 +33,18 @@ if grep -q "change-me-in-production" "$ENV_FILE" || grep -q "change-me-strong-pa
   echo "警告：$ENV_FILE 仍含默认密钥，生产环境请先修改 JWT_SECRET 与 ADMIN_PASSWORD。"
 fi
 
+DEPLOY_DIR="$(dirname "${BASH_SOURCE[0]}")"
+if ! docker pull postgres:16-alpine >/dev/null 2>&1; then
+  echo "==> 无法访问 docker.io，配置镜像加速..."
+  if [ "$(id -u)" -eq 0 ]; then
+    bash "$DEPLOY_DIR/configure-docker-mirror.sh"
+  else
+    echo "错误：请以 root 运行: sudo bash deploy/configure-docker-mirror.sh"
+    echo "      然后重新执行 bash deploy/deploy.sh"
+    exit 1
+  fi
+fi
+
 echo "==> 构建并启动容器..."
 $COMPOSE --env-file "$ENV_FILE" up -d --build
 

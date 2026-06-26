@@ -85,6 +85,11 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ "$(id -u)" -eq 0 ]; then
+  bash "$SCRIPT_DIR/configure-docker-mirror.sh" || true
+fi
+
 echo "==> 准备目录 ${APP_DIR}..."
 mkdir -p "$APP_DIR"
 cd "$APP_DIR"

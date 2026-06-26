@@ -49,8 +49,10 @@ git clone https://gitee.com/guonan01/vlogish.git /opt/vlogish
 cd /opt/vlogish
 bash deploy/setup-server.sh
 
-# 仅安装 Docker：
-# bash deploy/install-docker.sh
+# 若 deploy 时 docker.io 超时，单独配置加速器：
+# sudo bash deploy/configure-docker-mirror.sh
+# 或（推荐，阿里云控制台获取专属地址）：
+# sudo ALIYUN_MIRROR_URL=https://xxxx.mirror.aliyuncs.com bash deploy/configure-docker-mirror.sh
 ```
 
 ### 2.3 配置 `.env.prod`
