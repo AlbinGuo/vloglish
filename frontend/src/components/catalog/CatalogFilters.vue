@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, watch } from 'vue'
 import { accentOptions } from '@/constants/accentOptions'
 import DifficultyStarsFilter from '@/components/catalog/DifficultyStarsFilter.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -7,11 +8,26 @@ import { useCatalogStore } from '@/stores/catalog'
 const store = useCatalogStore()
 const auth = useAuthStore()
 
-const learningFilters = [
-  { key: 'learned' as const, label: '已看' },
-  { key: 'unlearned' as const, label: '未看' },
-  { key: 'favorite' as const, label: '收藏' },
-]
+const learningFilters = computed(() => {
+  const items = [
+    { key: 'learned' as const, label: '已看' },
+    { key: 'unlearned' as const, label: '未看' },
+  ]
+  if (auth.isMember) {
+    items.push({ key: 'favorite' as const, label: '收藏' })
+  }
+  return items
+})
+
+watch(
+  () => auth.isMember,
+  (member) => {
+    if (!member && store.filters.learningStatus === 'favorite') {
+      store.filters.learningStatus = ''
+      void store.loadEpisodes(true)
+    }
+  },
+)
 </script>
 <template>
   <div class="rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 space-y-4">
