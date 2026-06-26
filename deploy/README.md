@@ -43,11 +43,14 @@ push master → Gitee Go 构建 backend/web 镜像 → 推送 ACR
 ```bash
 ssh root@YOUR_SERVER_IP
 
-# 推荐：配置 SSH 公钥登录后禁用密码登录
+# 若 get.docker.com 无法访问（国内常见），脚本已改用阿里云镜像
 mkdir -p /opt/vlogish
 git clone https://gitee.com/guonan01/vlogish.git /opt/vlogish
 cd /opt/vlogish
 bash deploy/setup-server.sh
+
+# 仅安装 Docker：
+# bash deploy/install-docker.sh
 ```
 
 ### 2.3 配置 `.env.prod`
