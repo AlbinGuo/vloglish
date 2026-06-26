@@ -7,6 +7,7 @@ import {
   isRemoteLoginDetail,
   setRemoteLoginNotice,
 } from '@/api/tokens'
+import { randomUUID } from '@/utils/randomId'
 
 const DEVICE_KEY = 'device_id'
 const DEMO_CODE_KEY = 'demo_code'
@@ -15,7 +16,7 @@ const DEMO_VERIFIED_KEY = 'demo_code_verified'
 export function getDeviceId(): string {
   let id = localStorage.getItem(DEVICE_KEY)
   if (!id) {
-    id = crypto.randomUUID()
+    id = randomUUID()
     localStorage.setItem(DEVICE_KEY, id)
   }
   return id
@@ -46,7 +47,7 @@ api.interceptors.request.use((config) => {
   config.headers = config.headers ?? {}
   config.headers['X-Device-Id'] = getDeviceId()
   config.headers['X-Timestamp'] = String(Math.floor(Date.now() / 1000))
-  config.headers['X-Nonce'] = crypto.randomUUID()
+  config.headers['X-Nonce'] = randomUUID()
 
   const token = getAccessToken()
   if (token) {
