@@ -1,5 +1,7 @@
 # Vloglish 生产部署指南（方案 B）
 
+**完整操作步骤见：[DEPLOY_GUIDE.md](./DEPLOY_GUIDE.md)**（从本地开发到上线，逐步清单）
+
 Gitee Go 构建镜像 → 阿里云 ACR → 服务器拉取更新。
 
 > **安全提示**：请勿将密码、Token 提交到 Git。流水线密钥在 Gitee 仓库「流水线 → 变量」中配置为**私密变量**。

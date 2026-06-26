@@ -2,12 +2,20 @@ FROM python:3.13-slim
 
 WORKDIR /app/backend
 
+# 国内构建：apt / pip 使用阿里云镜像
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g; s|security.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null \
+    || sed -i 's|deb.debian.org|mirrors.aliyun.com|g; s|security.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list 2>/dev/null \
+    || true
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt yt-dlp
+
+ARG PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+RUN pip install --no-cache-dir -r requirements.txt yt-dlp \
+    -i "${PIP_INDEX_URL}" --trusted-host mirrors.aliyun.com
 
 COPY backend/app ./app
 COPY backend/seed.py .

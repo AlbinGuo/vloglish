@@ -2,8 +2,14 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
+# 国内构建默认使用 npmmirror，海外可通过 --build-arg NPM_REGISTRY=https://registry.npmjs.org 覆盖
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+
 COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm ci
+RUN npm config set registry "${NPM_REGISTRY}" \
+    && npm config set fetch-timeout 300000 \
+    && npm config set fetch-retries 5 \
+    && npm ci
 
 COPY frontend/ .
 RUN npm run build:docker
