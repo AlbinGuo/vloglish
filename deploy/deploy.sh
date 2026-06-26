@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# 本地/单机部署：在服务器上从源码构建镜像（不经过 ACR）
+# 生产环境请使用 Gitee Go + deploy/update.sh，见 deploy/README.md
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
