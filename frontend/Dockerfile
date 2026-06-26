@@ -9,7 +9,7 @@ COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm config set registry "${NPM_REGISTRY}" \
     && npm config set fetch-timeout 300000 \
     && npm config set fetch-retries 5 \
-    && npm ci
+    && npm install --no-audit --no-fund
 
 COPY frontend/ .
 RUN npm run build:docker
