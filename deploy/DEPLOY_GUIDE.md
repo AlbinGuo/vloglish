@@ -359,7 +359,7 @@ docker compose --env-file .env.prod up -d
 | postgres 拉取失败 | `.env.prod` 设 `POSTGRES_IMAGE=docker.1ms.run/library/postgres:16-alpine` |
 | `npm ci` / `pip install` 超时 | `git pull` 拉最新 Dockerfile（已配 npmmirror / 阿里云 pip）后重跑 `deploy.sh` |
 | `update.sh` 镜像 not found | 首次用 `deploy.sh`；或先跑通 Gitee 流水线 |
-| 健康检查超时 | `docker compose logs backend`，检查 `DATABASE_URL` |
+| backend unhealthy / 依赖启动失败 | `docker compose --env-file .env.prod logs backend`；确认 `DATABASE_URL` 主机为 `@db:`；`git pull` 后重建 backend |
 | ACR 401 | 检查 `ACR_USERNAME/PASSWORD`，`docker login registry.cn-hangzhou.aliyuncs.com` |
 
 ---
