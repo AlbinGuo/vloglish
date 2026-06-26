@@ -83,6 +83,13 @@ echo "  站点: http://localhost:${HTTP_PORT}/english"
 echo "  管理: http://localhost:${HTTP_PORT}/gnadmin"
 echo "  健康: http://localhost:${HTTP_PORT}/api/health"
 echo ""
+echo "==> 本机探测..."
+if curl -sf "http://127.0.0.1:${HTTP_PORT}/api/health" >/dev/null; then
+  echo "  本机 /api/health OK"
+else
+  echo "  本机访问失败，请运行: bash deploy/diagnose.sh"
+fi
+echo ""
 echo "常用命令:"
 echo "  查看日志: docker compose --env-file $ENV_FILE logs -f"
 echo "  停止服务: docker compose --env-file $ENV_FILE down"
