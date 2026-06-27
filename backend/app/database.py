@@ -1,17 +1,17 @@
-import os
 from pathlib import Path
 
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
+from .env import load_app_env
+from .db_url import resolve_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")  # 本地开发；Docker 中由 env_file 注入环境变量
+load_app_env()
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 DEFAULT_SQLITE_URL = f"sqlite:///{DATA_DIR / 'teco.db'}"
-DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_SQLITE_URL)
+DATABASE_URL = resolve_database_url(DEFAULT_SQLITE_URL)
 
 
 def _engine_kwargs(url: str) -> dict:

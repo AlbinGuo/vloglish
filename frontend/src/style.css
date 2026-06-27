@@ -141,6 +141,28 @@ select:disabled {
   letter-spacing: 0.02em;
 }
 
+/* 深色模式：字幕列表区中文 / 音标对比度 */
+.dark .subtitle-panel .subtitle-ipa {
+  color: rgb(212 212 212);
+}
+
+.dark .subtitle-panel .subtitle-chinese {
+  color: rgb(229 229 229);
+}
+
+.dark .subtitle-panel .subtitle-row--active .subtitle-ipa,
+.dark .subtitle-panel .subtitle-row--active .subtitle-chinese {
+  color: rgb(64 64 64);
+}
+
+.dark .subtitle-focus-light .subtitle-ipa {
+  color: rgb(212 212 212);
+}
+
+.dark .subtitle-focus-light .subtitle-chinese {
+  color: rgb(229 229 229);
+}
+
 .subtitle-english--active + .subtitle-chinese,
 .subtitle-ipa:has(+ .subtitle-english.subtitle-english--active) {
   color: inherit;

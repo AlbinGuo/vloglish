@@ -11,6 +11,8 @@ const props = defineProps<{
   showIpa: boolean
   videoHidden: boolean
   videoPanelRef: HTMLElement | null | undefined
+  /** 移动端精简控制条 */
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -24,6 +26,7 @@ const speedMenuPos = ref<{ top: number; left: number } | null>(null)
 const loopOpen = ref(false)
 const loopRoot = ref<HTMLElement | null>(null)
 const loopMenuPos = ref<{ top: number; left: number } | null>(null)
+const moreOpen = ref(false)
 const isFullscreen = ref(false)
 
 const loopCountLabel = computed(() => {
@@ -122,7 +125,11 @@ function toggleSpeedMenu() {
     speedMenuPos.value = null
     return
   }
-  speedMenuPos.value = anchorMenu(speedRoot.value)
+  if (props.compact) {
+    speedMenuPos.value = { top: window.innerHeight - 16, left: window.innerWidth / 2 }
+  } else {
+    speedMenuPos.value = anchorMenu(speedRoot.value)
+  }
   speedOpen.value = true
 }
 
@@ -132,7 +139,12 @@ function toggleLoopMenu() {
     loopMenuPos.value = null
     return
   }
-  loopMenuPos.value = anchorMenu(loopRoot.value)
+  moreOpen.value = false
+  if (props.compact) {
+    loopMenuPos.value = { top: window.innerHeight - 16, left: window.innerWidth / 2 }
+  } else {
+    loopMenuPos.value = anchorMenu(loopRoot.value)
+  }
   loopOpen.value = true
 }
 
@@ -178,7 +190,54 @@ function handleMainAction() {
   <div
     class="shrink-0 rounded-xl bg-neutral-200/60 dark:bg-neutral-800/80 px-2 py-2.5 sm:px-3 select-none text-black/70 dark:text-neutral-200 cursor-pointer"
   >
-    <div class="flex items-end justify-between gap-1 sm:gap-0 max-w-full overflow-x-auto cursor-pointer">
+    <!-- 移动端：核心控制 -->
+    <div v-if="compact" class="flex items-center justify-between gap-1 max-w-full">
+      <div ref="speedRoot" class="relative flex flex-col items-center shrink-0 min-w-[2.75rem]">
+        <button
+          type="button"
+          class="flex flex-col items-center text-xs active:scale-95"
+          @click.stop="toggleSpeedMenu"
+        >
+        <div class="w-10 h-10 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10">
+          <span class="text-xs font-medium tabular-nums">{{ formatRate(player.playbackRate.value) }}</span>
+        </div>
+        <span class="text-[10px] mt-0.5">倍速</span>
+        </button>
+      </div>
+
+      <button type="button" class="shrink-0 p-1 active:scale-95" title="上一句" @click="player.prevSentence()">
+        <svg class="w-9 h-9" viewBox="0 0 24 24" fill="currentColor">
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-4.28 9.22a.75.75 0 0 0 0 1.06l3 3a.75.75 0 1 0 1.06-1.06l-1.72-1.72h5.69a.75.75 0 0 0 0-1.5h-5.69l1.72-1.72a.75.75 0 0 0-1.06-1.06l-3 3Z" />
+        </svg>
+      </button>
+
+      <button type="button" class="shrink-0 p-0.5 active:scale-95" :title="player.mainActionLabel.value" @click="handleMainAction">
+        <svg v-if="player.isPlaying.value" class="w-11 h-11" viewBox="0 0 24 24" fill="currentColor">
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12ZM9 8.25a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75h.75a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H9Zm5.25 0a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75H15a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-.75Z" />
+        </svg>
+        <svg v-else class="w-11 h-11" viewBox="0 0 24 24" fill="currentColor">
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm14.024-.983a1.125 1.125 0 0 1 0 1.966l-5.603 3.113A1.125 1.125 0 0 1 9 15.113V8.887c0-.857.921-1.4 1.671-.983l5.603 3.113Z" />
+        </svg>
+      </button>
+
+      <button type="button" class="shrink-0 p-1 active:scale-95" title="下一句" @click="player.nextSentence()">
+        <svg class="w-9 h-9" viewBox="0 0 24 24" fill="currentColor">
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm4.28 10.28a.75.75 0 0 0 0-1.06l-3-3a.75.75 0 1 0-1.06 1.06l1.72 1.72H8.25a.75.75 0 0 0 0 1.5h5.69l-1.72 1.72a.75.75 0 0 0 1.06 1.06l3-3Z" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        class="flex flex-col items-center shrink-0 min-w-[2.75rem] text-xs active:scale-95"
+        @click="moreOpen = true"
+      >
+        <div class="w-10 h-10 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10 text-sm font-medium">⋯</div>
+        <span class="text-[10px] mt-0.5">更多</span>
+      </button>
+    </div>
+
+    <!-- 桌面端：完整控制条 -->
+    <div v-else class="flex items-end justify-between gap-1 sm:gap-0 max-w-full overflow-x-auto cursor-pointer">
       <!-- 倍速 -->
       <div ref="speedRoot" class="relative flex flex-col items-center shrink-0 min-w-[3rem] cursor-pointer">
         <button
@@ -368,6 +427,58 @@ function handleMainAction() {
 
     <!-- 弹层挂到 body，避免被 overflow 裁剪 -->
     <Teleport to="body">
+      <!-- 移动端更多 -->
+      <div
+        v-if="compact && moreOpen"
+        data-player-popover
+        class="fixed inset-0 z-[300] flex items-end justify-center bg-black/40"
+        @click.self="moreOpen = false"
+      >
+        <div
+          class="w-full max-w-lg rounded-t-2xl bg-white dark:bg-neutral-900 shadow-2xl border-t border-black/10 dark:border-white/10 pb-[env(safe-area-inset-bottom)]"
+          @click.stop
+        >
+          <div class="flex justify-center pt-3 pb-2">
+            <div class="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+          </div>
+          <p class="text-sm font-medium text-center mb-3">更多控制</p>
+          <div class="grid grid-cols-4 gap-3 px-4 pb-4">
+            <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="toggleHideVideo(); moreOpen = false">
+              <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">{{ videoHidden ? '显' : '隐' }}</div>
+              <span>{{ videoHidden ? '显示视频' : '隐藏视频' }}</span>
+            </button>
+            <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="toggleFullscreen(); moreOpen = false">
+              <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">⛶</div>
+              <span>全屏</span>
+            </button>
+            <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="toggleIpa(); moreOpen = false">
+              <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center font-serif text-lg" :class="showIpa ? 'text-orange-500' : ''">ə</div>
+              <span>音标</span>
+            </button>
+            <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="handleBPoint(); moreOpen = false">
+              <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-blue-700 font-semibold">B</div>
+              <span>B 点</span>
+            </button>
+            <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="toggleLoopMenu()">
+              <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-amber-600 font-semibold">{{ loopCountLabel }}</div>
+              <span>单句循环</span>
+            </button>
+            <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="cycleInterval(); moreOpen = false">
+              <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">⏱</div>
+              <span>间隔</span>
+            </button>
+            <button
+              type="button"
+              class="flex flex-col items-center gap-1 text-xs"
+              @click="player.pauseAfterSentence.value = !player.pauseAfterSentence.value; moreOpen = false"
+            >
+              <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center" :class="player.pauseAfterSentence.value ? 'text-orange-500' : ''">⏸</div>
+              <span>句末暂停</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div
         v-if="speedOpen && speedMenuPos"
         data-player-popover
@@ -375,7 +486,7 @@ function handleMainAction() {
         :style="{
           top: `${speedMenuPos.top}px`,
           left: `${speedMenuPos.left}px`,
-          transform: 'translate(-50%, -100%)',
+          transform: compact ? 'translate(-50%, -100%)' : 'translate(-50%, -100%)',
         }"
         @click.stop
       >

@@ -111,7 +111,7 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
 }
 
 :global(.dark) .current-subtitle-bar :deep(.subtitle-ipa) {
-  color: rgb(163 163 163);
+  color: rgb(229 229 229);
 }
 
 @media (min-width: 640px) {

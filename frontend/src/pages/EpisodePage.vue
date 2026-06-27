@@ -5,6 +5,9 @@ import { getEpisodeDetail, lookupWord } from '@/api/demo'
 import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
 import { getEpisodeList, setEpisodeFavorite } from '@/api/episodes'
 import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
+import SubtitleModeSheet from '@/components/episode/SubtitleModeSheet.vue'
+import { useIsMobile } from '@/composables/useBreakpoint'
+import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import { useLearningProgress } from '@/composables/useLearningProgress'
 import { consumeEpisodeAutoplay, requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
@@ -52,7 +55,11 @@ const videoPanelRef = ref<HTMLElement | null>(null)
 const videoHidden = ref(false)
 const listRef = ref<HTMLElement | null>(null)
 const showSettings = ref(false)
+const isMobile = useIsMobile()
 const showSidePanel = ref(true)
+const mobileDrawerOpen = ref(false)
+const subtitleModeSheetOpen = ref(false)
+const dynamicFocusRef = ref<HTMLElement | null>(null)
 const sidePanelTab = ref<'related' | 'lookup'>('related')
 const relatedEpisodes = ref<EpisodeSummary[]>([])
 const relatedLoading = ref(false)
@@ -140,7 +147,39 @@ const modeButtons: { key: SubtitleDisplayMode; label: string }[] = [
   { key: 'ipa', label: 'IPA' },
 ]
 
+const currentModeLabel = computed(
+  () => modeButtons.find((m) => m.key === subtitleMode.value)?.label ?? '字幕',
+)
+
+watch(
+  isMobile,
+  (mobile) => {
+    if (mobile) {
+      showSidePanel.value = false
+    } else {
+      showSidePanel.value = true
+      mobileDrawerOpen.value = false
+      subtitleModeSheetOpen.value = false
+    }
+  },
+  { immediate: true },
+)
+
+useSwipeNavigation(listRef, {
+  onSwipeLeft: () => player.nextSentence(),
+  onSwipeRight: () => player.prevSentence(),
+})
+
+useSwipeNavigation(dynamicFocusRef, {
+  onSwipeLeft: () => player.nextSentence(),
+  onSwipeRight: () => player.prevSentence(),
+})
+
 const displaySub = computed(() => resolveDisplaySub(sortedSubs.value, player.currentTime.value))
+
+const showCurrentSubtitleBar = computed(
+  () => Boolean(displaySub.value) && !isMobile.value,
+)
 
 const playbackTime = computed(() => player.currentTime.value)
 
@@ -172,8 +211,29 @@ onUnmounted(() => {
 watch(() => props.videoId, load)
 watch(currentIndex, () => {
   if (modeIsDynamicFocus(subtitleMode.value)) return
-  nextTick(scrollCurrentIntoView)
+  nextTick(() => scrollCurrentIntoView(isMobile.value ? 'auto' : 'smooth'))
 })
+
+function preloadPoster(url: string) {
+  if (!url || document.querySelector(`link[rel="preload"][href="${url}"]`)) return
+  const link = document.createElement('link')
+  link.rel = 'preload'
+  link.as = 'image'
+  link.href = url
+  document.head.appendChild(link)
+}
+
+function openMobileDrawer(tab: 'related' | 'lookup') {
+  sidePanelTab.value = tab
+  mobileDrawerOpen.value = true
+  if (tab === 'lookup' && auth.isLoggedIn && !lookupHistory.value.length && !lookupLoading.value) {
+    void loadLookupHistory()
+  }
+}
+
+function closeMobileDrawer() {
+  mobileDrawerOpen.value = false
+}
 
 function episodePath(videoId: string) {
   return auth.isMember ? `/english/episode/${videoId}` : `/english/demo/${videoId}`
@@ -269,6 +329,7 @@ async function load() {
       ? await (await import('@/api/admin')).adminGetEpisodePreview(props.videoId)
       : await getEpisodeDetail(props.videoId)
     episode.value = data.episode
+    preloadPoster(data.episode.media?.thumbnail_url ?? '')
     currentIndex.value = 0
     if (!props.adminPreview) {
       void loadRelatedEpisodes()
@@ -413,12 +474,16 @@ function renderHtml(html: string) {
   return preprocessSubtitleHtml(html, { blank: modeUsesBlank(subtitleMode.value) })
 }
 
+/** 列表模式：当前句始终贴在字幕滚动区顶部（第一张卡片位置） */
 function scrollCurrentIntoView(behavior: ScrollBehavior = 'smooth') {
   const container = listRef.value
   const el = container?.querySelector(`[data-sub-index="${currentIndex.value}"]`) as HTMLElement | null
   if (!container || !el) return
-  const top =
-    el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2
+
+  const padding = 8
+  const containerRect = container.getBoundingClientRect()
+  const elRect = el.getBoundingClientRect()
+  const top = container.scrollTop + (elRect.top - containerRect.top) - padding
   container.scrollTo({ top: Math.max(0, top), behavior })
 }
 
@@ -487,7 +552,7 @@ async function toggleSubtitleLearned(sub: { id: number }, e: Event) {
 }
 
 function goBack() {
-  router.push(props.backTo ?? '/demo')
+  router.push(props.backTo ?? (auth.isMember ? '/english' : '/demo'))
 }
 
 function subtitleRowClass(index: number) {
@@ -496,18 +561,18 @@ function subtitleRowClass(index: number) {
 
   if (isChineseOnly.value) {
     return [
-      'p-4 px-5 rounded-2xl cursor-pointer transition-all duration-300 border',
+      'p-3 px-4 rounded-2xl cursor-pointer transition-all duration-300 border sm:p-4 sm:px-5',
       isCurrent
         ? 'bg-neutral-900 text-white border-neutral-800 shadow-md dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-200'
-        : 'bg-white hover:bg-neutral-50 border-transparent hover:border-black/5 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:hover:border-white/5',
+        : 'bg-white hover:bg-neutral-50 border-transparent hover:border-black/5 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:hover:border-white/10',
     ]
   }
 
   return [
-    'p-3 px-4 rounded-2xl cursor-pointer transition-all duration-300 border',
+    'p-2.5 px-3 rounded-2xl cursor-pointer transition-all duration-300 border sm:p-3 sm:px-4',
     isCurrent
       ? 'bg-black text-white border-black/10 shadow-sm scale-[1.01] dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-200'
-      : 'bg-white hover:bg-neutral-50 border-transparent opacity-75 hover:opacity-100 dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:border-transparent dark:opacity-90 dark:hover:opacity-100',
+      : 'bg-white hover:bg-neutral-50 border-transparent dark:bg-neutral-800 dark:hover:bg-neutral-700 dark:border-transparent dark:hover:border-white/10',
   ]
 }
 </script>
@@ -518,7 +583,7 @@ function subtitleRowClass(index: number) {
     class="flex flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-950"
     :class="adminPreview ? 'h-dvh' : 'h-full'"
   >
-    <header class="shrink-0 flex items-center gap-4 px-4 py-3 bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 z-30">
+    <header class="shrink-0 flex items-center gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 z-30">
       <button class="text-sm text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white" @click="goBack">← 返回</button>
       <div v-if="episode" class="flex-1 min-w-0">
         <p class="font-semibold truncate flex items-center gap-2">
@@ -550,7 +615,7 @@ function subtitleRowClass(index: number) {
           />
         </button>
         <SettingsButton @click="showSettings = true" />
-        <button class="text-xs text-neutral-400 hover:text-black dark:hover:text-white px-2 py-1" @click="player.showHelp.value = true">
+        <button class="hidden sm:inline text-xs text-neutral-400 hover:text-black dark:hover:text-white px-2 py-1" @click="player.showHelp.value = true">
           ? 快捷键
         </button>
       </div>
@@ -560,7 +625,10 @@ function subtitleRowClass(index: number) {
       v-if="resumePrompt && !adminPreview"
       class="shrink-0 flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-100 dark:border-amber-900/50 text-sm"
     >
-      <span class="text-amber-900 dark:text-amber-200">检测到上次学习进度，是否从断点继续？</span>
+      <span class="text-amber-900 dark:text-amber-200 max-sm:text-xs">
+        <span class="sm:hidden">从断点继续？</span>
+        <span class="hidden sm:inline">检测到上次学习进度，是否从断点继续？</span>
+      </span>
       <div class="flex items-center gap-2">
         <button type="button" class="px-3 py-1 rounded-full bg-amber-600 text-white text-xs" @click="applyResume">
           继续学习
@@ -574,11 +642,11 @@ function subtitleRowClass(index: number) {
     <div v-if="loading && !episode" class="flex-1 flex items-center justify-center text-neutral-500">加载中...</div>
     <div v-else-if="error && !episode" class="flex-1 flex items-center justify-center text-red-500">{{ error }}</div>
 
-    <div v-else-if="episode" class="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
-      <!-- 视频区：始终可见，不参与字幕滚动 -->
+    <div v-else-if="episode" class="flex-1 min-h-0 flex flex-col lg:flex-row max-lg:landscape:flex-row overflow-hidden">
+      <!-- 视频区 -->
       <aside
         ref="videoPanelRef"
-        class="shrink-0 lg:w-[46%] xl:w-[44%] lg:min-h-0 flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4"
+        class="shrink-0 lg:w-[46%] xl:w-[44%] lg:min-h-0 flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4 max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:max-h-[42dvh] max-lg:landscape:max-h-none max-lg:landscape:static max-lg:landscape:w-[42%] max-lg:landscape:shrink-0"
       >
         <VideoPlayer
           :src="playbackSrc"
@@ -593,11 +661,12 @@ function subtitleRowClass(index: number) {
           :show-ipa="showIpa"
           :video-hidden="videoHidden"
           :video-panel-ref="videoPanelRef"
+          :compact="isMobile"
           @update:show-ipa="showIpa = $event"
           @update:video-hidden="videoHidden = $event"
         />
         <CurrentSubtitleBar
-          v-if="displaySub"
+          v-if="showCurrentSubtitleBar"
           :sub="displaySub"
           :current-time="playbackTime"
           :subtitle-mode="subtitleMode"
@@ -608,9 +677,30 @@ function subtitleRowClass(index: number) {
         />
       </aside>
 
-      <!-- 字幕区：独立滚动 -->
-      <section class="subtitle-panel flex-1 min-h-0 flex flex-col overflow-hidden bg-neutral-50 dark:bg-neutral-900 border-t lg:border-t-0 border-black/5 dark:border-white/10">
-        <div class="shrink-0 flex flex-wrap items-center gap-1 p-3 bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 text-sm z-10">
+      <!-- 字幕区 -->
+      <section
+        class="subtitle-panel flex-1 min-h-0 flex flex-col overflow-hidden bg-neutral-50 dark:bg-neutral-900 border-t lg:border-t-0 border-black/5 dark:border-white/10 max-lg:pb-[calc(3.5rem+env(safe-area-inset-bottom))] max-lg:landscape:pb-0"
+      >
+        <!-- 移动端：字幕模式入口 -->
+        <div
+          v-if="isMobile"
+          class="shrink-0 flex items-center gap-2 p-3 bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 z-10"
+        >
+          <button
+            type="button"
+            class="flex-1 flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-sm font-medium"
+            @click="subtitleModeSheetOpen = true"
+          >
+            <span>字幕：{{ currentModeLabel }}</span>
+            <span class="text-neutral-400 text-xs">切换</span>
+          </button>
+        </div>
+
+        <!-- 桌面端：完整工具栏 -->
+        <div
+          v-else
+          class="shrink-0 flex flex-wrap items-center gap-1 p-3 bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 text-sm z-10"
+        >
           <button
             v-for="m in modeButtons"
             :key="m.key"
@@ -644,7 +734,8 @@ function subtitleRowClass(index: number) {
         <!-- 动态模式 -->
         <div
           v-if="modeIsDynamicFocus(subtitleMode) && currentSub"
-          class="subtitle-focus-light subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-center p-6 sm:p-10 cursor-pointer"
+          ref="dynamicFocusRef"
+          class="subtitle-focus-light subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-start pt-2 px-3 pb-4 lg:justify-center lg:p-6 xl:p-10 cursor-pointer touch-pan-y"
           :class="subtitleAlign === 'left' ? 'items-start text-left' : 'items-center text-center'"
           @click="currentSub && player.seekTo(currentSub)"
         >
@@ -667,21 +758,21 @@ function subtitleRowClass(index: number) {
         <div
           v-else
           ref="listRef"
-          class="subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] p-4 space-y-2"
+          class="subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] touch-pan-y px-3 pt-2 pb-4 space-y-2 lg:p-4"
         >
           <div
             v-for="(sub, i) in sortedSubs"
             :key="sub.id"
             :data-sub-index="i"
-            class="flex flex-col cursor-pointer"
+            class="flex flex-col cursor-pointer scroll-mt-2"
             :class="subtitleAlign === 'left' ? 'items-stretch' : 'items-center'"
             @click="player.seekTo(sub)"
           >
-            <div class="w-full relative" :class="subtitleRowClass(i)">
+            <div class="w-full relative" :class="[subtitleRowClass(i), i === currentIndex && 'subtitle-row--active']">
               <button
                 v-if="auth.isLoggedIn && !adminPreview"
                 type="button"
-                class="absolute top-2 right-2 z-10 w-6 h-6 rounded-full text-xs flex items-center justify-center border transition"
+                class="absolute top-2 right-2 z-10 w-10 h-10 rounded-full text-sm flex items-center justify-center border transition"
                 :class="
                   learnedSubtitleIds.has(sub.id)
                     ? 'bg-emerald-500 border-emerald-500 text-white'
@@ -710,7 +801,7 @@ function subtitleRowClass(index: number) {
       </section>
 
       <EpisodeSidePanel
-        v-if="!adminPreview && showSidePanel"
+        v-if="!adminPreview && showSidePanel && !isMobile"
         :tab="sidePanelTab"
         :related-episodes="relatedEpisodes"
         :related-loading="relatedLoading"
@@ -723,6 +814,68 @@ function subtitleRowClass(index: number) {
         @close="closeSidePanel"
       />
     </div>
+
+    <!-- 移动端底部导航 -->
+    <nav
+      v-if="isMobile && !adminPreview && episode"
+      class="fixed bottom-0 inset-x-0 z-40 flex border-t border-black/10 dark:border-white/10 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
+    >
+      <button
+        type="button"
+        class="flex-1 py-3 text-sm font-medium text-neutral-700 dark:text-neutral-200 active:bg-neutral-100 dark:active:bg-neutral-800"
+        @click="openMobileDrawer('related')"
+      >
+        同标签视频
+      </button>
+      <button
+        v-if="auth.isLoggedIn"
+        type="button"
+        class="flex-1 py-3 text-sm font-medium text-neutral-700 dark:text-neutral-200 border-l border-black/10 dark:border-white/10 active:bg-neutral-100 dark:active:bg-neutral-800"
+        @click="openMobileDrawer('lookup')"
+      >
+        查词记录
+      </button>
+    </nav>
+
+    <!-- 移动端侧栏抽屉 -->
+    <Teleport to="body">
+      <div
+        v-if="isMobile && mobileDrawerOpen && !adminPreview"
+        class="fixed inset-0 z-50 flex flex-col justify-end bg-black/40"
+        @click.self="closeMobileDrawer"
+      >
+        <div
+          class="relative flex flex-col h-[min(72dvh,560px)] rounded-t-2xl bg-white dark:bg-neutral-900 overflow-hidden pb-[env(safe-area-inset-bottom)]"
+          @click.stop
+        >
+          <EpisodeSidePanel
+            drawer
+            :tab="sidePanelTab"
+            :related-episodes="relatedEpisodes"
+            :related-loading="relatedLoading"
+            :lookup-history="lookupHistory"
+            :lookup-loading="lookupLoading"
+            :show-lookup-tab="auth.isLoggedIn"
+            @update:tab="onSidePanelTabChange"
+            @reopen-lookup="(r) => { closeMobileDrawer(); reopenLookup(r) }"
+            @select-episode="(id) => { closeMobileDrawer(); onSelectRelatedEpisode(id) }"
+            @close="closeMobileDrawer"
+          />
+        </div>
+      </div>
+    </Teleport>
+
+    <SubtitleModeSheet
+      v-if="isMobile"
+      :open="subtitleModeSheetOpen"
+      :subtitle-mode="subtitleMode"
+      :subtitle-align="subtitleAlign"
+      :mode-buttons="modeButtons"
+      :align-buttons="alignButtons"
+      @close="subtitleModeSheetOpen = false"
+      @update:subtitle-mode="subtitleMode = $event"
+      @update:subtitle-align="subtitleAlign = $event"
+    />
 
     <EntryCard
       v-if="showEntryPanel"

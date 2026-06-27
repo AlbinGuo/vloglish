@@ -3,6 +3,7 @@
 .env.local
 .env.prod
 backend/.env
+backend/db_switch.py
 *.pem
 *.key
 **/cookies.txt
@@ -11,6 +12,7 @@ backend/.env
 # keep env templates
 !.env.prod.example
 !backend/.env.example
+!backend/db_switch.example.py
 
 # --- Python ---
 __pycache__/

@@ -1,9 +1,8 @@
 import os
-from pathlib import Path
 
-from dotenv import load_dotenv
+from ..env import load_app_env
 
-load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
+load_app_env()
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "").strip()
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip("/")

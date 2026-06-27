@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getRecentEpisodes, type RecentEpisode } from '@/api/learning'
 import { useCatalogViewMode } from '@/composables/useCatalogViewMode'
+import { useIsMobile } from '@/composables/useBreakpoint'
 import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
 import { CARD_INITIAL_SIZE, LIST_INITIAL_SIZE, useCatalogStore } from '@/stores/catalog'
@@ -17,13 +18,20 @@ import EpisodeListRow from '@/components/EpisodeListRow.vue'
 const store = useCatalogStore()
 const auth = useAuthStore()
 const { viewMode } = useCatalogViewMode()
+const isMobile = useIsMobile()
+
+/** 手机端固定卡片视图，不提供列表切换 */
+const displayViewMode = computed(() => (isMobile.value ? 'card' : viewMode.value))
+
+/** 用户端「添加外链视频」入口（暂隐藏，改 true 即可重新开放） */
+const showSubmitEpisodeEntry = false
 
 const loadMoreSentinel = ref<HTMLElement | null>(null)
 const recentLearning = ref<RecentEpisode[]>([])
 let loadMoreObserver: IntersectionObserver | null = null
 
 const skeletonCount = computed(() =>
-  viewMode.value === 'card' ? CARD_INITIAL_SIZE : LIST_INITIAL_SIZE,
+  displayViewMode.value === 'card' ? CARD_INITIAL_SIZE : LIST_INITIAL_SIZE,
 )
 
 const previewBanner = computed(() => {
@@ -64,7 +72,7 @@ function setupLoadMoreObserver() {
 
 onMounted(async () => {
   await store.loadFilters()
-  store.setListViewMode(viewMode.value)
+  store.setListViewMode(displayViewMode.value)
   await store.loadEpisodes()
   if (auth.isLoggedIn) {
     try {
@@ -84,7 +92,7 @@ watch(loadMoreSentinel, () => {
   setupLoadMoreObserver()
 })
 
-watch(viewMode, async (mode) => {
+watch(displayViewMode, async (mode) => {
   store.setListViewMode(mode)
   await store.loadEpisodes(true)
   setupLoadMoreObserver()
@@ -105,9 +113,9 @@ watch(
 <template>
   <div class="page-container py-6">
     <div class="flex flex-col lg:flex-row gap-6 lg:gap-8">
-      <aside class="w-full lg:w-72 xl:w-80 shrink-0 space-y-4">
+      <aside class="hidden lg:block w-full lg:w-72 xl:w-80 shrink-0 space-y-4">
         <RouterLink
-          v-if="auth.isMember"
+          v-if="showSubmitEpisodeEntry && auth.isMember"
           to="/english/submit"
           class="flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold text-sm px-4 py-3.5 shadow-md shadow-amber-500/25 hover:from-amber-600 hover:to-orange-600 hover:shadow-lg hover:shadow-amber-500/30 transition-all"
         >
@@ -116,8 +124,8 @@ watch(
           </svg>
           添加外链视频
         </RouterLink>
-        <CatalogCalendar />
-        <CatalogFilters />
+        <CatalogCalendar class="hidden lg:block" />
+        <CatalogFilters class="hidden lg:block" />
         <CatalogViewSettings />
       </aside>
 
@@ -162,7 +170,7 @@ watch(
         <CatalogEpisodeSkeletons v-if="store.loading && !store.episodes.length" :count="skeletonCount" />
 
         <template v-else>
-          <div v-if="viewMode === 'card'">
+          <div v-if="displayViewMode === 'card'">
             <div v-if="!store.episodes.length" class="text-center py-24 text-neutral-500">没有匹配的内容</div>
             <div v-else class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
               <EpisodeCard

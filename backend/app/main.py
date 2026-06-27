@@ -1,7 +1,7 @@
-from dotenv import load_dotenv
-from pathlib import Path
+from .db_url import database_host_label
+from .env import load_app_env
 
-load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+load_app_env()
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 
 from sqlalchemy import inspect, text
 
-from .database import Base, SessionLocal, engine, is_postgresql
+from .database import DATABASE_URL, Base, SessionLocal, engine, is_postgresql
 from .models import ActivationCode
 from .schemas import AuthTokensOut
 from .routers import auth, demo, entries, episode_submit, episodes, learning, notifications
@@ -80,6 +80,7 @@ def health():
 
 @app.on_event("startup")
 def startup():
+    print(f"[vloglish] database → {database_host_label(DATABASE_URL)}")
     Base.metadata.create_all(bind=engine)
     _migrate_schema()
     db = SessionLocal()
