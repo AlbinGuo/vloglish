@@ -186,6 +186,33 @@ def _extract_audio_mp3(video_path: Path, ffmpeg_dir: Path) -> Path:
     return output
 
 
+def _yt_dlp_cli_extras() -> list[str]:
+    args: list[str] = []
+    proxy = os.getenv("YT_DLP_PROXY", "").strip()
+    if proxy:
+        args.extend(["--proxy", proxy])
+    impersonate = os.getenv("YT_DLP_IMPERSONATE", "").strip()
+    if impersonate:
+        args.extend(["--impersonate", impersonate])
+    return args
+
+
+def _format_ytdlp_error(detail: str, url: str) -> str:
+    lower = detail.lower()
+    if "network is unreachable" in lower or "failed to establish" in lower or "timed out" in lower:
+        platform = "YouTube / TikTok"
+        if "tiktok.com" in url.lower():
+            platform = "TikTok"
+        elif "youtube.com" in url.lower() or "youtu.be" in url.lower():
+            platform = "YouTube"
+        return (
+            f"服务器无法直连 {platform}（国内 ECS 常见）。"
+            "请在本地 Windows 运行抓取后上传七牛，或在 .env.prod 配置 YT_DLP_PROXY 代理后重试。"
+            f"\n\n原始错误：{detail[-800:]}"
+        )
+    return detail[-2000:] if detail else "yt-dlp 执行失败"
+
+
 def _run_yt_dlp(tools: YtDlpTools, url: str, work_dir: Path) -> None:
     out_template = str(work_dir / "media.%(ext)s")
     cmd = [
@@ -212,6 +239,7 @@ def _run_yt_dlp(tools: YtDlpTools, url: str, work_dir: Path) -> None:
     ]
     if tools.cookies:
         cmd.extend(["--cookies", str(tools.cookies)])
+    cmd.extend(_yt_dlp_cli_extras())
     cmd.append(url)
 
     proc = subprocess.run(
@@ -224,7 +252,7 @@ def _run_yt_dlp(tools: YtDlpTools, url: str, work_dir: Path) -> None:
     )
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout or "").strip()
-        raise RuntimeError(detail[-2000:] if detail else f"yt-dlp 退出码 {proc.returncode}")
+        raise RuntimeError(_format_ytdlp_error(detail, url))
 
 
 def _load_info_json(work_dir: Path) -> dict:

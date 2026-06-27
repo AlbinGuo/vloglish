@@ -183,6 +183,7 @@ POSTGRES_IMAGE=docker.1ms.run/library/postgres:16-alpine
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD='你的数据库密码'
 POSTGRES_DB=postgres
+POSTGRES_PUBLISH=127.0.0.1:5432
 DATABASE_URL=postgresql+psycopg://postgres:URL编码后的密码@db:5432/postgres
 
 # 七牛、DeepSeek
@@ -258,6 +259,92 @@ docker compose --env-file .env.prod logs -f backend web
 # 停止
 docker compose --env-file .env.prod down
 ```
+
+### 4.6 从本机连接 PostgreSQL
+
+数据库跑在 ECS 的 Docker 容器里。默认 `POSTGRES_PUBLISH=127.0.0.1:5432`，**只监听服务器本机**，外网无法直接连库，需用 SSH 隧道（推荐）或改为 `0.0.0.0:5432` 并配置安全组。
+
+#### 方式一：SSH 隧道（推荐，更安全）
+
+**1. 确保 `.env.prod` 中有：**
+
+```env
+POSTGRES_PUBLISH=127.0.0.1:5432
+```
+
+**2. 在 ECS 上重建 db 容器（若刚改配置）：**
+
+```bash
+cd /opt/vlogish
+docker compose --env-file .env.prod up -d db
+```
+
+**3. 在本机 Windows PowerShell 建立隧道：**
+
+```powershell
+ssh -L 15432:127.0.0.1:5432 root@你的ECS公网IP
+```
+
+保持该窗口不要关闭。本机用 **15432** 端口连库（避免与本机已有 PostgreSQL 冲突）。
+
+**4. 连接参数（DBeaver / DataGrip / psql）：**
+
+| 项 | 值 |
+|----|-----|
+| Host | `127.0.0.1` |
+| Port | `15432` |
+| Database | `postgres` |
+| User | `postgres` |
+| Password | `.env.prod` 里 `POSTGRES_PASSWORD` 的明文（非 URL 编码） |
+
+JDBC URL 示例：
+
+```
+jdbc:postgresql://127.0.0.1:15432/postgres
+```
+
+psql 示例：
+
+```bash
+psql "postgresql://postgres:你的密码@127.0.0.1:15432/postgres"
+```
+
+> 密码含 `#` `$` `!` 等特殊字符时，在 URL 里须 URL 编码；在 GUI 工具的「密码」框里填明文即可。
+
+#### 方式二：外网直连
+
+**1. 修改 `/opt/vlogish/.env.prod`：**
+
+```env
+POSTGRES_PUBLISH=0.0.0.0:5432
+```
+
+**2. 阿里云安全组** → 入方向 → 添加规则：
+
+- 协议：TCP
+- 端口：`5432`
+- 授权对象：**仅你的公网 IP**/32（不要用 `0.0.0.0/0`）
+
+**3. 重建 db 容器：**
+
+```bash
+cd /opt/vlogish
+docker compose --env-file .env.prod up -d db
+```
+
+**4. 本机连接：**
+
+| 项 | 值 |
+|----|-----|
+| Host | ECS 公网 IP（如 `8.137.196.234`） |
+| Port | `5432` |
+| Database / User / Password | 同上 |
+
+**安全提醒：**
+
+- 务必使用强密码，且安全组只放行你的 IP
+- 生产环境优先 SSH 隧道，避免把 5432 暴露到公网
+- `DATABASE_URL` 给 backend 用时主机名仍是 `db`（容器内网），不要改成公网 IP
 
 ---
 
@@ -383,6 +470,43 @@ docker compose --env-file .env.prod up -d
 - Gitee 流水线变量勾选「私密」
 - 不要将 `.env.prod` 提交到 Git
 - 生产环境定期更换 JWT、数据库、ACR 密码
+
+---
+
+## 管理端抓取 TikTok / YouTube（重要）
+
+**阿里云大陆 ECS 无法直连 TikTok**（YouTube 也常不稳定），在服务器上点「抓取并上传七牛」会报 `Network is unreachable`。
+
+### 方案 A：本地抓取（推荐）
+
+在你本机 Windows（能访问 TikTok 的环境）：
+
+1. 配置 `backend/.env`（七牛、DeepSeek 等）
+2. 安装 yt-dlp、ffmpeg（或使用 `VLOGISH_TOOLS_DIR`）
+3. 在管理后台本地环境打开新建剧集，使用「抓取并上传七牛」  
+   或运行后端 API / 脚本完成抓取
+
+抓取成功后媒体已在七牛，线上服务器只需保存剧集元数据。
+
+### 方案 B：服务器配置代理
+
+若你有可访问外网的 HTTP/SOCKS 代理，在 `/opt/vlogish/.env.prod` 添加：
+
+```env
+YT_DLP_PROXY=http://你的代理地址:端口
+# TikTok 可选
+YT_DLP_IMPERSONATE=chrome
+```
+
+然后重建 backend：
+
+```bash
+docker compose --env-file .env.prod up -d --build backend
+```
+
+### 方案 C：ECS 换到香港等地域
+
+香港等区域一般可直接访问 TikTok/YouTube，可在该机器上跑抓取任务。
 
 ---
 
