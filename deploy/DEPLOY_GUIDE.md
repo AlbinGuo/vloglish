@@ -1,5 +1,12 @@
 # Vloglish 从本地开发到上线部署 — 操作手册
 
+
+# 部署-最短记忆版
+```js
+ssh root@8.137.196.234
+cd /opt/vlogish && git pull && bash deploy/deploy.sh
+```
+
 本文档列出**你需要亲手执行的步骤**，按顺序完成即可。
 
 - 代码仓库：https://gitee.com/guonan01/vlogish.git  

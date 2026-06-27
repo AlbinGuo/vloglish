@@ -69,6 +69,8 @@ const isFavorite = ref(false)
 const favoriteLoading = ref(false)
 const learnedSubtitleIds = ref<Set<number>>(new Set())
 const videoAutoplay = ref(false)
+const subtitleSlideDir = ref<'next' | 'prev'>('next')
+let listScrollAnim = 0
 
 function registerVideoEl(el: HTMLVideoElement | null) {
   videoRef.value = el
@@ -205,13 +207,17 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (listScrollAnim) cancelAnimationFrame(listScrollAnim)
   document.body.style.overflow = ''
   window.removeEventListener('keydown', onEntryKeydown)
 })
 watch(() => props.videoId, load)
-watch(currentIndex, () => {
+watch(currentIndex, (idx, prevIdx) => {
+  if (prevIdx !== undefined && idx !== prevIdx) {
+    subtitleSlideDir.value = idx > prevIdx ? 'next' : 'prev'
+  }
   if (modeIsDynamicFocus(subtitleMode.value)) return
-  nextTick(() => scrollCurrentIntoView(isMobile.value ? 'auto' : 'smooth'))
+  nextTick(() => scrollCurrentIntoView())
 })
 
 function preloadPoster(url: string) {
@@ -474,8 +480,24 @@ function renderHtml(html: string) {
   return preprocessSubtitleHtml(html, { blank: modeUsesBlank(subtitleMode.value) })
 }
 
-/** 列表模式：当前句始终贴在字幕滚动区顶部（第一张卡片位置） */
-function scrollCurrentIntoView(behavior: ScrollBehavior = 'smooth') {
+/** 列表模式：当前句贴在顶部；手机端用动画滚动 */
+function animateScrollTo(el: HTMLElement, to: number, duration = 320) {
+  if (listScrollAnim) cancelAnimationFrame(listScrollAnim)
+  const from = el.scrollTop
+  const delta = to - from
+  if (Math.abs(delta) < 1) return
+  const start = performance.now()
+  const tick = (now: number) => {
+    const t = Math.min(1, (now - start) / duration)
+    const eased = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2
+    el.scrollTop = from + delta * eased
+    if (t < 1) listScrollAnim = requestAnimationFrame(tick)
+    else listScrollAnim = 0
+  }
+  listScrollAnim = requestAnimationFrame(tick)
+}
+
+function scrollCurrentIntoView() {
   const container = listRef.value
   const el = container?.querySelector(`[data-sub-index="${currentIndex.value}"]`) as HTMLElement | null
   if (!container || !el) return
@@ -483,8 +505,10 @@ function scrollCurrentIntoView(behavior: ScrollBehavior = 'smooth') {
   const padding = 8
   const containerRect = container.getBoundingClientRect()
   const elRect = el.getBoundingClientRect()
-  const top = container.scrollTop + (elRect.top - containerRect.top) - padding
-  container.scrollTo({ top: Math.max(0, top), behavior })
+  const targetTop = Math.max(0, container.scrollTop + (elRect.top - containerRect.top) - padding)
+
+  if (isMobile.value) animateScrollTo(container, targetTop)
+  else container.scrollTo({ top: targetTop, behavior: 'smooth' })
 }
 
 function resolveSentenceContext(target: HTMLElement): string {
@@ -735,23 +759,35 @@ function subtitleRowClass(index: number) {
         <div
           v-if="modeIsDynamicFocus(subtitleMode) && currentSub"
           ref="dynamicFocusRef"
-          class="subtitle-focus-light subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col justify-start pt-2 px-3 pb-4 lg:justify-center lg:p-6 xl:p-10 cursor-pointer touch-pan-y"
+          class="subtitle-focus-light subtitle-scroll-hide flex-1 min-h-0 overflow-hidden overscroll-contain flex flex-col justify-start pt-2 px-3 pb-4 lg:justify-center lg:p-6 xl:p-10 cursor-pointer touch-pan-y"
           :class="subtitleAlign === 'left' ? 'items-start text-left' : 'items-center text-center'"
           @click="currentSub && player.seekTo(currentSub)"
         >
-          <SubtitleBlock
-            :english-html="renderHtml(currentSub.english_html)"
-            :chinese="currentSub.chinese"
-            :ipa="currentSub.ipa"
-            :active="false"
-            :large="true"
-            :align="subtitleAlign"
-            :chinese-focus="isChineseOnly"
-            :show-english="modeShowsEnglish(subtitleMode)"
-            :show-chinese="modeShowsChinese(subtitleMode)"
-            :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
-            @click="onSubtitleClick"
-          />
+          <Transition
+            :name="
+              isMobile
+                ? subtitleSlideDir === 'next'
+                  ? 'subtitle-slide-next'
+                  : 'subtitle-slide-prev'
+                : 'subtitle-fade'
+            "
+            mode="out-in"
+          >
+            <SubtitleBlock
+              :key="currentSub.id"
+              :english-html="renderHtml(currentSub.english_html)"
+              :chinese="currentSub.chinese"
+              :ipa="currentSub.ipa"
+              :active="false"
+              :large="true"
+              :align="subtitleAlign"
+              :chinese-focus="isChineseOnly"
+              :show-english="modeShowsEnglish(subtitleMode)"
+              :show-chinese="modeShowsChinese(subtitleMode)"
+              :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+              @click="onSubtitleClick"
+            />
+          </Transition>
         </div>
 
         <!-- 列表模式 -->
@@ -768,7 +804,10 @@ function subtitleRowClass(index: number) {
             :class="subtitleAlign === 'left' ? 'items-stretch' : 'items-center'"
             @click="player.seekTo(sub)"
           >
-            <div class="w-full relative" :class="[subtitleRowClass(i), i === currentIndex && 'subtitle-row--active']">
+            <div
+              class="w-full relative transition-all duration-300 ease-out"
+              :class="[subtitleRowClass(i), i === currentIndex && 'subtitle-row--active']"
+            >
               <button
                 v-if="auth.isLoggedIn && !adminPreview"
                 type="button"
@@ -899,5 +938,45 @@ function subtitleRowClass(index: number) {
 
 .subtitle-scroll-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* 动态模式：手机端切句滑动 */
+.subtitle-slide-next-enter-active,
+.subtitle-slide-next-leave-active,
+.subtitle-slide-prev-enter-active,
+.subtitle-slide-prev-leave-active {
+  transition:
+    transform 0.32s ease,
+    opacity 0.32s ease;
+}
+
+.subtitle-slide-next-enter-from {
+  transform: translateY(1.25rem);
+  opacity: 0;
+}
+
+.subtitle-slide-next-leave-to {
+  transform: translateY(-1.25rem);
+  opacity: 0;
+}
+
+.subtitle-slide-prev-enter-from {
+  transform: translateY(-1.25rem);
+  opacity: 0;
+}
+
+.subtitle-slide-prev-leave-to {
+  transform: translateY(1.25rem);
+  opacity: 0;
+}
+
+.subtitle-fade-enter-active,
+.subtitle-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.subtitle-fade-enter-from,
+.subtitle-fade-leave-to {
+  opacity: 0;
 }
 </style>
