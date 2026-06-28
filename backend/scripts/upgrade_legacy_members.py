@@ -7,9 +7,16 @@
     .\\.venv\\Scripts\\python.exe scripts\\upgrade_legacy_members.py
     .\\.venv\\Scripts\\python.exe scripts\\upgrade_legacy_members.py --apply
 
-  或在 backend 目录:
-    python scripts/upgrade_legacy_members.py
-    python scripts/upgrade_legacy_members.py --apply
+  Linux 服务器（Docker 部署，在项目根 /opt/vlogish）:
+    cd /opt/vlogish
+    docker compose --env-file .env.prod exec backend python scripts/upgrade_legacy_members.py
+    docker compose --env-file .env.prod exec backend python scripts/upgrade_legacy_members.py --apply
+
+    若使用 ACR 镜像：加 -f docker-compose.prod.yml
+
+  本地 Linux / 未用 Docker 时:
+    cd backend && python3 scripts/upgrade_legacy_members.py
+    cd backend && python3 scripts/upgrade_legacy_members.py --apply
 
   若报 No module named 'psycopg'，说明未用 .venv，请先:
     .venv\\Scripts\\activate

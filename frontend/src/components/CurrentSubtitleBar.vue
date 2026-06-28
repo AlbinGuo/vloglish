@@ -48,7 +48,7 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
 
 <template>
   <div
-    class="current-subtitle-bar relative flex-1 min-h-0 flex flex-col rounded-2xl border bg-white dark:bg-neutral-900 dark:border-white/10 cursor-pointer shadow-sm transition-shadow hover:shadow-md overflow-hidden"
+    class="current-subtitle-bar relative min-h-0 flex-1 rounded-2xl border bg-white dark:bg-neutral-900 dark:border-white/10 cursor-pointer shadow-sm transition-shadow hover:shadow-md overflow-hidden"
     :class="showBarProgress ? 'border-black/8 border-t-0 dark:border-white/10' : 'border-black/8 dark:border-white/10'"
     @click="$emit('seek')"
   >
@@ -60,28 +60,58 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
       <div class="sentence-progress-fill h-full w-full bg-neutral-700/70 dark:bg-neutral-300/70" :style="progressFillStyle" />
     </div>
 
-    <div
-      class="subtitle-focus-light flex flex-1 min-h-0 flex-col justify-center items-center text-center px-4 py-4 sm:px-5 sm:py-5 overflow-y-auto"
-    >
-      <SubtitleBlock
-        class="w-full"
-        :english-html="englishHtml"
-        :chinese="sub.chinese"
-        :ipa="sub.ipa"
-        :large="true"
-        align="center"
-        :chinese-focus="isChineseOnly()"
-        :show-english="modeShowsEnglish(subtitleMode)"
-        :show-chinese="modeShowsChinese(subtitleMode)"
-        :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
-        :read-progress="gradientProgress"
-        @click.stop="$emit('click', $event)"
-      />
+    <div class="current-subtitle-bar__viewport">
+      <div class="subtitle-focus-light current-subtitle-bar__content">
+        <SubtitleBlock
+          class="w-full"
+          :english-html="englishHtml"
+          :chinese="sub.chinese"
+          :ipa="sub.ipa"
+          :large="true"
+          align="center"
+          :chinese-focus="isChineseOnly()"
+          :show-english="modeShowsEnglish(subtitleMode)"
+          :show-chinese="modeShowsChinese(subtitleMode)"
+          :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+          :read-progress="gradientProgress"
+          @click.stop="$emit('click', $event)"
+        />
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* 占满播放器下方剩余高度，内部用 margin:auto 垂直居中（兼容 iPad 1024 等） */
+.current-subtitle-bar__viewport {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  min-height: 0;
+  padding: 0.75rem 1rem;
+  box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+  .current-subtitle-bar__viewport {
+    padding: 0.875rem 1.25rem;
+  }
+}
+
+.current-subtitle-bar__content {
+  margin: auto;
+  width: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  text-align: center;
+}
+
+.current-subtitle-bar :deep(.subtitle-english-progress) {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
 .sentence-progress-fill {
   transform-origin: left center;
   transition: transform 0.28s linear;

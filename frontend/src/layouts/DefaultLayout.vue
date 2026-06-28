@@ -25,7 +25,7 @@ async function refreshUnreadCount() {
 async function handleLogout() {
   await auth.logout()
   notifications.clear()
-  await router.push('/login')
+  await router.replace('/english')
 }
 
 onMounted(() => {
@@ -118,13 +118,6 @@ watch(
             <span v-if="auth.isMember" class="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
               会员
             </span>
-            <RouterLink
-              v-else
-              to="/activate"
-              class="text-xs px-2 py-1 rounded-full bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
-            >
-              激活会员
-            </RouterLink>
             <span class="hidden sm:inline text-neutral-500 dark:text-neutral-400 max-w-[10rem] truncate">
               {{ auth.user?.nickname || auth.user?.email }}
             </span>

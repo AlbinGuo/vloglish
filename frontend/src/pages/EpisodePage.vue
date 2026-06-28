@@ -6,7 +6,7 @@ import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary
 import { getEpisodeList, setEpisodeFavorite } from '@/api/episodes'
 import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
 import SubtitleModeSheet from '@/components/episode/SubtitleModeSheet.vue'
-import { useIsMobile } from '@/composables/useBreakpoint'
+import { useIsPad, useIsPhone } from '@/composables/useBreakpoint'
 import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import { useLearningProgress } from '@/composables/useLearningProgress'
 import { consumeEpisodeAutoplay, requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
@@ -55,7 +55,8 @@ const videoPanelRef = ref<HTMLElement | null>(null)
 const videoHidden = ref(false)
 const listRef = ref<HTMLElement | null>(null)
 const showSettings = ref(false)
-const isMobile = useIsMobile()
+const isPhone = useIsPhone()
+const isPad = useIsPad()
 const showSidePanel = ref(true)
 const mobileDrawerOpen = ref(false)
 const subtitleModeSheetOpen = ref(false)
@@ -154,10 +155,14 @@ const currentModeLabel = computed(
 )
 
 watch(
-  isMobile,
-  (mobile) => {
-    if (mobile) {
+  [isPhone, isPad],
+  ([phone, pad]) => {
+    if (phone) {
       showSidePanel.value = false
+    } else if (pad) {
+      showSidePanel.value = false
+      mobileDrawerOpen.value = false
+      subtitleModeSheetOpen.value = false
     } else {
       showSidePanel.value = true
       mobileDrawerOpen.value = false
@@ -180,7 +185,7 @@ useSwipeNavigation(dynamicFocusRef, {
 const displaySub = computed(() => resolveDisplaySub(sortedSubs.value, player.currentTime.value))
 
 const showCurrentSubtitleBar = computed(
-  () => Boolean(displaySub.value) && !isMobile.value,
+  () => Boolean(displaySub.value) && !isPhone.value,
 )
 
 const playbackTime = computed(() => player.currentTime.value)
@@ -242,7 +247,7 @@ function closeMobileDrawer() {
 }
 
 function episodePath(videoId: string) {
-  return auth.isMember ? `/english/episode/${videoId}` : `/english/demo/${videoId}`
+  return `/english/episode/${videoId}`
 }
 
 function onSelectRelatedEpisode(videoId: string) {
@@ -507,7 +512,7 @@ function scrollCurrentIntoView() {
   const elRect = el.getBoundingClientRect()
   const targetTop = Math.max(0, container.scrollTop + (elRect.top - containerRect.top) - padding)
 
-  if (isMobile.value) animateScrollTo(container, targetTop)
+  if (isPhone.value || isPad.value) animateScrollTo(container, targetTop)
   else container.scrollTo({ top: targetTop, behavior: 'smooth' })
 }
 
@@ -576,7 +581,7 @@ async function toggleSubtitleLearned(sub: { id: number }, e: Event) {
 }
 
 function goBack() {
-  router.push(props.backTo ?? (auth.isMember ? '/english' : '/demo'))
+  router.push(props.backTo ?? '/english')
 }
 
 function subtitleRowClass(index: number) {
@@ -670,9 +675,10 @@ function subtitleRowClass(index: number) {
       <!-- 视频区 -->
       <aside
         ref="videoPanelRef"
-        class="shrink-0 lg:w-[46%] xl:w-[44%] lg:min-h-0 flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4 max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:max-h-[42dvh] max-lg:landscape:max-h-none max-lg:landscape:static max-lg:landscape:w-[42%] max-lg:landscape:shrink-0"
+        class="shrink-0 lg:w-[46%] xl:w-[44%] min-h-0 h-full flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4 max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:max-h-[42dvh] max-lg:landscape:max-h-none max-lg:landscape:static max-lg:landscape:w-[42%] max-lg:landscape:shrink-0 max-lg:landscape:h-auto"
       >
         <VideoPlayer
+          class="shrink-0"
           :src="playbackSrc"
           :poster="episode.media.thumbnail_url"
           :hidden="videoHidden"
@@ -681,16 +687,18 @@ function subtitleRowClass(index: number) {
           :player="player"
         />
         <PlayerControls
+          class="shrink-0"
           :player="player"
           :show-ipa="showIpa"
           :video-hidden="videoHidden"
           :video-panel-ref="videoPanelRef"
-          :compact="isMobile"
+          :compact="isPhone"
           @update:show-ipa="showIpa = $event"
           @update:video-hidden="videoHidden = $event"
         />
         <CurrentSubtitleBar
           v-if="showCurrentSubtitleBar"
+          class="min-h-0 flex-1 w-full"
           :sub="displaySub"
           :current-time="playbackTime"
           :subtitle-mode="subtitleMode"
@@ -703,11 +711,12 @@ function subtitleRowClass(index: number) {
 
       <!-- 字幕区 -->
       <section
-        class="subtitle-panel flex-1 min-h-0 flex flex-col overflow-hidden bg-neutral-50 dark:bg-neutral-900 border-t lg:border-t-0 border-black/5 dark:border-white/10 max-lg:pb-[calc(3.5rem+env(safe-area-inset-bottom))] max-lg:landscape:pb-0"
+        class="subtitle-panel flex-1 min-h-0 flex flex-col overflow-hidden bg-neutral-50 dark:bg-neutral-900 border-t lg:border-t-0 border-black/5 dark:border-white/10"
+        :class="isPhone ? 'max-lg:pb-[calc(3.5rem+env(safe-area-inset-bottom))] max-lg:landscape:pb-0' : ''"
       >
         <!-- 移动端：字幕模式入口 -->
         <div
-          v-if="isMobile"
+          v-if="isPhone"
           class="shrink-0 flex items-center gap-2 p-3 bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 z-10"
         >
           <button
@@ -765,7 +774,7 @@ function subtitleRowClass(index: number) {
         >
           <Transition
             :name="
-              isMobile
+              isPhone
                 ? subtitleSlideDir === 'next'
                   ? 'subtitle-slide-next'
                   : 'subtitle-slide-prev'
@@ -840,7 +849,7 @@ function subtitleRowClass(index: number) {
       </section>
 
       <EpisodeSidePanel
-        v-if="!adminPreview && showSidePanel && !isMobile"
+        v-if="!adminPreview && showSidePanel && !isPhone"
         :tab="sidePanelTab"
         :related-episodes="relatedEpisodes"
         :related-loading="relatedLoading"
@@ -856,7 +865,7 @@ function subtitleRowClass(index: number) {
 
     <!-- 移动端底部导航 -->
     <nav
-      v-if="isMobile && !adminPreview && episode"
+      v-if="isPhone && !adminPreview && episode"
       class="fixed bottom-0 inset-x-0 z-40 flex border-t border-black/10 dark:border-white/10 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
     >
       <button
@@ -879,7 +888,7 @@ function subtitleRowClass(index: number) {
     <!-- 移动端侧栏抽屉 -->
     <Teleport to="body">
       <div
-        v-if="isMobile && mobileDrawerOpen && !adminPreview"
+        v-if="isPhone && mobileDrawerOpen && !adminPreview"
         class="fixed inset-0 z-50 flex flex-col justify-end bg-black/40"
         @click.self="closeMobileDrawer"
       >
@@ -905,7 +914,7 @@ function subtitleRowClass(index: number) {
     </Teleport>
 
     <SubtitleModeSheet
-      v-if="isMobile"
+      v-if="isPhone"
       :open="subtitleModeSheetOpen"
       :subtitle-mode="subtitleMode"
       :subtitle-align="subtitleAlign"

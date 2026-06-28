@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt yt-dlp \
 
 COPY backend/app ./app
 COPY backend/seed.py .
+COPY backend/scripts ./scripts
 COPY analysis /app/analysis
 
 RUN mkdir -p data/media

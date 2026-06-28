@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { isDemoVerified } from '@/api/client'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import { useAdminAuthStore } from '@/stores/adminAuth'
@@ -126,51 +125,48 @@ const router = createRouter({
           path: 'english',
           name: 'HomePage',
           component: () => import('@/pages/HomePage.vue'),
-          meta: { requiresDemo: true },
         },
         {
           path: 'english/episode/:videoId',
           name: 'EpisodePage',
           component: () => import('@/pages/EpisodePage.vue'),
           props: (route) => ({ videoId: route.params.videoId as string, backTo: '/english' }),
-          meta: { requiresDemo: true, immersive: true },
+          meta: { immersive: true, requiresAuth: true },
         },
         {
           path: 'english/demo/:videoId',
           name: 'DemoEpisode',
           component: () => import('@/pages/EpisodePage.vue'),
           props: (route) => ({ videoId: route.params.videoId as string, backTo: '/english' }),
-          meta: { requiresDemo: true, immersive: true },
+          meta: { immersive: true },
         },
         {
           path: 'activate',
-          name: 'Activate',
-          component: () => import('@/pages/ActivatePage.vue'),
-          meta: { requiresAuth: true },
+          redirect: '/english',
         },
         {
           path: 'english/submit',
           name: 'SubmitEpisode',
           component: () => import('@/pages/SubmitEpisodePage.vue'),
-          meta: { requiresDemo: true, requiresAuth: true, requiresMember: true },
+          meta: { requiresAuth: true, requiresMember: true },
         },
         {
           path: 'english/notifications',
           name: 'Notifications',
           component: () => import('@/pages/NotificationsPage.vue'),
-          meta: { requiresDemo: true, requiresAuth: true },
+          meta: { requiresAuth: true },
         },
         {
           path: 'english/learning',
           name: 'Learning',
           component: () => import('@/pages/LearningPage.vue'),
-          meta: { requiresDemo: true, requiresAuth: true },
+          meta: { requiresAuth: true },
         },
         {
           path: 'english/vocabulary',
           name: 'Vocabulary',
           component: () => import('@/pages/VocabularyPage.vue'),
-          meta: { requiresDemo: true, requiresAuth: true },
+          meta: { requiresAuth: true },
         },
       ],
     },
@@ -185,7 +181,13 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   if (to.path.startsWith('/gnadmin')) {
     const adminAuth = useAdminAuthStore()
-    if (!adminAuth.ready) await adminAuth.hydrate()
+    if (!adminAuth.ready) {
+      if (to.meta.adminGuest) {
+        adminAuth.resetForGuest()
+      } else {
+        await adminAuth.hydrate()
+      }
+    }
 
     if (to.meta.requiresAdmin && !adminAuth.isLoggedIn) {
       return { path: '/gnadmin/login', query: { next: to.fullPath } }
@@ -201,16 +203,12 @@ router.beforeEach(async (to) => {
     await auth.hydrate()
   }
 
-  if (to.meta.requiresDemo && !isDemoVerified() && to.path !== '/demo') {
-    return '/demo'
-  }
-
   if (to.meta.requiresAuth && !auth.isLoggedIn) {
     return { path: '/login', query: { next: to.fullPath } }
   }
 
-  if (to.meta.requiresMember && !auth.isMember) {
-    return { path: '/activate' }
+  if (to.meta.requiresMember && auth.isLoggedIn && !auth.isMember) {
+    return '/english'
   }
 })
 

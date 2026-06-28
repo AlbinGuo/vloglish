@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import {
-  activateMembership,
   fetchCurrentUser,
   login as loginApi,
   logout as logoutApi,
@@ -34,8 +33,8 @@ export const useAuthStore = defineStore('auth', () => {
     clearTokens()
   }
 
-  async function register(email: string, password: string) {
-    const data = await registerApi(email, password)
+  async function register(email: string, password: string, activationCode: string) {
+    const data = await registerApi(email, password, activationCode)
     setSession(data.access, data.refresh, data.user)
     return data.user
   }
@@ -60,12 +59,6 @@ export const useAuthStore = defineStore('auth', () => {
       return null
     }
     const me = await fetchCurrentUser()
-    user.value = me
-    return me
-  }
-
-  async function activate(code: string) {
-    const me = await activateMembership(code)
     user.value = me
     return me
   }
@@ -112,7 +105,6 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     refreshAccess,
     fetchMe,
-    activate,
     logout,
     hydrate,
     clearSession,

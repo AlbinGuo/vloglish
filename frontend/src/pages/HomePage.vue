@@ -20,8 +20,8 @@ const auth = useAuthStore()
 const { viewMode } = useCatalogViewMode()
 const isMobile = useIsMobile()
 
-/** 手机端固定卡片视图，不提供列表切换 */
-const displayViewMode = computed(() => (isMobile.value ? 'card' : viewMode.value))
+/** 未登录与手机端固定卡片视图 */
+const displayViewMode = computed(() => (isMobile.value || !auth.isLoggedIn ? 'card' : viewMode.value))
 
 /** 用户端「添加外链视频」入口（暂隐藏，改 true 即可重新开放） */
 const showSubmitEpisodeEntry = false
@@ -35,20 +35,11 @@ const skeletonCount = computed(() =>
 )
 
 const previewBanner = computed(() => {
-  if (auth.isMember) return null
-  if (auth.isLoggedIn) {
-    return {
-      text: '当前仅展示 5 期视频，激活会员解锁全量。',
-      showLogin: false,
-      showSignup: false,
-      showActivate: true,
-    }
-  }
+  if (auth.isLoggedIn) return null
   return {
-    text: '当前仅展示 2 期视频，登录后可看 5 期。',
+    text: '当前仅展示 8 期视频，登录后可看全部视频。',
     showLogin: true,
     showSignup: true,
-    showActivate: false,
   }
 })
 
@@ -99,7 +90,10 @@ watch(displayViewMode, async (mode) => {
 })
 
 function episodePath(videoId: string) {
-  return auth.isMember ? `/english/episode/${videoId}` : `/english/demo/${videoId}`
+  if (!auth.isLoggedIn) {
+    return `/login?next=${encodeURIComponent(`/english/episode/${videoId}`)}`
+  }
+  return `/english/episode/${videoId}`
 }
 
 watch(
@@ -113,7 +107,7 @@ watch(
 <template>
   <div class="page-container py-6">
     <div class="flex flex-col lg:flex-row gap-6 lg:gap-8">
-      <aside class="hidden lg:block w-full lg:w-72 xl:w-80 shrink-0 space-y-4">
+      <aside v-if="auth.isLoggedIn" class="hidden lg:block w-full lg:w-72 xl:w-80 shrink-0 space-y-4">
         <RouterLink
           v-if="showSubmitEpisodeEntry && auth.isMember"
           to="/english/submit"
@@ -164,7 +158,6 @@ watch(
           <span>{{ previewBanner.text }}</span>
           <RouterLink v-if="previewBanner.showLogin" to="/login" class="font-medium underline">登录</RouterLink>
           <RouterLink v-if="previewBanner.showSignup" to="/signup" class="font-medium underline">注册</RouterLink>
-          <RouterLink v-if="previewBanner.showActivate" to="/activate" class="font-medium underline">激活会员</RouterLink>
         </div>
 
         <CatalogEpisodeSkeletons v-if="store.loading && !store.episodes.length" :count="skeletonCount" />

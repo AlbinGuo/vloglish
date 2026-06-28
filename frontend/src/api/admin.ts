@@ -29,6 +29,10 @@ adminApi.interceptors.response.use(
     if (String(original.url ?? '').includes('/api/admin/auth/login')) {
       return Promise.reject(error)
     }
+    if (String(original.url ?? '').includes('/api/admin/auth/me')) {
+      clearAdminTokens()
+      return Promise.reject(error)
+    }
 
     const refresh = getAdminRefreshToken()
     if (!refresh) {

@@ -41,7 +41,7 @@ async function submit() {
   <div class="min-h-dvh flex items-center justify-center px-4 py-12 bg-neutral-50 dark:bg-neutral-950">
     <div class="w-full max-w-md rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-6 sm:p-8 shadow-sm">
       <h1 class="text-xl font-semibold mb-1">登录</h1>
-      <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">登录后可同步收藏，激活会员解锁全量语料</p>
+      <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">使用注册时的邮箱登录，登录后可学习全部内容</p>
 
       <p
         v-if="remoteNotice"
