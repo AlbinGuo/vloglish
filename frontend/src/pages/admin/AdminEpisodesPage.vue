@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { adminDeleteEpisode, adminListEpisodes, type AdminEpisodeListItem } from '@/api/admin'
+import {
+  adminDeleteEpisode,
+  adminListEpisodes,
+  type AdminEpisodeListItem,
+  type AdminEpisodeSortField,
+} from '@/api/admin'
 
 const loading = ref(true)
 const deletingId = ref<number | null>(null)
@@ -12,6 +17,17 @@ const pageSize = ref(20)
 const total = ref(0)
 const rows = ref<AdminEpisodeListItem[]>([])
 const error = ref('')
+const sortBy = ref<AdminEpisodeSortField>('play_count')
+const sortDir = ref<'asc' | 'desc'>('desc')
+
+const sortableColumns: { key: AdminEpisodeSortField; label: string; title?: string }[] = [
+  { key: 'play_count', label: '播放', title: '累计播放次数（每次进入学习计 1 次）' },
+  { key: 'unique_learners', label: '学习人数', title: '独立学习用户数' },
+  { key: 'completions', label: '完播', title: '学完人数' },
+  { key: 'completion_rate', label: '完播率', title: '完播人数 / 学习人数' },
+  { key: 'plays_7d', label: '7 日', title: '近 7 日播放次数' },
+  { key: 'plays_30d', label: '30 日', title: '近 30 日播放次数' },
+]
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
@@ -41,6 +57,8 @@ async function load() {
       page_size: pageSize.value,
       search: search.value.trim() || undefined,
       status: status.value || undefined,
+      sort_by: sortBy.value,
+      sort_dir: sortDir.value,
     })
     rows.value = data.results
     total.value = data.count
@@ -94,6 +112,27 @@ function formatDuration(seconds: number) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+function sortIndicator(key: AdminEpisodeSortField) {
+  if (sortBy.value !== key) return ''
+  return sortDir.value === 'asc' ? ' ↑' : ' ↓'
+}
+
+function toggleSort(key: AdminEpisodeSortField) {
+  if (sortBy.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortBy.value = key
+    sortDir.value = 'desc'
+  }
+  page.value = 1
+  load()
+}
+
+function formatRate(rate: number) {
+  if (!Number.isFinite(rate)) return '—'
+  return `${rate.toFixed(1)}%`
+}
+
 onMounted(load)
 </script>
 
@@ -134,9 +173,9 @@ onMounted(load)
 
     <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
 
-    <div class="rounded-xl border border-black/5 bg-white overflow-hidden">
+    <div class="rounded-xl border border-black/5 bg-white overflow-x-auto">
       <div v-if="loading" class="p-8 text-center text-neutral-500">加载中...</div>
-      <table v-else class="w-full text-sm">
+      <table v-else class="w-full text-sm min-w-[72rem]">
         <thead class="bg-neutral-50 text-neutral-500">
           <tr>
             <th class="text-left px-4 py-3 font-medium w-24">封面</th>
@@ -145,6 +184,21 @@ onMounted(load)
             <th class="text-left px-4 py-3 font-medium">难度</th>
             <th class="text-left px-4 py-3 font-medium">字幕</th>
             <th class="text-left px-4 py-3 font-medium">时长</th>
+            <th
+              v-for="col in sortableColumns"
+              :key="col.key"
+              class="text-right px-4 py-3 font-medium whitespace-nowrap"
+            >
+              <button
+                type="button"
+                class="inline-flex items-center gap-0.5 hover:text-neutral-900"
+                :class="sortBy === col.key ? 'text-neutral-900' : ''"
+                :title="col.title"
+                @click="toggleSort(col.key)"
+              >
+                {{ col.label }}{{ sortIndicator(col.key) }}
+              </button>
+            </th>
             <th class="text-left px-4 py-3 font-medium">标签</th>
             <th class="text-left px-4 py-3 font-medium">来源</th>
             <th class="text-left px-4 py-3 font-medium">状态</th>
@@ -171,6 +225,12 @@ onMounted(load)
             <td class="px-4 py-3">{{ '★'.repeat(row.stars) }}</td>
             <td class="px-4 py-3">{{ row.subtitle_count }} 行</td>
             <td class="px-4 py-3">{{ formatDuration(row.clip_length) }}</td>
+            <td class="px-4 py-3 text-right tabular-nums">{{ row.play_count }}</td>
+            <td class="px-4 py-3 text-right tabular-nums">{{ row.unique_learners }}</td>
+            <td class="px-4 py-3 text-right tabular-nums">{{ row.completions }}</td>
+            <td class="px-4 py-3 text-right tabular-nums">{{ formatRate(row.completion_rate) }}</td>
+            <td class="px-4 py-3 text-right tabular-nums">{{ row.plays_7d }}</td>
+            <td class="px-4 py-3 text-right tabular-nums">{{ row.plays_30d }}</td>
             <td class="px-4 py-3">
               <div v-if="row.tag_names?.length" class="flex flex-wrap gap-1 max-w-[12rem]">
                 <span
@@ -221,7 +281,7 @@ onMounted(load)
             </td>
           </tr>
           <tr v-if="!rows.length">
-            <td colspan="10" class="px-4 py-8 text-center text-neutral-500">暂无剧集</td>
+            <td colspan="16" class="px-4 py-8 text-center text-neutral-500">暂无剧集</td>
           </tr>
         </tbody>
       </table>

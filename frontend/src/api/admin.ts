@@ -129,6 +129,24 @@ export interface UserRow {
   is_staff: boolean
   member_activated_at: string | null
   created_at: string
+  last_active_at: string | null
+  watch_time_7d: number
+  completed_episodes: number
+  lookup_count: number
+}
+
+export type AdminUserSegmentKey =
+  | 'active_7d'
+  | 'churn_risk'
+  | 'new_inactive'
+  | 'deep_learners'
+  | 'members'
+  | 'non_members'
+
+export interface AdminUserSegment {
+  key: AdminUserSegmentKey
+  label: string
+  count: number
 }
 
 export async function adminLogin(email: string, password: string) {
@@ -182,7 +200,17 @@ export async function adminDeleteCode(code: string) {
   await adminApi.delete(`/api/admin/activation-codes/${encodeURIComponent(code)}/`)
 }
 
-export async function adminListUsers(params: { page?: number; page_size?: number; search?: string }) {
+export async function adminFetchUserSegments() {
+  const { data } = await adminApi.get<{ segments: AdminUserSegment[] }>('/api/admin/users/segments/')
+  return data.segments
+}
+
+export async function adminListUsers(params: {
+  page?: number
+  page_size?: number
+  search?: string
+  segment?: AdminUserSegmentKey | ''
+}) {
   const { data } = await adminApi.get<{ count: number; results: UserRow[] }>('/api/admin/users/', {
     params,
   })
@@ -238,7 +266,22 @@ export interface AdminEpisodeListItem {
   is_user_submitted: boolean
   tag_names: string[]
   created_at: string
+  play_count: number
+  unique_learners: number
+  completions: number
+  completion_rate: number
+  plays_7d: number
+  plays_30d: number
 }
+
+export type AdminEpisodeSortField =
+  | 'id'
+  | 'play_count'
+  | 'unique_learners'
+  | 'completions'
+  | 'completion_rate'
+  | 'plays_7d'
+  | 'plays_30d'
 
 export interface AdminEpisodeDetail {
   id: number
@@ -341,6 +384,8 @@ export async function adminListEpisodes(params: {
   search?: string
   status?: string
   stars?: number
+  sort_by?: AdminEpisodeSortField
+  sort_dir?: 'asc' | 'desc'
 }) {
   const { data } = await adminApi.get<{ count: number; results: AdminEpisodeListItem[] }>(
     '/api/admin/episodes/',

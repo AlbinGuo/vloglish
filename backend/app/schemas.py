@@ -173,6 +173,20 @@ class AdminUserListItemOut(BaseModel):
     is_staff: bool
     member_activated_at: str | None = None
     created_at: str
+    last_active_at: str | None = None
+    watch_time_7d: int = 0
+    completed_episodes: int = 0
+    lookup_count: int = 0
+
+
+class AdminUserSegmentOut(BaseModel):
+    key: str
+    label: str
+    count: int
+
+
+class AdminUserSegmentsOut(BaseModel):
+    segments: list[AdminUserSegmentOut]
 
 
 class AdminUserListOut(BaseModel):
@@ -259,6 +273,12 @@ class AdminEpisodeListItemOut(BaseModel):
     is_user_submitted: bool = False
     tag_names: list[str] = []
     created_at: str
+    play_count: int = 0
+    unique_learners: int = 0
+    completions: int = 0
+    completion_rate: float = 0
+    plays_7d: int = 0
+    plays_30d: int = 0
 
 
 class AdminEpisodeListOut(BaseModel):

@@ -6,7 +6,20 @@ from sqlalchemy.orm import Session
 from ...database import get_db
 from ...deps import get_current_admin
 from ...models import User
-from ...schemas import AdminUserListItemOut, AdminUserListOut, AdminUserOut, AdminUserUpdateIn
+from ...schemas import (
+    AdminUserListItemOut,
+    AdminUserListOut,
+    AdminUserOut,
+    AdminUserSegmentOut,
+    AdminUserSegmentsOut,
+    AdminUserUpdateIn,
+)
+from ...services.user_segments import (
+    VALID_SEGMENTS,
+    admin_user_list_query,
+    row_stats_from_user_query,
+    segment_counts,
+)
 
 router = APIRouter(prefix="/api/admin/users", tags=["admin-users"])
 
@@ -17,7 +30,8 @@ def _fmt_dt(value: datetime | None) -> str | None:
     return value.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _user_item(user: User) -> AdminUserListItemOut:
+def _user_item(user: User, stats: dict) -> AdminUserListItemOut:
+    last_active = stats.get("last_active_at")
     return AdminUserListItemOut(
         id=user.id,
         email=user.email,
@@ -28,6 +42,20 @@ def _user_item(user: User) -> AdminUserListItemOut:
         is_staff=user.is_staff,
         member_activated_at=_fmt_dt(user.member_activated_at),
         created_at=_fmt_dt(user.created_at) or "",
+        last_active_at=_fmt_dt(last_active if isinstance(last_active, datetime) else None),
+        watch_time_7d=stats["watch_time_7d"],
+        completed_episodes=stats["completed_episodes"],
+        lookup_count=stats["lookup_count"],
+    )
+
+
+@router.get("/segments/", response_model=AdminUserSegmentsOut)
+def list_user_segments(
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    return AdminUserSegmentsOut(
+        segments=[AdminUserSegmentOut(**item) for item in segment_counts(db)]
     )
 
 
@@ -36,17 +64,22 @@ def list_users(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: str | None = None,
+    segment: str | None = Query(None),
     _admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    q = db.query(User)
-    if search and search.strip():
-        term = f"%{search.strip()}%"
-        q = q.filter(User.email.ilike(term))
-    q = q.order_by(User.id.desc())
+    if segment and segment not in VALID_SEGMENTS:
+        raise HTTPException(status_code=400, detail="无效的分群")
+
+    q = admin_user_list_query(db, search=search, segment=segment)
     total = q.count()
-    users = q.offset((page - 1) * page_size).limit(page_size).all()
-    return AdminUserListOut(count=total, results=[_user_item(u) for u in users])
+    rows = q.offset((page - 1) * page_size).limit(page_size).all()
+    results = []
+    for row in rows:
+        user = row[0]
+        stats = row_stats_from_user_query(row)
+        results.append(_user_item(user, stats))
+    return AdminUserListOut(count=total, results=results)
 
 
 @router.get("/{user_id}/", response_model=AdminUserOut)

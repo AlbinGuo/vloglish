@@ -1,12 +1,11 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from ...database import get_db
 from ...deps import get_current_admin
-from ...models import Author, Episode, User
+from ...models import Episode, User
 from ...schemas import (
     AdminEpisodeCreateIn,
     AdminEpisodeDetailOut,
@@ -23,6 +22,7 @@ from ...services.episode_admin import (
     replace_subtitles,
     resolve_tags,
 )
+from ...services.episode_stats import admin_episode_list_query, row_stats_from_query
 from ...services.user_notifications import maybe_notify_submitter_on_status_change
 
 router = APIRouter(prefix="/api/admin", tags=["admin-meta"])
@@ -102,23 +102,25 @@ def list_episodes(
     search: str | None = None,
     status: str | None = Query(None, pattern="^(draft|published|archived|rejected)$"),
     stars: int | None = Query(None, ge=1, le=5),
+    sort_by: str = Query("id"),
+    sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     _admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    q = db.query(Episode).options(joinedload(Episode.author), joinedload(Episode.tags)).join(Author)
-    if search and search.strip():
-        term = f"%{search.strip()}%"
-        q = q.filter(or_(Episode.short_title.ilike(term), Episode.video_id.ilike(term), Author.name.ilike(term)))
-    if status:
-        q = q.filter(Episode.status == status)
-    if stars is not None:
-        q = q.filter(Episode.stars == stars)
-    q = q.order_by(Episode.id.desc())
+    q = admin_episode_list_query(
+        db,
+        search=search,
+        status=status,
+        stars=stars,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
     total = q.count()
-    items = q.offset((page - 1) * page_size).limit(page_size).all()
-    return AdminEpisodeListOut(
-        count=total,
-        results=[
+    rows = q.offset((page - 1) * page_size).limit(page_size).all()
+    results = []
+    for row in rows:
+        ep = row[0]
+        results.append(
             AdminEpisodeListItemOut(
                 id=ep.id,
                 video_id=ep.video_id,
@@ -133,10 +135,10 @@ def list_episodes(
                 is_user_submitted=ep.submitted_by_user_id is not None,
                 tag_names=[t.name for t in ep.tags],
                 created_at=_fmt_dt(ep.created_at),
+                **row_stats_from_query(row),
             )
-            for ep in items
-        ],
-    )
+        )
+    return AdminEpisodeListOut(count=total, results=results)
 
 
 @router.get("/episodes/preview/{video_id}/")
