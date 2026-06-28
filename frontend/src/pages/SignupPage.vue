@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import PasswordInput from '@/components/PasswordInput.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useCatalogStore } from '@/stores/catalog'
 
@@ -105,24 +106,20 @@ onUnmounted(() => {
         </div>
         <div>
           <label class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1.5">密码</label>
-          <input
+          <PasswordInput
             v-model="password"
-            type="password"
             autocomplete="new-password"
             required
-            minlength="8"
-            class="w-full rounded-lg border border-black/10 dark:border-white/10 dark:bg-neutral-800 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
+            :minlength="8"
           />
         </div>
         <div>
           <label class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1.5">确认密码</label>
-          <input
+          <PasswordInput
             v-model="confirmPassword"
-            type="password"
             autocomplete="new-password"
             required
-            minlength="8"
-            class="w-full rounded-lg border border-black/10 dark:border-white/10 dark:bg-neutral-800 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
+            :minlength="8"
           />
         </div>
 

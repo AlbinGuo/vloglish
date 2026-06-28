@@ -1,5 +1,4 @@
 from datetime import datetime
-import os
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -17,7 +16,7 @@ from ..auth_utils import (
     refresh_token_expires_at,
     verify_password,
 )
-from ..email_service import build_password_reset_url, send_password_reset_email
+from ..email_service import build_password_reset_url, send_password_reset_email, smtp_configured
 from ..demo_access import user_is_member
 from ..deps import get_current_user, get_device_id
 from ..favorites import merge_device_favorites
@@ -31,6 +30,7 @@ from ..schemas import (
     RefreshIn,
     RegisterIn,
     ResetPasswordIn,
+    ResetPasswordByEmailIn,
     UserOut,
 )
 
@@ -159,6 +159,7 @@ def logout(
 
 
 FORGOT_PASSWORD_MESSAGE = "如果该邮箱已注册，我们已发送密码重置说明"
+FORGOT_PASSWORD_INLINE_MESSAGE = "请设置新密码"
 
 
 @router.post("/forgot-password/", response_model=ForgotPasswordOut)
@@ -166,6 +167,8 @@ def forgot_password(body: ForgotPasswordIn, db: Session = Depends(get_db)):
     email = body.email.strip().lower()
     user = db.query(User).filter(User.email == email, User.is_active.is_(True)).first()
     reset_url: str | None = None
+    reset_token: str | None = None
+    message = FORGOT_PASSWORD_MESSAGE
 
     if user:
         db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete()
@@ -181,10 +184,16 @@ def forgot_password(body: ForgotPasswordIn, db: Session = Depends(get_db)):
 
         reset_url = build_password_reset_url(raw_token)
         emailed = send_password_reset_email(user.email, reset_url)
-        if emailed or os.getenv("APP_DEBUG", "true").lower() not in {"1", "true", "yes"}:
+        if emailed:
             reset_url = None
+        elif smtp_configured():
+            reset_url = None
+        else:
+            reset_token = raw_token
+            reset_url = None
+            message = FORGOT_PASSWORD_INLINE_MESSAGE
 
-    return ForgotPasswordOut(message=FORGOT_PASSWORD_MESSAGE, reset_url=reset_url)
+    return ForgotPasswordOut(message=message, reset_url=reset_url, reset_token=reset_token)
 
 
 @router.post("/reset-password/")
@@ -204,6 +213,24 @@ def reset_password(body: ResetPasswordIn, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == row.user_id, User.is_active.is_(True)).first()
     if not user:
         raise HTTPException(status_code=400, detail="用户不存在")
+
+    user.password_hash = hash_password(body.password)
+    db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete()
+    db.query(RefreshToken).filter(RefreshToken.user_id == user.id).delete()
+    user.session_version = (user.session_version or 0) + 1
+    db.commit()
+    return {"success": True, "message": "密码已重置，请使用新密码登录"}
+
+
+@router.post("/reset-password-by-email/")
+def reset_password_by_email(body: ResetPasswordByEmailIn, db: Session = Depends(get_db)):
+    if smtp_configured():
+        raise HTTPException(status_code=400, detail="当前请通过邮件重置密码")
+
+    email = body.email.strip().lower()
+    user = db.query(User).filter(User.email == email, User.is_active.is_(True)).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="该邮箱未注册或账号已停用")
 
     user.password_hash = hash_password(body.password)
     db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete()

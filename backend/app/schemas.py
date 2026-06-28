@@ -39,10 +39,16 @@ class ForgotPasswordIn(BaseModel):
 class ForgotPasswordOut(BaseModel):
     message: str
     reset_url: str | None = None
+    reset_token: str | None = None
 
 
 class ResetPasswordIn(BaseModel):
     token: str = Field(min_length=1, max_length=128)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class ResetPasswordByEmailIn(BaseModel):
+    email: EmailStr
     password: str = Field(min_length=8, max_length=128)
 
 

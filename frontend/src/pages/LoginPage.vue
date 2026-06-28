@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { consumeRemoteLoginNotice } from '@/api/tokens'
+import PasswordInput from '@/components/PasswordInput.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -68,12 +69,10 @@ async function submit() {
               忘记密码？
             </RouterLink>
           </div>
-          <input
+          <PasswordInput
             v-model="password"
-            type="password"
             autocomplete="current-password"
             required
-            class="w-full rounded-lg border border-black/10 dark:border-white/10 dark:bg-neutral-800 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
           />
         </div>
 
