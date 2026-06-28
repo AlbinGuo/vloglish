@@ -9,7 +9,7 @@ from jose import JWTError, jwt
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-in-production")
 JWT_ALGORITHM = "HS256"
 ACCESS_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_EXPIRE_MINUTES", "15"))
-REFRESH_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_EXPIRE_DAYS", "7"))
+REFRESH_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_EXPIRE_DAYS", "30"))
 
 REMOTE_LOGIN_DETAIL = "您的账号已在其他设备登录，请重新登录"
 

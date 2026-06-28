@@ -811,7 +811,7 @@ function subtitleRowClass(index: number) {
               <button
                 v-if="auth.isLoggedIn && !adminPreview"
                 type="button"
-                class="absolute top-2 right-2 z-10 w-10 h-10 rounded-full text-sm flex items-center justify-center border transition"
+                class="absolute top-2 right-2 z-10 w-7 h-7 rounded-full text-sm flex items-center justify-center border transition"
                 :class="
                   learnedSubtitleIds.has(sub.id)
                     ? 'bg-emerald-500 border-emerald-500 text-white'

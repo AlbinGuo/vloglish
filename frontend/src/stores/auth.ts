@@ -84,7 +84,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function hydrate() {
     try {
-      if (accessToken.value) await fetchMe()
+      if (accessToken.value) {
+        await fetchMe()
+      } else if (refreshToken.value) {
+        await refreshAccess()
+        await fetchMe()
+      }
     } catch (e: unknown) {
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       if (isRemoteLoginDetail(detail)) {
