@@ -106,7 +106,7 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
 
 .current-subtitle-bar :deep(.subtitle-ipa) {
   font-size: 1rem;
-  color: rgb(64 64 64);
+  color: #818181;
   opacity: 1;
 }
 
@@ -122,7 +122,7 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
 
 .current-subtitle-bar :deep(.subtitle-chinese) {
   font-size: 1rem;
-  color: rgb(38 38 38);
+  color: #818181;
   opacity: 1;
 }
 

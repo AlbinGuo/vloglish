@@ -39,7 +39,7 @@ function formatDuration(sec: number) {
         :class="tab === 'related' ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900' : 'text-neutral-500 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-800'"
         @click="emit('update:tab', 'related')"
       >
-        同标签视频
+        相似视频
       </button>
       <button
         v-if="showLookupTab"
@@ -64,10 +64,10 @@ function formatDuration(sec: number) {
     </div>
 
     <div class="side-panel-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain">
-      <!-- 同标签视频 -->
+      <!-- 相似视频 -->
       <div v-if="tab === 'related'" class="p-3 space-y-2">
         <p v-if="relatedLoading" class="text-xs text-neutral-400 text-center py-8">加载中...</p>
-        <p v-else-if="!relatedEpisodes.length" class="text-xs text-neutral-400 text-center py-8">暂无同标签视频</p>
+        <p v-else-if="!relatedEpisodes.length" class="text-xs text-neutral-400 text-center py-8">暂无相似视频</p>
         <button
           v-for="ep in relatedEpisodes"
           :key="ep.video_id"

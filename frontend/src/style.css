@@ -147,7 +147,7 @@ select:disabled {
 }
 
 .dark .subtitle-panel .subtitle-chinese {
-  color: rgb(229 229 229);
+  color: #818181;
 }
 
 .dark .subtitle-panel .subtitle-row--active .subtitle-ipa,

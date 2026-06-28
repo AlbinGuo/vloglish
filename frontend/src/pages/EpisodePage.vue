@@ -864,7 +864,7 @@ function subtitleRowClass(index: number) {
         class="flex-1 py-3 text-sm font-medium text-neutral-700 dark:text-neutral-200 active:bg-neutral-100 dark:active:bg-neutral-800"
         @click="openMobileDrawer('related')"
       >
-        同标签视频
+        相似视频
       </button>
       <button
         v-if="auth.isLoggedIn"
