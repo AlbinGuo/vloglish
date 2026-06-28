@@ -13,6 +13,8 @@ const props = defineProps<{
   videoPanelRef: HTMLElement | null | undefined
   /** 移动端精简控制条 */
   compact?: boolean
+  /** 贴底栏样式（无圆角背景） */
+  docked?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -28,6 +30,33 @@ const loopRoot = ref<HTMLElement | null>(null)
 const loopMenuPos = ref<{ top: number; left: number } | null>(null)
 const moreOpen = ref(false)
 const isFullscreen = ref(false)
+const controlScrollRef = ref<HTMLElement | null>(null)
+const showControlScrollFade = ref(false)
+let controlScrollObserver: ResizeObserver | null = null
+
+function updateControlScrollFade() {
+  const el = controlScrollRef.value
+  if (!el) {
+    showControlScrollFade.value = false
+    return
+  }
+  const canScroll = el.scrollWidth > el.clientWidth + 1
+  const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2
+  showControlScrollFade.value = canScroll && !atEnd
+}
+
+function bindControlScrollFade() {
+  controlScrollObserver?.disconnect()
+  controlScrollObserver = null
+  const el = controlScrollRef.value
+  if (!el || props.compact) {
+    showControlScrollFade.value = false
+    return
+  }
+  controlScrollObserver = new ResizeObserver(() => updateControlScrollFade())
+  controlScrollObserver.observe(el)
+  nextTick(() => updateControlScrollFade())
+}
 
 const loopCountLabel = computed(() => {
   const n = props.player.sentenceLoopCount.value
@@ -90,12 +119,20 @@ watch(loopOpen, (open) => {
 
 onMounted(() => {
   document.addEventListener('fullscreenchange', onFullscreenChange)
+  bindControlScrollFade()
 })
 
 onUnmounted(() => {
   unbindDocClick()
   document.removeEventListener('fullscreenchange', onFullscreenChange)
+  controlScrollObserver?.disconnect()
+  controlScrollObserver = null
 })
+
+watch(
+  () => props.compact,
+  () => nextTick(() => bindControlScrollFade()),
+)
 
 function onFullscreenChange() {
   isFullscreen.value = Boolean(document.fullscreenElement)
@@ -188,7 +225,12 @@ function handleMainAction() {
 
 <template>
   <div
-    class="shrink-0 rounded-xl bg-neutral-200/60 dark:bg-neutral-800/80 px-2 py-2.5 sm:px-3 select-none text-black/70 dark:text-neutral-200 cursor-pointer"
+    class="shrink-0 select-none text-black/70 dark:text-neutral-200 cursor-pointer"
+    :class="
+      docked
+        ? 'px-2 py-1.5 bg-transparent'
+        : 'rounded-xl bg-neutral-200/60 dark:bg-neutral-800/80 px-2 py-2.5 sm:px-3'
+    "
   >
     <!-- 移动端：核心控制 -->
     <div v-if="compact" class="flex items-center justify-between gap-1 max-w-full">
@@ -237,7 +279,12 @@ function handleMainAction() {
     </div>
 
     <!-- 桌面端：完整控制条 -->
-    <div v-else class="flex items-end justify-between gap-1 sm:gap-0 max-w-full overflow-x-auto cursor-pointer">
+    <div v-else class="relative max-w-full">
+      <div
+        ref="controlScrollRef"
+        class="flex items-end justify-between gap-1 sm:gap-0 max-w-full overflow-x-auto cursor-pointer player-control-bar__scroll"
+        @scroll="updateControlScrollFade"
+      >
       <!-- 倍速 -->
       <div ref="speedRoot" class="relative flex flex-col items-center shrink-0 min-w-[3rem] cursor-pointer">
         <button
@@ -246,11 +293,12 @@ function handleMainAction() {
           title="倍速"
           @click.stop="toggleSpeedMenu"
         >
-          <div class="p-1 w-8 h-8 rounded-full flex items-center justify-center">
+          <div class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10">
             <span class="text-xs font-medium tabular-nums leading-none">
               {{ formatRate(player.playbackRate.value) }}
             </span>
           </div>
+          <span class="text-[11px] leading-tight mt-0.5">倍速</span>
         </button>
       </div>
 
@@ -423,6 +471,12 @@ function handleMainAction() {
         </div>
         <span class="text-[11px] leading-tight mt-0.5">单句暂停</span>
       </button>
+      </div>
+      <div
+        v-if="showControlScrollFade"
+        class="pointer-events-none absolute right-0 top-0 bottom-0 z-10 w-10 bg-gradient-to-l from-neutral-200/95 via-neutral-200/60 to-transparent dark:from-neutral-800/95 dark:via-neutral-800/60"
+        aria-hidden="true"
+      />
     </div>
 
     <!-- 弹层挂到 body，避免被 overflow 裁剪 -->

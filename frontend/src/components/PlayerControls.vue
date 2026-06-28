@@ -8,6 +8,7 @@ defineProps<{
   videoHidden: boolean
   videoPanelRef: HTMLElement | null | undefined
   compact?: boolean
+  docked?: boolean
 }>()
 
 defineEmits<{
@@ -23,6 +24,7 @@ defineEmits<{
     :video-hidden="videoHidden"
     :video-panel-ref="videoPanelRef"
     :compact="compact"
+    :docked="docked"
     @update:show-ipa="$emit('update:showIpa', $event)"
     @update:video-hidden="$emit('update:videoHidden', $event)"
   />

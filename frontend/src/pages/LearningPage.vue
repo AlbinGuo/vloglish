@@ -3,7 +3,10 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import LearningHeatmapChart from '@/components/charts/LearningHeatmapChart.vue'
 import LearningStatCard from '@/components/learning/LearningStatCard.vue'
+import { useIsPhone } from '@/composables/useBreakpoint'
 import { getLearningCalendar, getLearningSummary, getLookupHistory, type WordLookupRecord } from '@/api/learning'
+
+const isPhone = useIsPhone()
 
 const loading = ref(true)
 const summary = ref<Awaited<ReturnType<typeof getLearningSummary>> | null>(null)
@@ -17,10 +20,12 @@ function formatDuration(sec: number) {
   return `${m} 分钟`
 }
 
+const PHONE_HIDDEN_STAT_LABELS = new Set(['连续天数', '本周学习', '查词次数', '生词本'])
+
 const statCards = computed(() => {
   const s = summary.value
   if (!s) return []
-  return [
+  const cards = [
     {
       label: '累计学习',
       value: formatDuration(s.total_watch_time_sec),
@@ -70,6 +75,10 @@ const statCards = computed(() => {
       tone: 'amber' as const,
     },
   ]
+  if (isPhone.value) {
+    return cards.filter((card) => !PHONE_HIDDEN_STAT_LABELS.has(card.label))
+  }
+  return cards
 })
 
 onMounted(async () => {
@@ -96,7 +105,13 @@ onMounted(async () => {
         <span class="text-neutral-300 dark:text-neutral-600">|</span>
         <span class="font-medium">学习统计</span>
       </div>
-      <RouterLink to="/english/vocabulary" class="text-sm text-amber-700 dark:text-amber-400 hover:underline">生词本</RouterLink>
+      <RouterLink
+        v-if="!isPhone"
+        to="/english/vocabulary"
+        class="text-sm text-amber-700 dark:text-amber-400 hover:underline"
+      >
+        生词本
+      </RouterLink>
     </div>
 
     <div v-if="loading" class="text-neutral-500 text-sm">加载中...</div>

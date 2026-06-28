@@ -18,6 +18,10 @@ const props = defineProps<{
   subtitleMode: SubtitleDisplayMode
   showIpa: boolean
   englishHtml: string
+  /** 手机端固定高度紧凑样式 */
+  compact?: boolean
+  /** Pad：实时字幕顶对齐（margin: 0） */
+  topAlign?: boolean
 }>()
 
 defineEmits<{
@@ -48,8 +52,12 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
 
 <template>
   <div
-    class="current-subtitle-bar relative min-h-0 flex-1 rounded-2xl border bg-white dark:bg-neutral-900 dark:border-white/10 cursor-pointer shadow-sm transition-shadow hover:shadow-md overflow-hidden"
-    :class="showBarProgress ? 'border-black/8 border-t-0 dark:border-white/10' : 'border-black/8 dark:border-white/10'"
+    class="current-subtitle-bar relative rounded-2xl border bg-white dark:bg-neutral-900 dark:border-white/10 cursor-pointer shadow-sm transition-shadow hover:shadow-md overflow-hidden"
+    :class="[
+      compact ? 'current-subtitle-bar--compact h-[7.25rem] shrink-0' : 'min-h-0 flex-1',
+      topAlign ? 'current-subtitle-bar--top-align' : '',
+      showBarProgress ? 'border-black/8 border-t-0 dark:border-white/10' : 'border-black/8 dark:border-white/10',
+    ]"
     @click="$emit('seek')"
   >
     <div
@@ -106,10 +114,37 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
   text-align: center;
 }
 
+.current-subtitle-bar--top-align .current-subtitle-bar__content {
+  margin: 0;
+}
+
+.current-subtitle-bar--top-align .current-subtitle-bar__viewport {
+  align-items: flex-start;
+}
+
 .current-subtitle-bar :deep(.subtitle-english-progress) {
   display: flex;
   width: 100%;
   justify-content: center;
+}
+
+.current-subtitle-bar--compact :deep(.subtitle-english),
+.current-subtitle-bar--compact :deep(.subtitle-english-dim),
+.current-subtitle-bar--compact :deep(.subtitle-english-read) {
+  font-size: 1.125rem;
+  line-height: 1.4;
+}
+
+.current-subtitle-bar--compact :deep(.subtitle-ipa) {
+  font-size: 0.875rem;
+}
+
+.current-subtitle-bar--compact :deep(.subtitle-chinese) {
+  font-size: 0.875rem;
+}
+
+.current-subtitle-bar--compact .current-subtitle-bar__viewport {
+  padding: 0.625rem 0.75rem;
 }
 
 .sentence-progress-fill {

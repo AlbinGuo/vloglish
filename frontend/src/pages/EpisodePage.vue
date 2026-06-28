@@ -16,6 +16,7 @@ import EntryCard from '@/components/EntryCard.vue'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import PlayerControls from '@/components/PlayerControls.vue'
 import VideoPlayer from '@/components/player/VideoPlayer.vue'
+import VideoProgressBar from '@/components/player/VideoProgressBar.vue'
 import KeyboardHelp from '@/components/KeyboardHelp.vue'
 import SettingsButton from '@/components/SettingsButton.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
@@ -59,6 +60,7 @@ const isPhone = useIsPhone()
 const isPad = useIsPad()
 const showSidePanel = ref(true)
 const mobileDrawerOpen = ref(false)
+const mobileMoreOpen = ref(false)
 const subtitleModeSheetOpen = ref(false)
 const dynamicFocusRef = ref<HTMLElement | null>(null)
 const sidePanelTab = ref<'related' | 'lookup'>('related')
@@ -196,7 +198,12 @@ watch(showEntryPanel, (open) => {
 
 watch(showSettings, (open) => {
   if (open && !showEntryPanel.value) document.body.style.overflow = 'hidden'
-  else if (!showEntryPanel.value) document.body.style.overflow = ''
+  else if (!showEntryPanel.value && !mobileMoreOpen.value) document.body.style.overflow = ''
+})
+
+watch(mobileMoreOpen, (open) => {
+  if (open && !showEntryPanel.value) document.body.style.overflow = 'hidden'
+  else if (!showEntryPanel.value && !showSettings.value) document.body.style.overflow = ''
 })
 
 function onEntryKeydown(e: KeyboardEvent) {
@@ -232,6 +239,29 @@ function preloadPoster(url: string) {
   link.as = 'image'
   link.href = url
   document.head.appendChild(link)
+}
+
+function closeMobileMore() {
+  mobileMoreOpen.value = false
+}
+
+function openMobileMore() {
+  mobileMoreOpen.value = true
+}
+
+function openSubtitleModeFromMore() {
+  closeMobileMore()
+  subtitleModeSheetOpen.value = true
+}
+
+function openMobileDrawerFromMore(tab: 'related' | 'lookup') {
+  closeMobileMore()
+  openMobileDrawer(tab)
+}
+
+function openSettingsFromMore() {
+  closeMobileMore()
+  showSettings.value = true
 }
 
 function openMobileDrawer(tab: 'related' | 'lookup') {
@@ -624,7 +654,7 @@ function subtitleRowClass(index: number) {
             已学完
           </span>
         </p>
-        <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ episode.author.name }} · 第 {{ episode.index }} 期</p>
+        <p class="text-xs text-neutral-500 dark:text-neutral-400 max-lg:hidden">{{ episode.author.name }} · 第 {{ episode.index }} 期</p>
       </div>
       <div class="flex items-center gap-1 shrink-0">
         <button
@@ -643,7 +673,20 @@ function subtitleRowClass(index: number) {
             inactive-class="text-neutral-400"
           />
         </button>
-        <SettingsButton @click="showSettings = true" />
+        <button
+          v-if="isPhone && !adminPreview"
+          type="button"
+          class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-neutral-500 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition-colors"
+          aria-label="更多"
+          @click="openMobileMore"
+        >
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <circle cx="5" cy="12" r="1.75" />
+            <circle cx="12" cy="12" r="1.75" />
+            <circle cx="19" cy="12" r="1.75" />
+          </svg>
+        </button>
+        <SettingsButton v-if="!isPhone" @click="showSettings = true" />
         <button class="hidden sm:inline text-xs text-neutral-400 hover:text-black dark:hover:text-white px-2 py-1" @click="player.showHelp.value = true">
           ? 快捷键
         </button>
@@ -675,7 +718,7 @@ function subtitleRowClass(index: number) {
       <!-- 视频区 -->
       <aside
         ref="videoPanelRef"
-        class="shrink-0 lg:w-[46%] xl:w-[44%] min-h-0 h-full flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4 max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:max-h-[42dvh] max-lg:landscape:max-h-none max-lg:landscape:static max-lg:landscape:w-[42%] max-lg:landscape:shrink-0 max-lg:landscape:h-auto"
+        class="shrink-0 lg:w-[46%] xl:w-[44%] min-h-0 lg:h-full flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4 max-lg:h-auto max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:shrink-0 max-lg:landscape:static max-lg:landscape:w-[42%] max-lg:landscape:shrink-0 max-lg:landscape:h-auto"
       >
         <VideoPlayer
           class="shrink-0"
@@ -685,8 +728,11 @@ function subtitleRowClass(index: number) {
           :autoplay="videoAutoplay"
           :register-video="registerVideoEl"
           :player="player"
+          :show-progress-bar="!isPhone"
+          :auto-hide-progress="!isPhone"
         />
         <PlayerControls
+          v-if="!isPhone"
           class="shrink-0"
           :player="player"
           :show-ipa="showIpa"
@@ -698,7 +744,10 @@ function subtitleRowClass(index: number) {
         />
         <CurrentSubtitleBar
           v-if="showCurrentSubtitleBar"
-          class="min-h-0 flex-1 w-full"
+          class="w-full"
+          :class="isPhone ? '' : 'min-h-0 flex-1'"
+          :compact="isPhone"
+          :top-align="isPad"
           :sub="displaySub"
           :current-time="playbackTime"
           :subtitle-mode="subtitleMode"
@@ -711,27 +760,11 @@ function subtitleRowClass(index: number) {
 
       <!-- 字幕区 -->
       <section
-        class="subtitle-panel flex-1 min-h-0 flex flex-col overflow-hidden bg-neutral-50 dark:bg-neutral-900 border-t lg:border-t-0 border-black/5 dark:border-white/10"
-        :class="isPhone ? 'max-lg:pb-[calc(3.5rem+env(safe-area-inset-bottom))] max-lg:landscape:pb-0' : ''"
+        class="subtitle-panel flex-1 min-h-0 flex flex-col overflow-hidden bg-neutral-50 dark:bg-neutral-900 border-t lg:border-t-0 border-black/5 dark:border-white/10 max-lg:min-h-0"
       >
-        <!-- 移动端：字幕模式入口 -->
+        <!-- 桌面 / Pad：完整工具栏 -->
         <div
-          v-if="isPhone"
-          class="shrink-0 flex items-center gap-2 p-3 bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 z-10"
-        >
-          <button
-            type="button"
-            class="flex-1 flex items-center justify-between gap-2 px-4 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-sm font-medium"
-            @click="subtitleModeSheetOpen = true"
-          >
-            <span>字幕：{{ currentModeLabel }}</span>
-            <span class="text-neutral-400 text-xs">切换</span>
-          </button>
-        </div>
-
-        <!-- 桌面端：完整工具栏 -->
-        <div
-          v-else
+          v-if="!isPhone"
           class="shrink-0 flex flex-wrap items-center gap-1 p-3 bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 text-sm z-10"
         >
           <button
@@ -766,7 +799,7 @@ function subtitleRowClass(index: number) {
 
         <!-- 动态模式 -->
         <div
-          v-if="modeIsDynamicFocus(subtitleMode) && currentSub"
+          v-if="modeIsDynamicFocus(subtitleMode) && currentSub && !isPhone"
           ref="dynamicFocusRef"
           class="subtitle-focus-light subtitle-scroll-hide flex-1 min-h-0 overflow-hidden overscroll-contain flex flex-col justify-start pt-2 px-3 pb-4 lg:justify-center lg:p-6 xl:p-10 cursor-pointer touch-pan-y"
           :class="subtitleAlign === 'left' ? 'items-start text-left' : 'items-center text-center'"
@@ -803,7 +836,8 @@ function subtitleRowClass(index: number) {
         <div
           v-else
           ref="listRef"
-          class="subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] touch-pan-y px-3 pt-2 pb-4 space-y-2 lg:p-4"
+          class="subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] touch-pan-y px-3 pt-2 space-y-2 lg:p-4 lg:pb-4"
+          :class="isPhone ? 'pb-[calc(7.5rem+env(safe-area-inset-bottom))]' : ''"
         >
           <div
             v-for="(sub, i) in sortedSubs"
@@ -863,27 +897,74 @@ function subtitleRowClass(index: number) {
       />
     </div>
 
-    <!-- 移动端底部导航 -->
-    <nav
-      v-if="isPhone && !adminPreview && episode"
-      class="fixed bottom-0 inset-x-0 z-40 flex border-t border-black/10 dark:border-white/10 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
+    <!-- 手机端：底部播放控制 -->
+    <div
+      v-if="isPhone && episode"
+      class="fixed bottom-0 inset-x-0 z-40 border-t border-black/10 dark:border-white/10 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
     >
-      <button
-        type="button"
-        class="flex-1 py-3 text-sm font-medium text-neutral-700 dark:text-neutral-200 active:bg-neutral-100 dark:active:bg-neutral-800"
-        @click="openMobileDrawer('related')"
+      <VideoProgressBar :video="videoRef" variant="dock" />
+      <PlayerControls
+        v-if="!adminPreview"
+        :player="player"
+        :show-ipa="showIpa"
+        :video-hidden="videoHidden"
+        :video-panel-ref="videoPanelRef"
+        compact
+        docked
+        @update:show-ipa="showIpa = $event"
+        @update:video-hidden="videoHidden = $event"
+      />
+    </div>
+
+    <!-- 移动端更多菜单 -->
+    <Teleport to="body">
+      <div
+        v-if="isPhone && mobileMoreOpen && !adminPreview"
+        class="fixed inset-0 z-50 flex flex-col justify-end bg-black/40"
+        @click.self="closeMobileMore"
       >
-        相似视频
-      </button>
-      <button
-        v-if="auth.isLoggedIn"
-        type="button"
-        class="flex-1 py-3 text-sm font-medium text-neutral-700 dark:text-neutral-200 border-l border-black/10 dark:border-white/10 active:bg-neutral-100 dark:active:bg-neutral-800"
-        @click="openMobileDrawer('lookup')"
-      >
-        查词记录
-      </button>
-    </nav>
+        <div
+          class="rounded-t-2xl bg-white dark:bg-neutral-900 border-t border-black/10 dark:border-white/10 pb-[env(safe-area-inset-bottom)]"
+          @click.stop
+        >
+          <div class="flex justify-center pt-3 pb-2">
+            <div class="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+          </div>
+          <div class="px-2 pb-2">
+            <button
+              type="button"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              @click="openSubtitleModeFromMore"
+            >
+              字幕模式
+              <span class="float-right text-neutral-400">{{ currentModeLabel }}</span>
+            </button>
+            <button
+              type="button"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              @click="openMobileDrawerFromMore('related')"
+            >
+              相似视频
+            </button>
+            <button
+              v-if="auth.isLoggedIn"
+              type="button"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              @click="openMobileDrawerFromMore('lookup')"
+            >
+              查词记录
+            </button>
+            <button
+              type="button"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              @click="openSettingsFromMore"
+            >
+              设置
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- 移动端侧栏抽屉 -->
     <Teleport to="body">
