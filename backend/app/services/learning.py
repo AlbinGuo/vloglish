@@ -20,6 +20,36 @@ def _fmt_dt(value: datetime | None) -> str:
     return value.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _word_token_key(word: str, token_type: int) -> tuple[str, int]:
+    return (word.strip().lower(), token_type)
+
+
+def dedupe_lookups_by_word(rows: list[UserWordLookup]) -> list[UserWordLookup]:
+    """同一单词/短语只保留最近一条查词记录。"""
+    seen: set[tuple[str, int]] = set()
+    out: list[UserWordLookup] = []
+    for row in rows:
+        key = _word_token_key(row.word, row.token_type)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(row)
+    return out
+
+
+def dedupe_vocabulary_by_word(rows: list[UserVocabularyItem]) -> list[UserVocabularyItem]:
+    """生词本按单词/短语去重，保留最近加入的一条。"""
+    seen: set[tuple[str, int]] = set()
+    out: list[UserVocabularyItem] = []
+    for row in rows:
+        key = _word_token_key(row.word, row.token_type)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(row)
+    return out
+
+
 def _day_start(dt: datetime | None = None) -> datetime:
     base = dt or datetime.utcnow()
     return base.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -281,7 +311,13 @@ def learning_summary(db: Session, user_id: int) -> dict:
         or 0
     )
 
-    vocab_count = db.query(UserVocabularyItem).filter(UserVocabularyItem.user_id == user_id).count()
+    vocab_rows = (
+        db.query(UserVocabularyItem)
+        .filter(UserVocabularyItem.user_id == user_id)
+        .order_by(UserVocabularyItem.created_at.desc())
+        .all()
+    )
+    vocab_count = len(dedupe_vocabulary_by_word(vocab_rows))
     lookup_count = db.query(UserWordLookup).filter(UserWordLookup.user_id == user_id).count()
 
     active_days = (

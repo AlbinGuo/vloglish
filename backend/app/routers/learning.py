@@ -26,6 +26,8 @@ from ..schemas import (
 )
 from ..services.learning import (
     _fmt_dt,
+    dedupe_lookups_by_word,
+    dedupe_vocabulary_by_word,
     end_learning_session,
     learned_episode_ids,
     learning_calendar,
@@ -40,6 +42,9 @@ from ..services.learning import (
 )
 
 router = APIRouter(prefix="/api/learning", tags=["learning"])
+
+# 查词历史去重后再分页，单次最多扫描条数
+_LOOKUP_DEDUPE_SCAN_LIMIT = 2000
 
 
 def _get_episode(db: Session, video_id: str, user: User) -> Episode:
@@ -150,6 +155,7 @@ def list_vocabulary(user: User = Depends(get_current_user), db: Session = Depend
         .order_by(UserVocabularyItem.created_at.desc())
         .all()
     )
+    rows = dedupe_vocabulary_by_word(rows)
     ep_ids = {r.source_episode_id for r in rows if r.source_episode_id}
     titles = _episode_title_map(db, ep_ids)
     return [
@@ -225,9 +231,16 @@ def list_lookups(
     q = db.query(UserWordLookup).filter(UserWordLookup.user_id == user.id)
     if video_id:
         q = q.filter(UserWordLookup.video_id == video_id)
-    total = q.count()
-    rows = q.order_by(UserWordLookup.looked_up_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    ep_ids = {r.episode_id for r in rows if r.episode_id}
+    rows = (
+        q.order_by(UserWordLookup.looked_up_at.desc())
+        .limit(_LOOKUP_DEDUPE_SCAN_LIMIT)
+        .all()
+    )
+    deduped = dedupe_lookups_by_word(rows)
+    total = len(deduped)
+    start = (page - 1) * page_size
+    page_rows = deduped[start : start + page_size]
+    ep_ids = {r.episode_id for r in page_rows if r.episode_id}
     titles = _episode_title_map(db, ep_ids)
     saved_ids = {
         v[0]
@@ -249,7 +262,7 @@ def list_lookups(
                 is_saved=r.entry_id in saved_ids,
                 looked_up_at=_fmt_dt(r.looked_up_at),
             )
-            for r in rows
+            for r in page_rows
         ],
     )
 
