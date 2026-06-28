@@ -20,6 +20,7 @@ class AuthTokensOut(BaseModel):
 class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    activation_code: str = Field(min_length=1, max_length=64)
 
 
 class LoginIn(BaseModel):
@@ -29,10 +30,6 @@ class LoginIn(BaseModel):
 
 class RefreshIn(BaseModel):
     refresh: str
-
-
-class ActivateIn(BaseModel):
-    code: str = Field(min_length=1, max_length=64)
 
 
 class ForgotPasswordIn(BaseModel):

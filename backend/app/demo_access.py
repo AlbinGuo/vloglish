@@ -3,8 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from .models import DemoCode, Episode
 from .episode_visibility import can_view_published_episode, published_visibility_filter
 
-GUEST_EPISODE_LIMIT = 2
-LOGGED_IN_EPISODE_LIMIT = 5
+GUEST_EPISODE_LIMIT = 8
 
 
 def user_is_member(user) -> bool:
@@ -14,8 +13,6 @@ def user_is_member(user) -> bool:
 def get_episode_limit(user) -> int | None:
     if user_is_member(user):
         return None
-    if user is not None:
-        return LOGGED_IN_EPISODE_LIMIT
     return GUEST_EPISODE_LIMIT
 
 
