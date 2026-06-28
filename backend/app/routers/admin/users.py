@@ -7,6 +7,7 @@ from ...database import get_db
 from ...deps import get_current_admin
 from ...models import User
 from ...schemas import (
+    AdminUserGeoStatsOut,
     AdminUserListItemOut,
     AdminUserListOut,
     AdminUserOut,
@@ -14,6 +15,7 @@ from ...schemas import (
     AdminUserSegmentsOut,
     AdminUserUpdateIn,
 )
+from ...services.user_geo import user_geo_stats
 from ...services.user_segments import (
     VALID_SEGMENTS,
     admin_user_list_query,
@@ -46,7 +48,18 @@ def _user_item(user: User, stats: dict) -> AdminUserListItemOut:
         watch_time_7d=stats["watch_time_7d"],
         completed_episodes=stats["completed_episodes"],
         lookup_count=stats["lookup_count"],
+        signup_country=user.signup_country,
+        signup_region=user.signup_region,
+        signup_city=user.signup_city,
     )
+
+
+@router.get("/geo-stats/", response_model=AdminUserGeoStatsOut)
+def get_user_geo_stats(
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    return AdminUserGeoStatsOut(**user_geo_stats(db))
 
 
 @router.get("/segments/", response_model=AdminUserSegmentsOut)

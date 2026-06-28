@@ -177,6 +177,21 @@ class AdminUserListItemOut(BaseModel):
     watch_time_7d: int = 0
     completed_episodes: int = 0
     lookup_count: int = 0
+    signup_country: str | None = None
+    signup_region: str | None = None
+    signup_city: str | None = None
+
+
+class AdminUserGeoStatItemOut(BaseModel):
+    region: str
+    count: int
+
+
+class AdminUserGeoStatsOut(BaseModel):
+    total_users: int
+    known_users: int
+    unknown_users: int
+    by_region: list[AdminUserGeoStatItemOut]
 
 
 class AdminUserSegmentOut(BaseModel):

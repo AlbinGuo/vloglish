@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import UserGeoBarChart from '@/components/charts/UserGeoBarChart.vue'
 import {
+  adminFetchUserGeoStats,
   adminFetchUserSegments,
   adminListUsers,
   adminUpdateUser,
+  type AdminUserGeoStats,
   type AdminUserSegment,
   type AdminUserSegmentKey,
   type UserRow,
 } from '@/api/admin'
 
 const loading = ref(true)
+const geoLoading = ref(true)
 const segmentsLoading = ref(true)
 const savingId = ref<number | null>(null)
 const search = ref('')
@@ -18,6 +22,7 @@ const page = ref(1)
 const total = ref(0)
 const rows = ref<UserRow[]>([])
 const segments = ref<AdminUserSegment[]>([])
+const geoStats = ref<AdminUserGeoStats | null>(null)
 const error = ref('')
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / 20)))
@@ -35,6 +40,17 @@ const currentSegmentHint = computed(() => {
   if (!segment.value) return '显示全部用户，可按分群筛选'
   return segmentHints[segment.value]
 })
+
+async function loadGeoStats() {
+  geoLoading.value = true
+  try {
+    geoStats.value = await adminFetchUserGeoStats()
+  } catch {
+    geoStats.value = null
+  } finally {
+    geoLoading.value = false
+  }
+}
 
 async function loadSegments() {
   segmentsLoading.value = true
@@ -111,13 +127,40 @@ function formatWatchTime(sec: number) {
   return `${m} 分钟`
 }
 
+function formatSignupLocation(user: UserRow) {
+  if (!user.signup_region && !user.signup_country) return '未知'
+  const parts: string[] = []
+  if (user.signup_region) parts.push(user.signup_region)
+  else if (user.signup_country) parts.push(user.signup_country)
+  if (user.signup_city && user.signup_city !== user.signup_region) parts.push(user.signup_city)
+  return parts.join(' · ')
+}
+
 onMounted(async () => {
-  await Promise.all([loadSegments(), load()])
+  await Promise.all([loadSegments(), loadGeoStats(), load()])
 })
 </script>
 
 <template>
   <div class="space-y-4">
+    <section class="rounded-xl border border-black/5 bg-white p-5 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div>
+          <h2 class="font-medium">注册用户地区分布</h2>
+          <p class="text-xs text-neutral-400 mt-1">基于注册 IP 解析，历史用户登录后会补录</p>
+        </div>
+        <div v-if="geoStats" class="text-sm text-neutral-500 tabular-nums">
+          已识别 {{ geoStats.known_users }} / {{ geoStats.total_users }}，
+          未知 {{ geoStats.unknown_users }}
+        </div>
+      </div>
+      <div v-if="geoLoading" class="py-10 text-center text-neutral-500 text-sm">加载中...</div>
+      <div v-else-if="geoStats?.by_region.length">
+        <UserGeoBarChart :items="geoStats.by_region" />
+      </div>
+      <p v-else class="py-8 text-center text-sm text-neutral-400">暂无地区数据</p>
+    </section>
+
     <div class="rounded-xl border border-black/5 bg-white p-4 space-y-3">
       <div class="flex flex-wrap gap-3">
         <input
@@ -162,6 +205,7 @@ onMounted(async () => {
             <th class="text-left px-4 py-3 font-medium">邮箱</th>
             <th class="text-left px-4 py-3 font-medium">会员</th>
             <th class="text-left px-4 py-3 font-medium">状态</th>
+            <th class="text-left px-4 py-3 font-medium whitespace-nowrap">注册地区</th>
             <th class="text-left px-4 py-3 font-medium whitespace-nowrap">最后活跃</th>
             <th class="text-right px-4 py-3 font-medium whitespace-nowrap">7 日学习</th>
             <th class="text-right px-4 py-3 font-medium whitespace-nowrap">学完</th>
@@ -179,6 +223,7 @@ onMounted(async () => {
             </td>
             <td class="px-4 py-3">{{ user.is_member ? '是' : '否' }}</td>
             <td class="px-4 py-3">{{ user.is_active ? '正常' : '已停用' }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ formatSignupLocation(user) }}</td>
             <td class="px-4 py-3 whitespace-nowrap">{{ user.last_active_at || '—' }}</td>
             <td class="px-4 py-3 text-right tabular-nums whitespace-nowrap">
               {{ formatWatchTime(user.watch_time_7d) }}
@@ -208,7 +253,7 @@ onMounted(async () => {
             </td>
           </tr>
           <tr v-if="!rows.length">
-            <td colspan="10" class="px-4 py-8 text-center text-neutral-500">暂无数据</td>
+            <td colspan="11" class="px-4 py-8 text-center text-neutral-500">暂无数据</td>
           </tr>
         </tbody>
       </table>

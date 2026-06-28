@@ -118,6 +118,14 @@ def _migrate_schema():
     if "last_seen_at" not in cols:
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE users ADD COLUMN last_seen_at {datetime_type}"))
+    for col, col_type in (
+        ("signup_country", "VARCHAR(64)"),
+        ("signup_region", "VARCHAR(64)"),
+        ("signup_city", "VARCHAR(64)"),
+    ):
+        if col not in cols:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {col_type}"))
     if "episodes" in insp.get_table_names():
         ep_cols = {c["name"] for c in insp.get_columns("episodes")}
         if "status" not in ep_cols:

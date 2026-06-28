@@ -133,6 +133,16 @@ export interface UserRow {
   watch_time_7d: number
   completed_episodes: number
   lookup_count: number
+  signup_country: string | null
+  signup_region: string | null
+  signup_city: string | null
+}
+
+export interface AdminUserGeoStats {
+  total_users: number
+  known_users: number
+  unknown_users: number
+  by_region: { region: string; count: number }[]
 }
 
 export type AdminUserSegmentKey =
@@ -198,6 +208,11 @@ export async function adminGenerateCodes(count: number) {
 
 export async function adminDeleteCode(code: string) {
   await adminApi.delete(`/api/admin/activation-codes/${encodeURIComponent(code)}/`)
+}
+
+export async function adminFetchUserGeoStats() {
+  const { data } = await adminApi.get<AdminUserGeoStats>('/api/admin/users/geo-stats/')
+  return data
 }
 
 export async function adminFetchUserSegments() {

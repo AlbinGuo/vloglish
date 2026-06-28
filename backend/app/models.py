@@ -159,6 +159,9 @@ class User(Base):
     member_activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     session_version: Mapped[int] = mapped_column(Integer, default=1)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    signup_country: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    signup_region: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    signup_city: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

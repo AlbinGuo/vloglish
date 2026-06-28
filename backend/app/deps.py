@@ -1,4 +1,4 @@
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -13,6 +13,20 @@ def get_device_id(x_device_id: str | None = Header(default=None, alias="X-Device
     if not x_device_id or not x_device_id.strip():
         return "anonymous"
     return x_device_id.strip()[:64]
+
+
+def get_client_ip(request: Request) -> str | None:
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        ip = forwarded.split(",")[0].strip()
+        if ip:
+            return ip[:64]
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip and real_ip.strip():
+        return real_ip.strip()[:64]
+    if request.client and request.client.host:
+        return request.client.host[:64]
+    return None
 
 
 def get_current_user_optional(

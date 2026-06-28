@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
+import UserGeoBarChart from '@/components/charts/UserGeoBarChart.vue'
 import {
   adminFetchDashboard,
   adminFetchOnlineUsers,
+  adminFetchUserGeoStats,
+  type AdminUserGeoStats,
   type DashboardStats,
 } from '@/api/admin'
 
 const loading = ref(true)
 const stats = ref<DashboardStats | null>(null)
+const geoStats = ref<AdminUserGeoStats | null>(null)
 const onlineUsers = ref(0)
 const onlineWindowSec = ref(90)
 
@@ -25,8 +29,13 @@ async function refreshOnlineUsers() {
 
 onMounted(async () => {
   try {
-    stats.value = await adminFetchDashboard()
-    onlineUsers.value = stats.value.online_users_now
+    const [dashboard, geo] = await Promise.all([
+      adminFetchDashboard(),
+      adminFetchUserGeoStats().catch(() => null),
+    ])
+    stats.value = dashboard
+    geoStats.value = geo
+    onlineUsers.value = dashboard.online_users_now
     await refreshOnlineUsers()
   } finally {
     loading.value = false
@@ -85,5 +94,18 @@ const cards = [
         <p class="text-3xl font-semibold tabular-nums">{{ stats[card.key] }}</p>
       </div>
     </div>
+
+    <section
+      v-if="geoStats?.by_region.length"
+      class="rounded-xl border border-black/5 bg-white p-5 shadow-sm"
+    >
+      <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div>
+          <h2 class="font-medium">注册用户地区 Top</h2>
+          <p class="text-xs text-neutral-400 mt-1">按省份/国家统计，未知 {{ geoStats.unknown_users }} 人</p>
+        </div>
+      </div>
+      <UserGeoBarChart :items="geoStats.by_region" height="240px" />
+    </section>
   </div>
 </template>

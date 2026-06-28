@@ -22,6 +22,10 @@ COPY backend/seed.py .
 COPY backend/scripts ./scripts
 COPY analysis /app/analysis
 
+RUN mkdir -p data \
+    && curl -fsSL -o data/ip2region_v4.xdb \
+      https://github.com/lionsoul2014/ip2region/raw/master/data/ip2region_v4.xdb
+
 RUN mkdir -p data/media
 
 ENV PYTHONUNBUFFERED=1 \

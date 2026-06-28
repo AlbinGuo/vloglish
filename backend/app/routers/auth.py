@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from ..auth_utils import (
@@ -18,7 +18,7 @@ from ..auth_utils import (
 )
 from ..email_service import build_password_reset_url, send_password_reset_email, smtp_configured
 from ..demo_access import user_is_member
-from ..deps import get_current_user, get_device_id
+from ..deps import get_client_ip, get_current_user, get_device_id
 from ..favorites import merge_device_favorites
 from ..models import ActivationCode, PasswordResetToken, RefreshToken, User
 from ..database import get_db
@@ -33,6 +33,7 @@ from ..schemas import (
     ResetPasswordByEmailIn,
     UserOut,
 )
+from ..services.user_geo import apply_signup_geo, backfill_signup_geo
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -84,6 +85,7 @@ def apply_activation_code(db: Session, user: User, code_value: str) -> None:
 @router.post("/register/", response_model=AuthTokensOut)
 def register(
     body: RegisterIn,
+    request: Request,
     db: Session = Depends(get_db),
     device_id: str = Depends(get_device_id),
 ):
@@ -94,6 +96,7 @@ def register(
 
     code_value = body.activation_code.strip()
     user = User(email=email, password_hash=hash_password(body.password))
+    apply_signup_geo(user, get_client_ip(request))
     db.add(user)
     db.flush()
     apply_activation_code(db, user, code_value)
@@ -106,6 +109,7 @@ def register(
 @router.post("/login/", response_model=AuthTokensOut)
 def login(
     body: LoginIn,
+    request: Request,
     db: Session = Depends(get_db),
     device_id: str = Depends(get_device_id),
 ):
@@ -118,6 +122,8 @@ def login(
     if not user_is_member(user):
         raise HTTPException(status_code=403, detail="账号未开通会员，请使用激活码注册")
 
+    backfill_signup_geo(user, get_client_ip(request))
+    db.commit()
     merge_device_favorites(db, user.id, device_id)
     return issue_tokens(db, user, device_id)
 

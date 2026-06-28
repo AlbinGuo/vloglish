@@ -8,3 +8,4 @@ python-dotenv>=1.0.0
 qiniu>=7.13.0
 bcrypt>=4.0.0
 python-jose[cryptography]>=3.3.0
+py-ip2region>=3.0.0
