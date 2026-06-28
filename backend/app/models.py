@@ -158,6 +158,7 @@ class User(Base):
     is_staff: Mapped[bool] = mapped_column(Boolean, default=False)
     member_activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     session_version: Mapped[int] = mapped_column(Integer, default=1)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

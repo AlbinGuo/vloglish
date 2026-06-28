@@ -1,16 +1,41 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { adminFetchDashboard, type DashboardStats } from '@/api/admin'
+import { onMounted, onUnmounted, ref } from 'vue'
+import {
+  adminFetchDashboard,
+  adminFetchOnlineUsers,
+  type DashboardStats,
+} from '@/api/admin'
 
 const loading = ref(true)
 const stats = ref<DashboardStats | null>(null)
+const onlineUsers = ref(0)
+const onlineWindowSec = ref(90)
+
+let onlinePollTimer: ReturnType<typeof setInterval> | null = null
+
+async function refreshOnlineUsers() {
+  try {
+    const data = await adminFetchOnlineUsers()
+    onlineUsers.value = data.online_users
+    onlineWindowSec.value = data.window_sec
+  } catch {
+    // 保持上次数值
+  }
+}
 
 onMounted(async () => {
   try {
     stats.value = await adminFetchDashboard()
+    onlineUsers.value = stats.value.online_users_now
+    await refreshOnlineUsers()
   } finally {
     loading.value = false
   }
+  onlinePollTimer = setInterval(refreshOnlineUsers, 30000)
+})
+
+onUnmounted(() => {
+  if (onlinePollTimer) clearInterval(onlinePollTimer)
 })
 
 const cards = [
@@ -32,14 +57,33 @@ const cards = [
 
 <template>
   <div v-if="loading" class="text-neutral-500">加载中...</div>
-  <div v-else-if="stats" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+  <div v-else-if="stats" class="space-y-4">
     <div
-      v-for="card in cards"
-      :key="card.key"
-      class="rounded-xl border border-black/5 bg-white p-5 shadow-sm"
+      class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm"
     >
-      <p class="text-sm text-neutral-500 mb-2">{{ card.label }}</p>
-      <p class="text-3xl font-semibold tabular-nums">{{ stats[card.key] }}</p>
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="text-sm text-emerald-700 mb-1 flex items-center gap-2">
+            <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+            当前在线用户
+          </p>
+          <p class="text-4xl font-semibold tabular-nums text-emerald-900">{{ onlineUsers }}</p>
+        </div>
+        <p class="text-xs text-neutral-500 text-right max-w-[10rem]">
+          最近 {{ onlineWindowSec }} 秒内有活动视为在线，每 30 秒自动刷新
+        </p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div
+        v-for="card in cards"
+        :key="card.key"
+        class="rounded-xl border border-black/5 bg-white p-5 shadow-sm"
+      >
+        <p class="text-sm text-neutral-500 mb-2">{{ card.label }}</p>
+        <p class="text-3xl font-semibold tabular-nums">{{ stats[card.key] }}</p>
+      </div>
     </div>
   </div>
 </template>

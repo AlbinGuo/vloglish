@@ -12,7 +12,7 @@ from sqlalchemy import inspect, text
 from .database import DATABASE_URL, Base, SessionLocal, engine, is_postgresql
 from .models import ActivationCode
 from .schemas import AuthTokensOut
-from .routers import auth, demo, entries, episode_submit, episodes, learning, notifications
+from .routers import auth, demo, entries, episode_submit, episodes, learning, notifications, presence
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import auth as admin_auth
@@ -23,6 +23,7 @@ from .routers.admin import episode_import as admin_episode_import
 from .routers.admin import episode_tools as admin_episode_tools
 from .routers.admin import episodes as admin_episodes
 from .routers.admin import notifications as admin_notifications
+from .routers.admin import presence as admin_presence
 from .routers.admin import tags as admin_tags
 from .routers.admin import users as admin_users
 from .services.admin_bootstrap import ensure_admin_user
@@ -44,6 +45,7 @@ app.include_router(episode_submit.router)
 app.include_router(notifications.router)
 app.include_router(learning.router)
 app.include_router(entries.router)
+app.include_router(presence.router)
 app.include_router(admin_auth.router)
 app.include_router(admin_dashboard.router)
 app.include_router(admin_activation_codes.router)
@@ -56,6 +58,7 @@ app.include_router(admin_authors.router)
 app.include_router(admin_tags.router)
 app.include_router(admin_notifications.router)
 app.include_router(admin_learning.router)
+app.include_router(admin_presence.router)
 app.add_api_route(
     "/api/token/refresh/",
     auth.refresh_token,
@@ -112,6 +115,9 @@ def _migrate_schema():
             conn.execute(
                 text("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 1")
             )
+    if "last_seen_at" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE users ADD COLUMN last_seen_at {datetime_type}"))
     if "episodes" in insp.get_table_names():
         ep_cols = {c["name"] for c in insp.get_columns("episodes")}
         if "status" not in ep_cols:

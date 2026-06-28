@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import { sendPresenceHeartbeat } from '@/api/presence'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notifications'
 import ThemeToggle from '@/components/ThemeToggle.vue'
@@ -13,6 +14,15 @@ const notifications = useNotificationStore()
 const immersive = computed(() => Boolean(route.meta.immersive))
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
+
+async function sendHeartbeat() {
+  if (!auth.isLoggedIn) return
+  try {
+    await sendPresenceHeartbeat()
+  } catch {
+    // 静默失败，下次轮询再试
+  }
+}
 
 async function refreshUnreadCount() {
   if (!auth.isLoggedIn) {
@@ -30,10 +40,14 @@ async function handleLogout() {
 
 onMounted(() => {
   if (auth.ready && auth.isLoggedIn) {
+    sendHeartbeat()
     refreshUnreadCount()
   }
   pollTimer = setInterval(() => {
-    if (auth.isLoggedIn) refreshUnreadCount()
+    if (auth.isLoggedIn) {
+      sendHeartbeat()
+      refreshUnreadCount()
+    }
   }, 60000)
 })
 
@@ -44,8 +58,10 @@ onUnmounted(() => {
 watch(
   () => [auth.ready, auth.isLoggedIn] as const,
   ([ready, loggedIn]) => {
-    if (ready && loggedIn) refreshUnreadCount()
-    else if (ready) notifications.clear()
+    if (ready && loggedIn) {
+      sendHeartbeat()
+      refreshUnreadCount()
+    } else if (ready) notifications.clear()
   },
 )
 

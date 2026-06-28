@@ -5,6 +5,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..models import ActivationCode, Episode, User, UserEpisodeProgress, UserWordLookup
+from .presence import count_online_users
 
 
 def ensure_admin_user(db: Session) -> None:
@@ -62,6 +63,7 @@ def dashboard_stats(db: Session) -> dict:
         .filter(UserEpisodeProgress.is_completed.is_(True))
         .count(),
         "learning_lookups_total": db.query(UserWordLookup).count(),
+        "online_users_now": count_online_users(db),
     }
 
 

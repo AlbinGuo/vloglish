@@ -127,6 +127,12 @@ class AdminDashboardOut(BaseModel):
     learning_active_7d: int = 0
     learning_completions_total: int = 0
     learning_lookups_total: int = 0
+    online_users_now: int = 0
+
+
+class AdminPresenceOnlineOut(BaseModel):
+    online_users: int
+    window_sec: int
 
 
 class AdminActivationCodeOut(BaseModel):

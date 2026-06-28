@@ -196,12 +196,12 @@ function handleMainAction() {
         <button
           type="button"
           class="flex flex-col items-center text-xs active:scale-95"
+          title="倍速"
           @click.stop="toggleSpeedMenu"
         >
         <div class="w-10 h-10 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10">
           <span class="text-xs font-medium tabular-nums">{{ formatRate(player.playbackRate.value) }}</span>
         </div>
-        <span class="text-[10px] mt-0.5">倍速</span>
         </button>
       </div>
 
@@ -229,10 +229,10 @@ function handleMainAction() {
       <button
         type="button"
         class="flex flex-col items-center shrink-0 min-w-[2.75rem] text-xs active:scale-95"
+        title="更多"
         @click="moreOpen = true"
       >
         <div class="w-10 h-10 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10 text-sm font-medium">⋯</div>
-        <span class="text-[10px] mt-0.5">更多</span>
       </button>
     </div>
 
@@ -243,6 +243,7 @@ function handleMainAction() {
         <button
           type="button"
           class="flex flex-col items-center text-xs transition-all active:scale-95 focus:outline-none cursor-pointer"
+          title="倍速"
           @click.stop="toggleSpeedMenu"
         >
           <div class="p-1 w-8 h-8 rounded-full flex items-center justify-center">
@@ -250,7 +251,6 @@ function handleMainAction() {
               {{ formatRate(player.playbackRate.value) }}
             </span>
           </div>
-          <span class="text-[11px] leading-tight mt-0.5">倍速</span>
         </button>
       </div>
 

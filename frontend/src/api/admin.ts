@@ -91,6 +91,12 @@ export interface DashboardStats {
   learning_active_7d: number
   learning_completions_total: number
   learning_lookups_total: number
+  online_users_now: number
+}
+
+export interface AdminPresenceOnline {
+  online_users: number
+  window_sec: number
 }
 
 export interface AdminLearningStats {
@@ -140,6 +146,11 @@ export async function adminFetchMe() {
 
 export async function adminFetchDashboard() {
   const { data } = await adminApi.get<DashboardStats>('/api/admin/dashboard/')
+  return data
+}
+
+export async function adminFetchOnlineUsers() {
+  const { data } = await adminApi.get<AdminPresenceOnline>('/api/admin/presence/online/')
   return data
 }
 
