@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -41,6 +43,33 @@ class QiniuConfig:
 
     def public_url(self, key: str) -> str:
         return f"{self.domain}/{key.lstrip('/')}"
+
+
+def episode_media_urls(cfg: QiniuConfig, video_id: str) -> dict[str, str]:
+    cover = cfg.public_url(cfg.object_key(video_id, "cover.webp"))
+    return {
+        "video_url": cfg.public_url(cfg.object_key(video_id, "video.mp4")),
+        "audio_url": cfg.public_url(cfg.object_key(video_id, "audio.mp3")),
+        "cover": cover,
+        "thumbnail_url": cover,
+    }
+
+
+def qiniu_object_exists(cfg: QiniuConfig, video_id: str, filename: str, *, timeout: int = 30) -> bool:
+    """Check object via Range GET (more reliable than HEAD on some CDNs)."""
+    url = cfg.public_url(cfg.object_key(video_id, filename))
+    req = urllib.request.Request(
+        url,
+        method="GET",
+        headers={"User-Agent": "Mozilla/5.0", "Range": "bytes=0-0"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.status in (200, 206)
+    except urllib.error.HTTPError as exc:
+        return exc.code in (200, 206)
+    except OSError:
+        return False
 
 
 def upload_file(cfg: QiniuConfig, local_path: Path, key: str) -> str:

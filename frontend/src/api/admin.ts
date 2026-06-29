@@ -556,6 +556,93 @@ export async function adminExportEpisodesJson() {
   return data
 }
 
+export interface AdminTecoAuthStatus {
+  configured: boolean
+  session_file: string
+  has_session_file: boolean
+  has_access_token: boolean
+  has_email_password: boolean
+}
+
+export interface AdminTecoCatalogItem {
+  video_id: string
+  index: number | null
+  short_title: string
+  stars: number
+  clip_length: number
+  subtitle_count: number
+  cover_preview: string
+  exists_in_db: boolean
+  episode_db_id: number | null
+  qiniu_has_video: boolean
+}
+
+export interface AdminTecoImportEpisodeResult {
+  video_id: string
+  skipped: boolean
+  created: boolean
+  subtitle_count: number
+  cover_url: string
+  video_url: string
+  warnings: string[]
+  message: string
+}
+
+export async function adminTecoAuthStatus() {
+  const { data } = await adminApi.get<AdminTecoAuthStatus>('/api/admin/teco/auth-status/')
+  return data
+}
+
+export async function adminTecoCatalog(indexFrom: number, indexTo: number, checkQiniu = false) {
+  const { data } = await adminApi.get<{
+    index_from: number
+    index_to: number
+    count: number
+    results: AdminTecoCatalogItem[]
+  }>('/api/admin/teco/catalog/', {
+    params: { index_from: indexFrom, index_to: indexTo, check_qiniu: checkQiniu },
+  })
+  return data
+}
+
+export async function adminTecoImportEpisode(payload: {
+  video_id: string
+  index?: number | null
+  short_title?: string
+  status?: string
+  skip_existing?: boolean
+  apply_branding?: boolean
+  media_mode?: 'full' | 'qiniu_only'
+}) {
+  const { data } = await adminApi.post<AdminTecoImportEpisodeResult>(
+    '/api/admin/teco/import-episode/',
+    payload,
+    { timeout: 900000 },
+  )
+  return data
+}
+
+export async function adminTecoSyncDbFromQiniu(payload: {
+  index_from: number
+  index_to: number
+  status?: string
+  skip_existing?: boolean
+  force_update?: boolean
+}) {
+  const { data } = await adminApi.post<{
+    index_from: number
+    index_to: number
+    total: number
+    created: number
+    updated: number
+    skipped: number
+    failed: number
+    results: AdminTecoImportEpisodeResult[]
+    errors: string[]
+  }>('/api/admin/teco/sync-db-from-qiniu/', payload, { timeout: 900000 })
+  return data
+}
+
 export interface AdminBroadcast {
   id: number
   title: string

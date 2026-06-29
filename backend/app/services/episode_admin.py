@@ -83,6 +83,13 @@ def episode_is_new(episode: Episode) -> bool:
 
 
 def replace_subtitles(db: Session, episode_id: int, rows: list[dict]) -> None:
+    subtitle_ids = [
+        sid for (sid,) in db.query(Subtitle.id).filter(Subtitle.episode_id == episode_id).all()
+    ]
+    if subtitle_ids:
+        db.query(UserSubtitleProgress).filter(
+            UserSubtitleProgress.subtitle_id.in_(subtitle_ids)
+        ).delete(synchronize_session=False)
     db.query(Subtitle).filter(Subtitle.episode_id == episode_id).delete()
     db.flush()
     if not rows:
