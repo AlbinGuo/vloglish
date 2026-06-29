@@ -9,14 +9,28 @@
 3. 推送阿里云 ACR
 4. 在 ECS 上执行 `deploy/update.sh`
 
-在 Gitee **流水线 → 变量** 中配置（私密）：
+### 镜像仓库认证（必做）
+
+Gitee Go 的 `build@docker` **必须**指定认证方式，否则会报「认证方式没配置」。
+
+**推荐：仓库凭证**
+
+1. Gitee → **凭证管理** → 新建 **Docker Registry**
+2. 仓库地址：`registry.cn-hangzhou.aliyuncs.com`
+3. 用户名 / 密码：ACR 控制台设置的访问凭证
+4. **凭证标识**填：`vlogish-acr`（与 `MasterPipeline.yml` 里 `certificate` 一致）
+
+Backend / Web 两个镜像构建任务都用同一个凭证。
+
+**备选：账号密码**（在 YAML 里把 `type: cert` 改成 `type: account`，见文件内注释）
+
+### 流水线变量（私密）
 
 | 变量 | 说明 |
 |------|------|
 | `ACR_REGISTRY` | 例 `registry.cn-hangzhou.aliyuncs.com/vlogish` |
-| `ACR_USERNAME` | ACR 用户名 |
-| `ACR_PASSWORD` | ACR 密码 |
 | `DEPLOY_HOST_GROUP` | 主机组 ID |
+| `ACR_USERNAME` / `ACR_PASSWORD` | 仅在使用 `type: account` 时需要 |
 
 ## 不要使用的模板
 
