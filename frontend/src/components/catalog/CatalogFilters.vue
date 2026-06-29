@@ -1,37 +1,73 @@
 <script setup lang="ts">
-import StarIcon from '@/components/icons/StarIcon.vue'
+import { computed, watch } from 'vue'
 import { accentOptions } from '@/constants/accentOptions'
+import DifficultyStarsFilter from '@/components/catalog/DifficultyStarsFilter.vue'
+import { useAuthStore } from '@/stores/auth'
 import { useCatalogStore } from '@/stores/catalog'
 
 const store = useCatalogStore()
+const auth = useAuthStore()
+
+const learningFilters = computed(() => {
+  const items = [
+    { key: 'learned' as const, label: '已看' },
+    { key: 'unlearned' as const, label: '未看' },
+  ]
+  if (auth.isMember) {
+    items.push({ key: 'favorite' as const, label: '收藏' })
+  }
+  return items
+})
+
+watch(
+  () => auth.isMember,
+  (member) => {
+    if (!member && store.filters.learningStatus === 'favorite') {
+      store.filters.learningStatus = ''
+      void store.loadEpisodes(true)
+    }
+  },
+)
 </script>
 <template>
-  <div class="rounded-2xl border border-black/5 bg-white p-4 space-y-4">
+  <div class="rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 space-y-4">
     <div class="flex items-center justify-between">
       <span class="text-sm font-medium">筛选条件</span>
       <button
         type="button"
-        class="text-xs px-2 py-1 rounded-lg border border-black/10 hover:bg-neutral-50"
+          class="text-xs px-2 py-1 rounded-lg border border-black/10 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-neutral-800 cursor-pointer"
         @click="store.toggleOrdering()"
       >
-        {{ store.filters.ordering === 'index' ? '倒序' : '正序' }}
+        {{ store.filters.ordering === 'created_at' ? '最新优先' : '最早优先' }}
       </button>
+    </div>
+
+    <div v-if="auth.isLoggedIn">
+      <div class="text-xs text-neutral-500 mb-2">学习状态</div>
+      <div class="flex flex-wrap gap-1.5">
+        <button
+          v-for="f in learningFilters"
+          :key="f.key"
+          type="button"
+          class="text-xs px-2.5 py-1 rounded-full border transition cursor-pointer"
+          :class="
+            store.filters.learningStatus === f.key
+              ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-300 dark:bg-neutral-100 dark:text-neutral-900'
+              : 'border-black/10 bg-neutral-50 hover:border-neutral-300 dark:border-white/10 dark:bg-neutral-800 dark:hover:border-neutral-600'
+          "
+          @click="store.setLearningStatus(f.key)"
+        >
+          {{ f.label }}
+        </button>
+      </div>
     </div>
 
     <div>
       <div class="text-xs text-neutral-500 mb-2">难度</div>
-      <div class="flex items-center justify-center gap-0.5">
-        <button
-          v-for="n in 5"
-          :key="n"
-          type="button"
-          class="p-0.5 rounded-md hover:bg-neutral-100 transition"
-          :title="`${n} 星`"
-          @click="store.toggleStars(n)"
-        >
-          <StarIcon :active="store.filters.stars != null && n <= store.filters.stars" />
-        </button>
-      </div>
+      <DifficultyStarsFilter
+        :active-level="store.filters.stars"
+        @select="store.toggleStars"
+      />
     </div>
 
     <div>
@@ -60,11 +96,11 @@ const store = useCatalogStore()
           v-for="t in store.tags"
           :key="t.id"
           type="button"
-          class="text-xs px-2 py-1 rounded-full border transition"
+          class="text-xs px-2 py-1 rounded-full border transition cursor-pointer"
           :class="
             store.filters.tagIds.includes(t.id)
-              ? 'border-neutral-900 bg-neutral-900 text-white'
-              : 'border-black/10 bg-neutral-50 hover:border-neutral-300'
+              ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-300 dark:bg-neutral-100 dark:text-neutral-900'
+              : 'border-black/10 bg-neutral-50 hover:border-neutral-300 dark:border-white/10 dark:bg-neutral-800 dark:hover:border-neutral-600'
           "
           @click="store.toggleTag(t.id)"
         >

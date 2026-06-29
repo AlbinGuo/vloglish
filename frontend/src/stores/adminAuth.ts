@@ -38,11 +38,17 @@ export const useAdminAuthStore = defineStore('adminAuth', () => {
     }
   }
 
+  /** 登录页：跳过远端校验，清理残留 token，避免过期 token 触发 /me、/refresh 报错 */
+  function resetForGuest() {
+    logout()
+    ready.value = true
+  }
+
   function logout() {
     accessToken.value = null
     user.value = null
     clearAdminTokens()
   }
 
-  return { accessToken, user, ready, isLoggedIn, login, fetchMe, hydrate, logout }
+  return { accessToken, user, ready, isLoggedIn, login, fetchMe, hydrate, resetForGuest, logout }
 })

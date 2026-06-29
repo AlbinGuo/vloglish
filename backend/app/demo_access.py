@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Session, joinedload
 
 from .models import DemoCode, Episode
+from .episode_visibility import can_view_published_episode, published_visibility_filter
 
-GUEST_EPISODE_LIMIT = 2
-LOGGED_IN_EPISODE_LIMIT = 5
+GUEST_EPISODE_LIMIT = 8
 
 
 def user_is_member(user) -> bool:
@@ -13,8 +13,6 @@ def user_is_member(user) -> bool:
 def get_episode_limit(user) -> int | None:
     if user_is_member(user):
         return None
-    if user is not None:
-        return LOGGED_IN_EPISODE_LIMIT
     return GUEST_EPISODE_LIMIT
 
 
@@ -24,17 +22,20 @@ def episode_order(ordering: str):
         "-index": Episode.index.asc(),
         "stars": Episode.stars.desc(),
         "-stars": Episode.stars.asc(),
+        "created_at": Episode.created_at.desc(),
+        "-created_at": Episode.created_at.asc(),
     }
-    return order_map.get(ordering, Episode.index.desc())
+    return order_map.get(ordering, Episode.created_at.desc())
 
 
-def get_visible_episode_ids(db: Session, user, ordering: str = "index") -> set[int]:
+def get_visible_episode_ids(db: Session, user, ordering: str = "created_at") -> set[int]:
     limit = get_episode_limit(user)
     if limit is None:
         return set()
     rows = (
         db.query(Episode.id)
         .filter(Episode.status == "published")
+        .filter(published_visibility_filter(user))
         .order_by(episode_order(ordering))
         .limit(limit)
         .all()
@@ -70,7 +71,17 @@ def get_visible_demo_episodes(db: Session, user) -> list[Episode]:
     return episodes[:limit]
 
 
-def can_access_episode(db: Session, episode: Episode, user, ordering: str = "index") -> bool:
+def can_access_episode(db: Session, episode: Episode, user, ordering: str = "created_at") -> bool:
+    if episode.status != "published":
+        return False
+    if not can_view_published_episode(episode, user):
+        return False
+    if (
+        episode.submitted_by_user_id is not None
+        and user is not None
+        and user.id == episode.submitted_by_user_id
+    ):
+        return True
     if user_is_member(user):
         return True
     return episode.id in get_visible_episode_ids(db, user, ordering)

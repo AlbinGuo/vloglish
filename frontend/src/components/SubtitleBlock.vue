@@ -16,20 +16,33 @@ const props = withDefaults(
     chineseFocus?: boolean
     readProgress?: number
   }>(),
-  { align: 'center', chineseFocus: false },
+  { align: 'left', chineseFocus: false },
 )
 
 defineEmits<{ click: [event: MouseEvent] }>()
 
+function ipaClasses() {
+  if (props.active) {
+    return 'text-neutral-600 dark:text-neutral-700'
+  }
+  return 'text-neutral-500 dark:text-neutral-300'
+}
+
 function chineseClasses() {
   if (props.chineseFocus) {
     return props.active
-      ? 'text-base sm:text-lg leading-relaxed font-bold text-white'
-      : 'text-base sm:text-lg leading-relaxed text-neutral-800'
+      ? 'text-base sm:text-lg leading-relaxed font-bold text-inherit'
+      : 'text-base sm:text-lg leading-relaxed text-neutral-800 dark:text-neutral-100'
+  }
+  if (props.active) {
+    return [
+      props.large ? 'text-base sm:text-lg' : 'text-sm',
+      'leading-relaxed text-neutral-700 dark:text-neutral-800',
+    ]
   }
   return [
     props.large ? 'text-base sm:text-lg' : 'text-sm',
-    props.active ? 'text-white/80' : 'text-neutral-600 opacity-70',
+    'leading-relaxed text-neutral-600 dark:text-neutral-200',
   ]
 }
 </script>
@@ -41,11 +54,8 @@ function chineseClasses() {
   >
     <p
       v-if="showIpa && ipa"
-      class="subtitle-ipa font-serif tracking-wide opacity-60 max-w-full break-words"
-      :class="[
-        large ? 'text-base sm:text-lg' : 'text-base',
-        chineseFocus && !active ? 'text-neutral-500' : '',
-      ]"
+      class="subtitle-ipa font-serif tracking-wide max-w-full break-words"
+      :class="[large ? 'text-base sm:text-lg' : 'text-sm', ipaClasses()]"
     >
       {{ ipa }}
     </p>

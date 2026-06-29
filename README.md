@@ -5,6 +5,7 @@
 ## 文档
 
 - [产品与技术指南](./docs/ANALYSIS.md)
+- [从本地开发到上线部署](./deploy/DEPLOY_GUIDE.md)
 
 ## 快速开始
 

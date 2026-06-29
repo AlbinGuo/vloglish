@@ -1,12 +1,11 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from ...database import get_db
 from ...deps import get_current_admin
-from ...models import Author, Episode, User
+from ...models import Episode, User
 from ...schemas import (
     AdminEpisodeCreateIn,
     AdminEpisodeDetailOut,
@@ -15,6 +14,7 @@ from ...schemas import (
     AdminEpisodeUpdateIn,
     AdminSubtitleIn,
 )
+from ...serializers import episode_detail
 from ...services.episode_admin import (
     apply_episode_fields,
     generate_video_id,
@@ -22,6 +22,8 @@ from ...services.episode_admin import (
     replace_subtitles,
     resolve_tags,
 )
+from ...services.episode_stats import admin_episode_list_query, row_stats_from_query
+from ...services.user_notifications import maybe_notify_submitter_on_status_change
 
 router = APIRouter(prefix="/api/admin", tags=["admin-meta"])
 
@@ -63,6 +65,8 @@ def _episode_detail(ep: Episode) -> AdminEpisodeDetailOut:
         original_video_url=ep.original_video_url or "",
         is_demo=ep.is_demo,
         status=ep.status,
+        rejection_reason=ep.rejection_reason or "",
+        is_user_submitted=ep.submitted_by_user_id is not None,
         author={
             "name": ep.author.name,
             "gender": ep.author.gender,
@@ -96,25 +100,27 @@ def list_episodes(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: str | None = None,
-    status: str | None = Query(None, pattern="^(draft|published|archived)$"),
+    status: str | None = Query(None, pattern="^(draft|published|archived|rejected)$"),
     stars: int | None = Query(None, ge=1, le=5),
+    sort_by: str = Query("id"),
+    sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     _admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    q = db.query(Episode).options(joinedload(Episode.author)).join(Author)
-    if search and search.strip():
-        term = f"%{search.strip()}%"
-        q = q.filter(or_(Episode.short_title.ilike(term), Episode.video_id.ilike(term), Author.name.ilike(term)))
-    if status:
-        q = q.filter(Episode.status == status)
-    if stars is not None:
-        q = q.filter(Episode.stars == stars)
-    q = q.order_by(Episode.id.desc())
+    q = admin_episode_list_query(
+        db,
+        search=search,
+        status=status,
+        stars=stars,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
     total = q.count()
-    items = q.offset((page - 1) * page_size).limit(page_size).all()
-    return AdminEpisodeListOut(
-        count=total,
-        results=[
+    rows = q.offset((page - 1) * page_size).limit(page_size).all()
+    results = []
+    for row in rows:
+        ep = row[0]
+        results.append(
             AdminEpisodeListItemOut(
                 id=ep.id,
                 video_id=ep.video_id,
@@ -124,12 +130,33 @@ def list_episodes(
                 subtitle_count=ep.subtitle_count,
                 clip_length=ep.clip_length,
                 author_name=ep.author.name,
+                cover=ep.thumbnail_url or ep.cover or "",
                 is_demo=ep.is_demo,
+                is_user_submitted=ep.submitted_by_user_id is not None,
+                tag_names=[t.name for t in ep.tags],
                 created_at=_fmt_dt(ep.created_at),
+                **row_stats_from_query(row),
             )
-            for ep in items
-        ],
+        )
+    return AdminEpisodeListOut(count=total, results=results)
+
+
+@router.get("/episodes/preview/{video_id}/")
+def preview_episode(
+    video_id: str,
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    episode = (
+        db.query(Episode)
+        .options(joinedload(Episode.author), joinedload(Episode.tags), joinedload(Episode.subtitles))
+        .filter(Episode.video_id == video_id)
+        .first()
     )
+    if not episode:
+        raise HTTPException(status_code=404, detail="剧集不存在")
+    total = db.query(Episode).filter(Episode.status == "published").count()
+    return episode_detail(episode, total)
 
 
 @router.post("/episodes/", response_model=AdminEpisodeDetailOut)
@@ -147,6 +174,8 @@ def create_episode(
         raise HTTPException(status_code=400, detail="请填写标题")
     if not body.author.name.strip():
         raise HTTPException(status_code=400, detail="请填写作者")
+    if body.status == "rejected" and not body.rejection_reason.strip():
+        raise HTTPException(status_code=400, detail="驳回时需填写原因")
 
     author = get_or_create_author(db, body.author.model_dump())
     tags = resolve_tags(db, body.tag_names)
@@ -183,7 +212,16 @@ def update_episode(
     db: Session = Depends(get_db),
 ):
     ep = _get_episode_or_404(db, episode_id)
+    old_status = ep.status
     data = body.model_dump(exclude_unset=True)
+
+    next_status = data.get("status", ep.status)
+    if next_status == "rejected":
+        reason = data.get("rejection_reason")
+        if reason is None:
+            reason = ep.rejection_reason
+        if not (reason and str(reason).strip()):
+            raise HTTPException(status_code=400, detail="驳回时需填写原因")
 
     author = ep.author
     if body.author is not None:
@@ -201,6 +239,14 @@ def update_episode(
     apply_episode_fields(ep, data, author=author, tags=tags)
     if subtitles_payload is not None:
         replace_subtitles(db, ep.id, subtitles_payload)
+
+    maybe_notify_submitter_on_status_change(
+        db,
+        ep,
+        old_status=old_status,
+        new_status=ep.status,
+        rejection_reason=ep.rejection_reason,
+    )
 
     db.commit()
     return _episode_detail(_get_episode_or_404(db, episode_id))

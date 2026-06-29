@@ -1,0 +1,63 @@
+version: '1.0'
+name: vlogish-prod-pipeline
+displayName: Vloglish 生产部署
+
+triggers:
+  push:
+    branches:
+      precise:
+        - master
+        - main
+
+# 在 Gitee 仓库 → 流水线 → 变量 中配置（标记为「私密」）：
+#   ACR_REGISTRY      例：registry.cn-hangzhou.aliyuncs.com/vlogish
+#   ACR_USERNAME      阿里云 ACR 用户名
+#   ACR_PASSWORD      阿里云 ACR 密码
+#   DEPLOY_HOST_GROUP Gitee Go 主机组 ID（见 deploy/README.md）
+variables:
+  IMAGE_TAG: '${GITEE_PIPELINE_BUILD_NUMBER}'
+
+stages:
+  - stage: build_images
+    displayName: 构建镜像
+    strategy: fast
+    trigger: auto
+    steps:
+      - step: build@docker
+        name: build_backend
+        displayName: Backend 镜像
+        repository: ${ACR_REGISTRY}/backend
+        username: ${ACR_USERNAME}
+        password: ${ACR_PASSWORD}
+        tag: ${IMAGE_TAG}
+        dockerfile: ./backend/Dockerfile
+        context: .
+        isCache: true
+
+      - step: build@docker
+        name: build_web
+        displayName: Web 镜像
+        repository: ${ACR_REGISTRY}/web
+        username: ${ACR_USERNAME}
+        password: ${ACR_PASSWORD}
+        tag: ${IMAGE_TAG}
+        dockerfile: ./frontend/Dockerfile
+        context: .
+        isCache: true
+
+  - stage: deploy_prod
+    displayName: 部署生产
+    strategy: fast
+    trigger: auto
+    steps:
+      - step: shell@agent
+        name: deploy_prod
+        displayName: 阿里云服务器部署
+        hostGroupID: ${DEPLOY_HOST_GROUP}
+        script: |
+          set -e
+          cd /opt/vlogish
+          export IMAGE_TAG=${GITEE_PIPELINE_BUILD_NUMBER}
+          export BACKEND_IMAGE=${ACR_REGISTRY}/backend:${IMAGE_TAG}
+          export WEB_IMAGE=${ACR_REGISTRY}/web:${IMAGE_TAG}
+          bash deploy/update.sh

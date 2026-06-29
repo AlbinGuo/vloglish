@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { clearAdminTokens, getAdminAccessToken, getAdminRefreshToken, setAdminTokens } from '@/api/adminTokens'
 import { getDeviceId } from '@/api/client'
+import type { EpisodeDetail } from '@/types'
 
 const adminApi = axios.create({
   baseURL: '',
@@ -26,6 +27,10 @@ adminApi.interceptors.response.use(
       return Promise.reject(error)
     }
     if (String(original.url ?? '').includes('/api/admin/auth/login')) {
+      return Promise.reject(error)
+    }
+    if (String(original.url ?? '').includes('/api/admin/auth/me')) {
+      clearAdminTokens()
       return Promise.reject(error)
     }
 
@@ -83,6 +88,26 @@ export interface DashboardStats {
   activation_codes_total: number
   activation_codes_available: number
   activation_codes_used: number
+  learning_active_7d: number
+  learning_completions_total: number
+  learning_lookups_total: number
+  online_users_now: number
+}
+
+export interface AdminPresenceOnline {
+  online_users: number
+  window_sec: number
+}
+
+export interface AdminLearningStats {
+  active_learners_7d: number
+  active_learners_30d: number
+  total_watch_hours: number
+  total_completions: number
+  total_lookups: number
+  total_vocabulary_items: number
+  top_episodes: { video_id: string; title: string; completions: number; learners: number }[]
+  daily_activity: { date: string; watch_time_sec: number; sessions: number; completions: number }[]
 }
 
 export interface ActivationCodeRow {
@@ -104,6 +129,34 @@ export interface UserRow {
   is_staff: boolean
   member_activated_at: string | null
   created_at: string
+  last_active_at: string | null
+  watch_time_7d: number
+  completed_episodes: number
+  lookup_count: number
+  signup_country: string | null
+  signup_region: string | null
+  signup_city: string | null
+}
+
+export interface AdminUserGeoStats {
+  total_users: number
+  known_users: number
+  unknown_users: number
+  by_region: { region: string; count: number }[]
+}
+
+export type AdminUserSegmentKey =
+  | 'active_7d'
+  | 'churn_risk'
+  | 'new_inactive'
+  | 'deep_learners'
+  | 'members'
+  | 'non_members'
+
+export interface AdminUserSegment {
+  key: AdminUserSegmentKey
+  label: string
+  count: number
 }
 
 export async function adminLogin(email: string, password: string) {
@@ -121,6 +174,16 @@ export async function adminFetchMe() {
 
 export async function adminFetchDashboard() {
   const { data } = await adminApi.get<DashboardStats>('/api/admin/dashboard/')
+  return data
+}
+
+export async function adminFetchOnlineUsers() {
+  const { data } = await adminApi.get<AdminPresenceOnline>('/api/admin/presence/online/')
+  return data
+}
+
+export async function adminFetchLearningStats() {
+  const { data } = await adminApi.get<AdminLearningStats>('/api/admin/learning/stats/')
   return data
 }
 
@@ -147,7 +210,22 @@ export async function adminDeleteCode(code: string) {
   await adminApi.delete(`/api/admin/activation-codes/${encodeURIComponent(code)}/`)
 }
 
-export async function adminListUsers(params: { page?: number; page_size?: number; search?: string }) {
+export async function adminFetchUserGeoStats() {
+  const { data } = await adminApi.get<AdminUserGeoStats>('/api/admin/users/geo-stats/')
+  return data
+}
+
+export async function adminFetchUserSegments() {
+  const { data } = await adminApi.get<{ segments: AdminUserSegment[] }>('/api/admin/users/segments/')
+  return data.segments
+}
+
+export async function adminListUsers(params: {
+  page?: number
+  page_size?: number
+  search?: string
+  segment?: AdminUserSegmentKey | ''
+}) {
   const { data } = await adminApi.get<{ count: number; results: UserRow[] }>('/api/admin/users/', {
     params,
   })
@@ -198,9 +276,27 @@ export interface AdminEpisodeListItem {
   subtitle_count: number
   clip_length: number
   author_name: string
+  cover: string
   is_demo: boolean
+  is_user_submitted: boolean
+  tag_names: string[]
   created_at: string
+  play_count: number
+  unique_learners: number
+  completions: number
+  completion_rate: number
+  plays_7d: number
+  plays_30d: number
 }
+
+export type AdminEpisodeSortField =
+  | 'id'
+  | 'play_count'
+  | 'unique_learners'
+  | 'completions'
+  | 'completion_rate'
+  | 'plays_7d'
+  | 'plays_30d'
 
 export interface AdminEpisodeDetail {
   id: number
@@ -220,6 +316,8 @@ export interface AdminEpisodeDetail {
   original_video_url: string
   is_demo: boolean
   status: string
+  rejection_reason?: string
+  is_user_submitted?: boolean
   author: AdminAuthorInput
   tag_names: string[]
   subtitles: AdminSubtitle[]
@@ -241,6 +339,7 @@ export type AdminEpisodePayload = {
   original_video_url: string
   is_demo: boolean
   status: string
+  rejection_reason?: string
   author: AdminAuthorInput
   tag_names: string[]
   subtitles: AdminSubtitle[]
@@ -300,6 +399,8 @@ export async function adminListEpisodes(params: {
   search?: string
   status?: string
   stars?: number
+  sort_by?: AdminEpisodeSortField
+  sort_dir?: 'asc' | 'desc'
 }) {
   const { data } = await adminApi.get<{ count: number; results: AdminEpisodeListItem[] }>(
     '/api/admin/episodes/',
@@ -310,6 +411,13 @@ export async function adminListEpisodes(params: {
 
 export async function adminGetEpisode(id: number) {
   const { data } = await adminApi.get<AdminEpisodeDetail>(`/api/admin/episodes/${id}/`)
+  return data
+}
+
+export async function adminGetEpisodePreview(videoId: string) {
+  const { data } = await adminApi.get<{ episode: EpisodeDetail; total_episodes: number }>(
+    `/api/admin/episodes/preview/${encodeURIComponent(videoId)}/`,
+  )
   return data
 }
 
@@ -328,9 +436,48 @@ export async function adminDeleteEpisode(id: number) {
 }
 
 export async function adminImportVtt(vttText: string) {
-  const { data } = await adminApi.post<{ subtitles: AdminSubtitle[]; subtitle_count: number; clip_length: number }>(
-    '/api/admin/episodes/import-vtt/',
-    { vtt_text: vttText },
+  const { data } = await adminApi.post<{
+    subtitles: AdminSubtitle[]
+    subtitle_count: number
+    clip_length: number
+    had_chinese: boolean
+    translated_count: number
+    ipa_count: number
+  }>('/api/admin/episodes/import-vtt/', { vtt_text: vttText })
+  return data
+}
+
+export interface AdminFetchMediaResult {
+  title: string
+  summary: string
+  author_name: string
+  original_video_url: string
+  cover: string
+  thumbnail_url: string
+  video_url: string
+  audio_url: string
+  subtitles: AdminSubtitle[]
+  subtitle_count: number
+  clip_length: number
+  had_chinese: boolean
+  translated_count: number
+  ipa_count: number
+  stars: number
+  voca_size: number
+  highlight_count: number
+  source_id: string
+  warnings: string[]
+}
+
+export async function adminFetchMediaFromUrl(payload: {
+  url: string
+  slug?: string
+  enrich_subtitles?: boolean
+}) {
+  const { data } = await adminApi.post<AdminFetchMediaResult>(
+    '/api/admin/episodes/fetch-media/',
+    payload,
+    { timeout: 900000 },
   )
   return data
 }
@@ -402,5 +549,27 @@ export async function adminExportEpisodesJson() {
   const { data } = await adminApi.get<{ episodes: unknown[]; details: unknown[] }>(
     '/api/admin/episodes/export-json/',
   )
+  return data
+}
+
+export interface AdminBroadcast {
+  id: number
+  title: string
+  body: string
+  recipient_count: number
+  created_by_email: string
+  created_at: string
+}
+
+export async function adminListBroadcasts(page = 1, pageSize = 20) {
+  const { data } = await adminApi.get<{ count: number; results: AdminBroadcast[] }>(
+    '/api/admin/notifications/broadcasts/',
+    { params: { page, page_size: pageSize } },
+  )
+  return data
+}
+
+export async function adminCreateBroadcast(payload: { title: string; body: string }) {
+  const { data } = await adminApi.post<AdminBroadcast>('/api/admin/notifications/broadcasts/', payload)
   return data
 }

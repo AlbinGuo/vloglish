@@ -1,0 +1,30 @@
+from datetime import datetime, timedelta
+
+from sqlalchemy.orm import Session
+
+from ..models import User
+
+# 最近 N 秒内有心跳视为在线
+ONLINE_WINDOW_SEC = 90
+
+
+def touch_presence(db: Session, user: User) -> None:
+    if user.is_staff:
+        return
+    user.last_seen_at = datetime.utcnow()
+    db.commit()
+
+
+def count_online_users(db: Session) -> int:
+    since = datetime.utcnow() - timedelta(seconds=ONLINE_WINDOW_SEC)
+    return (
+        db.query(User)
+        .filter(
+            User.is_active.is_(True),
+            User.is_staff.is_(False),
+            User.is_member.is_(True),
+            User.last_seen_at.isnot(None),
+            User.last_seen_at >= since,
+        )
+        .count()
+    )

@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { isDemoVerified } from '@/api/client'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import { useAdminAuthStore } from '@/stores/adminAuth'
@@ -13,6 +12,17 @@ const router = createRouter({
       name: 'AdminLogin',
       component: () => import('@/pages/admin/AdminLoginPage.vue'),
       meta: { adminGuest: true },
+    },
+    {
+      path: '/gnadmin/preview/:videoId',
+      name: 'AdminEpisodePreview',
+      component: () => import('@/pages/EpisodePage.vue'),
+      props: (route) => ({
+        videoId: route.params.videoId as string,
+        backTo: '/gnadmin/episodes',
+        adminPreview: true,
+      }),
+      meta: { requiresAdmin: true },
     },
     {
       path: '/gnadmin',
@@ -34,6 +44,16 @@ const router = createRouter({
           path: 'users',
           name: 'AdminUsers',
           component: () => import('@/pages/admin/AdminUsersPage.vue'),
+        },
+        {
+          path: 'notifications',
+          name: 'AdminNotifications',
+          component: () => import('@/pages/admin/AdminNotificationsPage.vue'),
+        },
+        {
+          path: 'learning',
+          name: 'AdminLearning',
+          component: () => import('@/pages/admin/AdminLearningPage.vue'),
         },
         {
           path: 'episodes',
@@ -105,26 +125,47 @@ const router = createRouter({
           path: 'english',
           name: 'HomePage',
           component: () => import('@/pages/HomePage.vue'),
-          meta: { requiresDemo: true },
         },
         {
           path: 'english/episode/:videoId',
           name: 'EpisodePage',
           component: () => import('@/pages/EpisodePage.vue'),
           props: (route) => ({ videoId: route.params.videoId as string, backTo: '/english' }),
-          meta: { requiresDemo: true, immersive: true },
+          meta: { immersive: true, requiresAuth: true },
         },
         {
           path: 'english/demo/:videoId',
           name: 'DemoEpisode',
           component: () => import('@/pages/EpisodePage.vue'),
           props: (route) => ({ videoId: route.params.videoId as string, backTo: '/english' }),
-          meta: { requiresDemo: true, immersive: true },
+          meta: { immersive: true },
         },
         {
           path: 'activate',
-          name: 'Activate',
-          component: () => import('@/pages/ActivatePage.vue'),
+          redirect: '/english',
+        },
+        {
+          path: 'english/submit',
+          name: 'SubmitEpisode',
+          component: () => import('@/pages/SubmitEpisodePage.vue'),
+          meta: { requiresAuth: true, requiresMember: true },
+        },
+        {
+          path: 'english/notifications',
+          name: 'Notifications',
+          component: () => import('@/pages/NotificationsPage.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
+          path: 'english/learning',
+          name: 'Learning',
+          component: () => import('@/pages/LearningPage.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
+          path: 'english/vocabulary',
+          name: 'Vocabulary',
+          component: () => import('@/pages/VocabularyPage.vue'),
           meta: { requiresAuth: true },
         },
       ],
@@ -140,7 +181,13 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   if (to.path.startsWith('/gnadmin')) {
     const adminAuth = useAdminAuthStore()
-    if (!adminAuth.ready) await adminAuth.hydrate()
+    if (!adminAuth.ready) {
+      if (to.meta.adminGuest) {
+        adminAuth.resetForGuest()
+      } else {
+        await adminAuth.hydrate()
+      }
+    }
 
     if (to.meta.requiresAdmin && !adminAuth.isLoggedIn) {
       return { path: '/gnadmin/login', query: { next: to.fullPath } }
@@ -156,12 +203,12 @@ router.beforeEach(async (to) => {
     await auth.hydrate()
   }
 
-  if (to.meta.requiresDemo && !isDemoVerified() && to.path !== '/demo') {
-    return '/demo'
-  }
-
   if (to.meta.requiresAuth && !auth.isLoggedIn) {
     return { path: '/login', query: { next: to.fullPath } }
+  }
+
+  if (to.meta.requiresMember && auth.isLoggedIn && !auth.isMember) {
+    return '/english'
   }
 })
 

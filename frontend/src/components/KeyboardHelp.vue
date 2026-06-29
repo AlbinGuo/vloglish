@@ -15,15 +15,15 @@ const shortcuts = [
 
 <template>
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="$emit('close')">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+    <div class="bg-white dark:bg-neutral-900 rounded-2xl shadow-xl w-full max-w-md p-6">
       <div class="flex justify-between items-center mb-4">
         <h3 class="text-lg font-semibold">键盘快捷键</h3>
-        <button class="text-neutral-400 hover:text-black text-xl" @click="$emit('close')">×</button>
+        <button class="text-neutral-400 hover:text-black dark:hover:text-white text-xl" @click="$emit('close')">×</button>
       </div>
       <dl class="space-y-2">
         <div v-for="[key, desc] in shortcuts" :key="key" class="flex justify-between gap-4 text-sm">
-          <dt class="font-mono bg-neutral-100 px-2 py-0.5 rounded shrink-0">{{ key }}</dt>
-          <dd class="text-neutral-600 text-right">{{ desc }}</dd>
+          <dt class="font-mono bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded shrink-0">{{ key }}</dt>
+          <dd class="text-neutral-600 dark:text-neutral-300 text-right">{{ desc }}</dd>
         </div>
       </dl>
     </div>

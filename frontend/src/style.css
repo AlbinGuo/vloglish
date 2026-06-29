@@ -1,14 +1,40 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   font-family: Inter, system-ui, -apple-system, sans-serif;
   color: #111;
   background: #fafafa;
 }
 
+.dark {
+  color: #f5f5f5;
+  background: #0a0a0a;
+}
+
 body {
   margin: 0;
   min-height: 100dvh;
+}
+
+a,
+button:not(:disabled),
+[type="button"]:not(:disabled),
+[type="submit"]:not(:disabled),
+[type="reset"]:not(:disabled),
+select:not(:disabled),
+summary,
+label:has(input[type="radio"]),
+label:has(input[type="checkbox"]) {
+  cursor: pointer;
+}
+
+button:disabled,
+[type="button"]:disabled,
+[type="submit"]:disabled,
+select:disabled {
+  cursor: not-allowed;
 }
 
 #app {
@@ -113,6 +139,28 @@ body {
   font-family: 'Times New Roman', Times, 'Noto Serif', serif;
   line-height: 1.4;
   letter-spacing: 0.02em;
+}
+
+/* 深色模式：字幕列表区中文 / 音标对比度 */
+.dark .subtitle-panel .subtitle-ipa {
+  color: rgb(212 212 212);
+}
+
+.dark .subtitle-panel .subtitle-chinese {
+  color: #818181;
+}
+
+.dark .subtitle-panel .subtitle-row--active .subtitle-ipa,
+.dark .subtitle-panel .subtitle-row--active .subtitle-chinese {
+  color: rgb(64 64 64);
+}
+
+.dark .subtitle-focus-light .subtitle-ipa {
+  color: rgb(212 212 212);
+}
+
+.dark .subtitle-focus-light .subtitle-chinese {
+  color: rgb(229 229 229);
 }
 
 .subtitle-english--active + .subtitle-chinese,
@@ -475,4 +523,222 @@ html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-
 html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-f {
   background-color: rgb(254 226 226);
   color: #b91c1c;
+}
+
+/* 深色主题：字幕区基础交互 */
+.dark .subtitle-english span:hover {
+  background-color: rgb(255 255 255 / 0.08);
+}
+
+.dark .subtitle-english span.text-transparent {
+  text-decoration-color: rgb(255 255 255 / 0.25);
+}
+
+.dark html.highlight-style-background .subtitle-english span.text-transparent,
+.dark.highlight-style-background .subtitle-english span.text-transparent {
+  background-color: rgb(255 255 255 / 0.1);
+}
+
+.dark html.highlight-style-background .subtitle-focus-light .subtitle-english span.text-transparent,
+.dark.highlight-style-background .subtitle-focus-light .subtitle-english span.text-transparent {
+  background-color: rgb(255 255 255 / 0.1);
+}
+
+/* 深色主题：动态/当前句聚焦区（subtitle-focus-light 在深色背景下） */
+.dark .subtitle-focus-light .subtitle-english span.highlight-a {
+  color: #fbbf24;
+  text-decoration-color: #f59e0b;
+}
+
+.dark .subtitle-focus-light .subtitle-english span.highlight-d {
+  color: #c4b5fd;
+  text-decoration-color: #a78bfa;
+}
+
+.dark .subtitle-focus-light .subtitle-english span.highlight-i {
+  color: #67e8f9;
+  text-decoration-color: #22d3ee;
+}
+
+.dark .subtitle-focus-light .subtitle-english span.highlight-l {
+  color: #f9a8d4;
+  text-decoration-color: #f472b6;
+}
+
+.dark .subtitle-focus-light .subtitle-english span.highlight-c {
+  color: #6ee7b7;
+  text-decoration-color: #34d399;
+}
+
+.dark .subtitle-focus-light .subtitle-english span.highlight-f {
+  color: #fca5a5;
+  text-decoration-color: #f87171;
+}
+
+.dark.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-a {
+  background-color: rgb(245 158 11 / 0.2);
+  color: #fbbf24;
+}
+
+.dark.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-d {
+  background-color: rgb(139 92 246 / 0.2);
+  color: #c4b5fd;
+}
+
+.dark.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-i {
+  background-color: rgb(6 182 212 / 0.2);
+  color: #67e8f9;
+}
+
+.dark.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-l {
+  background-color: rgb(236 72 153 / 0.2);
+  color: #f9a8d4;
+}
+
+.dark.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-c {
+  background-color: rgb(16 185 129 / 0.2);
+  color: #6ee7b7;
+}
+
+.dark.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-f {
+  background-color: rgb(239 68 68 / 0.2);
+  color: #fca5a5;
+}
+
+/* 深色主题：右侧字幕列表面板 */
+.dark .subtitle-panel .subtitle-english span.highlight-a {
+  color: #fbbf24;
+  text-decoration-color: #f59e0b;
+}
+
+.dark .subtitle-panel .subtitle-english span.highlight-d {
+  color: #c4b5fd;
+  text-decoration-color: #a78bfa;
+}
+
+.dark .subtitle-panel .subtitle-english span.highlight-i {
+  color: #67e8f9;
+  text-decoration-color: #22d3ee;
+}
+
+.dark .subtitle-panel .subtitle-english span.highlight-l {
+  color: #f9a8d4;
+  text-decoration-color: #f472b6;
+}
+
+.dark .subtitle-panel .subtitle-english span.highlight-c {
+  color: #6ee7b7;
+  text-decoration-color: #34d399;
+}
+
+.dark .subtitle-panel .subtitle-english span.highlight-f {
+  color: #fca5a5;
+  text-decoration-color: #f87171;
+}
+
+/* 深色主题：当前句为浅底（neutral-100），高亮词用加深色以保证对比度 */
+.dark .subtitle-panel .subtitle-english--active span.highlight-a {
+  color: #92400e;
+  text-decoration-color: #d97706;
+}
+
+.dark .subtitle-panel .subtitle-english--active span.highlight-d {
+  color: #5b21b6;
+  text-decoration-color: #7c3aed;
+}
+
+.dark .subtitle-panel .subtitle-english--active span.highlight-i {
+  color: #155e75;
+  text-decoration-color: #0891b2;
+}
+
+.dark .subtitle-panel .subtitle-english--active span.highlight-l {
+  color: #9d174d;
+  text-decoration-color: #db2777;
+}
+
+.dark .subtitle-panel .subtitle-english--active span.highlight-c {
+  color: #065f46;
+  text-decoration-color: #059669;
+}
+
+.dark .subtitle-panel .subtitle-english--active span.highlight-f {
+  color: #991b1b;
+  text-decoration-color: #dc2626;
+}
+
+.dark .subtitle-panel .subtitle-english--active span:hover {
+  background-color: rgb(0 0 0 / 0.06);
+}
+
+.dark .subtitle-panel .subtitle-english--active span.token-clicked {
+  background-color: rgb(245 158 11 / 0.3);
+}
+
+.dark .subtitle-panel .subtitle-english--active span.text-transparent {
+  text-decoration-color: rgb(0 0 0 / 0.2);
+}
+
+.dark.highlight-style-background .subtitle-panel .subtitle-english span.highlight-a {
+  background-color: rgb(245 158 11 / 0.18);
+  color: #fbbf24;
+}
+
+.dark.highlight-style-background .subtitle-panel .subtitle-english span.highlight-d {
+  background-color: rgb(139 92 246 / 0.18);
+  color: #c4b5fd;
+}
+
+.dark.highlight-style-background .subtitle-panel .subtitle-english span.highlight-i {
+  background-color: rgb(6 182 212 / 0.18);
+  color: #67e8f9;
+}
+
+.dark.highlight-style-background .subtitle-panel .subtitle-english span.highlight-l {
+  background-color: rgb(236 72 153 / 0.18);
+  color: #f9a8d4;
+}
+
+.dark.highlight-style-background .subtitle-panel .subtitle-english span.highlight-c {
+  background-color: rgb(16 185 129 / 0.18);
+  color: #6ee7b7;
+}
+
+.dark.highlight-style-background .subtitle-panel .subtitle-english span.highlight-f {
+  background-color: rgb(239 68 68 / 0.18);
+  color: #fca5a5;
+}
+
+.dark.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-a {
+  background-color: rgb(254 243 199);
+  color: #b45309;
+}
+
+.dark.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-d {
+  background-color: rgb(237 233 254);
+  color: #6d28d9;
+}
+
+.dark.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-i {
+  background-color: rgb(207 250 254);
+  color: #0e7490;
+}
+
+.dark.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-l {
+  background-color: rgb(252 231 243);
+  color: #be185d;
+}
+
+.dark.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-c {
+  background-color: rgb(209 250 229);
+  color: #047857;
+}
+
+.dark.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-f {
+  background-color: rgb(254 226 226);
+  color: #b91c1c;
+}
+
+.dark.highlight-style-background .subtitle-panel .subtitle-english--active span.text-transparent {
+  background-color: rgb(0 0 0 / 0.06);
 }

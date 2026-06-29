@@ -1,14 +1,13 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import {
-  activateMembership,
   fetchCurrentUser,
   login as loginApi,
   logout as logoutApi,
   refreshAuthToken,
   register as registerApi,
 } from '@/api/auth'
-import { clearTokens, getAccessToken, getRefreshToken, setTokens } from '@/api/tokens'
+import { clearTokens, getAccessToken, getRefreshToken, isRemoteLoginDetail, setRemoteLoginNotice, setTokens } from '@/api/tokens'
 import type { User } from '@/types'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -34,8 +33,8 @@ export const useAuthStore = defineStore('auth', () => {
     clearTokens()
   }
 
-  async function register(email: string, password: string) {
-    const data = await registerApi(email, password)
+  async function register(email: string, password: string, activationCode: string) {
+    const data = await registerApi(email, password, activationCode)
     setSession(data.access, data.refresh, data.user)
     return data.user
   }
@@ -64,12 +63,6 @@ export const useAuthStore = defineStore('auth', () => {
     return me
   }
 
-  async function activate(code: string) {
-    const me = await activateMembership(code)
-    user.value = me
-    return me
-  }
-
   async function logout() {
     const token = refreshToken.value
     if (token) {
@@ -84,8 +77,17 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function hydrate() {
     try {
-      if (accessToken.value) await fetchMe()
-    } catch {
+      if (accessToken.value) {
+        await fetchMe()
+      } else if (refreshToken.value) {
+        await refreshAccess()
+        await fetchMe()
+      }
+    } catch (e: unknown) {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      if (isRemoteLoginDetail(detail)) {
+        setRemoteLoginNotice()
+      }
       clearSession()
     } finally {
       ready.value = true
@@ -103,7 +105,6 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     refreshAccess,
     fetchMe,
-    activate,
     logout,
     hydrate,
     clearSession,
