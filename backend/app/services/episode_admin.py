@@ -85,24 +85,32 @@ def episode_is_new(episode: Episode) -> bool:
 def replace_subtitles(db: Session, episode_id: int, rows: list[dict]) -> None:
     db.query(Subtitle).filter(Subtitle.episode_id == episode_id).delete()
     db.flush()
+    if not rows:
+        return
+
     next_id = (db.query(func.max(Subtitle.id)).scalar() or 0) + 1
+    mappings: list[dict] = []
     for row in rows:
         english = row["english"].strip()
-        english_html = row.get("english_html", "").strip() or words_to_html(english)
-        db.add(
-            Subtitle(
-                id=next_id,
-                episode_id=episode_id,
-                index=row["index"],
-                start=row["start"],
-                end=row["end"],
-                english=english,
-                chinese=row.get("chinese", ""),
-                ipa=row.get("ipa", ""),
-                english_html=english_html,
-            )
+        english_html = (row.get("english_html") or "").strip()
+        if not english_html:
+            english_html = words_to_html(english)
+        mappings.append(
+            {
+                "id": next_id,
+                "episode_id": episode_id,
+                "index": row["index"],
+                "start": row["start"],
+                "end": row["end"],
+                "english": english,
+                "chinese": row.get("chinese", ""),
+                "ipa": row.get("ipa", ""),
+                "english_html": english_html,
+            }
         )
         next_id += 1
+    db.bulk_insert_mappings(Subtitle, mappings)
+    db.flush()
 
 
 def apply_episode_fields(ep: Episode, data: dict, *, author: Author, tags: list[Tag]) -> None:

@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -325,19 +326,31 @@ def upload_fetched_media(
     uploads: dict[str, str] = {}
 
     video_key = cfg.object_key(slug, "video.mp4")
-    uploads["video_url"] = upload_file(cfg, fetched.video_path, video_key)
-
     audio_name = fetched.audio_path.suffix.lower()
     audio_filename = "audio.mp3" if audio_name == ".mp3" else f"audio{audio_name}"
-    uploads["audio_url"] = upload_file(cfg, fetched.audio_path, cfg.object_key(slug, audio_filename))
+    audio_key = cfg.object_key(slug, audio_filename)
 
+    upload_jobs: dict[str, tuple[Path, str]] = {
+        "video_url": (fetched.video_path, video_key),
+        "audio_url": (fetched.audio_path, audio_key),
+    }
     if fetched.thumbnail_path.is_file():
         thumb_name = fetched.thumbnail_path.name
         if not thumb_name.startswith("cover"):
             thumb_name = f"cover{fetched.thumbnail_path.suffix.lower()}"
-        cover_url = upload_file(cfg, fetched.thumbnail_path, cfg.object_key(slug, thumb_name))
-        uploads["cover"] = cover_url
-        uploads["thumbnail_url"] = cover_url
+        thumb_key = cfg.object_key(slug, thumb_name)
+        upload_jobs["cover"] = (fetched.thumbnail_path, thumb_key)
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = {
+            name: pool.submit(upload_file, cfg, local_path, key)
+            for name, (local_path, key) in upload_jobs.items()
+        }
+        for name, future in futures.items():
+            url = future.result()
+            uploads[name] = url
+            if name == "cover":
+                uploads["thumbnail_url"] = url
 
     subtitles: list[dict] = []
     had_chinese = False
@@ -348,42 +361,74 @@ def upload_fetched_media(
     highlight_count = 0
     warnings: list[str] = []
 
+    display_title = fetched.title
+    display_summary = fetched.summary
+
     if fetched.vtt_path and fetched.vtt_path.is_file():
         vtt_text = fetched.vtt_path.read_text(encoding="utf-8", errors="replace")
         subtitles = vtt_to_subtitle_dicts(vtt_text)
         had_chinese = subtitles_have_chinese(subtitles)
+
         if enrich_subtitles and subtitles:
-            try:
-                translated_count, ipa_count = enrich_subtitles_with_deepseek(
-                    subtitles,
-                    translate_chinese=not had_chinese,
+            clip_length_est = float(max((s["end"] for s in subtitles), default=fetched.duration or 0))
+
+            def _run_enrich() -> tuple[int, int] | RuntimeError:
+                try:
+                    return enrich_subtitles_with_deepseek(
+                        subtitles,
+                        translate_chinese=not had_chinese,
+                    )
+                except RuntimeError as exc:
+                    return exc
+
+            def _run_analyze() -> dict[str, int] | RuntimeError:
+                try:
+                    return analyze_subtitles_with_deepseek(subtitles, clip_length=clip_length_est)
+                except RuntimeError as exc:
+                    return exc
+
+            def _run_localize() -> dict[str, str] | RuntimeError:
+                try:
+                    return localize_video_metadata_with_deepseek(display_title, display_summary)
+                except RuntimeError as exc:
+                    return exc
+
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                fut_enrich = pool.submit(_run_enrich)
+                fut_analyze = pool.submit(_run_analyze)
+                fut_localize = (
+                    pool.submit(_run_localize)
+                    if display_title or display_summary
+                    else None
                 )
-            except RuntimeError as exc:
-                warnings.append(f"字幕翻译/音标生成失败：{exc}")
-            try:
-                clip_length_est = float(max((s["end"] for s in subtitles), default=fetched.duration or 0))
-                analysis = analyze_subtitles_with_deepseek(subtitles, clip_length=clip_length_est)
-                stars = analysis["stars"]
-                voca_size = analysis["voca_size"]
-                highlight_count = analysis["highlight_count"]
-            except RuntimeError as exc:
-                warnings.append(f"字幕难度/词汇分析失败：{exc}")
+
+                enrich_result = fut_enrich.result()
+                if isinstance(enrich_result, RuntimeError):
+                    warnings.append(f"字幕翻译/音标生成失败：{enrich_result}")
+                else:
+                    translated_count, ipa_count = enrich_result
+
+                analyze_result = fut_analyze.result()
+                if isinstance(analyze_result, RuntimeError):
+                    warnings.append(f"字幕难度/词汇分析失败：{analyze_result}")
+                else:
+                    stars = analyze_result["stars"]
+                    voca_size = analyze_result["voca_size"]
+                    highlight_count = analyze_result["highlight_count"]
+
+                if fut_localize:
+                    localize_result = fut_localize.result()
+                    if isinstance(localize_result, RuntimeError):
+                        warnings.append(f"标题/摘要翻译失败：{localize_result}")
+                    else:
+                        if localize_result.get("title"):
+                            display_title = localize_result["title"]
+                        if localize_result.get("summary") is not None:
+                            display_summary = localize_result["summary"]
     else:
         warnings.append("未找到英文字幕 VTT，请稍后手动导入")
 
     clip_length = float(max((s["end"] for s in subtitles), default=fetched.duration or 0))
-
-    display_title = fetched.title
-    display_summary = fetched.summary
-    if enrich_subtitles and (display_title or display_summary):
-        try:
-            localized = localize_video_metadata_with_deepseek(display_title, display_summary)
-            if localized.get("title"):
-                display_title = localized["title"]
-            if localized.get("summary") is not None:
-                display_summary = localized["summary"]
-        except RuntimeError as exc:
-            warnings.append(f"标题/摘要翻译失败：{exc}")
 
     if len(display_summary) > 2000:
         display_summary = display_summary[:1997].rstrip() + "..."

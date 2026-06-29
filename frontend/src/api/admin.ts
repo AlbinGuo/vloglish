@@ -422,12 +422,16 @@ export async function adminGetEpisodePreview(videoId: string) {
 }
 
 export async function adminCreateEpisode(payload: AdminEpisodePayload) {
-  const { data } = await adminApi.post<AdminEpisodeDetail>('/api/admin/episodes/', payload)
+  const { data } = await adminApi.post<AdminEpisodeDetail>('/api/admin/episodes/', payload, {
+    timeout: 90000,
+  })
   return data
 }
 
 export async function adminUpdateEpisode(id: number, payload: Partial<AdminEpisodePayload>) {
-  const { data } = await adminApi.patch<AdminEpisodeDetail>(`/api/admin/episodes/${id}/`, payload)
+  const { data } = await adminApi.patch<AdminEpisodeDetail>(`/api/admin/episodes/${id}/`, payload, {
+    timeout: 90000,
+  })
   return data
 }
 
