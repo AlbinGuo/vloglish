@@ -254,6 +254,21 @@ onMounted(() => {
         </template>
       </div>
 
+      <div
+        class="rounded-lg border px-3 py-2 text-sm"
+        :class="tecoAuth?.ffmpeg_configured ? 'border-green-200 bg-green-50 text-green-900' : 'border-red-200 bg-red-50 text-red-800'"
+      >
+        <template v-if="tecoAuth?.ffmpeg_configured">
+          已检测到 ffmpeg / ffprobe
+          <span class="text-green-700">（{{ tecoAuth.ffmpeg_dir }}）</span>
+        </template>
+        <template v-else>
+          未找到 ffmpeg 或 ffprobe。请在 <code class="text-xs">backend/.env</code> 配置
+          <code class="text-xs">VLOGISH_TOOLS_DIR=E:\vloglish</code>（目录内需含 ffmpeg.exe、ffprobe.exe），然后重启 backend。
+          <span v-if="tecoAuth?.ffmpeg_dir" class="block mt-1 text-red-700">当前检测目录：{{ tecoAuth.ffmpeg_dir }}</span>
+        </template>
+      </div>
+
       <div class="flex flex-wrap gap-4 text-sm items-end">
         <label class="flex flex-col gap-1">
           <span class="text-neutral-600">起始期</span>
@@ -300,7 +315,7 @@ onMounted(() => {
         <button
           type="button"
           class="rounded-lg bg-amber-900 text-white px-5 py-2 text-sm hover:bg-amber-800 disabled:opacity-50"
-          :disabled="tecoImporting || tecoSyncing || !tecoAuth?.configured"
+          :disabled="tecoImporting || tecoSyncing || !tecoAuth?.configured || !tecoAuth?.ffmpeg_configured"
           @click="importTecoRange"
         >
           {{ tecoImporting ? '导入中...' : `一键导入第 ${indexFrom}–${indexTo} 期` }}

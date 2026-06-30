@@ -178,15 +178,27 @@ def import_episodes_json(
     }
 
 
-def export_episodes_json(db: Session) -> dict:
+def export_episodes_json(
+    db: Session,
+    *,
+    index_from: int | None = None,
+    index_to: int | None = None,
+    video_ids: set[str] | None = None,
+) -> dict:
     from sqlalchemy.orm import joinedload
 
-    episodes = (
+    query = (
         db.query(Episode)
         .options(joinedload(Episode.author), joinedload(Episode.tags), joinedload(Episode.subtitles))
-        .order_by(Episode.id)
-        .all()
+        .order_by(Episode.index.asc().nullslast(), Episode.id.asc())
     )
+    if index_from is not None and index_to is not None:
+        lo, hi = min(index_from, index_to), max(index_from, index_to)
+        query = query.filter(Episode.index >= lo, Episode.index <= hi)
+    if video_ids:
+        query = query.filter(Episode.video_id.in_(video_ids))
+
+    episodes = query.all()
 
     summaries = []
     details = []

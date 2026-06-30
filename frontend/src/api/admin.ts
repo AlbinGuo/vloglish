@@ -562,6 +562,10 @@ export interface AdminTecoAuthStatus {
   has_session_file: boolean
   has_access_token: boolean
   has_email_password: boolean
+  ffmpeg_configured: boolean
+  ffmpeg_dir: string
+  has_ffmpeg: boolean
+  has_ffprobe: boolean
 }
 
 export interface AdminTecoCatalogItem {

@@ -701,6 +701,10 @@ class AdminTecoAuthStatusOut(BaseModel):
     has_session_file: bool
     has_access_token: bool
     has_email_password: bool
+    ffmpeg_configured: bool = False
+    ffmpeg_dir: str = ""
+    has_ffmpeg: bool = False
+    has_ffprobe: bool = False
 
 
 class AdminTecoCatalogItemOut(BaseModel):
