@@ -693,3 +693,81 @@ class AdminLearningStatsOut(BaseModel):
     total_vocabulary_items: int
     top_episodes: list[dict]
     daily_activity: list[dict]
+
+
+class AdminTecoAuthStatusOut(BaseModel):
+    configured: bool
+    session_file: str
+    has_session_file: bool
+    has_access_token: bool
+    has_email_password: bool
+
+
+class AdminTecoCatalogItemOut(BaseModel):
+    video_id: str
+    index: int | None = None
+    short_title: str
+    stars: int = 3
+    clip_length: float = 0
+    subtitle_count: int = 0
+    cover_preview: str = ""
+    exists_in_db: bool = False
+    episode_db_id: int | None = None
+    qiniu_has_video: bool = False
+
+
+class AdminTecoCatalogOut(BaseModel):
+    index_from: int
+    index_to: int
+    count: int
+    results: list[AdminTecoCatalogItemOut]
+
+
+class AdminTecoImportEpisodeIn(BaseModel):
+    video_id: str = Field(min_length=8, max_length=32)
+    index: int | None = None
+    short_title: str = ""
+    status: str = Field(default="published", pattern=EPISODE_STATUS_PATTERN)
+    skip_existing: bool = True
+    apply_branding: bool = True
+    media_mode: str = Field(default="full", pattern="^(full|qiniu_only)$")
+
+
+class AdminTecoImportEpisodeOut(BaseModel):
+    video_id: str
+    skipped: bool = False
+    created: bool = False
+    subtitle_count: int = 0
+    cover_url: str = ""
+    video_url: str = ""
+    warnings: list[str] = []
+    message: str = ""
+
+
+class AdminTecoImportRangeIn(BaseModel):
+    index_from: int = Field(default=150, ge=1)
+    index_to: int = Field(default=190, ge=1)
+    status: str = Field(default="published", pattern=EPISODE_STATUS_PATTERN)
+    skip_existing: bool = True
+    apply_branding: bool = True
+    media_mode: str = Field(default="full", pattern="^(full|qiniu_only)$")
+
+
+class AdminTecoImportRangeOut(BaseModel):
+    index_from: int
+    index_to: int
+    total: int
+    created: int
+    updated: int
+    skipped: int
+    failed: int
+    results: list[AdminTecoImportEpisodeOut]
+    errors: list[str]
+
+
+class AdminTecoSyncDbFromQiniuIn(BaseModel):
+    index_from: int = Field(default=150, ge=1)
+    index_to: int = Field(default=190, ge=1)
+    status: str = Field(default="published", pattern=EPISODE_STATUS_PATTERN)
+    skip_existing: bool = True
+    force_update: bool = False

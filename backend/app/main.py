@@ -25,6 +25,7 @@ from .routers.admin import episodes as admin_episodes
 from .routers.admin import notifications as admin_notifications
 from .routers.admin import presence as admin_presence
 from .routers.admin import tags as admin_tags
+from .routers.admin import teco_import as admin_teco_import
 from .routers.admin import users as admin_users
 from .services.admin_bootstrap import ensure_admin_user
 
@@ -50,6 +51,7 @@ app.include_router(admin_auth.router)
 app.include_router(admin_dashboard.router)
 app.include_router(admin_activation_codes.router)
 app.include_router(admin_users.router)
+app.include_router(admin_teco_import.router)
 app.include_router(admin_episodes.router)
 app.include_router(admin_episode_tools.router)
 app.include_router(admin_episode_import.router)

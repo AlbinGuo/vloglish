@@ -9,10 +9,15 @@ triggers:
         - master
         - main
 
-# 在 Gitee 仓库 → 流水线 → 变量 中配置（标记为「私密」）：
+# 镜像推送认证（二选一，推荐方式 A）：
+#   A) 仓库凭证（推荐）：Gitee → 凭证管理 → 新建 Docker Registry
+#      - 仓库地址：registry.cn-hangzhou.aliyuncs.com
+#      - 用户名/密码：ACR 访问凭证（非阿里云主账号密码）
+#      - 凭证标识（令牌）：vlogish-acr（须与下方 certificate 一致）
+#   B) 账号密码：流水线变量 ACR_USERNAME / ACR_PASSWORD（见下方 build_web 注释切换）
+#
+# 流水线变量（标记为「私密」）：
 #   ACR_REGISTRY      例：registry.cn-hangzhou.aliyuncs.com/vlogish
-#   ACR_USERNAME      阿里云 ACR 用户名
-#   ACR_PASSWORD      阿里云 ACR 密码
 #   DEPLOY_HOST_GROUP Gitee Go 主机组 ID（见 deploy/README.md）
 variables:
   IMAGE_TAG: '${GITEE_PIPELINE_BUILD_NUMBER}'
@@ -26,10 +31,9 @@ stages:
       - step: build@docker
         name: build_backend
         displayName: Backend 镜像
-        repository: ${ACR_REGISTRY}/backend
-        username: ${ACR_USERNAME}
-        password: ${ACR_PASSWORD}
-        tag: ${IMAGE_TAG}
+        type: cert
+        certificate: vlogish-acr
+        tag: ${ACR_REGISTRY}/backend:${IMAGE_TAG}
         dockerfile: ./backend/Dockerfile
         context: .
         isCache: true
@@ -37,13 +41,18 @@ stages:
       - step: build@docker
         name: build_web
         displayName: Web 镜像
-        repository: ${ACR_REGISTRY}/web
-        username: ${ACR_USERNAME}
-        password: ${ACR_PASSWORD}
-        tag: ${IMAGE_TAG}
+        type: cert
+        certificate: vlogish-acr
+        tag: ${ACR_REGISTRY}/web:${IMAGE_TAG}
         dockerfile: ./frontend/Dockerfile
         context: .
         isCache: true
+        # 若不用仓库凭证，改为：
+        # type: account
+        # repository: registry.cn-hangzhou.aliyuncs.com
+        # username: ${ACR_USERNAME}
+        # password: ${ACR_PASSWORD}
+        # tag: vlogish/backend:${IMAGE_TAG}   # web 对应 vlogish/web:${IMAGE_TAG}
 
   - stage: deploy_prod
     displayName: 部署生产

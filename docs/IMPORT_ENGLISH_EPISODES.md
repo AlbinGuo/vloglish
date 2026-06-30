@@ -1,10 +1,8 @@
 # 从 teco-lab.com /english 拉取剧集
 
-脚本：`backend/scripts/import_english_episodes.py`
+## 推荐：管理端一键导入
 
-## 1. 导出浏览器登录态（推荐）
-
-在 **已登录** 的 https://www.teco-lab.com/english 页面打开开发者工具 → Console，执行：
+1. 在 **已登录** 的 https://www.teco-lab.com/english 打开开发者工具 → Console，执行：
 
 ```javascript
 copy(JSON.stringify({
@@ -14,44 +12,41 @@ copy(JSON.stringify({
 }, null, 2))
 ```
 
-将复制的内容保存为：
+2. 保存为 `backend/data/teco_session.json`
+
+3. 配置七牛 `QINIU_*` 与 ffmpeg（`FFMPEG_DIR` 或 `VLOGISH_TOOLS_DIR`）
+
+4. 管理后台 → **导入导出** → **从 teco-lab.com 导入**
+   - 默认导入第 **150–190** 期
+   - 自动：去左上角原站水印、加 **vloglish** 水印、从视频截帧生成**独立封面**（不用 teco 原图）
+
+## 品牌化说明
+
+| 项目 | 行为 |
+|------|------|
+| 视频 | ffmpeg `delogo` 去除左上角区域 + `drawtext` 加 vloglish |
+| 封面 | 从视频 10%–45% 处截帧（每期偏移不同）+ vloglish / Ep.N / 标题条 |
+| 字幕 | 直接使用 teco detail API（中英 + IPA），无需 DeepSeek |
+
+可在 `backend/.env` 调整：
 
 ```
-backend/data/teco_session.json
+VLOGISH_DELOGO_X=0
+VLOGISH_DELOGO_Y=0
+VLOGISH_DELOGO_W=150
+VLOGISH_DELOGO_H=52
+VLOGISH_WATERMARK_TEXT=vloglish
 ```
 
-## 2. 运行导入
+## CLI（可选）
 
 ```bash
 cd backend
-.venv\Scripts\activate
 python scripts/import_english_episodes.py 5
 ```
 
-流程：
+脚本仍可用；管理端导入会额外做品牌化与自生成封面。
 
-1. 从 `/api/episode-list/` 取 `/english` 目录前 5 期（**不走 /demo**）
-2. 用会员 token 拉取 `/api/episode/{video_id}/detail/`（含完整字幕）
-3. 下载封面、视频、音频
-4. 上传七牛（需配置 `QINIU_*`）
-5. 写入本地 SQLite，`status=published`
+## 合规提示
 
-## 可选参数
-
-| 参数 | 说明 |
-|------|------|
-| `5` | 导入条数，默认 5 |
-| `--list-only` | 只拉列表，不下载媒体 |
-| `--token eyJ...` | 直接传 access token |
-| `--session path/to.json` | 指定 session 文件 |
-
-或在 `backend/.env` 中设置：
-
-```
-TECO_ACCESS_TOKEN=...
-TECO_DEVICE_ID=...   # 与浏览器 localStorage.device_id 一致
-```
-
-## 验证
-
-重启 backend + frontend，用 **会员账号** 登录本地站，打开 `/english` 应能看到新导入的 5 期，进入学习页字幕应随视频滚动。
+对外商用请确保你对素材、字幕与衍生处理拥有合法授权；本工具仅提供技术导入能力。

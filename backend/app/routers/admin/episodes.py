@@ -17,6 +17,7 @@ from ...schemas import (
 from ...serializers import episode_detail
 from ...services.episode_admin import (
     apply_episode_fields,
+    delete_episode_with_dependencies,
     generate_video_id,
     get_or_create_author,
     replace_subtitles,
@@ -259,6 +260,6 @@ def delete_episode(
     db: Session = Depends(get_db),
 ):
     ep = _get_episode_or_404(db, episode_id)
-    db.delete(ep)
+    delete_episode_with_dependencies(db, ep)
     db.commit()
     return {"success": True}

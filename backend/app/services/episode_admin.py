@@ -1,11 +1,26 @@
 import secrets
 
-from sqlalchemy import func
+from sqlalchemy import delete, func
 from sqlalchemy.orm import Session
 
 from datetime import datetime, timedelta
 
-from ..models import Author, Episode, Subtitle, Tag
+from ..models import (
+    Author,
+    Episode,
+    EpisodeFavorite,
+    LearningSession,
+    Subtitle,
+    Tag,
+    UserEpisodeFavorite,
+    UserEpisodeProgress,
+    UserNotification,
+    UserSubtitleProgress,
+    UserVocabularyItem,
+    UserWordLookup,
+    demo_episodes,
+    episode_tags,
+)
 from .vtt_import import words_to_html
 
 VALID_STATUSES = {"draft", "published", "archived", "rejected"}
@@ -68,26 +83,41 @@ def episode_is_new(episode: Episode) -> bool:
 
 
 def replace_subtitles(db: Session, episode_id: int, rows: list[dict]) -> None:
+    subtitle_ids = [
+        sid for (sid,) in db.query(Subtitle.id).filter(Subtitle.episode_id == episode_id).all()
+    ]
+    if subtitle_ids:
+        db.query(UserSubtitleProgress).filter(
+            UserSubtitleProgress.subtitle_id.in_(subtitle_ids)
+        ).delete(synchronize_session=False)
     db.query(Subtitle).filter(Subtitle.episode_id == episode_id).delete()
     db.flush()
+    if not rows:
+        return
+
     next_id = (db.query(func.max(Subtitle.id)).scalar() or 0) + 1
+    mappings: list[dict] = []
     for row in rows:
         english = row["english"].strip()
-        english_html = row.get("english_html", "").strip() or words_to_html(english)
-        db.add(
-            Subtitle(
-                id=next_id,
-                episode_id=episode_id,
-                index=row["index"],
-                start=row["start"],
-                end=row["end"],
-                english=english,
-                chinese=row.get("chinese", ""),
-                ipa=row.get("ipa", ""),
-                english_html=english_html,
-            )
+        english_html = (row.get("english_html") or "").strip()
+        if not english_html:
+            english_html = words_to_html(english)
+        mappings.append(
+            {
+                "id": next_id,
+                "episode_id": episode_id,
+                "index": row["index"],
+                "start": row["start"],
+                "end": row["end"],
+                "english": english,
+                "chinese": row.get("chinese", ""),
+                "ipa": row.get("ipa", ""),
+                "english_html": english_html,
+            }
         )
         next_id += 1
+    db.bulk_insert_mappings(Subtitle, mappings)
+    db.flush()
 
 
 def apply_episode_fields(ep: Episode, data: dict, *, author: Author, tags: list[Tag]) -> None:
@@ -130,3 +160,55 @@ def apply_episode_fields(ep: Episode, data: dict, *, author: Author, tags: list[
     subtitles = data.get("subtitles")
     if subtitles is not None:
         ep.subtitle_count, ep.clip_length = subtitle_stats(subtitles)
+
+
+def delete_episode_with_dependencies(db: Session, episode: Episode) -> None:
+    """Remove episode and all rows that reference it (favorites, progress, etc.)."""
+    episode_id = episode.id
+    subtitle_ids = [
+        row[0]
+        for row in db.query(Subtitle.id).filter(Subtitle.episode_id == episode_id).all()
+    ]
+
+    db.query(UserSubtitleProgress).filter(UserSubtitleProgress.episode_id == episode_id).delete(
+        synchronize_session=False
+    )
+    if subtitle_ids:
+        db.query(UserWordLookup).filter(UserWordLookup.subtitle_id.in_(subtitle_ids)).update(
+            {UserWordLookup.subtitle_id: None},
+            synchronize_session=False,
+        )
+        db.query(UserVocabularyItem).filter(UserVocabularyItem.source_subtitle_id.in_(subtitle_ids)).update(
+            {UserVocabularyItem.source_subtitle_id: None},
+            synchronize_session=False,
+        )
+    db.query(UserWordLookup).filter(UserWordLookup.episode_id == episode_id).delete(
+        synchronize_session=False
+    )
+    db.query(UserVocabularyItem).filter(UserVocabularyItem.source_episode_id == episode_id).update(
+        {
+            UserVocabularyItem.source_episode_id: None,
+            UserVocabularyItem.source_subtitle_id: None,
+        },
+        synchronize_session=False,
+    )
+    db.query(EpisodeFavorite).filter(EpisodeFavorite.episode_id == episode_id).delete(
+        synchronize_session=False
+    )
+    db.query(UserEpisodeFavorite).filter(UserEpisodeFavorite.episode_id == episode_id).delete(
+        synchronize_session=False
+    )
+    db.query(UserEpisodeProgress).filter(UserEpisodeProgress.episode_id == episode_id).delete(
+        synchronize_session=False
+    )
+    db.query(LearningSession).filter(LearningSession.episode_id == episode_id).delete(
+        synchronize_session=False
+    )
+    db.query(UserNotification).filter(UserNotification.episode_id == episode_id).update(
+        {UserNotification.episode_id: None},
+        synchronize_session=False,
+    )
+    db.query(Subtitle).filter(Subtitle.episode_id == episode_id).delete(synchronize_session=False)
+    db.execute(delete(episode_tags).where(episode_tags.c.episode_id == episode_id))
+    db.execute(delete(demo_episodes).where(demo_episodes.c.episode_id == episode_id))
+    db.delete(episode)

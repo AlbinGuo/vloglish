@@ -4,7 +4,7 @@
 """
 
 # "local" = 本机开发库 | "remote" = 生产库（抓取 TikTok/YouTube 时用）
-ACTIVE_DB = "local"
+ACTIVE_DB = "remote"
 
 # 密码含 # $ ! 等须 URL 编码，例：G7#kLp$Qw9!zR → G7%23kLp%24Qw9%21zR
 DATABASE_URLS = {
