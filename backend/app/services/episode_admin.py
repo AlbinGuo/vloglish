@@ -19,7 +19,6 @@ from ..models import (
     UserVocabularyItem,
     UserWordLookup,
     demo_episodes,
-    episode_tags,
 )
 from .vtt_import import words_to_html
 
@@ -209,6 +208,8 @@ def delete_episode_with_dependencies(db: Session, episode: Episode) -> None:
         synchronize_session=False,
     )
     db.query(Subtitle).filter(Subtitle.episode_id == episode_id).delete(synchronize_session=False)
-    db.execute(delete(episode_tags).where(episode_tags.c.episode_id == episode_id))
+    # Clear M2M via ORM first; manual DELETE + db.delete(episode) causes StaleDataError
+    episode.tags = []
+    db.flush()
     db.execute(delete(demo_episodes).where(demo_episodes.c.episode_id == episode_id))
     db.delete(episode)
