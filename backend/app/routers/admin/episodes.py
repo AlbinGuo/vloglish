@@ -103,7 +103,7 @@ def list_episodes(
     search: str | None = None,
     status: str | None = Query(None, pattern="^(draft|published|archived|rejected)$"),
     stars: int | None = Query(None, ge=1, le=5),
-    sort_by: str = Query("id"),
+    sort_by: str = Query("index"),
     sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     _admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
@@ -124,6 +124,7 @@ def list_episodes(
         results.append(
             AdminEpisodeListItemOut(
                 id=ep.id,
+                index=ep.index,
                 video_id=ep.video_id,
                 short_title=ep.short_title,
                 stars=ep.stars,

@@ -17,7 +17,7 @@ const pageSize = ref(20)
 const total = ref(0)
 const rows = ref<AdminEpisodeListItem[]>([])
 const error = ref('')
-const sortBy = ref<AdminEpisodeSortField>('play_count')
+const sortBy = ref<AdminEpisodeSortField>('index')
 const sortDir = ref<'asc' | 'desc'>('desc')
 
 const sortableColumns: { key: AdminEpisodeSortField; label: string; title?: string }[] = [
@@ -178,6 +178,17 @@ onMounted(load)
       <table v-else class="w-full text-sm min-w-[72rem]">
         <thead class="bg-neutral-50 text-neutral-500">
           <tr>
+            <th class="text-right px-4 py-3 font-medium w-16 whitespace-nowrap">
+              <button
+                type="button"
+                class="inline-flex items-center gap-0.5 hover:text-neutral-900"
+                :class="sortBy === 'index' ? 'text-neutral-900' : ''"
+                title="剧集期数 index"
+                @click="toggleSort('index')"
+              >
+                排序号码{{ sortIndicator('index') }}
+              </button>
+            </th>
             <th class="text-left px-4 py-3 font-medium w-24">封面</th>
             <th class="text-left px-4 py-3 font-medium">标题</th>
             <th class="text-left px-4 py-3 font-medium">作者</th>
@@ -207,6 +218,7 @@ onMounted(load)
         </thead>
         <tbody>
           <tr v-for="row in rows" :key="row.id" class="border-t border-black/5">
+            <td class="px-4 py-3 text-right tabular-nums text-neutral-600">{{ row.index }}</td>
             <td class="px-4 py-3">
               <img
                 v-if="row.cover"
@@ -281,7 +293,7 @@ onMounted(load)
             </td>
           </tr>
           <tr v-if="!rows.length">
-            <td colspan="16" class="px-4 py-8 text-center text-neutral-500">暂无剧集</td>
+            <td colspan="17" class="px-4 py-8 text-center text-neutral-500">暂无剧集</td>
           </tr>
         </tbody>
       </table>

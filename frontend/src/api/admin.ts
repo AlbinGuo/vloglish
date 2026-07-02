@@ -269,6 +269,7 @@ export interface AdminSubtitle {
 
 export interface AdminEpisodeListItem {
   id: number
+  index: number
   video_id: string
   short_title: string
   stars: number
@@ -291,6 +292,7 @@ export interface AdminEpisodeListItem {
 
 export type AdminEpisodeSortField =
   | 'id'
+  | 'index'
   | 'play_count'
   | 'unique_learners'
   | 'completions'

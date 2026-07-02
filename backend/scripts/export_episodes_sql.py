@@ -177,9 +177,11 @@ def export_sql(
             )
 
         for sub in sorted(ep.subtitles, key=lambda s: s.index):
+            # subtitles.id 由应用侧 MAX(id)+1 分配，无自增序列时须显式取新 id，避免 subtitles_pkey 冲突
             lines.append(
-                "INSERT INTO subtitles (episode_id, index, start, \"end\", english, chinese, ipa, english_html)\n"
-                f"SELECT e.id, {sub.index}, {float(sub.start)}, {float(sub.end)}, "
+                "INSERT INTO subtitles (id, episode_id, index, start, \"end\", english, chinese, ipa, english_html)\n"
+                f"SELECT (SELECT COALESCE(MAX(id), 0) + 1 FROM subtitles), e.id, {sub.index}, "
+                f"{float(sub.start)}, {float(sub.end)}, "
                 f"{sql_literal(sub.english)}, {sql_literal(sub.chinese or '')}, "
                 f"{sql_literal(sub.ipa or '')}, {sql_literal(sub.english_html or '')}\n"
                 f"FROM episodes e WHERE e.video_id = {sql_literal(vid)};"
@@ -188,11 +190,15 @@ def export_sql(
 
     lines.extend(
         [
-            "-- sync tags id sequence if present",
+            "-- sync id sequences if present",
             "SELECT setval(",
             "  pg_get_serial_sequence('tags', 'id'),",
             "  GREATEST(COALESCE((SELECT MAX(id) FROM tags), 1), 1)",
             ") WHERE pg_get_serial_sequence('tags', 'id') IS NOT NULL;",
+            "SELECT setval(",
+            "  pg_get_serial_sequence('subtitles', 'id'),",
+            "  GREATEST(COALESCE((SELECT MAX(id) FROM subtitles), 1), 1)",
+            ") WHERE pg_get_serial_sequence('subtitles', 'id') IS NOT NULL;",
             "",
             "COMMIT;",
             "",

@@ -276,6 +276,7 @@ class AdminEpisodeUpdateIn(BaseModel):
 
 class AdminEpisodeListItemOut(BaseModel):
     id: int
+    index: int
     video_id: str
     short_title: str
     stars: int
