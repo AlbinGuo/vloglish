@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { sendPresenceHeartbeat } from '@/api/presence'
+import { useCatalogMobileHeaderHide } from '@/composables/useCatalogMobileHeaderHide'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notifications'
 import ThemeToggle from '@/components/ThemeToggle.vue'
@@ -12,6 +13,7 @@ const auth = useAuthStore()
 const notifications = useNotificationStore()
 
 const immersive = computed(() => Boolean(route.meta.immersive))
+const { headerVisible: catalogHeaderVisible, catalogHeaderAutoHide } = useCatalogMobileHeaderHide()
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -82,7 +84,11 @@ watch(
   >
     <header
       v-if="!immersive"
-      class="sticky top-0 z-40 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-b border-black/5 dark:border-white/10"
+      class="z-40 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-b border-black/5 dark:border-white/10 transition-transform duration-300 ease-out will-change-transform"
+      :class="[
+        catalogHeaderAutoHide ? 'fixed inset-x-0 top-0' : 'sticky top-0',
+        catalogHeaderVisible ? 'translate-y-0' : '-translate-y-full',
+      ]"
     >
       <div class="page-container py-3 flex items-center justify-between gap-4">
         <RouterLink to="/english" class="flex flex-col shrink-0">
@@ -151,6 +157,12 @@ watch(
         </div>
       </div>
     </header>
+    <div
+      v-if="!immersive && catalogHeaderAutoHide"
+      class="shrink-0 pointer-events-none overflow-hidden transition-[height] duration-300 ease-out"
+      :class="catalogHeaderVisible ? 'h-[4.25rem]' : 'h-0'"
+      aria-hidden="true"
+    />
     <main class="flex-1" :class="immersive ? 'min-h-0 overflow-hidden' : ''">
       <RouterView v-slot="{ Component, route }">
         <KeepAlive include="HomePage">
