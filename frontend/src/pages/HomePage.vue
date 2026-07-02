@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getRecentEpisodes, type RecentEpisode } from '@/api/learning'
+import { useCatalogScrollMemory } from '@/composables/useCatalogScrollMemory'
 import { useCatalogViewMode } from '@/composables/useCatalogViewMode'
 import { useIsMobile } from '@/composables/useBreakpoint'
 import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
@@ -14,6 +15,8 @@ import CatalogViewSettings from '@/components/catalog/CatalogViewSettings.vue'
 import CatalogEpisodeSkeletons from '@/components/skeleton/CatalogEpisodeSkeletons.vue'
 import EpisodeCard from '@/components/EpisodeCard.vue'
 import EpisodeListRow from '@/components/EpisodeListRow.vue'
+
+defineOptions({ name: 'HomePage' })
 
 const store = useCatalogStore()
 const auth = useAuthStore()
@@ -29,6 +32,8 @@ const showSubmitEpisodeEntry = false
 const loadMoreSentinel = ref<HTMLElement | null>(null)
 const recentLearning = ref<RecentEpisode[]>([])
 let loadMoreObserver: IntersectionObserver | null = null
+
+const { restore: restoreCatalogScroll } = useCatalogScrollMemory()
 
 const skeletonCount = computed(() =>
   displayViewMode.value === 'card' ? CARD_INITIAL_SIZE : LIST_INITIAL_SIZE,
@@ -64,7 +69,9 @@ function setupLoadMoreObserver() {
 onMounted(async () => {
   await store.loadFilters()
   store.setListViewMode(displayViewMode.value)
-  await store.loadEpisodes()
+  if (!store.episodes.length) {
+    await store.loadEpisodes()
+  }
   if (auth.isLoggedIn) {
     try {
       recentLearning.value = (await getRecentEpisodes()).filter((e) => !e.is_completed).slice(0, 5)
@@ -73,6 +80,7 @@ onMounted(async () => {
     }
   }
   setupLoadMoreObserver()
+  await restoreCatalogScroll()
 })
 
 onUnmounted(() => {

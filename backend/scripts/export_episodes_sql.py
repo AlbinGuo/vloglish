@@ -39,7 +39,6 @@ def export_sql(
     *,
     index_from: int | None,
     index_to: int | None,
-    indices: list[int] | None,
     status: str,
 ) -> str:
     db = SessionLocal()
@@ -53,9 +52,7 @@ def export_sql(
             )
             .order_by(Episode.index.asc(), Episode.id.asc())
         )
-        if indices:
-            query = query.filter(Episode.index.in_(indices))
-        elif index_from is not None and index_to is not None:
+        if index_from is not None and index_to is not None:
             lo, hi = min(index_from, index_to), max(index_from, index_to)
             query = query.filter(Episode.index >= lo, Episode.index <= hi)
         episodes = query.all()
@@ -65,13 +62,10 @@ def export_sql(
     if not episodes:
         raise SystemExit("No episodes matched the filter.")
 
-    index_label = (
-        f"indices {sorted(set(indices))}" if indices else f"index {episodes[0].index}..{episodes[-1].index}"
-    )
     lines: list[str] = [
         "-- vlogish episode import SQL",
         f"-- generated: {datetime.utcnow().isoformat()}Z",
-        f"-- episodes: {len(episodes)} ({index_label})",
+        f"-- episodes: {len(episodes)} (index {episodes[0].index}..{episodes[-1].index})",
         "-- Run on production PostgreSQL inside transaction.",
         "",
         "BEGIN;",
@@ -210,36 +204,16 @@ def export_sql(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Export episodes to PostgreSQL SQL file")
-    parser.add_argument("--index-from", type=int, help="Export from episode index (inclusive)")
-    parser.add_argument("--index-to", type=int, help="Export to episode index (inclusive)")
-    parser.add_argument(
-        "--indices",
-        type=str,
-        help="Comma-separated index values, e.g. 137,134,132,131,130,0 (includes all episodes with index=0)",
-    )
+    parser.add_argument("--index-from", type=int, default=140)
+    parser.add_argument("--index-to", type=int, default=190)
     parser.add_argument("--status", default="published", choices=["published", "draft", "archived"])
     parser.add_argument("-o", "--output", type=Path, default=DEFAULT_OUT)
     args = parser.parse_args()
 
-    indices: list[int] | None = None
-    if args.indices:
-        indices = [int(x.strip()) for x in args.indices.split(",") if x.strip()]
-
-    index_from = args.index_from
-    index_to = args.index_to
-    if indices is None:
-        index_from = index_from if index_from is not None else 140
-        index_to = index_to if index_to is not None else 190
-
     db_url = resolve_database_url("sqlite")
     print(f"[export-sql] database → {database_host_label(db_url)}")
 
-    sql = export_sql(
-        index_from=index_from,
-        index_to=index_to,
-        indices=indices,
-        status=args.status,
-    )
+    sql = export_sql(index_from=args.index_from, index_to=args.index_to, status=args.status)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(sql, encoding="utf-8")
     size_mb = args.output.stat().st_size / (1024 * 1024)

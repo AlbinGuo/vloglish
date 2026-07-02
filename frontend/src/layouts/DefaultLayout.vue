@@ -152,7 +152,14 @@ watch(
       </div>
     </header>
     <main class="flex-1" :class="immersive ? 'min-h-0 overflow-hidden' : ''">
-      <RouterView />
+      <RouterView v-slot="{ Component, route }">
+        <KeepAlive include="HomePage">
+          <component
+            :is="Component"
+            :key="route.name === 'HomePage' ? 'HomePage' : route.fullPath"
+          />
+        </KeepAlive>
+      </RouterView>
     </main>
   </div>
 </template>

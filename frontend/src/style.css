@@ -18,6 +18,13 @@ body {
   min-height: 100dvh;
 }
 
+/* 移动端：禁止双指/双击缩放（配合 viewport meta） */
+@media (max-width: 1023px) {
+  html {
+    touch-action: manipulation;
+  }
+}
+
 a,
 button:not(:disabled),
 [type="button"]:not(:disabled),
