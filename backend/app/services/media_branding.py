@@ -192,6 +192,60 @@ def _delogo_chain(width: int, height: int, *, include_top: bool, include_bottom:
     return ",".join(filters)
 
 
+def _add_vloglish_watermark() -> bool:
+    """When true, overlay vloglish text on video/cover (legacy branding)."""
+    return os.getenv("VLOGISH_ADD_WATERMARK", "false").lower() in {"1", "true", "yes"}
+
+
+def _strip_source_watermarks() -> bool:
+    return os.getenv("VLOGISH_STRIP_SOURCE_WATERMARK", "true").lower() not in {"0", "false", "no"}
+
+
+def build_strip_watermarks_filter_complex(*, width: int, height: int, use_delogo: bool) -> str:
+    """Remove teco top-left / bottom-left marks via delogo + frosted patches (no vloglish text)."""
+    wx, wy = _watermark_pos()
+    ww = min(_watermark_bar_width(frame_width=width), width) if width > 0 else _watermark_bar_width(frame_width=width)
+    wh = min(_watermark_height(), height) if height > 0 else _watermark_height()
+    if ww < 16 or wh < 12:
+        ww = min(455, width or 455)
+        wh = min(52, height or 52)
+
+    bl_x, bl_y, bl_w, bl_h = _bottom_left_badge_rect(width, height)
+    use_bl_patch = _bottom_left_patch_enabled() and bl_w >= 16 and bl_h >= 12
+
+    blur_lr = _int_env("VLOGISH_WATERMARK_BLUR_LR", 12)
+    blur_lp = _int_env("VLOGISH_WATERMARK_BLUR_LP", 2)
+    top_blur = _boxblur_for_crop(blur_lr, blur_lp, ww, wh)
+    bl_blur = _boxblur_for_crop(blur_lr, blur_lp, bl_w, bl_h)
+    tint = os.getenv("VLOGISH_WATERMARK_TINT", "0.22").strip() or "0.22"
+
+    delogos = ""
+    if use_delogo and _delogo_enabled():
+        delogos = _delogo_chain(width, height, include_top=True, include_bottom=use_bl_patch)
+    head = f"[0:v]{delogos}," if delogos else "[0:v]"
+
+    if use_bl_patch:
+        return (
+            f"{head}split=3[main][wm_src][bl_src];"
+            f"[wm_src]crop={ww}:{wh}:{wx}:{wy},{top_blur}[wm_blur];"
+            f"[bl_src]crop={bl_w}:{bl_h}:{bl_x}:{bl_y},{bl_blur}[bl_blur];"
+            f"[main][wm_blur]overlay={wx}:{wy}[wm_base];"
+            f"[wm_base][bl_blur]overlay={bl_x}:{bl_y}[wm_base2];"
+            f"[wm_base2]drawbox=x={wx}:y={wy}:w={ww}:h={wh}:color=black@{tint}:t=fill[wm_tint_tl];"
+            f"[wm_tint_tl]drawbox=x={bl_x}:y={bl_y}:w={bl_w}:h={bl_h}:color=black@{tint}:t=fill[vout]"
+        )
+
+    if delogos:
+        return (
+            f"{head}split=2[main][wm_src];"
+            f"[wm_src]crop={ww}:{wh}:{wx}:{wy},{top_blur}[wm_blur];"
+            f"[main][wm_blur]overlay={wx}:{wy}[wm_base];"
+            f"[wm_base]drawbox=x={wx}:y={wy}:w={ww}:h={wh}:color=black@{tint}:t=fill[vout]"
+        )
+
+    return "[0:v]copy[vout]"
+
+
 def build_watermark_filter_complex(*, font_name: str, width: int, height: int, use_delogo: bool) -> str:
     """Top-left vloglish bar + bottom-left Ep.NNN removal."""
     wx, wy = _watermark_pos()
@@ -280,37 +334,50 @@ def cover_sample_offset_sec(video_id: str, duration: float, clip_length_hint: fl
     return max(1.0, min(offset, max(dur - 2.0, 1.0)))
 
 
+def strip_video_watermarks(input_path: Path, output_path: Path | None = None) -> Path:
+    ffmpeg_dir = get_ffmpeg_dir()
+    vw, vh = _probe_video_size(input_path, ffmpeg_dir)
+    for use_delogo in (True, False):
+        try:
+            fc = build_strip_watermarks_filter_complex(width=vw, height=vh, use_delogo=use_delogo)
+            return _run_video_filter(input_path, output_path, fc, "视频去原站水印失败")
+        except RuntimeError as exc:
+            msg = str(exc).lower()
+            if use_delogo and ("delogo" in msg or "logo area" in msg):
+                continue
+            raise
+    raise RuntimeError("视频去原站水印失败")
+
+
 def brand_video(input_path: Path, output_path: Path | None = None) -> Path:
     ffmpeg_dir = get_ffmpeg_dir()
     vw, vh = _probe_video_size(input_path, ffmpeg_dir)
-    try:
-        return _run_brand_video(input_path, output_path, vw, vh, use_delogo=True)
-    except RuntimeError as exc:
-        msg = str(exc)
-        if "delogo" in msg.lower() or "logo area" in msg.lower():
-            return _run_brand_video(input_path, output_path, vw, vh, use_delogo=False)
-        raise
+    work_dir = input_path.parent
+    font_name = _ensure_local_font(work_dir)
+    for use_delogo in (True, False):
+        try:
+            fc = build_watermark_filter_complex(
+                font_name=font_name, width=vw, height=vh, use_delogo=use_delogo
+            )
+            return _run_video_filter(input_path, output_path, fc, "视频去水印/加水印失败")
+        except RuntimeError as exc:
+            msg = str(exc).lower()
+            if use_delogo and ("delogo" in msg or "logo area" in msg):
+                continue
+            raise
+    raise RuntimeError("视频去水印/加水印失败")
 
 
-def _run_brand_video(
+def _run_video_filter(
     input_path: Path,
     output_path: Path | None,
-    width: int,
-    height: int,
-    *,
-    use_delogo: bool,
+    filter_complex: str,
+    error_hint: str,
 ) -> Path:
     ffmpeg_dir = get_ffmpeg_dir()
     ffmpeg = _ffmpeg_bin(ffmpeg_dir, "ffmpeg")
     work_dir = input_path.parent
-    font_name = _ensure_local_font(work_dir)
-    fc = build_watermark_filter_complex(
-        font_name=font_name,
-        width=width,
-        height=height,
-        use_delogo=use_delogo,
-    )
-    dest = output_path or input_path.with_name(f"{input_path.stem}.branded{input_path.suffix}")
+    dest = output_path or input_path.with_name(f"{input_path.stem}.processed{input_path.suffix}")
     timeout = int(os.getenv("FFMPEG_BRAND_TIMEOUT", "1800"))
 
     cmd = [
@@ -319,7 +386,7 @@ def _run_brand_video(
         "-i",
         input_path.name,
         "-filter_complex",
-        fc,
+        filter_complex,
         "-map",
         "[vout]",
         "-map",
@@ -347,11 +414,11 @@ def _run_brand_video(
     )
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout or "").strip()
-        raise RuntimeError(detail[-2000:] if detail else "视频去水印/加水印失败")
+        raise RuntimeError(detail[-2000:] if detail else error_hint)
 
     if dest.resolve() != input_path.resolve():
-        branded = work_dir / dest.name
-        branded.replace(input_path)
+        processed = work_dir / dest.name
+        processed.replace(input_path)
     return input_path
 
 
@@ -448,9 +515,45 @@ def brand_cover_image(
     return final
 
 
+def _frame_to_cover_webp(cover_path: Path, output_path: Path) -> Path:
+    ffmpeg_dir = get_ffmpeg_dir()
+    ffmpeg = _ffmpeg_bin(ffmpeg_dir, "ffmpeg")
+    work_dir = cover_path.parent
+    dest = output_path if output_path.suffix else output_path.with_suffix(".webp")
+    proc = subprocess.run(
+        [
+            ffmpeg,
+            "-y",
+            "-i",
+            cover_path.name,
+            "-vf",
+            "scale=1280:-2",
+            dest.name,
+        ],
+        cwd=work_dir,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+    )
+    if proc.returncode != 0 or not (work_dir / dest.name).is_file():
+        detail = (proc.stderr or proc.stdout or "").strip()
+        raise RuntimeError(detail[-1500:] if detail else "封面生成失败")
+    final = work_dir / dest.name
+    if cover_path.suffix.lower() != final.suffix.lower():
+        cover_path.unlink(missing_ok=True)
+    return final
+
+
 def process_imported_video(video_path: Path) -> Path:
-    branded = brand_video(video_path)
-    path, _ = ensure_browser_compatible_video(branded, get_ffmpeg_dir())
+    if _add_vloglish_watermark():
+        processed = brand_video(video_path)
+    elif _strip_source_watermarks():
+        processed = strip_video_watermarks(video_path)
+    else:
+        processed = video_path
+    path, _ = ensure_browser_compatible_video(processed, get_ffmpeg_dir())
     return path
 
 
@@ -467,9 +570,12 @@ def generate_episode_cover(
     ts = cover_sample_offset_sec(video_id, duration, clip_length_hint)
     raw = dest_path.with_suffix(".jpg")
     extract_cover_frame(video_path, raw, ts)
-    return brand_cover_image(
-        raw,
-        episode_index=episode_index,
-        short_title=short_title,
-        output_path=dest_path.with_suffix(".webp"),
-    )
+    out = dest_path.with_suffix(".webp")
+    if _add_vloglish_watermark():
+        return brand_cover_image(
+            raw,
+            episode_index=episode_index,
+            short_title=short_title,
+            output_path=out,
+        )
+    return _frame_to_cover_webp(raw, out)

@@ -225,8 +225,8 @@ onMounted(() => {
         <div>
           <h2 class="font-medium text-amber-950">从 teco-lab.com 导入</h2>
           <p class="text-sm text-amber-900/80 mt-1">
-            拉取会员目录剧集，下载视频/音频/字幕，去除左上角原站水印并加上 <strong>vloglish</strong> 标识；
-            封面从视频截帧生成（每期不同），不使用 teco-lab 原封面。
+            拉取会员目录剧集，下载视频/音频/字幕，去除原站左上角/左下角水印（<strong>不添加</strong> vloglish 视频水印）；
+            封面从视频截帧生成（无 vloglish 标识）。
           </p>
         </div>
         <button
@@ -291,7 +291,7 @@ onMounted(() => {
         </label>
         <label class="flex items-center gap-2 pb-1.5">
           <input v-model="applyBranding" type="checkbox" class="rounded" />
-          <span>去原水印 + vloglish 水印 + 自生成封面</span>
+          <span>去除原站水印 + 自生成封面（视频不加 vloglish 水印）</span>
         </label>
       </div>
 

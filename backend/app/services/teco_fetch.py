@@ -238,7 +238,7 @@ def import_teco_episode(
                 except RuntimeError as exc:
                     warnings.append(f"封面生成失败: {exc}")
             else:
-                warnings.append("已跳过品牌化")
+                warnings.append("已跳过视频处理")
 
             audio_url = media.get("audio_url") or ""
             if audio_url:
