@@ -19,7 +19,8 @@ class Cue:
 
 
 def parse_timestamp(value: str) -> float:
-    parts = value.strip().split(":")
+    token = value.strip().split()[0]
+    parts = token.split(":")
     if len(parts) == 3:
         h, m, s = parts
         return int(h) * 3600 + int(m) * 60 + float(s)
@@ -75,6 +76,9 @@ def merge_into_sentences(cues: list[Cue], *, gap_threshold: float = 0.8) -> list
             merged.append(Cue(start=buf_start, end=buf_end, text=text))
             buf_parts = []
             buf_start = None
+
+    if buf_parts and buf_start is not None:
+        merged.append(Cue(start=buf_start, end=buf_end, text=" ".join(buf_parts).strip()))
 
     return merged
 

@@ -207,8 +207,9 @@ def _format_ytdlp_error(detail: str, url: str) -> str:
         elif "youtube.com" in url.lower() or "youtu.be" in url.lower():
             platform = "YouTube"
         return (
-            f"服务器无法直连 {platform}（国内 ECS 常见）。"
-            "请在本地 Windows 运行抓取后上传七牛，或在 .env.prod 配置 YT_DLP_PROXY 代理后重试。"
+            f"无法直连 {platform}（国内网络或 ECS 常见）。"
+            "本地开发请在 backend/.env 配置 YT_DLP_PROXY；生产环境请在 .env.prod 配置可访问的代理，"
+            "或在本地 Windows 抓取后上传七牛。"
             f"\n\n原始错误：{detail[-800:]}"
         )
     return detail[-2000:] if detail else "yt-dlp 执行失败"

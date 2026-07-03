@@ -10,9 +10,18 @@ export function resolveDisplaySub(subs: Subtitle[], t: number): Subtitle | null 
   return subs[subs.length - 1]
 }
 
+export function stripSpeakerMarkers(text: string): string {
+  if (!text) return ''
+  return text.replace(/>>+/g, '').replace(/\s+/g, ' ').trim()
+}
+
 /** Preprocess english_html before v-html render. */
 export function preprocessSubtitleHtml(html: string, options: { blank?: boolean } = {}): string {
   let result = html
+
+  // 访谈类字幕里的说话人标记 >>
+  result = result.replace(/(?:<span>\s*>+\s*<\/span>\s*)+/gi, '')
+  result = result.replace(/>>+/g, '')
 
   // 短语 span（pid）保持整段不换行
   result = result.replace(/<span(\s[^>]*\bpid="[^"]+"[^>]*)>/gi, (_match, attrs: string) => {

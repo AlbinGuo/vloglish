@@ -20,7 +20,7 @@ from ..models import (
     UserWordLookup,
     demo_episodes,
 )
-from .vtt_import import words_to_html
+from .vtt_import import normalize_subtitle_fields
 
 VALID_STATUSES = {"draft", "published", "archived", "rejected"}
 NEW_EPISODE_DAYS = 2
@@ -28,6 +28,11 @@ NEW_EPISODE_DAYS = 2
 
 def generate_video_id() -> str:
     return secrets.token_urlsafe(11)[:15]
+
+
+def next_episode_index(db: Session) -> int:
+    max_index = db.query(func.max(Episode.index)).scalar()
+    return int(max_index or 0) + 1
 
 
 def get_or_create_author(db: Session, data: dict) -> Author:
@@ -81,14 +86,28 @@ def episode_is_new(episode: Episode) -> bool:
     return datetime.utcnow() - ref < timedelta(days=NEW_EPISODE_DAYS)
 
 
+def _detach_subtitle_refs(db: Session, subtitle_ids: list[int]) -> None:
+    """Clear FK references before subtitles are deleted or replaced."""
+    if not subtitle_ids:
+        return
+    db.query(UserSubtitleProgress).filter(
+        UserSubtitleProgress.subtitle_id.in_(subtitle_ids)
+    ).delete(synchronize_session=False)
+    db.query(UserWordLookup).filter(UserWordLookup.subtitle_id.in_(subtitle_ids)).update(
+        {UserWordLookup.subtitle_id: None},
+        synchronize_session=False,
+    )
+    db.query(UserVocabularyItem).filter(UserVocabularyItem.source_subtitle_id.in_(subtitle_ids)).update(
+        {UserVocabularyItem.source_subtitle_id: None},
+        synchronize_session=False,
+    )
+
+
 def replace_subtitles(db: Session, episode_id: int, rows: list[dict]) -> None:
     subtitle_ids = [
         sid for (sid,) in db.query(Subtitle.id).filter(Subtitle.episode_id == episode_id).all()
     ]
-    if subtitle_ids:
-        db.query(UserSubtitleProgress).filter(
-            UserSubtitleProgress.subtitle_id.in_(subtitle_ids)
-        ).delete(synchronize_session=False)
+    _detach_subtitle_refs(db, subtitle_ids)
     db.query(Subtitle).filter(Subtitle.episode_id == episode_id).delete()
     db.flush()
     if not rows:
@@ -97,10 +116,11 @@ def replace_subtitles(db: Session, episode_id: int, rows: list[dict]) -> None:
     next_id = (db.query(func.max(Subtitle.id)).scalar() or 0) + 1
     mappings: list[dict] = []
     for row in rows:
-        english = row["english"].strip()
-        english_html = (row.get("english_html") or "").strip()
-        if not english_html:
-            english_html = words_to_html(english)
+        english, chinese, english_html = normalize_subtitle_fields(
+            row["english"].strip(),
+            row.get("chinese", ""),
+            (row.get("english_html") or "").strip(),
+        )
         mappings.append(
             {
                 "id": next_id,
@@ -109,7 +129,7 @@ def replace_subtitles(db: Session, episode_id: int, rows: list[dict]) -> None:
                 "start": row["start"],
                 "end": row["end"],
                 "english": english,
-                "chinese": row.get("chinese", ""),
+                "chinese": chinese,
                 "ipa": row.get("ipa", ""),
                 "english_html": english_html,
             }
@@ -172,15 +192,7 @@ def delete_episode_with_dependencies(db: Session, episode: Episode) -> None:
     db.query(UserSubtitleProgress).filter(UserSubtitleProgress.episode_id == episode_id).delete(
         synchronize_session=False
     )
-    if subtitle_ids:
-        db.query(UserWordLookup).filter(UserWordLookup.subtitle_id.in_(subtitle_ids)).update(
-            {UserWordLookup.subtitle_id: None},
-            synchronize_session=False,
-        )
-        db.query(UserVocabularyItem).filter(UserVocabularyItem.source_subtitle_id.in_(subtitle_ids)).update(
-            {UserVocabularyItem.source_subtitle_id: None},
-            synchronize_session=False,
-        )
+    _detach_subtitle_refs(db, subtitle_ids)
     db.query(UserWordLookup).filter(UserWordLookup.episode_id == episode_id).delete(
         synchronize_session=False
     )

@@ -8,7 +8,7 @@ def enrich_subtitles_with_deepseek(
     subtitles: list[dict],
     *,
     translate_chinese: bool,
-    batch_size: int = 30,
+    batch_size: int = 8,
 ) -> tuple[int, int]:
     """Fill missing chinese/ipa fields. Returns (translated_count, ipa_count)."""
     pending: list[tuple[int, str]] = []

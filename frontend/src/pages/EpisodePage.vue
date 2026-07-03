@@ -9,6 +9,7 @@ import SubtitleModeSheet from '@/components/episode/SubtitleModeSheet.vue'
 import { useIsPad, useIsPhone } from '@/composables/useBreakpoint'
 import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import { useLearningProgress } from '@/composables/useLearningProgress'
+import { useSubtitleReadProgress } from '@/composables/useSubtitleReadProgress'
 import { consumeEpisodeAutoplay, requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
 import type { EntryDetail, EpisodeDetail, EpisodeSummary } from '@/types'
@@ -191,6 +192,8 @@ const showCurrentSubtitleBar = computed(
 )
 
 const playbackTime = computed(() => player.currentTime.value)
+
+const { wordHighlightFor } = useSubtitleReadProgress(playbackTime)
 
 watch(showEntryPanel, (open) => {
   document.body.style.overflow = open ? 'hidden' : ''
@@ -547,33 +550,59 @@ function scrollCurrentIntoView() {
 }
 
 function resolveSentenceContext(target: HTMLElement): string {
-  const row = target.closest('[data-sub-index]')
-  if (row) {
-    const idx = parseInt(row.getAttribute('data-sub-index') ?? '', 10)
-    const sub = sortedSubs.value[idx]
-    if (sub) return sub.english
-  }
+  const sub = resolveSubtitleFromTarget(target)
+  if (sub) return sub.english
   return displaySub.value?.english ?? currentSub.value?.english ?? ''
 }
 
-async function onSubtitleClick(e: MouseEvent) {
-  const target = (e.target as HTMLElement).closest('span')
-  if (!target) return
-  const tid = target.getAttribute('tid')
-  const pid = target.getAttribute('pid')
-  if (!tid && !pid) return
+function resolveSubtitleFromTarget(target: HTMLElement) {
+  const row = target.closest('[data-sub-index]')
+  if (row) {
+    const idx = parseInt(row.getAttribute('data-sub-index') ?? '', 10)
+    return sortedSubs.value[idx] ?? null
+  }
+  return displaySub.value ?? currentSub.value ?? null
+}
 
-  const word = target.textContent?.trim() ?? ''
+function resolveClickedWordSpan(target: HTMLElement, root: HTMLElement): HTMLElement | null {
+  let el = target.closest('span')
+  while (el && root.contains(el)) {
+    if (el.classList.contains('subtitle-word-wrap')) {
+      el = (el.querySelector(':scope > span') as HTMLElement | null) ?? el
+    }
+    if (el.parentElement?.classList.contains('subtitle-word-wrap')) {
+      el = el.parentElement.querySelector(':scope > span') as HTMLElement
+    }
+    const text = el.textContent?.trim() ?? ''
+    if (text && el !== root && !el.classList.contains('subtitle-english-word-progress')) {
+      return el
+    }
+    el = el.parentElement?.closest('span') ?? null
+  }
+  return null
+}
+
+async function onSubtitleClick(e: MouseEvent) {
+  const root = (e.target as HTMLElement).closest('.subtitle-english')
+  if (!root) return
+
+  const target = resolveClickedWordSpan(e.target as HTMLElement, root as HTMLElement)
+  if (!target) return
+
+  const word = target.textContent?.trim().replace(/\s+/g, ' ') ?? ''
   if (!word) return
+
+  const pid = target.getAttribute('pid')
+  const isPhrase = Boolean(pid) || target.classList.contains('phrase-token')
+  const type = isPhrase ? 2 : 1
 
   showEntryPanel.value = true
   entryLoading.value = true
   entryError.value = ''
   selectedEntry.value = null
 
-  const type = pid ? 2 : 1
   const context = resolveSentenceContext(target)
-  const sub = currentSub.value
+  const sub = resolveSubtitleFromTarget(target)
   try {
     selectedEntry.value = await lookupWord(word, type as 1 | 2, context, {
       video_id: props.videoId,
@@ -827,6 +856,7 @@ function subtitleRowClass(index: number) {
               :show-english="modeShowsEnglish(subtitleMode)"
               :show-chinese="modeShowsChinese(subtitleMode)"
               :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+              :word-highlight="wordHighlightFor(currentSub)"
               @click="onSubtitleClick"
             />
           </Transition>
@@ -875,6 +905,7 @@ function subtitleRowClass(index: number) {
                 :show-english="modeShowsEnglish(subtitleMode)"
                 :show-chinese="modeShowsChinese(subtitleMode)"
                 :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+                :word-highlight="wordHighlightFor(sub)"
                 @click.stop="onSubtitleClick"
               />
             </div>

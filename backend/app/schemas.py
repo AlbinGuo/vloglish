@@ -302,6 +302,10 @@ class AdminEpisodeListOut(BaseModel):
     results: list[AdminEpisodeListItemOut]
 
 
+class AdminNextEpisodeIndexOut(BaseModel):
+    next_index: int
+
+
 class AdminEpisodeDetailOut(BaseModel):
     id: int
     video_id: str

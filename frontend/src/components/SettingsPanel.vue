@@ -54,7 +54,7 @@ const progressOptions: { key: SentenceProgressStyle; label: string; desc: string
 
   { key: 'bar', label: '底部进度条', desc: '在当前句卡片底部显示细进度条' },
 
-  { key: 'gradient', label: '文字渐深', desc: '已读部分正常显示，未读部分变浅' },
+  { key: 'gradient', label: '颜色跟读', desc: '未读保持原色；视频下方 #0fbb35，右侧字幕 #34e95c' },
 
 ]
 

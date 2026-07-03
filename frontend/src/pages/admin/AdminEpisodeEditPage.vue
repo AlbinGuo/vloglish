@@ -6,6 +6,7 @@ import {
   adminCreateEpisode,
   adminFetchMediaFromUrl,
   adminGetEpisode,
+  adminGetNextEpisodeIndex,
   adminImportVtt,
   adminListTags,
   adminUpdateEpisode,
@@ -28,7 +29,7 @@ const fetching = ref(false)
 const error = ref('')
 const success = ref('')
 const tagSuggestions = ref<string[]>([])
-const vttText = ref('')
+const subtitleImportText = ref('')
 const sourceUrl = ref('')
 const mediaSlug = ref('')
 
@@ -172,20 +173,20 @@ async function save() {
   }
 }
 
-async function importVtt() {
-  if (!vttText.value.trim()) {
-    error.value = '请粘贴 VTT 内容'
+async function importSubtitles() {
+  if (!subtitleImportText.value.trim()) {
+    error.value = '请粘贴 VTT / SRT 字幕内容'
     return
   }
   importing.value = true
   error.value = ''
   success.value = ''
   try {
-    const data = await adminImportVtt(vttText.value)
+    const data = await adminImportVtt(subtitleImportText.value)
     form.value.subtitles = data.subtitles.map((s: AdminSubtitle) => ({ ...s }))
     const parts = [`已导入 ${data.subtitle_count} 条字幕`]
     if (data.had_chinese) {
-      parts.push('VTT 含中文，未自动翻译')
+      parts.push('字幕含中文，未自动翻译')
     } else if (data.translated_count > 0) {
       parts.push(`翻译 ${data.translated_count} 条中文`)
     }
@@ -193,22 +194,46 @@ async function importVtt() {
       parts.push(`生成 ${data.ipa_count} 条音标`)
     }
     success.value = parts.join('，')
-    vttText.value = ''
+    subtitleImportText.value = ''
   } catch (e: unknown) {
-    const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-    error.value = msg || 'VTT 解析失败'
+    const err = e as { response?: { status?: number; data?: { detail?: string | { msg?: string }[] } } }
+    const detail = err.response?.data?.detail
+    const msg =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((item) => item.msg).filter(Boolean).join('；')
+          : err.response?.status === 404
+            ? '字幕导入接口未找到，请重启后端服务后再试'
+            : ''
+    error.value = msg || '字幕解析失败'
   } finally {
     importing.value = false
   }
 }
 
-async function onVttFileChange(event: Event) {
+async function readSubtitleFile(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer()
+  const bytes = new Uint8Array(buffer)
+  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    return new TextDecoder('utf-8').decode(bytes.slice(3))
+  }
+  return new TextDecoder('utf-8').decode(bytes)
+}
+
+async function onSubtitleFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
-  vttText.value = await file.text()
+  try {
+    subtitleImportText.value = await readSubtitleFile(file)
+  } catch {
+    error.value = '读取字幕文件失败，请确认文件编码为 UTF-8'
+    input.value = ''
+    return
+  }
   input.value = ''
-  await importVtt()
+  await importSubtitles()
 }
 
 async function fetchFromSourceUrl() {
@@ -244,6 +269,9 @@ async function fetchFromSourceUrl() {
     }
     if (data.voca_size > 0) {
       form.value.voca_size = data.voca_size
+    }
+    if (isNew.value) {
+      form.value.index = await adminGetNextEpisodeIndex()
     }
     const parts = [
       `已抓取「${data.title}」`,
@@ -541,24 +569,24 @@ watch(
 
         <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">
           <p class="text-sm text-neutral-600">
-            从 VTT 导入（粘贴内容或选择文件）。纯英文将自动翻译中文；所有字幕将自动生成美式 IPA 音标。
+            从 VTT / SRT 导入（粘贴内容或选择文件）。纯英文将自动翻译中文；所有字幕将自动生成美式 IPA 音标。导入后将替换当前字幕列表。
           </p>
           <textarea
-            v-model="vttText"
+            v-model="subtitleImportText"
             rows="4"
-            placeholder="WEBVTT&#10;00:00:00.000 --> 00:00:03.000&#10;Hello world."
+            placeholder="WEBVTT 或 SRT 内容&#10;00:00:00.000 --> 00:00:03.000&#10;Hello world."
             class="w-full rounded-lg border border-black/10 px-3 py-2 text-sm font-mono"
           />
           <div class="flex flex-wrap gap-2">
             <label class="text-sm px-3 py-1.5 border rounded-lg bg-white cursor-pointer hover:bg-neutral-50">
-              选择 .vtt 文件
-              <input type="file" accept=".vtt,text/vtt" class="hidden" @change="onVttFileChange" />
+              选择 .vtt / .srt 文件
+              <input type="file" accept=".vtt,.srt,text/vtt,application/x-subrip" class="hidden" @change="onSubtitleFileChange" />
             </label>
             <button
               type="button"
               class="text-sm px-3 py-1.5 rounded-lg bg-neutral-900 text-white disabled:opacity-50"
               :disabled="importing"
-              @click="importVtt"
+              @click="importSubtitles"
             >
               {{ importing ? '解析/生成中...' : '解析并替换字幕' }}
             </button>
@@ -606,7 +634,7 @@ watch(
                 </td>
               </tr>
               <tr v-if="!form.subtitles.length">
-                <td colspan="7" class="px-4 py-6 text-center text-neutral-400">暂无字幕，可导入 VTT 或手动添加</td>
+                <td colspan="7" class="px-4 py-6 text-center text-neutral-400">暂无字幕，可导入 VTT/SRT 或手动添加</td>
               </tr>
             </tbody>
           </table>

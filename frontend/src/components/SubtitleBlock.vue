@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import SubtitleEnglish from './SubtitleEnglish.vue'
-import type { SubtitleAlign } from '@/utils/subtitleHtml'
+import { stripSpeakerMarkers, type SubtitleAlign } from '@/utils/subtitleHtml'
+import type { SubtitleWordHighlight } from '@/utils/subtitleWordProgress'
 
 const props = withDefaults(
   defineProps<{
@@ -14,12 +16,14 @@ const props = withDefaults(
     large?: boolean
     align?: SubtitleAlign
     chineseFocus?: boolean
-    readProgress?: number
+    wordHighlight?: SubtitleWordHighlight
   }>(),
   { align: 'left', chineseFocus: false },
 )
 
 defineEmits<{ click: [event: MouseEvent] }>()
+
+const displayChinese = computed(() => stripSpeakerMarkers(props.chinese))
 
 function ipaClasses() {
   if (props.active) {
@@ -65,11 +69,11 @@ function chineseClasses() {
       :active="active"
       :large="large"
       :align="align"
-      :read-progress="readProgress"
+      :word-highlight="wordHighlight"
       @click="$emit('click', $event)"
     />
-    <p v-if="showChinese && chinese" class="subtitle-chinese max-w-full" :class="chineseClasses()">
-      {{ chinese }}
+    <p v-if="showChinese && displayChinese" class="subtitle-chinese max-w-full" :class="chineseClasses()">
+      {{ displayChinese }}
     </p>
   </div>
 </template>

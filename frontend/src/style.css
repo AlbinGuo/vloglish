@@ -175,15 +175,49 @@ select:disabled {
   color: inherit;
 }
 
-/* 当前句「文字渐深」进度 */
-.subtitle-english-progress .subtitle-english-dim {
-  opacity: 0.28;
+/* 逐词颜色跟读：未读保持原色；视频下方 #0fbb35，右侧字幕区 #34e95c */
+.subtitle-english-word-progress {
+  display: block;
+  white-space: normal;
 }
 
-.subtitle-english-progress .subtitle-english-read {
-  pointer-events: auto;
-  transition: clip-path 0.28s linear;
-  will-change: clip-path;
+.subtitle-english-word-progress .subtitle-word-wrap {
+  display: inline;
+  transition: color 0.1s ease;
+}
+
+/* 视频下方实时字幕 */
+.current-subtitle-bar .subtitle-english-word-progress .subtitle-word-read,
+.current-subtitle-bar .subtitle-english-word-progress .subtitle-word-read span {
+  color: #0fbb35 !important;
+}
+
+html.highlight-style-background .current-subtitle-bar .subtitle-english-word-progress .subtitle-word-read span.highlight {
+  background-color: rgb(15 187 53 / 0.18) !important;
+  color: #0a8f28 !important;
+}
+
+.dark html.highlight-style-background .current-subtitle-bar .subtitle-english-word-progress .subtitle-word-read span.highlight,
+.dark.highlight-style-background .current-subtitle-bar .subtitle-english-word-progress .subtitle-word-read span.highlight {
+  background-color: rgb(15 187 53 / 0.22) !important;
+  color: #4ade80 !important;
+}
+
+/* 右侧字幕列表 / 动态聚焦 */
+.subtitle-panel .subtitle-english-word-progress .subtitle-word-read,
+.subtitle-panel .subtitle-english-word-progress .subtitle-word-read span {
+  color: #34e95c !important;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-english-word-progress .subtitle-word-read span.highlight {
+  background-color: rgb(52 233 92 / 0.18) !important;
+  color: #16a34a !important;
+}
+
+.dark html.highlight-style-background .subtitle-panel .subtitle-english-word-progress .subtitle-word-read span.highlight,
+.dark.highlight-style-background .subtitle-panel .subtitle-english-word-progress .subtitle-word-read span.highlight {
+  background-color: rgb(52 233 92 / 0.22) !important;
+  color: #86efac !important;
 }
 
 /* 背景色高亮模式 */

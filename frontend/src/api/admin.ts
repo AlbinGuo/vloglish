@@ -411,6 +411,11 @@ export async function adminListEpisodes(params: {
   return data
 }
 
+export async function adminGetNextEpisodeIndex() {
+  const { data } = await adminApi.get<{ next_index: number }>('/api/admin/episodes/next-index/')
+  return data.next_index
+}
+
 export async function adminGetEpisode(id: number) {
   const { data } = await adminApi.get<AdminEpisodeDetail>(`/api/admin/episodes/${id}/`)
   return data
@@ -449,7 +454,7 @@ export async function adminImportVtt(vttText: string) {
     had_chinese: boolean
     translated_count: number
     ipa_count: number
-  }>('/api/admin/episodes/import-vtt/', { vtt_text: vttText })
+  }>('/api/admin/episodes/import-subtitles/', { vtt_text: vttText }, { timeout: 900000 })
   return data
 }
 

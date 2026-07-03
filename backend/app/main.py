@@ -20,7 +20,6 @@ from .routers.admin import authors as admin_authors
 from .routers.admin import dashboard as admin_dashboard
 from .routers.admin import demo_codes as admin_demo_codes
 from .routers.admin import episode_import as admin_episode_import
-from .routers.admin import episode_tools as admin_episode_tools
 from .routers.admin import episodes as admin_episodes
 from .routers.admin import notifications as admin_notifications
 from .routers.admin import presence as admin_presence
@@ -52,9 +51,8 @@ app.include_router(admin_dashboard.router)
 app.include_router(admin_activation_codes.router)
 app.include_router(admin_users.router)
 app.include_router(admin_teco_import.router)
-app.include_router(admin_episodes.router)
-app.include_router(admin_episode_tools.router)
 app.include_router(admin_episode_import.router)
+app.include_router(admin_episodes.router)
 app.include_router(admin_demo_codes.router)
 app.include_router(admin_authors.router)
 app.include_router(admin_tags.router)

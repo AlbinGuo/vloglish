@@ -35,11 +35,31 @@ def sql_literal(value) -> str:
     return f"'{s}'"
 
 
+def episode_cleanup_sql(vid: str) -> list[str]:
+    """Remove dependent rows before replacing episode subtitles on server."""
+    lit = sql_literal(vid)
+    sub_ids = (
+        f"SELECT s.id FROM subtitles s "
+        f"JOIN episodes e ON s.episode_id = e.id WHERE e.video_id = {lit}"
+    )
+    ep_id = f"(SELECT id FROM episodes WHERE video_id = {lit})"
+    return [
+        f"UPDATE user_word_lookups SET subtitle_id = NULL "
+        f"WHERE subtitle_id IN ({sub_ids});",
+        f"UPDATE user_vocabulary_items SET source_subtitle_id = NULL "
+        f"WHERE source_subtitle_id IN ({sub_ids});",
+        f"DELETE FROM user_subtitle_progress WHERE subtitle_id IN ({sub_ids});",
+        f"DELETE FROM user_subtitle_progress WHERE episode_id = {ep_id};",
+        f"DELETE FROM subtitles WHERE episode_id = {ep_id};",
+        f"DELETE FROM episode_tags WHERE episode_id = {ep_id};",
+    ]
+
+
 def export_sql(
     *,
     index_from: int | None,
     index_to: int | None,
-    status: str,
+    status: str | None,
 ) -> str:
     db = SessionLocal()
     try:
@@ -114,10 +134,16 @@ def export_sql(
         video_ids.append(vid)
         author = ep.author
         pub = ep.published_at or ep.created_at
+        ep_status = status if status is not None else (ep.status or "published")
 
         lines.extend(
             [
                 f"-- episode {ep.index}: {vid}",
+            ]
+        )
+        lines.extend(episode_cleanup_sql(vid))
+        lines.extend(
+            [
                 "INSERT INTO episodes (",
                 "  index, video_id, short_title, summary, remark, stars, voca_size,",
                 "  subtitle_count, clip_length, cover, video_url, audio_url, thumbnail_url,",
@@ -132,9 +158,9 @@ def export_sql(
                 f"  {sql_literal(ep.thumbnail_url or '')}, {sql_literal(ep.original_video_url or '')},",
                 "  (SELECT id FROM authors WHERE name = "
                 f"{sql_literal(author.name)} AND accent = {sql_literal(author.accent or '')} LIMIT 1),",
-                "  NULL, NULL,",
+                f"  {sql_literal(ep.submitted_by_user_id)}, {sql_literal(ep.rejection_reason)},",
                 f"  {sql_literal(ep.created_at or datetime.utcnow())},",
-                f"  {sql_literal(bool(ep.is_demo))}, {sql_literal(status)},",
+                f"  {sql_literal(bool(ep.is_demo))}, {sql_literal(ep_status)},",
                 f"  {sql_literal(pub)}",
                 ")",
                 "ON CONFLICT (video_id) DO UPDATE SET",
@@ -152,15 +178,11 @@ def export_sql(
                 "  thumbnail_url = EXCLUDED.thumbnail_url,",
                 "  original_video_url = EXCLUDED.original_video_url,",
                 "  author_id = EXCLUDED.author_id,",
+                "  submitted_by_user_id = EXCLUDED.submitted_by_user_id,",
+                "  rejection_reason = EXCLUDED.rejection_reason,",
                 "  is_demo = EXCLUDED.is_demo,",
                 "  status = EXCLUDED.status,",
                 "  published_at = EXCLUDED.published_at;",
-                "",
-                f"DELETE FROM user_subtitle_progress WHERE subtitle_id IN (",
-                f"  SELECT s.id FROM subtitles s JOIN episodes e ON s.episode_id = e.id WHERE e.video_id = {sql_literal(vid)}",
-                ");",
-                f"DELETE FROM subtitles WHERE episode_id = (SELECT id FROM episodes WHERE video_id = {sql_literal(vid)});",
-                f"DELETE FROM episode_tags WHERE episode_id = (SELECT id FROM episodes WHERE video_id = {sql_literal(vid)});",
                 "",
             ]
         )
@@ -212,7 +234,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Export episodes to PostgreSQL SQL file")
     parser.add_argument("--index-from", type=int, default=140)
     parser.add_argument("--index-to", type=int, default=190)
-    parser.add_argument("--status", default="published", choices=["published", "draft", "archived"])
+    parser.add_argument(
+        "--status",
+        default=None,
+        choices=["published", "draft", "archived", "rejected"],
+        help="Force all exported episodes to this status (default: keep each episode's status)",
+    )
     parser.add_argument("-o", "--output", type=Path, default=DEFAULT_OUT)
     args = parser.parse_args()
 

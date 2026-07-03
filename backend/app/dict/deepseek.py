@@ -269,13 +269,11 @@ def translate_lines_with_deepseek(lines: list[str]) -> list[str]:
     return [str(t) for t in translations]
 
 
-def enrich_subtitle_lines_with_deepseek(
+def _enrich_subtitle_lines_batch(
     lines: list[str],
     *,
     translate_chinese: bool,
 ) -> list[dict[str, str]]:
-    if not lines:
-        return []
     user_payload = {"lines": lines}
     content = _chat_completion(
         system=ENRICH_SYSTEM_PROMPT if translate_chinese else IPA_ONLY_SYSTEM_PROMPT,
@@ -301,6 +299,32 @@ def enrich_subtitle_lines_with_deepseek(
             }
         )
     return result
+
+
+def enrich_subtitle_lines_with_deepseek(
+    lines: list[str],
+    *,
+    translate_chinese: bool,
+) -> list[dict[str, str]]:
+    if not lines:
+        return []
+    if len(lines) == 1:
+        try:
+            return _enrich_subtitle_lines_batch(lines, translate_chinese=translate_chinese)
+        except RuntimeError:
+            return [{"chinese": "", "ipa": ""}]
+
+    try:
+        return _enrich_subtitle_lines_batch(lines, translate_chinese=translate_chinese)
+    except RuntimeError:
+        mid = len(lines) // 2
+        return enrich_subtitle_lines_with_deepseek(
+            lines[:mid],
+            translate_chinese=translate_chinese,
+        ) + enrich_subtitle_lines_with_deepseek(
+            lines[mid:],
+            translate_chinese=translate_chinese,
+        )
 
 
 def localize_video_metadata_with_deepseek(title: str, summary: str) -> dict[str, str]:
@@ -359,9 +383,7 @@ def analyze_episode_metrics_with_deepseek(
     }
 
 
-def annotate_subtitle_lines_with_deepseek(lines: list[str]) -> list[dict]:
-    if not lines:
-        return []
+def _annotate_subtitle_lines_batch(lines: list[str]) -> list[dict]:
     user_payload = {"lines": lines}
     content = _chat_completion(
         system=SUBTITLE_ANNOTATE_SYSTEM_PROMPT,
@@ -385,6 +407,24 @@ def annotate_subtitle_lines_with_deepseek(lines: list[str]) -> list[dict]:
             raise RuntimeError("DeepSeek 字幕标注 tokens 格式无效")
         result.append({"tokens": tokens})
     return result
+
+
+def annotate_subtitle_lines_with_deepseek(lines: list[str]) -> list[dict]:
+    if not lines:
+        return []
+    if len(lines) == 1:
+        try:
+            return _annotate_subtitle_lines_batch(lines)
+        except RuntimeError:
+            return [{"tokens": []}]
+
+    try:
+        return _annotate_subtitle_lines_batch(lines)
+    except RuntimeError:
+        mid = len(lines) // 2
+        return annotate_subtitle_lines_with_deepseek(lines[:mid]) + annotate_subtitle_lines_with_deepseek(
+            lines[mid:]
+        )
 
 
 def lookup_with_deepseek(word: str, token_type: int, context: str, entry_id: int) -> dict:

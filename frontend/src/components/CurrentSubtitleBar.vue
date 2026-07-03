@@ -39,9 +39,10 @@ const showBarProgress = computed(
   () => isPlayingSub.value && sentenceProgressStyle.value === 'bar',
 )
 
-const gradientProgress = computed(() =>
-  isPlayingSub.value && sentenceProgressStyle.value === 'gradient' ? progress.value : undefined,
-)
+const gradientWordHighlight = computed(() => {
+  if (!isPlayingSub.value || sentenceProgressStyle.value !== 'gradient') return undefined
+  return { time: props.currentTime, start: props.sub.start, end: props.sub.end }
+})
 
 const progressFillStyle = computed(() => ({
   transform: `scaleX(${progress.value})`,
@@ -81,7 +82,7 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
           :show-english="modeShowsEnglish(subtitleMode)"
           :show-chinese="modeShowsChinese(subtitleMode)"
           :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
-          :read-progress="gradientProgress"
+          :word-highlight="gradientWordHighlight"
           @click.stop="$emit('click', $event)"
         />
       </div>
@@ -122,15 +123,13 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
   align-items: flex-start;
 }
 
-.current-subtitle-bar :deep(.subtitle-english-progress) {
-  display: flex;
+.current-subtitle-bar :deep(.subtitle-english-word-progress) {
+  display: block;
   width: 100%;
-  justify-content: center;
+  text-align: center;
 }
 
-.current-subtitle-bar--compact :deep(.subtitle-english),
-.current-subtitle-bar--compact :deep(.subtitle-english-dim),
-.current-subtitle-bar--compact :deep(.subtitle-english-read) {
+.current-subtitle-bar--compact :deep(.subtitle-english) {
   font-size: 1.125rem;
   line-height: 1.4;
 }
@@ -153,18 +152,14 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
   will-change: transform;
 }
 
-.current-subtitle-bar :deep(.subtitle-english),
-.current-subtitle-bar :deep(.subtitle-english-dim),
-.current-subtitle-bar :deep(.subtitle-english-read) {
+.current-subtitle-bar :deep(.subtitle-english) {
   font-size: 1.375rem;
   line-height: 1.45;
   font-weight: 600;
 }
 
 @media (min-width: 640px) {
-  .current-subtitle-bar :deep(.subtitle-english),
-  .current-subtitle-bar :deep(.subtitle-english-dim),
-  .current-subtitle-bar :deep(.subtitle-english-read) {
+  .current-subtitle-bar :deep(.subtitle-english) {
     font-size: 1.625rem;
   }
 }
