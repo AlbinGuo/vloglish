@@ -9,11 +9,14 @@ defineProps<{
   videoPanelRef: HTMLElement | null | undefined
   compact?: boolean
   docked?: boolean
+  showChromeToggle?: boolean
+  chromeVisible?: boolean
 }>()
 
 defineEmits<{
   'update:showIpa': [value: boolean]
   'update:videoHidden': [value: boolean]
+  toggleChrome: []
 }>()
 </script>
 
@@ -25,7 +28,10 @@ defineEmits<{
     :video-panel-ref="videoPanelRef"
     :compact="compact"
     :docked="docked"
+    :show-chrome-toggle="showChromeToggle"
+    :chrome-visible="chromeVisible"
     @update:show-ipa="$emit('update:showIpa', $event)"
     @update:video-hidden="$emit('update:videoHidden', $event)"
+    @toggle-chrome="$emit('toggleChrome')"
   />
 </template>

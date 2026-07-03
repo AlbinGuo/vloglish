@@ -7,6 +7,7 @@ import { getEpisodeList, setEpisodeFavorite } from '@/api/episodes'
 import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
 import SubtitleModeSheet from '@/components/episode/SubtitleModeSheet.vue'
 import { useIsPad, useIsPhone } from '@/composables/useBreakpoint'
+import { useMobilePlayerChrome } from '@/composables/useMobilePlayerChrome'
 import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import { useLearningProgress } from '@/composables/useLearningProgress'
 import { useSubtitleReadProgress } from '@/composables/useSubtitleReadProgress'
@@ -194,6 +195,37 @@ const showCurrentSubtitleBar = computed(
 const playbackTime = computed(() => player.currentTime.value)
 
 const { wordHighlightFor } = useSubtitleReadProgress(playbackTime)
+
+const mobileChromeEnabled = computed(
+  () => isPhone.value && Boolean(episode.value) && !props.adminPreview,
+)
+
+const mobileChromeBlocked = computed(
+  () =>
+    mobileMoreOpen.value ||
+    mobileDrawerOpen.value ||
+    showEntryPanel.value ||
+    subtitleModeSheetOpen.value ||
+    showSettings.value,
+)
+
+const {
+  visible: mobileChromeVisible,
+  toggle: toggleMobileChrome,
+  onChromeInteraction: onMobileChromeInteraction,
+} = useMobilePlayerChrome({
+  enabled: mobileChromeEnabled,
+  isPlaying: player.isPlaying,
+  isBlocked: mobileChromeBlocked,
+})
+
+const mobileListBottomPad = computed(() => {
+  if (!isPhone.value) return ''
+  if (props.adminPreview) return 'pb-[calc(7.5rem+env(safe-area-inset-bottom))]'
+  return mobileChromeVisible.value
+    ? 'pb-[calc(7.5rem+env(safe-area-inset-bottom))]'
+    : 'pb-[calc(2.75rem+env(safe-area-inset-bottom))]'
+})
 
 watch(showEntryPanel, (open) => {
   document.body.style.overflow = open ? 'hidden' : ''
@@ -671,7 +703,14 @@ function subtitleRowClass(index: number) {
     class="flex flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-950"
     :class="adminPreview ? 'h-dvh' : 'h-full'"
   >
-    <header class="shrink-0 flex items-center gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 z-30">
+    <header
+      class="shrink-0 flex items-center gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 z-30 transition-all duration-300 ease-out"
+      :class="
+        isPhone && episode && !adminPreview && !mobileChromeVisible
+          ? 'max-h-0 min-h-0 py-0 pt-0 opacity-0 overflow-hidden border-b-0 pointer-events-none'
+          : ''
+      "
+    >
       <button class="text-sm text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white" @click="goBack">← 返回</button>
       <div v-if="episode" class="flex-1 min-w-0">
         <p class="font-semibold truncate flex items-center gap-2">
@@ -867,7 +906,7 @@ function subtitleRowClass(index: number) {
           v-else
           ref="listRef"
           class="subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] touch-pan-y px-3 pt-2 space-y-2 lg:p-4 lg:pb-4"
-          :class="isPhone ? 'pb-[calc(7.5rem+env(safe-area-inset-bottom))]' : ''"
+          :class="mobileListBottomPad"
         >
           <div
             v-for="(sub, i) in sortedSubs"
@@ -929,22 +968,43 @@ function subtitleRowClass(index: number) {
     </div>
 
     <!-- 手机端：底部播放控制 -->
-    <div
-      v-if="isPhone && episode"
-      class="fixed bottom-0 inset-x-0 z-40 border-t border-black/10 dark:border-white/10 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
-    >
-      <VideoProgressBar :video="videoRef" variant="dock" />
-      <PlayerControls
-        v-if="!adminPreview"
-        :player="player"
-        :show-ipa="showIpa"
-        :video-hidden="videoHidden"
-        :video-panel-ref="videoPanelRef"
-        compact
-        docked
-        @update:show-ipa="showIpa = $event"
-        @update:video-hidden="videoHidden = $event"
-      />
+    <div v-if="isPhone && episode" class="fixed inset-x-0 bottom-0 z-40 pointer-events-none">
+      <button
+        v-if="!adminPreview && !mobileChromeVisible"
+        type="button"
+        class="pointer-events-auto absolute right-3 z-50 flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white/95 text-neutral-600 shadow-md backdrop-blur-md transition-all duration-300 dark:border-white/10 dark:bg-neutral-900/95 dark:text-neutral-300 bottom-[calc(0.625rem+env(safe-area-inset-bottom))]"
+        aria-label="显示播放控制"
+        :aria-expanded="false"
+        @click.stop="toggleMobileChrome"
+      >
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      <div
+        class="pointer-events-auto transition-transform duration-300 ease-out pb-[env(safe-area-inset-bottom)]"
+        :class="mobileChromeVisible || adminPreview ? 'translate-y-0' : 'translate-y-full'"
+        @pointerdown="onMobileChromeInteraction"
+      >
+        <div class="border-t border-black/10 bg-white/95 backdrop-blur-md dark:border-white/10 dark:bg-neutral-900/95">
+          <VideoProgressBar :video="videoRef" variant="dock" />
+          <PlayerControls
+            v-if="!adminPreview"
+            :player="player"
+            :show-ipa="showIpa"
+            :video-hidden="videoHidden"
+            :video-panel-ref="videoPanelRef"
+            compact
+            docked
+            show-chrome-toggle
+            :chrome-visible="mobileChromeVisible"
+            @update:show-ipa="showIpa = $event"
+            @update:video-hidden="videoHidden = $event"
+            @toggle-chrome="toggleMobileChrome"
+          />
+        </div>
+      </div>
     </div>
 
     <!-- 移动端更多菜单 -->
