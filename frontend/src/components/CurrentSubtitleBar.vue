@@ -148,13 +148,8 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
   overflow: visible;
 }
 
-.current-subtitle-bar :deep(.subtitle-english),
 .current-subtitle-bar :deep(.subtitle-english-word-progress) {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: baseline;
-  gap: 0.125rem 0.375rem;
+  display: block;
   width: 100%;
   min-width: 0;
   max-width: 100%;
@@ -162,11 +157,29 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
   overflow-wrap: anywhere;
   word-break: break-word;
   text-align: center;
+  gap: 0 !important;
 }
 
-.current-subtitle-bar :deep(.subtitle-word-wrap) {
+.current-subtitle-bar :deep(.subtitle-english-word-progress .subtitle-word-wrap) {
   display: inline;
   max-width: 100%;
+}
+
+/* v-html 模式：flex 折行，词间距与列表区一致（gap-x-1.5），不再叠加额外 gap */
+.current-subtitle-bar :deep(.subtitle-english:not(.subtitle-english-word-progress)) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  column-gap: 0.375rem;
+  row-gap: 0.125rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: center;
 }
 
 .current-subtitle-bar :deep(.subtitle-chinese),

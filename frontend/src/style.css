@@ -175,19 +175,24 @@ select:disabled {
   color: inherit;
 }
 
-/* 逐词颜色跟读：flex 折行，避免移动端长句被裁切 */
+/* 逐词颜色跟读：默认 inline 排版；列表/面板需要 flex 折行处单独覆盖 */
 .subtitle-english-word-progress {
-  display: flex;
-  flex-wrap: wrap;
+  display: block;
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
 .subtitle-english-word-progress .subtitle-word-wrap {
-  display: inline-flex;
+  display: inline;
   max-width: 100%;
   transition: color 0.1s ease;
+}
+
+.subtitle-panel .subtitle-english-word-progress,
+.subtitle-focus-light:not(.current-subtitle-bar__content) .subtitle-english-word-progress {
+  display: flex;
+  flex-wrap: wrap;
 }
 
 /* 视频下方实时字幕 */

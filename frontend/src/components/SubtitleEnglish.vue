@@ -60,8 +60,8 @@ const wordTokens = computed(() => tokens.value.filter((token) => token.kind === 
 function wordProgressClasses() {
   return [
     ...baseTextClasses('subtitle-english-word-progress'),
-    'flex flex-wrap items-center gap-x-1.5 gap-y-0.5 max-w-full min-w-0',
-    props.align === 'left' ? 'justify-start text-left w-full' : 'justify-center text-center w-full',
+    'max-w-full min-w-0',
+    props.align === 'left' ? 'text-left w-full' : 'text-center w-full',
   ]
 }
 
