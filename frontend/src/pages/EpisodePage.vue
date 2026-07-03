@@ -227,6 +227,12 @@ const mobileListBottomPad = computed(() => {
     : 'pb-[calc(2.75rem+env(safe-area-inset-bottom))]'
 })
 
+const mobileEpisodeHeaderSpacer = 'h-[calc(2.75rem+max(0.75rem,env(safe-area-inset-top)))]'
+
+const mobileVideoImmersive = computed(
+  () => mobileChromeEnabled.value && !mobileChromeVisible.value,
+)
+
 watch(showEntryPanel, (open) => {
   document.body.style.overflow = open ? 'hidden' : ''
 })
@@ -704,11 +710,14 @@ function subtitleRowClass(index: number) {
     :class="adminPreview ? 'h-dvh' : 'h-full'"
   >
     <header
-      class="shrink-0 flex items-center gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 z-30 transition-all duration-300 ease-out"
+      class="flex items-center gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 z-30 transition-transform duration-300 ease-out"
       :class="
-        isPhone && episode && !adminPreview && !mobileChromeVisible
-          ? 'max-h-0 min-h-0 py-0 pt-0 opacity-0 overflow-hidden border-b-0 pointer-events-none'
-          : ''
+        mobileChromeEnabled
+          ? [
+              'fixed inset-x-0 top-0',
+              mobileChromeVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none',
+            ]
+          : 'shrink-0'
       "
     >
       <button class="text-sm text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white" @click="goBack">← 返回</button>
@@ -762,6 +771,13 @@ function subtitleRowClass(index: number) {
     </header>
 
     <div
+      v-if="mobileChromeEnabled"
+      class="shrink-0 pointer-events-none overflow-hidden transition-[height] duration-300 ease-out"
+      :class="mobileChromeVisible ? mobileEpisodeHeaderSpacer : 'h-0'"
+      aria-hidden="true"
+    />
+
+    <div
       v-if="resumePrompt && !adminPreview"
       class="shrink-0 flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-100 dark:border-amber-900/50 text-sm"
     >
@@ -787,6 +803,7 @@ function subtitleRowClass(index: number) {
       <aside
         ref="videoPanelRef"
         class="shrink-0 lg:w-[46%] xl:w-[44%] min-h-0 lg:h-full flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4 max-lg:h-auto max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:shrink-0 max-lg:landscape:static max-lg:landscape:w-[42%] max-lg:landscape:shrink-0 max-lg:landscape:h-auto"
+        :class="mobileVideoImmersive ? 'max-lg:!p-0 max-lg:!gap-0 max-lg:!rounded-none' : ''"
       >
         <VideoPlayer
           class="shrink-0"
@@ -798,6 +815,7 @@ function subtitleRowClass(index: number) {
           :player="player"
           :show-progress-bar="!isPhone"
           :auto-hide-progress="!isPhone"
+          :flush="mobileVideoImmersive"
         />
         <PlayerControls
           v-if="!isPhone"

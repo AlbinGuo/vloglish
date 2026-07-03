@@ -16,6 +16,8 @@ const props = defineProps<{
   showProgressBar?: boolean
   /** PC/Pad：播放中无操作 3 秒后隐藏 overlay 进度条 */
   autoHideProgress?: boolean
+  /** 手机端沉浸式：去掉圆角与阴影，贴边显示 */
+  flush?: boolean
 }>()
 
 const videoEl = ref<HTMLVideoElement | null>(null)
@@ -165,7 +167,9 @@ onUnmounted(() => {
     :class="
       hidden
         ? 'fixed w-px h-px opacity-0 pointer-events-none overflow-hidden'
-        : 'relative aspect-video rounded-xl overflow-hidden bg-black shadow-sm cursor-pointer'
+        : props.flush
+          ? 'relative aspect-video overflow-hidden bg-black cursor-pointer'
+          : 'relative aspect-video rounded-xl overflow-hidden bg-black shadow-sm cursor-pointer'
     "
     @mouseenter="onVideoHover(true)"
     @mouseleave="onVideoHover(false)"
