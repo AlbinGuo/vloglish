@@ -72,7 +72,7 @@ function chineseClasses() {
       :word-highlight="wordHighlight"
       @click="$emit('click', $event)"
     />
-    <p v-if="showChinese && displayChinese" class="subtitle-chinese max-w-full" :class="chineseClasses()">
+    <p v-if="showChinese && displayChinese" class="subtitle-chinese max-w-full break-words" :class="chineseClasses()">
       {{ displayChinese }}
     </p>
   </div>
