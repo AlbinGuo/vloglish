@@ -12,15 +12,12 @@ import {
   modeShowsIpa,
 } from '@/utils/subtitleHtml'
 
-import type { SubtitleWordHighlight } from '@/utils/subtitleWordProgress'
-
 const props = defineProps<{
   sub: Subtitle
   currentTime: number
   subtitleMode: SubtitleDisplayMode
   showIpa: boolean
   englishHtml: string
-  wordHighlight?: SubtitleWordHighlight
   /** 手机端固定高度紧凑样式 */
   compact?: boolean
   /** Pad：实时字幕顶对齐（margin: 0） */
@@ -41,6 +38,11 @@ const progress = computed(() => computeSentenceProgress(props.sub, props.current
 const showBarProgress = computed(
   () => isPlayingSub.value && sentenceProgressStyle.value === 'bar',
 )
+
+const gradientWordHighlight = computed(() => {
+  if (!isPlayingSub.value || sentenceProgressStyle.value !== 'gradient') return undefined
+  return { time: props.currentTime, start: props.sub.start, end: props.sub.end }
+})
 
 const progressFillStyle = computed(() => ({
   transform: `scaleX(${progress.value})`,
@@ -80,7 +82,7 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
           :show-english="modeShowsEnglish(subtitleMode)"
           :show-chinese="modeShowsChinese(subtitleMode)"
           :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
-          :word-highlight="wordHighlight"
+          :word-highlight="gradientWordHighlight"
           @click.stop="$emit('click', $event)"
         />
       </div>
