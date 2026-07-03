@@ -187,7 +187,9 @@ useSwipeNavigation(dynamicFocusRef, {
 
 const displaySub = computed(() => resolveDisplaySub(sortedSubs.value, player.currentTime.value))
 
-const showCurrentSubtitleBar = computed(() => Boolean(displaySub.value))
+const showCurrentSubtitleBar = computed(
+  () => Boolean(displaySub.value) && !isPhone.value,
+)
 
 const playbackTime = computed(() => player.currentTime.value)
 
