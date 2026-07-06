@@ -744,6 +744,15 @@ export async function adminUpdateArticle(ref: string | number, payload: Record<s
   return data
 }
 
+export async function adminUploadArticleCover(ref: string | number, sourceUrl: string) {
+  const { data } = await adminApi.post<{ cover: string }>(
+    `/api/admin/articles/${ref}/upload-cover/`,
+    { source_url: sourceUrl },
+    { timeout: 120000 },
+  )
+  return data
+}
+
 export async function adminDeleteArticle(ref: string | number) {
   await adminApi.delete(`/api/admin/articles/${ref}/`)
 }

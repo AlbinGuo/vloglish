@@ -886,6 +886,14 @@ class AdminArticleDetailOut(BaseModel):
     progress: ArticleProgressOut | None = None
 
 
+class AdminArticleUploadCoverIn(BaseModel):
+    source_url: str
+
+
+class AdminArticleUploadCoverOut(BaseModel):
+    cover: str
+
+
 class AdminArticleImportTextIn(BaseModel):
     english_text: str
     auto_translate: bool = True

@@ -15,8 +15,11 @@ from ...schemas import (
     AdminArticleSegmentIn,
     AdminArticleTtsOut,
     AdminArticleUpdateIn,
+    AdminArticleUploadCoverIn,
+    AdminArticleUploadCoverOut,
     ArticleProgressUpdateIn,
 )
+from ...qiniu_storage import QiniuConfig
 from ...serializers import article_detail, article_segment_out
 from ...services.article_admin import (
     VALID_STATUSES,
@@ -26,6 +29,7 @@ from ...services.article_admin import (
     import_text_to_segments,
     replace_segments,
 )
+from ...services.article_cover import normalize_image_url, upload_article_cover_from_url
 from ...services.article_tts import generate_article_tts
 from ...services.subtitle_analyze import analyze_subtitles_with_deepseek
 
@@ -253,6 +257,33 @@ def admin_analyze(
     article.stars = metrics.get("stars") or article.stars
     db.commit()
     return metrics
+
+
+@router.post("/{ref}/upload-cover/", response_model=AdminArticleUploadCoverOut)
+def admin_upload_cover(
+    ref: str,
+    body: AdminArticleUploadCoverIn,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    article = _require_article(db, ref)
+    source_url = body.source_url.strip()
+    if not source_url:
+        raise HTTPException(status_code=400, detail="source_url 不能为空")
+    try:
+        normalize_image_url(source_url)
+        cover_url = upload_article_cover_from_url(
+            QiniuConfig.from_env(),
+            article.article_id,
+            source_url,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    article.cover = cover_url
+    db.commit()
+    return AdminArticleUploadCoverOut(cover=cover_url)
 
 
 @router.post("/{ref}/generate-tts/", response_model=AdminArticleTtsOut)

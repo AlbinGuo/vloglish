@@ -69,6 +69,7 @@ export interface ContinueReadingItem {
   article_id: string
   title: string
   source: string
+  cover: string
   completion_percent: number
   last_read_at: string | null
 }

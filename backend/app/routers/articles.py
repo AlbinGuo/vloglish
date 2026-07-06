@@ -147,6 +147,7 @@ def continue_reading(
                 "article_id": article.article_id,
                 "title": article.title,
                 "source": article.source or "",
+                "cover": article.cover or "",
                 "completion_percent": round(row.completion_percent, 1),
                 "last_read_at": row.last_read_at.isoformat() if row.last_read_at else None,
             }

@@ -10,6 +10,7 @@ import {
 } from '@/api/articles'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import { useAuthStore } from '@/stores/auth'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
 
 const auth = useAuthStore()
 
@@ -137,10 +138,19 @@ watch(
           v-for="item in continueItems"
           :key="item.article_id"
           :to="articlePath(item.article_id)"
-          class="shrink-0 w-56 rounded-lg border border-black/5 dark:border-white/10 p-3 hover:shadow-sm transition"
+          class="shrink-0 w-56 rounded-lg border border-black/5 dark:border-white/10 overflow-hidden hover:shadow-sm transition"
         >
-          <p class="text-sm font-medium line-clamp-2 leading-snug">{{ item.title }}</p>
-          <p class="text-xs text-neutral-500 mt-2">{{ item.source }} · {{ Math.round(item.completion_percent) }}%</p>
+          <img
+            v-if="item.cover"
+            :src="resolveMediaUrl(item.cover)"
+            :alt="item.title"
+            class="w-full h-28 object-cover bg-neutral-100 dark:bg-neutral-800"
+            loading="lazy"
+          />
+          <div class="p-3">
+            <p class="text-sm font-medium line-clamp-2 leading-snug">{{ item.title }}</p>
+            <p class="text-xs text-neutral-500 mt-2">{{ item.source }} · {{ Math.round(item.completion_percent) }}%</p>
+          </div>
         </RouterLink>
       </div>
     </section>
@@ -208,24 +218,33 @@ watch(
         class="block rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 transition hover:shadow-sm"
         :class="!article.accessible ? 'opacity-60 pointer-events-none' : ''"
       >
-        <div class="flex items-start justify-between gap-3">
-          <div class="min-w-0 flex-1">
-            <h3 class="font-semibold leading-snug line-clamp-2">{{ article.title }}</h3>
-            <p class="text-xs text-neutral-500 mt-2 flex flex-wrap gap-x-2 gap-y-1">
-              <span v-if="article.source">{{ article.source }}</span>
-              <span v-if="article.published_at">{{ article.published_at.slice(0, 10) }}</span>
-              <span>{{ article.word_count }} 词 · {{ article.segment_count }} 段</span>
-              <span class="text-amber-600 dark:text-amber-400">{{ starsLabel(article.stars) }}</span>
-            </p>
+        <div class="flex items-start gap-3">
+          <img
+            v-if="article.cover"
+            :src="resolveMediaUrl(article.cover)"
+            :alt="article.title"
+            class="shrink-0 w-24 h-16 sm:w-28 sm:h-[4.5rem] rounded-lg object-cover bg-neutral-100 dark:bg-neutral-800"
+            loading="lazy"
+          />
+          <div class="min-w-0 flex-1 flex items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <h3 class="font-semibold leading-snug line-clamp-2">{{ article.title }}</h3>
+              <p class="text-xs text-neutral-500 mt-2 flex flex-wrap gap-x-2 gap-y-1">
+                <span v-if="article.source">{{ article.source }}</span>
+                <span v-if="article.published_at">{{ article.published_at.slice(0, 10) }}</span>
+                <span>{{ article.word_count }} 词 · {{ article.segment_count }} 段</span>
+                <span class="text-amber-600 dark:text-amber-400">{{ starsLabel(article.stars) }}</span>
+              </p>
+            </div>
+            <span
+              v-if="article.progress"
+              class="shrink-0 text-xs px-2 py-1 rounded-full"
+              :class="article.progress.is_completed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'"
+            >
+              {{ article.progress.is_completed ? '已读完' : `${Math.round(article.progress.completion_percent)}%` }}
+            </span>
+            <span v-else-if="!article.accessible" class="shrink-0 text-xs text-amber-700 dark:text-amber-400">额度已满</span>
           </div>
-          <span
-            v-if="article.progress"
-            class="shrink-0 text-xs px-2 py-1 rounded-full"
-            :class="article.progress.is_completed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'"
-          >
-            {{ article.progress.is_completed ? '已读完' : `${Math.round(article.progress.completion_percent)}%` }}
-          </span>
-          <span v-else-if="!article.accessible" class="shrink-0 text-xs text-amber-700 dark:text-amber-400">额度已满</span>
         </div>
       </RouterLink>
 

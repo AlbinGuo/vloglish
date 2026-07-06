@@ -9,8 +9,10 @@ import {
   adminImportArticleText,
   adminPublishArticle,
   adminUpdateArticle,
+  adminUploadArticleCover,
   type AdminArticleDetail,
 } from '@/api/admin'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,6 +37,8 @@ const form = ref({
   stars: 3,
   status: 'draft',
 })
+const coverSourceUrl = ref('')
+const uploadingCover = ref(false)
 const englishText = ref('')
 const article = ref<AdminArticleDetail | null>(null)
 
@@ -70,6 +74,9 @@ async function saveMeta() {
       const created = await adminCreateArticle(form.value)
       await router.replace(`/gnadmin/reading/${created.id}`)
       article.value = created
+      if (coverSourceUrl.value.trim()) {
+        await uploadCover(created.id)
+      }
     } else if (refId.value) {
       article.value = await adminUpdateArticle(refId.value, form.value)
     }
@@ -78,6 +85,26 @@ async function saveMeta() {
     error.value = '保存失败'
   } finally {
     saving.value = false
+  }
+}
+
+async function uploadCover(refOverride?: string | number) {
+  const ref = refOverride ?? refId.value
+  const source = coverSourceUrl.value.trim()
+  if (!ref || !source) return
+  uploadingCover.value = true
+  message.value = ''
+  error.value = ''
+  try {
+    const result = await adminUploadArticleCover(ref, source)
+    form.value.cover = result.cover
+    if (article.value) article.value.cover = result.cover
+    message.value = '封面上传成功'
+  } catch (e: unknown) {
+    const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+    error.value = detail || '封面上传失败'
+  } finally {
+    uploadingCover.value = false
   }
 }
 
@@ -172,6 +199,15 @@ onMounted(load)
         <span class="text-neutral-500">标题</span>
         <input v-model="form.title" class="mt-1 w-full rounded-lg border px-3 py-2" />
       </label>
+      <label class="block text-sm">
+        <span class="text-neutral-500">封面图片链接（可选）</span>
+        <input
+          v-model="coverSourceUrl"
+          class="mt-1 w-full rounded-lg border px-3 py-2 font-mono text-xs"
+          placeholder="//img2.chinadaily.com.cn/images/..."
+        />
+        <span class="mt-1 block text-xs text-neutral-400">创建后自动从链接下载并上传到七牛</span>
+      </label>
       <button type="button" class="rounded-lg bg-neutral-900 text-white px-4 py-2 text-sm" :disabled="saving" @click="saveMeta">
         创建
       </button>
@@ -209,6 +245,31 @@ onMounted(load)
               <span class="text-neutral-500">摘要</span>
               <textarea v-model="form.summary" rows="2" class="mt-1 w-full rounded-lg border px-3 py-2" />
             </label>
+            <div class="block text-sm sm:col-span-2 space-y-3">
+              <span class="text-neutral-500">封面</span>
+              <input
+                v-model="coverSourceUrl"
+                class="mt-1 w-full rounded-lg border px-3 py-2 font-mono text-xs"
+                placeholder="//img2.chinadaily.com.cn/images/202607/04/xxx.jpeg"
+              />
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  class="rounded-lg border px-4 py-2 text-sm"
+                  :disabled="uploadingCover || !coverSourceUrl.trim()"
+                  @click="uploadCover()"
+                >
+                  {{ uploadingCover ? '上传中...' : '从链接上传封面' }}
+                </button>
+                <span v-if="form.cover" class="text-xs text-neutral-500 truncate max-w-full">已保存：{{ form.cover }}</span>
+              </div>
+              <img
+                v-if="form.cover"
+                :src="resolveMediaUrl(form.cover)"
+                alt="封面预览"
+                class="h-28 w-44 object-cover rounded-lg border bg-neutral-50"
+              />
+            </div>
             <label class="block text-sm">
               <span class="text-neutral-500">难度 (1-5)</span>
               <input v-model.number="form.stars" type="number" min="1" max="5" class="mt-1 w-full rounded-lg border px-3 py-2" />
