@@ -30,6 +30,8 @@ export interface ArticleSegment {
   english: string
   chinese: string
   english_html: string
+  audio_url: string
+  duration_ms: number
 }
 
 export interface ArticleDetail {
@@ -44,6 +46,7 @@ export interface ArticleDetail {
   segment_count: number
   cover: string
   published_at: string
+  tts_status: string
   segments: ArticleSegment[]
   progress: ArticleProgress | null
 }

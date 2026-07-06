@@ -7,7 +7,9 @@ import {
 
 defineEmits<{ close: [] }>()
 
-const { wordHighlightStyle, layoutMode, setWordHighlightStyle, setLayoutMode } = useReadingSettings()
+const { wordHighlightStyle, layoutMode, ttsRate, autoAdvance, autoScrollOnTts, setWordHighlightStyle, setLayoutMode, setTtsRate } = useReadingSettings()
+
+const rateOptions = [0.75, 1, 1.25] as const
 
 const highlightOptions: { key: ReadingWordHighlightStyle; label: string; desc: string }[] = [
   { key: 'color', label: '纯文字颜色', desc: '仅改变词汇文字颜色，不加下划线' },
@@ -63,6 +65,41 @@ const optionDefaultClass =
             <span>
               <span class="block text-sm font-medium">{{ opt.label }}</span>
               <span class="block text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{{ opt.desc }}</span>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="mb-6">
+        <h4 class="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-3">朗读</h4>
+        <div class="space-y-3">
+          <div>
+            <p class="text-xs text-neutral-500 mb-2">默认语速</p>
+            <div class="flex gap-2">
+              <button
+                v-for="rate in rateOptions"
+                :key="rate"
+                type="button"
+                class="px-3 py-1.5 rounded-lg text-sm border transition-colors"
+                :class="ttsRate === rate ? optionSelectedClass : optionDefaultClass"
+                @click="setTtsRate(rate)"
+              >
+                {{ rate }}x
+              </button>
+            </div>
+          </div>
+          <label class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors" :class="autoAdvance ? optionSelectedClass : optionDefaultClass">
+            <input v-model="autoAdvance" type="checkbox" class="mt-1 shrink-0" />
+            <span>
+              <span class="block text-sm font-medium">播放完自动下一段</span>
+              <span class="block text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">单段播放结束后继续朗读下一段</span>
+            </span>
+          </label>
+          <label class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors" :class="autoScrollOnTts ? optionSelectedClass : optionDefaultClass">
+            <input v-model="autoScrollOnTts" type="checkbox" class="mt-1 shrink-0" />
+            <span>
+              <span class="block text-sm font-medium">播放时自动滚动</span>
+              <span class="block text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">朗读时自动滚动到当前段落</span>
             </span>
           </label>
         </div>

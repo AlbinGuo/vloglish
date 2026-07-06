@@ -13,6 +13,7 @@ from ...schemas import (
     AdminArticleImportTextOut,
     AdminArticleListOut,
     AdminArticleSegmentIn,
+    AdminArticleTtsOut,
     AdminArticleUpdateIn,
     ArticleProgressUpdateIn,
 )
@@ -25,6 +26,7 @@ from ...services.article_admin import (
     import_text_to_segments,
     replace_segments,
 )
+from ...services.article_tts import generate_article_tts
 from ...services.subtitle_analyze import analyze_subtitles_with_deepseek
 
 router = APIRouter(prefix="/api/admin/articles", tags=["admin-articles"])
@@ -49,6 +51,7 @@ def _article_list_item(article: Article) -> dict:
         "status": article.status,
         "published_at": _fmt_dt(article.published_at),
         "created_at": _fmt_dt(article.created_at),
+        "tts_status": article.tts_status or "none",
     }
 
 
@@ -111,6 +114,7 @@ def admin_create_article(
     data = article_detail(article, [])
     data["id"] = article.id
     data["status"] = article.status
+    data["tts_status"] = article.tts_status or "none"
     return AdminArticleDetailOut(**data)
 
 
@@ -131,6 +135,7 @@ def admin_get_article(
     data = article_detail(article, segments)
     data["id"] = article.id
     data["status"] = article.status
+    data["tts_status"] = article.tts_status or "none"
     return AdminArticleDetailOut(**data)
 
 
@@ -172,6 +177,7 @@ def admin_update_article(
     data = article_detail(article, segments)
     data["id"] = article.id
     data["status"] = article.status
+    data["tts_status"] = article.tts_status or "none"
     return AdminArticleDetailOut(**data)
 
 
@@ -247,6 +253,30 @@ def admin_analyze(
     article.stars = metrics.get("stars") or article.stars
     db.commit()
     return metrics
+
+
+@router.post("/{ref}/generate-tts/", response_model=AdminArticleTtsOut)
+def admin_generate_tts(
+    ref: str,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    article = _require_article(db, ref)
+    segments = (
+        db.query(Article)
+        .options(joinedload(Article.segments))
+        .filter(Article.id == article.id)
+        .first()
+        .segments
+    )
+    article.segments = segments
+    try:
+        result = generate_article_tts(db, article)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    return AdminArticleTtsOut(**result)
 
 
 @router.post("/{ref}/publish/")

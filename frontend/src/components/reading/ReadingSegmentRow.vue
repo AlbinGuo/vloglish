@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import SubtitleEnglish from '@/components/SubtitleEnglish.vue'
+import ReadingSegmentPlayButton from '@/components/reading/ReadingSegmentPlayButton.vue'
 import ReadingBilingualDivider from '@/components/reading/ReadingBilingualDivider.vue'
 import ReadingSegmentVocabSection from '@/components/reading/ReadingSegmentVocabSection.vue'
 import { preprocessSubtitleHtml, stripSpeakerMarkers } from '@/utils/subtitleHtml'
@@ -22,12 +23,19 @@ const englishHtml = computed(() =>
 
 <template>
   <div
-    class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 transition-colors cursor-pointer overflow-hidden hover:border-black/10 dark:hover:border-white/15"
+    class="rounded-xl border transition-colors cursor-pointer overflow-hidden hover:border-black/10 dark:hover:border-white/15"
+    :class="
+      active
+        ? 'border-amber-300/70 dark:border-amber-500/40 ring-1 ring-amber-200/60 dark:ring-amber-500/20 bg-white dark:bg-neutral-900'
+        : 'border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900'
+    "
     :data-reading-segment-id="segment.id"
     :data-reading-context="segment.english"
     @click="$emit('activate')"
   >
-    <div class="p-4 min-w-0">
+    <div class="p-4 min-w-0 flex gap-2 items-start">
+      <ReadingSegmentPlayButton :segment-index="segment.index" :has-audio="Boolean(segment.audio_url)" />
+      <div class="min-w-0 flex-1">
       <SubtitleEnglish
         v-if="segment.english_html"
         :html="englishHtml"
@@ -41,6 +49,7 @@ const englishHtml = computed(() =>
       >
         {{ segment.english }}
       </p>
+      </div>
     </div>
     <div class="px-4">
       <ReadingBilingualDivider orientation="horizontal" />

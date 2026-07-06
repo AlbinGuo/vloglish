@@ -179,3 +179,20 @@ def _migrate_schema():
                 conn.execute(
                     text("ALTER TABLE user_vocabulary_items ADD COLUMN source_type VARCHAR(16) NOT NULL DEFAULT 'video'")
                 )
+    if "articles" in insp.get_table_names():
+        art_cols = {c["name"] for c in insp.get_columns("articles")}
+        if "tts_status" not in art_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE articles ADD COLUMN tts_status VARCHAR(16) NOT NULL DEFAULT 'none'")
+                )
+    if "article_segments" in insp.get_table_names():
+        seg_cols = {c["name"] for c in insp.get_columns("article_segments")}
+        if "audio_url" not in seg_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE article_segments ADD COLUMN audio_url TEXT NOT NULL DEFAULT ''"))
+        if "duration_ms" not in seg_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE article_segments ADD COLUMN duration_ms INTEGER NOT NULL DEFAULT 0")
+                )

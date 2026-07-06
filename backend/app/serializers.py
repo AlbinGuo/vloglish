@@ -129,6 +129,8 @@ def article_segment_out(seg: ArticleSegment) -> dict:
         "english": seg.english,
         "chinese": seg.chinese or "",
         "english_html": seg.english_html or "",
+        "audio_url": seg.audio_url or "",
+        "duration_ms": seg.duration_ms or 0,
     }
 
 
@@ -184,6 +186,7 @@ def article_detail(
         "segment_count": article.segment_count,
         "cover": article.cover or "",
         "published_at": _article_fmt_dt(article.published_at),
+        "tts_status": article.tts_status or "none",
         "segments": [article_segment_out(s) for s in segments],
         "progress": article_progress_out(progress),
     }

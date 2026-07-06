@@ -811,6 +811,16 @@ class AdminArticleSegmentIn(BaseModel):
     english: str
     chinese: str = ""
     english_html: str = ""
+    audio_url: str = ""
+    duration_ms: int = 0
+
+
+class AdminArticleTtsOut(BaseModel):
+    generated: int
+    failed: int
+    total: int
+    tts_status: str
+    error_sample: str = ""
 
 
 class AdminArticleCreateIn(BaseModel):
@@ -871,6 +881,7 @@ class AdminArticleDetailOut(BaseModel):
     cover: str
     published_at: str
     status: str
+    tts_status: str = "none"
     segments: list[AdminArticleSegmentIn]
     progress: ArticleProgressOut | None = None
 

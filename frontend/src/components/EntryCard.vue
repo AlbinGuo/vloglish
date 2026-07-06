@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
 import type { EntryDetail } from '@/types'
+import { READING_TTS_KEY } from '@/composables/useReadingTts'
 import { posLabel } from '@/utils/posLabel'
 import { formatExamTags } from '@/utils/examTags'
+import { playWordPronunciation } from '@/utils/speakWord'
 
 const props = defineProps<{
   entry: EntryDetail | null
@@ -13,6 +15,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{ close: []; toggleVocabulary: [entry: EntryDetail] }>()
 
+const readingTts = inject(READING_TTS_KEY, null)
+
 const primaryPron = computed(() => {
   const list = props.entry?.pronunciations ?? []
   return list.find((p) => p.is_primary) ?? list[0] ?? null
@@ -20,8 +24,11 @@ const primaryPron = computed(() => {
 
 const examTags = computed(() => formatExamTags(props.entry?.exam_tags ?? []))
 
-function playAudio(url: string) {
-  new Audio(url).play()
+function playPronunciation() {
+  if (!props.entry) return
+  readingTts?.pause()
+  const url = primaryPron.value?.audio_url
+  playWordPronunciation(props.entry.headword, url)
 }
 
 function onToggleVocabulary() {
@@ -120,17 +127,18 @@ function onToggleVocabulary() {
             </span>
           </div>
 
-          <div v-if="primaryPron" class="flex items-center gap-2 mt-3">
+          <div v-if="primaryPron || entry.headword" class="flex items-center gap-2 mt-3">
             <button
               type="button"
               class="inline-flex items-center gap-1.5 text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 transition-colors"
-              @click="playAudio(primaryPron.audio_url)"
+              @click="playPronunciation"
             >
-              <span class="font-medium">{{ primaryPron.accent_type }}</span>
+              <span v-if="primaryPron" class="font-medium">{{ primaryPron.accent_type }}</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="text-neutral-500">
                 <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
               </svg>
-              <span class="font-serif text-neutral-700">{{ primaryPron.ipa }}</span>
+              <span v-if="primaryPron?.ipa" class="font-serif text-neutral-700 dark:text-neutral-300">{{ primaryPron.ipa }}</span>
+              <span v-else class="text-neutral-500">朗读</span>
             </button>
           </div>
         </header>

@@ -2,6 +2,7 @@
 import { computed, inject, ref, watch } from 'vue'
 import { ARTICLE_VOCABULARY_KEY } from '@/composables/useArticleVocabulary'
 import { formatExamTags, asExamTagList } from '@/utils/examTags'
+import { playWordPronunciation } from '@/utils/speakWord'
 import type { ArticleVocabularyItem } from '@/api/learning'
 
 const VOCAB_SIDEBAR_KEY = 'reading-vocab-sidebar-visible'
@@ -44,6 +45,10 @@ function displayIpa(item: ArticleVocabularyItem): string {
 
 function displayMeaning(item: ArticleVocabularyItem): string {
   return item.definition_cn?.trim() || '暂无释义'
+}
+
+function speakItem(item: ArticleVocabularyItem) {
+  playWordPronunciation(item.word)
 }
 </script>
 
@@ -120,16 +125,28 @@ function displayMeaning(item: ArticleVocabularyItem): string {
                   {{ displayMeaning(item) }}
                 </p>
               </div>
-              <button
-                type="button"
-                class="shrink-0 p-1 rounded text-neutral-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                aria-label="移出生词本"
-                @click="vocab?.remove(item.entry_id)"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
+              <div class="flex flex-col gap-1 shrink-0">
+                <button
+                  type="button"
+                  class="p-1 rounded text-neutral-300 hover:text-amber-500 opacity-0 group-hover:opacity-100 transition-all"
+                  aria-label="朗读"
+                  @click="speakItem(item)"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="p-1 rounded text-neutral-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                  aria-label="移出生词本"
+                  @click="vocab?.remove(item.entry_id)"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </li>
         </ul>

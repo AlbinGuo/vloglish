@@ -694,6 +694,8 @@ export interface AdminArticleSegment {
   english: string
   chinese: string
   english_html: string
+  audio_url?: string
+  duration_ms?: number
 }
 
 export interface AdminArticleDetail {
@@ -710,6 +712,7 @@ export interface AdminArticleDetail {
   cover: string
   published_at: string
   status: string
+  tts_status: string
   segments: AdminArticleSegment[]
 }
 
@@ -766,5 +769,18 @@ export async function adminPublishArticle(ref: string | number) {
   const { data } = await adminApi.post<{ success: boolean; status: string }>(
     `/api/admin/articles/${ref}/publish/`,
   )
+  return data
+}
+
+export async function adminGenerateArticleTts(ref: string | number) {
+  const { data } = await adminApi.post<{
+    generated: number
+    failed: number
+    total: number
+    tts_status: string
+    error_sample?: string
+  }>(`/api/admin/articles/${ref}/generate-tts/`, undefined, {
+    timeout: 900000,
+  })
   return data
 }

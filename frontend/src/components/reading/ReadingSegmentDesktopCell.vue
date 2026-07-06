@@ -20,7 +20,7 @@ const englishHtml = computed(() =>
 
 const cellClass = computed(() => {
   if (props.embedded) {
-    return 'min-w-0 p-4 lg:p-5'
+    return 'min-w-0'
   }
   const base =
     'min-w-0 p-4 lg:p-5 border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 transition-colors cursor-pointer hover:border-black/10 dark:hover:border-white/15'

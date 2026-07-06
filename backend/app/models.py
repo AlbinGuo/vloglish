@@ -332,6 +332,7 @@ class Article(Base):
     segment_count: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(16), default="draft")
     is_free_preview: Mapped[bool] = mapped_column(Boolean, default=False)
+    tts_status: Mapped[str] = mapped_column(String(16), default="none")
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -353,6 +354,8 @@ class ArticleSegment(Base):
     english: Mapped[str] = mapped_column(Text)
     chinese: Mapped[str] = mapped_column(Text, default="")
     english_html: Mapped[str] = mapped_column(Text, default="")
+    audio_url: Mapped[str] = mapped_column(Text, default="")
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
 
     article: Mapped["Article"] = relationship(back_populates="segments")
 

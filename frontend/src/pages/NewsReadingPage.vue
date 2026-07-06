@@ -11,6 +11,8 @@ import ReadingSettingsPanel from '@/components/reading/ReadingSettingsPanel.vue'
 import ReadingWordTooltipHost from '@/components/reading/ReadingWordTooltipHost.vue'
 import ReadingArticleVocabSidebar from '@/components/reading/ReadingArticleVocabSidebar.vue'
 import { useReadingProgress } from '@/composables/useReadingProgress'
+import ReadingTtsBar from '@/components/reading/ReadingTtsBar.vue'
+import { useReadingTts, READING_TTS_KEY } from '@/composables/useReadingTts'
 import { useReadingSettings } from '@/composables/useReadingSettings'
 import { ARTICLE_VOCABULARY_KEY, useArticleVocabulary } from '@/composables/useArticleVocabulary'
 import { useAuthStore } from '@/stores/auth'
@@ -28,6 +30,7 @@ const limitError = ref('')
 const article = ref<ArticleDetail | null>(null)
 
 const segmentCount = computed(() => article.value?.segment_count ?? 0)
+const segments = computed(() => article.value?.segments ?? [])
 const { currentIndex, setCurrentIndex, startReporting, stopReporting } = useReadingProgress(
   articleId,
   segmentCount,
@@ -99,6 +102,14 @@ function onActivateSegment(index: number) {
   setCurrentIndex(index)
   scrollToSegment(index)
 }
+
+const readingTts = useReadingTts({
+  segments,
+  currentIndex,
+  setCurrentIndex,
+  scrollToSegment,
+})
+provide(READING_TTS_KEY, readingTts)
 
 function resolveClickedWordSpan(target: HTMLElement, root: HTMLElement): HTMLElement | null {
   let el: HTMLElement | null = target.closest('span')
@@ -174,6 +185,7 @@ onMounted(loadArticle)
 
 onUnmounted(() => {
   stopReporting()
+  readingTts.stop()
   document.body.style.overflow = ''
 })
 
@@ -252,6 +264,12 @@ watch(layoutMode, async () => {
 
       <ReadingArticleVocabSidebar v-if="auth.isLoggedIn" />
     </div>
+
+    <ReadingTtsBar
+      v-if="article && readingTts.hasAudio.value"
+      :current-index="currentIndex"
+      :segment-count="segmentCount"
+    />
 
     <EntryCard
       v-if="showEntry"

@@ -5,6 +5,7 @@ import {
   adminAnalyzeArticle,
   adminCreateArticle,
   adminGetArticle,
+  adminGenerateArticleTts,
   adminImportArticleText,
   adminPublishArticle,
   adminUpdateArticle,
@@ -20,6 +21,7 @@ const refId = computed(() => route.params.id as string | undefined)
 const loading = ref(false)
 const saving = ref(false)
 const importing = ref(false)
+const generatingTts = ref(false)
 const error = ref('')
 const message = ref('')
 
@@ -115,6 +117,34 @@ async function reanalyze() {
   }
 }
 
+async function generateTts() {
+  if (!refId.value) return
+  generatingTts.value = true
+  message.value = ''
+  error.value = ''
+  try {
+    const result = await adminGenerateArticleTts(refId.value)
+    await load()
+    if (result.failed > 0) {
+      error.value = result.error_sample
+        ? `TTS 部分失败：${result.generated}/${result.total} 段。${result.error_sample}`
+        : `TTS 部分失败：${result.generated}/${result.total} 段（状态：${result.tts_status}）`
+    } else {
+      message.value = `TTS 完成：${result.generated}/${result.total} 段（状态：${result.tts_status}）`
+    }
+  } catch (e: unknown) {
+    const err = e as { code?: string; message?: string; response?: { data?: { detail?: string } } }
+    const detail = err.response?.data?.detail
+    if (err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '')) {
+      error.value = 'TTS 生成超时，请刷新页面查看是否已部分完成；若未完成请重试'
+    } else {
+      error.value = detail || 'TTS 生成失败'
+    }
+  } finally {
+    generatingTts.value = false
+  }
+}
+
 async function publish() {
   if (!refId.value) return
   try {
@@ -125,6 +155,10 @@ async function publish() {
     const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
     error.value = detail || '发布失败'
   }
+}
+
+function previewAudio(url: string) {
+  new Audio(url).play()
 }
 
 onMounted(load)
@@ -152,7 +186,7 @@ onMounted(load)
         <div class="rounded-xl border bg-white p-6 space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 class="font-semibold">基本信息</h2>
-            <span class="text-xs text-neutral-500">{{ article.article_id }} · {{ article.status }}</span>
+            <span class="text-xs text-neutral-500">{{ article.article_id }} · {{ article.status }} · TTS: {{ article.tts_status || 'none' }}</span>
           </div>
           <div class="grid sm:grid-cols-2 gap-4">
             <label class="block text-sm sm:col-span-2">
@@ -183,6 +217,14 @@ onMounted(load)
           <div class="flex flex-wrap gap-2">
             <button type="button" class="rounded-lg bg-neutral-900 text-white px-4 py-2 text-sm" :disabled="saving" @click="saveMeta">保存</button>
             <button type="button" class="rounded-lg border px-4 py-2 text-sm" @click="reanalyze">重新分析词汇</button>
+            <button
+              type="button"
+              class="rounded-lg border px-4 py-2 text-sm"
+              :disabled="generatingTts || !article.segment_count"
+              @click="generateTts"
+            >
+              {{ generatingTts ? '生成 TTS 中...' : '生成段落 TTS' }}
+            </button>
             <button
               v-if="article.status !== 'published'"
               type="button"
@@ -218,7 +260,17 @@ onMounted(load)
         <div class="rounded-xl border bg-white p-6 space-y-3">
           <h2 class="font-semibold">段落预览 ({{ article.segment_count }})</h2>
           <div v-for="(seg, i) in article.segments" :key="i" class="rounded-lg border p-3 text-sm space-y-1">
-            <p class="font-medium">{{ seg.english }}</p>
+            <div class="flex items-start justify-between gap-2">
+              <p class="font-medium flex-1">{{ seg.english }}</p>
+              <button
+                v-if="seg.audio_url"
+                type="button"
+                class="shrink-0 text-xs text-blue-600 underline"
+                @click="previewAudio(seg.audio_url!)"
+              >
+                试听
+              </button>
+            </div>
             <p class="text-neutral-600">{{ seg.chinese || '—' }}</p>
           </div>
         </div>

@@ -36,6 +36,7 @@ def replace_segments(db: Session, article: Article, segments: list[dict]) -> Non
         )
     article.segment_count = len(segments)
     article.word_count = count_words_in_segments([s.get("english", "") for s in segments])
+    article.tts_status = "none"
     db.commit()
 
 

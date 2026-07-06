@@ -5,7 +5,9 @@ import { fetchWordLookup } from '@/composables/useWordLookupCache'
 import { useAuthStore } from '@/stores/auth'
 import type { EntryDetail } from '@/types'
 import { firstChineseDefinition, primaryIpa } from '@/utils/entryDisplay'
+import { READING_TTS_KEY } from '@/composables/useReadingTts'
 import { formatExamTags } from '@/utils/examTags'
+import { playWordPronunciation } from '@/utils/speakWord'
 import { resolveReadingContext, resolveReadingSegmentId } from '@/utils/readingContext'
 
 defineOptions({ inheritAttrs: false })
@@ -14,6 +16,7 @@ const props = defineProps<{ articleId: string }>()
 const attrs = useAttrs()
 const auth = useAuthStore()
 const articleVocab = inject(ARTICLE_VOCABULARY_KEY, null)
+const readingTts = inject(READING_TTS_KEY, null)
 
 const hostRef = ref<HTMLElement | null>(null)
 const tooltipRef = ref<HTMLElement | null>(null)
@@ -188,6 +191,14 @@ async function toggleFavorite() {
   }
 }
 
+function speakWord() {
+  if (!entry.value?.headword) return
+  readingTts?.pause()
+  const url = entry.value.pronunciations?.find((p) => p.is_primary)?.audio_url
+    ?? entry.value.pronunciations?.[0]?.audio_url
+  playWordPronunciation(entry.value.headword, url)
+}
+
 function onScroll() {
   if (visible.value) hide()
 }
@@ -238,8 +249,32 @@ onUnmounted(() => {
                 {{ tag.label }}
               </span>
             </div>
-            <p v-if="ipa" class="text-xs font-mono text-neutral-300 leading-snug">{{ ipa }}</p>
-            <p class="text-sm leading-snug" :class="ipa ? 'mt-0.5' : ''">{{ meaning }}</p>
+            <p v-if="ipa" class="text-xs font-mono text-neutral-300 leading-snug flex items-center gap-1.5">
+              <span>{{ ipa }}</span>
+              <button
+                type="button"
+                class="inline-flex p-0.5 rounded text-neutral-400 hover:text-white transition-colors"
+                aria-label="朗读单词"
+                @click.stop="speakWord"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
+                </svg>
+              </button>
+            </p>
+            <p v-else-if="entry" class="text-xs leading-snug">
+              <button
+                type="button"
+                class="inline-flex items-center gap-1 text-neutral-400 hover:text-white transition-colors"
+                @click.stop="speakWord"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
+                </svg>
+                朗读
+              </button>
+            </p>
+            <p class="text-sm leading-snug" :class="ipa || entry ? 'mt-0.5' : ''">{{ meaning }}</p>
           </div>
           <button
             v-if="canSave"
