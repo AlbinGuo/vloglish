@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from .config import LOOKUP_CACHE_TTL_DAYS
+from ..dict.deepseek import normalize_exam_tags
 from ..models import LookupCache
 
 
@@ -29,6 +30,7 @@ def get_cached_lookup(db: Session, cache_key: str) -> dict | None:
     data = json.loads(row.response_json)
     data["id"] = row.entry_id
     data["eid"] = row.entry_id
+    data["exam_tags"] = normalize_exam_tags(data.get("exam_tags"))
     return data
 
 
@@ -41,6 +43,8 @@ def save_lookup_cache(
     entry_id: int,
     response: dict,
 ) -> None:
+    response = dict(response)
+    response["exam_tags"] = normalize_exam_tags(response.get("exam_tags"))
     payload = json.dumps(response, ensure_ascii=False)
     row = db.query(LookupCache).filter(LookupCache.cache_key == cache_key).first()
     now = datetime.utcnow()

@@ -12,11 +12,12 @@ from sqlalchemy import inspect, text
 from .database import DATABASE_URL, Base, SessionLocal, engine, is_postgresql
 from .models import ActivationCode
 from .schemas import AuthTokensOut
-from .routers import auth, demo, entries, episode_submit, episodes, learning, notifications, presence
+from .routers import auth, demo, entries, episode_submit, episodes, learning, notifications, presence, articles
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import auth as admin_auth
 from .routers.admin import authors as admin_authors
+from .routers.admin import articles as admin_articles
 from .routers.admin import dashboard as admin_dashboard
 from .routers.admin import demo_codes as admin_demo_codes
 from .routers.admin import episode_import as admin_episode_import
@@ -45,6 +46,7 @@ app.include_router(episode_submit.router)
 app.include_router(notifications.router)
 app.include_router(learning.router)
 app.include_router(entries.router)
+app.include_router(articles.router)
 app.include_router(presence.router)
 app.include_router(admin_auth.router)
 app.include_router(admin_dashboard.router)
@@ -53,6 +55,7 @@ app.include_router(admin_users.router)
 app.include_router(admin_teco_import.router)
 app.include_router(admin_episode_import.router)
 app.include_router(admin_episodes.router)
+app.include_router(admin_articles.router)
 app.include_router(admin_demo_codes.router)
 app.include_router(admin_authors.router)
 app.include_router(admin_tags.router)
@@ -155,3 +158,24 @@ def _migrate_schema():
         if "broadcast_id" not in notif_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE user_notifications ADD COLUMN broadcast_id INTEGER"))
+    if "user_word_lookups" in insp.get_table_names():
+        lookup_cols = {c["name"] for c in insp.get_columns("user_word_lookups")}
+        if "article_id" not in lookup_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE user_word_lookups ADD COLUMN article_id INTEGER"))
+        if "segment_id" not in lookup_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE user_word_lookups ADD COLUMN segment_id INTEGER"))
+    if "user_vocabulary_items" in insp.get_table_names():
+        vocab_cols = {c["name"] for c in insp.get_columns("user_vocabulary_items")}
+        if "source_article_id" not in vocab_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE user_vocabulary_items ADD COLUMN source_article_id INTEGER"))
+        if "source_segment_id" not in vocab_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE user_vocabulary_items ADD COLUMN source_segment_id INTEGER"))
+        if "source_type" not in vocab_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE user_vocabulary_items ADD COLUMN source_type VARCHAR(16) NOT NULL DEFAULT 'video'")
+                )

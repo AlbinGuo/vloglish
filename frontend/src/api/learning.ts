@@ -43,7 +43,13 @@ export interface VocabularyItem {
   source_video_id: string
   source_episode_title: string
   created_at: string
+  exam_tags?: string[]
+  ipa?: string
+  definition_cn?: string
+  source_type?: string
 }
+
+export type ArticleVocabularyItem = VocabularyItem
 
 export interface WordLookupRecord {
   id: number
@@ -118,6 +124,13 @@ export async function getVocabulary() {
   return data
 }
 
+export async function getArticleVocabulary(articleRef: string) {
+  const { data } = await api.get<VocabularyItem[]>('/api/learning/vocabulary/', {
+    params: { article_ref: articleRef },
+  })
+  return data
+}
+
 export async function saveVocabulary(payload: {
   entry_id: number
   word: string
@@ -125,6 +138,9 @@ export async function saveVocabulary(payload: {
   video_id?: string
   episode_id?: number
   subtitle_id?: number
+  article_ref?: string
+  segment_id?: number
+  source_type?: string
 }) {
   const { data } = await api.post<VocabularyItem>('/api/learning/vocabulary/', payload)
   return data

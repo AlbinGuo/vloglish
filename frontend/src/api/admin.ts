@@ -675,3 +675,96 @@ export async function adminCreateBroadcast(payload: { title: string; body: strin
   const { data } = await adminApi.post<AdminBroadcast>('/api/admin/notifications/broadcasts/', payload)
   return data
 }
+
+export interface AdminArticleListItem {
+  id: number
+  article_id: string
+  title: string
+  source: string
+  topic: string
+  stars: number
+  word_count: number
+  segment_count: number
+  status: string
+  published_at: string
+  created_at: string
+}
+
+export interface AdminArticleSegment {
+  english: string
+  chinese: string
+  english_html: string
+}
+
+export interface AdminArticleDetail {
+  id: number
+  article_id: string
+  title: string
+  summary: string
+  source: string
+  source_url: string
+  topic: string
+  stars: number
+  word_count: number
+  segment_count: number
+  cover: string
+  published_at: string
+  status: string
+  segments: AdminArticleSegment[]
+}
+
+export async function adminListArticles(params: {
+  page?: number
+  page_size?: number
+  status?: string
+  q?: string
+} = {}) {
+  const { data } = await adminApi.get<{ count: number; results: AdminArticleListItem[] }>(
+    '/api/admin/articles/',
+    { params },
+  )
+  return data
+}
+
+export async function adminCreateArticle(payload: Partial<AdminArticleDetail> & { title?: string }) {
+  const { data } = await adminApi.post<AdminArticleDetail>('/api/admin/articles/', payload)
+  return data
+}
+
+export async function adminGetArticle(ref: string | number) {
+  const { data } = await adminApi.get<AdminArticleDetail>(`/api/admin/articles/${ref}/`)
+  return data
+}
+
+export async function adminUpdateArticle(ref: string | number, payload: Record<string, unknown>) {
+  const { data } = await adminApi.patch<AdminArticleDetail>(`/api/admin/articles/${ref}/`, payload)
+  return data
+}
+
+export async function adminDeleteArticle(ref: string | number) {
+  await adminApi.delete(`/api/admin/articles/${ref}/`)
+}
+
+export async function adminImportArticleText(
+  ref: string | number,
+  payload: { english_text: string; auto_translate?: boolean; auto_analyze?: boolean },
+) {
+  const { data } = await adminApi.post<{ segment_count: number; word_count: number; stars: number }>(
+    `/api/admin/articles/${ref}/import-text/`,
+    payload,
+    { timeout: 600000 },
+  )
+  return data
+}
+
+export async function adminAnalyzeArticle(ref: string | number) {
+  const { data } = await adminApi.post<Record<string, number>>(`/api/admin/articles/${ref}/analyze/`)
+  return data
+}
+
+export async function adminPublishArticle(ref: string | number) {
+  const { data } = await adminApi.post<{ success: boolean; status: string }>(
+    `/api/admin/articles/${ref}/publish/`,
+  )
+  return data
+}

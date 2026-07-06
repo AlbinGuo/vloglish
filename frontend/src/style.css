@@ -792,3 +792,137 @@ html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-
 .dark.highlight-style-background .subtitle-panel .subtitle-english--active span.text-transparent {
   background-color: rgb(0 0 0 / 0.06);
 }
+
+/* News Reading：词汇高亮（无背景色） */
+.reading-page .subtitle-english span.highlight,
+html.highlight-style-background .reading-page .subtitle-english span.highlight,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight {
+  background-color: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  box-decoration-break: initial;
+  -webkit-box-decoration-break: initial;
+}
+
+.reading-page.reading-highlight-underline .subtitle-english span.highlight,
+html.highlight-style-background .reading-page.reading-highlight-underline .subtitle-english span.highlight,
+.dark.highlight-style-background .reading-page.reading-highlight-underline .subtitle-english span.highlight {
+  text-decoration-line: underline !important;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+}
+
+.reading-page.reading-highlight-color-only .subtitle-english span.highlight,
+html.highlight-style-background .reading-page.reading-highlight-color-only .subtitle-english span.highlight,
+.dark.highlight-style-background .reading-page.reading-highlight-color-only .subtitle-english span.highlight {
+  text-decoration-line: none !important;
+}
+
+.reading-page .subtitle-english span:hover,
+html.highlight-style-background .reading-page .subtitle-english span:hover,
+.dark.highlight-style-background .reading-page .subtitle-english span:hover {
+  background-color: transparent !important;
+}
+
+.reading-page .subtitle-english span.token-clicked,
+html.highlight-style-background .reading-page .subtitle-english span.token-clicked {
+  background-color: transparent !important;
+}
+
+.reading-page .subtitle-english span.highlight-a,
+html.highlight-style-background .reading-page .subtitle-english span.highlight-a {
+  color: #b45309 !important;
+  text-decoration-color: #f59e0b !important;
+  background-color: transparent !important;
+}
+
+.reading-page .subtitle-english span.highlight-d,
+html.highlight-style-background .reading-page .subtitle-english span.highlight-d {
+  color: #6d28d9 !important;
+  text-decoration-color: #8b5cf6 !important;
+  background-color: transparent !important;
+}
+
+.reading-page .subtitle-english span.highlight-i,
+html.highlight-style-background .reading-page .subtitle-english span.highlight-i {
+  color: #0e7490 !important;
+  text-decoration-color: #06b6d4 !important;
+  background-color: transparent !important;
+}
+
+.reading-page .subtitle-english span.highlight-l,
+html.highlight-style-background .reading-page .subtitle-english span.highlight-l {
+  color: #be185d !important;
+  text-decoration-color: #ec4899 !important;
+  background-color: transparent !important;
+}
+
+.reading-page .subtitle-english span.highlight-c,
+html.highlight-style-background .reading-page .subtitle-english span.highlight-c {
+  color: #047857 !important;
+  text-decoration-color: #10b981 !important;
+  background-color: transparent !important;
+}
+
+.reading-page .subtitle-english span.highlight-f,
+html.highlight-style-background .reading-page .subtitle-english span.highlight-f {
+  color: #b91c1c !important;
+  text-decoration-color: #ef4444 !important;
+  background-color: transparent !important;
+}
+
+.dark .reading-page .subtitle-english span.highlight-a,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight-a {
+  color: #fbbf24 !important;
+  text-decoration-color: #f59e0b !important;
+}
+
+.dark .reading-page .subtitle-english span.highlight-d,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight-d {
+  color: #c4b5fd !important;
+  text-decoration-color: #a78bfa !important;
+}
+
+.dark .reading-page .subtitle-english span.highlight-i,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight-i {
+  color: #67e8f9 !important;
+  text-decoration-color: #22d3ee !important;
+}
+
+.dark .reading-page .subtitle-english span.highlight-l,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight-l {
+  color: #f9a8d4 !important;
+  text-decoration-color: #f472b6 !important;
+}
+
+.dark .reading-page .subtitle-english span.highlight-c,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight-c {
+  color: #6ee7b7 !important;
+  text-decoration-color: #34d399 !important;
+}
+
+.dark .reading-page .subtitle-english span.highlight-f,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight-f {
+  color: #fca5a5 !important;
+  text-decoration-color: #f87171 !important;
+}
+
+/* 本篇生词本：已收藏词汇下划线高亮 */
+.reading-page .subtitle-english span.highlight.reading-vocab-saved,
+html.highlight-style-background .reading-page .subtitle-english span.highlight.reading-vocab-saved,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight.reading-vocab-saved {
+  text-decoration-line: underline !important;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+  text-decoration-color: currentColor !important;
+}
+
+/* News Reading：隐藏段落列表滚动条 */
+.reading-scroll-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.reading-scroll-hide::-webkit-scrollbar {
+  display: none;
+}

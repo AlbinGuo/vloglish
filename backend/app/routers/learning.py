@@ -7,7 +7,7 @@ from ..database import get_db
 from ..deps import get_current_user
 from ..demo_access import can_access_episode
 from ..episode_visibility import published_visibility_filter
-from ..models import Episode, User, UserEpisodeProgress, UserSubtitleProgress, UserVocabularyItem, UserWordLookup
+from ..models import Article, Entry, Episode, User, UserEpisodeProgress, UserSubtitleProgress, UserVocabularyItem, UserWordLookup
 from ..schemas import (
     EpisodeProgressOut,
     EpisodeProgressUpdateIn,
@@ -24,6 +24,7 @@ from ..schemas import (
     WordLookupListOut,
     WordLookupOut,
 )
+from ..services.entry_lookup import entry_vocab_extras
 from ..services.learning import (
     _fmt_dt,
     dedupe_lookups_by_word,
@@ -66,6 +67,23 @@ def _episode_title_map(db: Session, episode_ids: set[int]) -> dict[int, str]:
         return {}
     rows = db.query(Episode.id, Episode.short_title).filter(Episode.id.in_(episode_ids)).all()
     return {r[0]: r[1] for r in rows}
+
+
+def _vocabulary_item_out(db: Session, row: UserVocabularyItem, title: str) -> VocabularyItemOut:
+    exam_tags, ipa, definition_cn = entry_vocab_extras(db, row.entry_id)
+    return VocabularyItemOut(
+        id=row.id,
+        entry_id=row.entry_id,
+        word=row.word,
+        token_type=row.token_type,
+        source_video_id=row.source_video_id,
+        source_episode_title=title,
+        created_at=_fmt_dt(row.created_at),
+        exam_tags=exam_tags,
+        ipa=ipa,
+        definition_cn=definition_cn,
+        source_type=row.source_type or "",
+    )
 
 
 @router.get("/progress/{video_id}/", response_model=EpisodeProgressOut)
@@ -148,28 +166,32 @@ def finish_session(
 
 
 @router.get("/vocabulary/", response_model=list[VocabularyItemOut])
-def list_vocabulary(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    rows = (
-        db.query(UserVocabularyItem)
-        .filter(UserVocabularyItem.user_id == user.id)
-        .order_by(UserVocabularyItem.created_at.desc())
-        .all()
-    )
-    rows = dedupe_vocabulary_by_word(rows)
+def list_vocabulary(
+    article_ref: str | None = Query(None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    q = db.query(UserVocabularyItem).filter(UserVocabularyItem.user_id == user.id)
+    if article_ref:
+        art = db.query(Article).filter(Article.article_id == article_ref.strip()).first()
+        if not art:
+            return []
+        q = q.filter(UserVocabularyItem.source_article_id == art.id)
+    rows = q.order_by(UserVocabularyItem.created_at.desc()).all()
+    if not article_ref:
+        rows = dedupe_vocabulary_by_word(rows)
     ep_ids = {r.source_episode_id for r in rows if r.source_episode_id}
     titles = _episode_title_map(db, ep_ids)
-    return [
-        VocabularyItemOut(
-            id=r.id,
-            entry_id=r.entry_id,
-            word=r.word,
-            token_type=r.token_type,
-            source_video_id=r.source_video_id,
-            source_episode_title=titles.get(r.source_episode_id or 0, ""),
-            created_at=_fmt_dt(r.created_at),
-        )
-        for r in rows
-    ]
+    art_ids = {r.source_article_id for r in rows if r.source_article_id}
+    art_titles: dict[int, str] = {}
+    if art_ids:
+        for art_id, art_title in db.query(Article.id, Article.title).filter(Article.id.in_(art_ids)).all():
+            art_titles[art_id] = art_title
+    result: list[VocabularyItemOut] = []
+    for r in rows:
+        title = titles.get(r.source_episode_id or 0, "") or art_titles.get(r.source_article_id or 0, "")
+        result.append(_vocabulary_item_out(db, r, title))
+    return result
 
 
 @router.post("/vocabulary/", response_model=VocabularyItemOut)
@@ -182,6 +204,12 @@ def add_vocabulary(
     if body.video_id and not episode_id:
         ep = db.query(Episode).filter(Episode.video_id == body.video_id).first()
         episode_id = ep.id if ep else None
+    article_id = body.article_id
+    if body.article_ref and not article_id:
+        from ..models import Article
+
+        art = db.query(Article).filter(Article.article_id == body.article_ref.strip()).first()
+        article_id = art.id if art else None
     row = save_vocabulary(
         db,
         user,
@@ -192,21 +220,20 @@ def add_vocabulary(
             "episode_id": episode_id,
             "subtitle_id": body.subtitle_id,
             "video_id": body.video_id,
+            "article_id": article_id,
+            "segment_id": body.segment_id,
+            "source_type": body.source_type or None,
+            "article_id_str": body.article_ref.strip(),
         },
     )
     title = ""
     if row.source_episode_id:
         ep = db.query(Episode).filter(Episode.id == row.source_episode_id).first()
         title = ep.short_title if ep else ""
-    return VocabularyItemOut(
-        id=row.id,
-        entry_id=row.entry_id,
-        word=row.word,
-        token_type=row.token_type,
-        source_video_id=row.source_video_id,
-        source_episode_title=title,
-        created_at=_fmt_dt(row.created_at),
-    )
+    elif row.source_article_id:
+        art = db.query(Article).filter(Article.id == row.source_article_id).first()
+        title = art.title if art else ""
+    return _vocabulary_item_out(db, row, title)
 
 
 @router.delete("/vocabulary/{entry_id}/")

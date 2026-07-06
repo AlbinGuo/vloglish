@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
+from datetime import datetime
 
 EPISODE_STATUS_PATTERN = "^(draft|published|archived|rejected)$"
 
@@ -630,6 +631,10 @@ class VocabularyItemOut(BaseModel):
     source_video_id: str
     source_episode_title: str
     created_at: str
+    exam_tags: list[str] = []
+    ipa: str = ""
+    definition_cn: str = ""
+    source_type: str = ""
 
 
 class VocabularySaveIn(BaseModel):
@@ -639,6 +644,10 @@ class VocabularySaveIn(BaseModel):
     video_id: str = ""
     episode_id: int | None = None
     subtitle_id: int | None = None
+    article_id: int | None = None
+    segment_id: int | None = None
+    article_ref: str = ""
+    source_type: str = ""
 
 
 class WordLookupOut(BaseModel):
@@ -780,3 +789,99 @@ class AdminTecoSyncDbFromQiniuIn(BaseModel):
     status: str = Field(default="published", pattern=EPISODE_STATUS_PATTERN)
     skip_existing: bool = True
     force_update: bool = False
+
+
+ARTICLE_STATUS_PATTERN = "^(draft|published|archived)$"
+
+
+class ArticleProgressUpdateIn(BaseModel):
+    last_segment_index: int = Field(default=0, ge=0)
+    read_time_delta_sec: int = Field(default=0, ge=0)
+
+
+class ArticleProgressOut(BaseModel):
+    last_segment_index: int
+    max_reached_index: int
+    completion_percent: float
+    is_completed: bool
+    last_read_at: str | None = None
+
+
+class AdminArticleSegmentIn(BaseModel):
+    english: str
+    chinese: str = ""
+    english_html: str = ""
+
+
+class AdminArticleCreateIn(BaseModel):
+    article_id: str | None = None
+    title: str = ""
+    summary: str = ""
+    source: str = ""
+    source_url: str = ""
+    topic: str = ""
+    cover: str = ""
+    stars: int = Field(default=3, ge=1, le=5)
+    status: str = Field(default="draft", pattern=ARTICLE_STATUS_PATTERN)
+    published_at: datetime | None = None
+
+
+class AdminArticleUpdateIn(BaseModel):
+    title: str | None = None
+    summary: str | None = None
+    source: str | None = None
+    source_url: str | None = None
+    topic: str | None = None
+    cover: str | None = None
+    stars: int | None = Field(default=None, ge=1, le=5)
+    status: str | None = Field(default=None, pattern=ARTICLE_STATUS_PATTERN)
+    published_at: datetime | None = None
+
+
+class AdminArticleListItemOut(BaseModel):
+    id: int
+    article_id: str
+    title: str
+    source: str
+    topic: str
+    stars: int
+    word_count: int
+    segment_count: int
+    status: str
+    published_at: str
+    created_at: str
+
+
+class AdminArticleListOut(BaseModel):
+    count: int
+    results: list[AdminArticleListItemOut]
+
+
+class AdminArticleDetailOut(BaseModel):
+    id: int
+    article_id: str
+    title: str
+    summary: str
+    source: str
+    source_url: str
+    topic: str
+    stars: int
+    word_count: int
+    segment_count: int
+    cover: str
+    published_at: str
+    status: str
+    segments: list[AdminArticleSegmentIn]
+    progress: ArticleProgressOut | None = None
+
+
+class AdminArticleImportTextIn(BaseModel):
+    english_text: str
+    auto_translate: bool = True
+    auto_analyze: bool = True
+
+
+class AdminArticleImportTextOut(BaseModel):
+    segment_count: int
+    word_count: int
+    stars: int

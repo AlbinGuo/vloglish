@@ -1,4 +1,6 @@
-from .models import Author, Episode, Entry, Tag
+from datetime import datetime
+
+from .models import Article, ArticleSegment, Author, Episode, Entry, Tag, UserArticleProgress
 from .media import resolve_audio_url, resolve_video_url
 from .services.episode_admin import episode_is_new
 
@@ -111,4 +113,77 @@ def entry_brief(entry: Entry) -> dict:
         "forms": entry.forms,
         "category": entry.category,
         "exam_tags": entry.exam_tags,
+    }
+
+
+def _article_fmt_dt(value: datetime | None) -> str:
+    if not value:
+        return ""
+    return value.isoformat()
+
+
+def article_segment_out(seg: ArticleSegment) -> dict:
+    return {
+        "id": seg.id,
+        "index": seg.index,
+        "english": seg.english,
+        "chinese": seg.chinese or "",
+        "english_html": seg.english_html or "",
+    }
+
+
+def article_progress_out(row: UserArticleProgress | None) -> dict | None:
+    if not row:
+        return None
+    return {
+        "last_segment_index": row.last_segment_index,
+        "max_reached_index": row.max_reached_index,
+        "completion_percent": round(row.completion_percent, 1),
+        "is_completed": row.is_completed,
+        "last_read_at": _article_fmt_dt(row.last_read_at),
+    }
+
+
+def article_list_item(
+    article: Article,
+    *,
+    progress: UserArticleProgress | None = None,
+    accessible: bool = True,
+) -> dict:
+    return {
+        "article_id": article.article_id,
+        "title": article.title,
+        "summary": article.summary or "",
+        "source": article.source or "",
+        "topic": article.topic or "",
+        "stars": article.stars,
+        "word_count": article.word_count,
+        "segment_count": article.segment_count,
+        "cover": article.cover or "",
+        "published_at": _article_fmt_dt(article.published_at),
+        "progress": article_progress_out(progress),
+        "accessible": accessible,
+    }
+
+
+def article_detail(
+    article: Article,
+    segments: list[ArticleSegment],
+    *,
+    progress: UserArticleProgress | None = None,
+) -> dict:
+    return {
+        "article_id": article.article_id,
+        "title": article.title,
+        "summary": article.summary or "",
+        "source": article.source or "",
+        "source_url": article.source_url or "",
+        "topic": article.topic or "",
+        "stars": article.stars,
+        "word_count": article.word_count,
+        "segment_count": article.segment_count,
+        "cover": article.cover or "",
+        "published_at": _article_fmt_dt(article.published_at),
+        "segments": [article_segment_out(s) for s in segments],
+        "progress": article_progress_out(progress),
     }

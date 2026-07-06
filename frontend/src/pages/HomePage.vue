@@ -8,6 +8,7 @@ import { useIsMobile } from '@/composables/useBreakpoint'
 import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
 import { CARD_INITIAL_SIZE, LIST_INITIAL_SIZE, useCatalogStore } from '@/stores/catalog'
+import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import CatalogCalendar from '@/components/catalog/CatalogCalendar.vue'
 import CatalogFilters from '@/components/catalog/CatalogFilters.vue'
 import CatalogListToolbar from '@/components/catalog/CatalogListToolbar.vue'
@@ -132,6 +133,8 @@ watch(
       </aside>
 
       <section class="flex-1 min-w-0">
+        <EnglishNavTabs class="mb-4" />
+
         <section
           v-if="auth.isLoggedIn && recentLearning.length"
           class="mb-5 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4"

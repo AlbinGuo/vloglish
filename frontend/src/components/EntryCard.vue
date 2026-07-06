@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { EntryDetail } from '@/types'
 import { posLabel } from '@/utils/posLabel'
+import { formatExamTags } from '@/utils/examTags'
 
 const props = defineProps<{
   entry: EntryDetail | null
@@ -16,6 +17,8 @@ const primaryPron = computed(() => {
   const list = props.entry?.pronunciations ?? []
   return list.find((p) => p.is_primary) ?? list[0] ?? null
 })
+
+const examTags = computed(() => formatExamTags(props.entry?.exam_tags ?? []))
 
 function playAudio(url: string) {
   new Audio(url).play()
@@ -104,6 +107,16 @@ function onToggleVocabulary() {
             </div>
             <span class="shrink-0 px-2.5 py-0.5 rounded-md bg-[#E8A87C] text-white text-xs font-medium">
               {{ entry.category }}
+            </span>
+          </div>
+
+          <div v-if="examTags.length" class="flex flex-wrap gap-1.5 mt-2">
+            <span
+              v-for="tag in examTags"
+              :key="tag.key"
+              class="text-[10px] leading-none px-1.5 py-0.5 rounded bg-neutral-200/80 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200"
+            >
+              {{ tag.label }}
             </span>
           </div>
 

@@ -1,0 +1,103 @@
+"""从 Entry / LookupCache 读取词条详情与音标、释义等附加信息。"""
+
+from __future__ import annotations
+
+import json
+
+from sqlalchemy.orm import Session
+
+from ..dict.deepseek import normalize_exam_tags
+from ..models import Entry, LookupCache
+from ..serializers import entry_detail
+
+
+def _ipa_and_definition_from_detail(detail: dict) -> tuple[str, str]:
+    pronunciations = detail.get("pronunciations") or []
+    ipa = ""
+    for p in pronunciations:
+        candidate = (p.get("ipa") or "").strip()
+        if p.get("is_primary") and candidate:
+            ipa = candidate
+            break
+        if candidate and not ipa:
+            ipa = candidate
+    definitions = detail.get("definitions") or []
+    definition_cn = (definitions[0].get("definition_cn") or "").strip() if definitions else ""
+    return ipa, definition_cn
+
+
+def lookup_result_by_entry_id(db: Session, entry_id: int) -> dict | None:
+    cache_row = (
+        db.query(LookupCache)
+        .filter(LookupCache.entry_id == entry_id)
+        .order_by(LookupCache.updated_at.desc())
+        .first()
+    )
+    if not cache_row:
+        return None
+    try:
+        data = json.loads(cache_row.response_json)
+    except json.JSONDecodeError:
+        return None
+    data["id"] = cache_row.entry_id
+    data["eid"] = cache_row.entry_id
+    data["exam_tags"] = normalize_exam_tags(data.get("exam_tags"))
+    return data
+
+
+def merged_exam_tags(db: Session, entry_id: int) -> list[str]:
+    entry = db.query(Entry).filter(Entry.id == entry_id).first()
+    cached = lookup_result_by_entry_id(db, entry_id)
+    cached_tags = cached.get("exam_tags", []) if cached else []
+    entry_tags = normalize_exam_tags(entry.exam_tags) if entry else []
+    return cached_tags or entry_tags
+
+
+def entry_vocab_extras(db: Session, entry_id: int) -> tuple[list[str], str, str]:
+    entry = db.query(Entry).filter(Entry.id == entry_id).first()
+    cached = lookup_result_by_entry_id(db, entry_id)
+
+    exam_tags = merged_exam_tags(db, entry_id)
+    ipa = ""
+    definition_cn = ""
+
+    if entry and entry.detail.get("definitions"):
+        ipa, definition_cn = _ipa_and_definition_from_detail(entry.detail)
+
+    if cached:
+        cached_ipa, cached_def = _ipa_and_definition_from_detail(cached)
+        if not ipa:
+            ipa = cached_ipa
+        if not definition_cn:
+            definition_cn = cached_def
+
+    return exam_tags, ipa, definition_cn
+
+
+def entry_has_detail(entry: Entry) -> bool:
+    return bool(entry.detail.get("definitions"))
+
+
+def build_entry_detail(db: Session, entry_id: int) -> dict | None:
+    entry = db.query(Entry).filter(Entry.id == entry_id).first()
+    cached = lookup_result_by_entry_id(db, entry_id)
+
+    if entry and entry_has_detail(entry):
+        data = entry_detail(entry)
+    elif cached:
+        data = {
+            "id": entry_id,
+            "headword": cached.get("headword", ""),
+            "category": cached.get("category", "单词"),
+            "pronunciations": cached.get("pronunciations") or [],
+            "definitions": cached.get("definitions") or [],
+            "exam_tags": cached.get("exam_tags") or [],
+            "favorite": None,
+        }
+    elif entry:
+        data = entry_detail(entry)
+    else:
+        return None
+
+    data["exam_tags"] = merged_exam_tags(db, entry_id)
+    return data
