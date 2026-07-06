@@ -56,7 +56,7 @@ const cellClass = computed(() => {
     <template v-else>
       <p
         v-if="displayChinese"
-        class="subtitle-chinese text-base leading-relaxed text-neutral-700 dark:text-neutral-300 break-words"
+        class="subtitle-chinese text-base leading-relaxed text-neutral-700 dark:text-neutral-300 break-words p-4"
       >
         {{ displayChinese }}
       </p>
