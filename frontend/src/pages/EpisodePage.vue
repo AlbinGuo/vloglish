@@ -7,8 +7,10 @@ import { getEpisodeList, setEpisodeFavorite } from '@/api/episodes'
 import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
 import SubtitleModeSheet from '@/components/episode/SubtitleModeSheet.vue'
 import { useIsPad, useIsPhone } from '@/composables/useBreakpoint'
+import { useMobilePlayerChrome } from '@/composables/useMobilePlayerChrome'
 import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import { useLearningProgress } from '@/composables/useLearningProgress'
+import { useSubtitleReadProgress } from '@/composables/useSubtitleReadProgress'
 import { consumeEpisodeAutoplay, requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
 import type { EntryDetail, EpisodeDetail, EpisodeSummary } from '@/types'
@@ -191,6 +193,45 @@ const showCurrentSubtitleBar = computed(
 )
 
 const playbackTime = computed(() => player.currentTime.value)
+
+const { wordHighlightFor } = useSubtitleReadProgress(playbackTime)
+
+const mobileChromeEnabled = computed(
+  () => isPhone.value && Boolean(episode.value) && !props.adminPreview,
+)
+
+const mobileChromeBlocked = computed(
+  () =>
+    mobileMoreOpen.value ||
+    mobileDrawerOpen.value ||
+    showEntryPanel.value ||
+    subtitleModeSheetOpen.value ||
+    showSettings.value,
+)
+
+const {
+  visible: mobileChromeVisible,
+  toggle: toggleMobileChrome,
+  onChromeInteraction: onMobileChromeInteraction,
+} = useMobilePlayerChrome({
+  enabled: mobileChromeEnabled,
+  isPlaying: player.isPlaying,
+  isBlocked: mobileChromeBlocked,
+})
+
+const mobileListBottomPad = computed(() => {
+  if (!isPhone.value) return ''
+  if (props.adminPreview) return 'pb-[calc(7.5rem+env(safe-area-inset-bottom))]'
+  return mobileChromeVisible.value
+    ? 'pb-[calc(7.5rem+env(safe-area-inset-bottom))]'
+    : 'pb-[calc(2.75rem+env(safe-area-inset-bottom))]'
+})
+
+const mobileEpisodeHeaderSpacer = 'h-[calc(2.75rem+max(0.75rem,env(safe-area-inset-top)))]'
+
+const mobileVideoImmersive = computed(
+  () => mobileChromeEnabled.value && !mobileChromeVisible.value,
+)
 
 watch(showEntryPanel, (open) => {
   document.body.style.overflow = open ? 'hidden' : ''
@@ -547,33 +588,59 @@ function scrollCurrentIntoView() {
 }
 
 function resolveSentenceContext(target: HTMLElement): string {
-  const row = target.closest('[data-sub-index]')
-  if (row) {
-    const idx = parseInt(row.getAttribute('data-sub-index') ?? '', 10)
-    const sub = sortedSubs.value[idx]
-    if (sub) return sub.english
-  }
+  const sub = resolveSubtitleFromTarget(target)
+  if (sub) return sub.english
   return displaySub.value?.english ?? currentSub.value?.english ?? ''
 }
 
-async function onSubtitleClick(e: MouseEvent) {
-  const target = (e.target as HTMLElement).closest('span')
-  if (!target) return
-  const tid = target.getAttribute('tid')
-  const pid = target.getAttribute('pid')
-  if (!tid && !pid) return
+function resolveSubtitleFromTarget(target: HTMLElement) {
+  const row = target.closest('[data-sub-index]')
+  if (row) {
+    const idx = parseInt(row.getAttribute('data-sub-index') ?? '', 10)
+    return sortedSubs.value[idx] ?? null
+  }
+  return displaySub.value ?? currentSub.value ?? null
+}
 
-  const word = target.textContent?.trim() ?? ''
+function resolveClickedWordSpan(target: HTMLElement, root: HTMLElement): HTMLElement | null {
+  let el = target.closest('span')
+  while (el && root.contains(el)) {
+    if (el.classList.contains('subtitle-word-wrap')) {
+      el = (el.querySelector(':scope > span') as HTMLElement | null) ?? el
+    }
+    if (el.parentElement?.classList.contains('subtitle-word-wrap')) {
+      el = el.parentElement.querySelector(':scope > span') as HTMLElement
+    }
+    const text = el.textContent?.trim() ?? ''
+    if (text && el !== root && !el.classList.contains('subtitle-english-word-progress')) {
+      return el
+    }
+    el = el.parentElement?.closest('span') ?? null
+  }
+  return null
+}
+
+async function onSubtitleClick(e: MouseEvent) {
+  const root = (e.target as HTMLElement).closest('.subtitle-english')
+  if (!root) return
+
+  const target = resolveClickedWordSpan(e.target as HTMLElement, root as HTMLElement)
+  if (!target) return
+
+  const word = target.textContent?.trim().replace(/\s+/g, ' ') ?? ''
   if (!word) return
+
+  const pid = target.getAttribute('pid')
+  const isPhrase = Boolean(pid) || target.classList.contains('phrase-token')
+  const type = isPhrase ? 2 : 1
 
   showEntryPanel.value = true
   entryLoading.value = true
   entryError.value = ''
   selectedEntry.value = null
 
-  const type = pid ? 2 : 1
   const context = resolveSentenceContext(target)
-  const sub = currentSub.value
+  const sub = resolveSubtitleFromTarget(target)
   try {
     selectedEntry.value = await lookupWord(word, type as 1 | 2, context, {
       video_id: props.videoId,
@@ -642,7 +709,17 @@ function subtitleRowClass(index: number) {
     class="flex flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-950"
     :class="adminPreview ? 'h-dvh' : 'h-full'"
   >
-    <header class="shrink-0 flex items-center gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 z-30">
+    <header
+      class="flex items-center gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 z-30 transition-transform duration-300 ease-out"
+      :class="
+        mobileChromeEnabled
+          ? [
+              'fixed inset-x-0 top-0',
+              mobileChromeVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none',
+            ]
+          : 'shrink-0'
+      "
+    >
       <button class="text-sm text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white" @click="goBack">← 返回</button>
       <div v-if="episode" class="flex-1 min-w-0">
         <p class="font-semibold truncate flex items-center gap-2">
@@ -694,6 +771,13 @@ function subtitleRowClass(index: number) {
     </header>
 
     <div
+      v-if="mobileChromeEnabled"
+      class="shrink-0 pointer-events-none overflow-hidden transition-[height] duration-300 ease-out"
+      :class="mobileChromeVisible ? mobileEpisodeHeaderSpacer : 'h-0'"
+      aria-hidden="true"
+    />
+
+    <div
       v-if="resumePrompt && !adminPreview"
       class="shrink-0 flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-100 dark:border-amber-900/50 text-sm"
     >
@@ -719,6 +803,7 @@ function subtitleRowClass(index: number) {
       <aside
         ref="videoPanelRef"
         class="shrink-0 lg:w-[46%] xl:w-[44%] min-h-0 lg:h-full flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4 max-lg:h-auto max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:shrink-0 max-lg:landscape:static max-lg:landscape:w-[42%] max-lg:landscape:shrink-0 max-lg:landscape:h-auto"
+        :class="mobileVideoImmersive ? 'max-lg:!p-0 max-lg:!gap-0 max-lg:!rounded-none' : ''"
       >
         <VideoPlayer
           class="shrink-0"
@@ -730,6 +815,7 @@ function subtitleRowClass(index: number) {
           :player="player"
           :show-progress-bar="!isPhone"
           :auto-hide-progress="!isPhone"
+          :flush="mobileVideoImmersive"
         />
         <PlayerControls
           v-if="!isPhone"
@@ -827,6 +913,7 @@ function subtitleRowClass(index: number) {
               :show-english="modeShowsEnglish(subtitleMode)"
               :show-chinese="modeShowsChinese(subtitleMode)"
               :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+              :word-highlight="wordHighlightFor(currentSub)"
               @click="onSubtitleClick"
             />
           </Transition>
@@ -837,7 +924,7 @@ function subtitleRowClass(index: number) {
           v-else
           ref="listRef"
           class="subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] touch-pan-y px-3 pt-2 space-y-2 lg:p-4 lg:pb-4"
-          :class="isPhone ? 'pb-[calc(7.5rem+env(safe-area-inset-bottom))]' : ''"
+          :class="mobileListBottomPad"
         >
           <div
             v-for="(sub, i) in sortedSubs"
@@ -875,6 +962,7 @@ function subtitleRowClass(index: number) {
                 :show-english="modeShowsEnglish(subtitleMode)"
                 :show-chinese="modeShowsChinese(subtitleMode)"
                 :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+                :word-highlight="wordHighlightFor(sub)"
                 @click.stop="onSubtitleClick"
               />
             </div>
@@ -898,22 +986,43 @@ function subtitleRowClass(index: number) {
     </div>
 
     <!-- 手机端：底部播放控制 -->
-    <div
-      v-if="isPhone && episode"
-      class="fixed bottom-0 inset-x-0 z-40 border-t border-black/10 dark:border-white/10 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
-    >
-      <VideoProgressBar :video="videoRef" variant="dock" />
-      <PlayerControls
-        v-if="!adminPreview"
-        :player="player"
-        :show-ipa="showIpa"
-        :video-hidden="videoHidden"
-        :video-panel-ref="videoPanelRef"
-        compact
-        docked
-        @update:show-ipa="showIpa = $event"
-        @update:video-hidden="videoHidden = $event"
-      />
+    <div v-if="isPhone && episode" class="fixed inset-x-0 bottom-0 z-40 pointer-events-none">
+      <button
+        v-if="!adminPreview && !mobileChromeVisible"
+        type="button"
+        class="pointer-events-auto absolute right-3 z-50 flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white/95 text-neutral-600 shadow-md backdrop-blur-md transition-all duration-300 dark:border-white/10 dark:bg-neutral-900/95 dark:text-neutral-300 bottom-[calc(0.625rem+env(safe-area-inset-bottom))]"
+        aria-label="显示播放控制"
+        :aria-expanded="false"
+        @click.stop="toggleMobileChrome"
+      >
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      <div
+        class="pointer-events-auto transition-transform duration-300 ease-out pb-[env(safe-area-inset-bottom)]"
+        :class="mobileChromeVisible || adminPreview ? 'translate-y-0' : 'translate-y-full'"
+        @pointerdown="onMobileChromeInteraction"
+      >
+        <div class="border-t border-black/10 bg-white/95 backdrop-blur-md dark:border-white/10 dark:bg-neutral-900/95">
+          <VideoProgressBar :video="videoRef" variant="dock" />
+          <PlayerControls
+            v-if="!adminPreview"
+            :player="player"
+            :show-ipa="showIpa"
+            :video-hidden="videoHidden"
+            :video-panel-ref="videoPanelRef"
+            compact
+            docked
+            show-chrome-toggle
+            :chrome-visible="mobileChromeVisible"
+            @update:show-ipa="showIpa = $event"
+            @update:video-hidden="videoHidden = $event"
+            @toggle-chrome="toggleMobileChrome"
+          />
+        </div>
+      </div>
     </div>
 
     <!-- 移动端更多菜单 -->

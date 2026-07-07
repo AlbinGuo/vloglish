@@ -9,6 +9,28 @@ from pathlib import Path
 BROWSER_VIDEO_CODECS = frozenset({"h264", "avc1", "vp8", "vp9", "av1"})
 
 
+def get_ffmpeg_dir() -> Path:
+    tools = os.getenv("VLOGISH_TOOLS_DIR", "").strip()
+    if tools:
+        return Path(tools)
+    env = os.getenv("FFMPEG_DIR", "").strip()
+    if env:
+        return Path(env)
+    return Path(__file__).resolve().parents[2] / "tools"
+
+
+def ffmpeg_tools_status() -> dict:
+    ffmpeg_dir = get_ffmpeg_dir()
+    has_ffmpeg = (ffmpeg_dir / "ffmpeg.exe").is_file() or shutil.which("ffmpeg") is not None
+    has_ffprobe = (ffmpeg_dir / "ffprobe.exe").is_file() or shutil.which("ffprobe") is not None
+    return {
+        "configured": has_ffmpeg and has_ffprobe,
+        "ffmpeg_dir": str(ffmpeg_dir),
+        "has_ffmpeg": has_ffmpeg,
+        "has_ffprobe": has_ffprobe,
+    }
+
+
 def _ffmpeg_bin(ffmpeg_dir: Path, name: str) -> str:
     local = ffmpeg_dir / f"{name}.exe"
     if local.is_file():
@@ -16,7 +38,9 @@ def _ffmpeg_bin(ffmpeg_dir: Path, name: str) -> str:
     found = shutil.which(name)
     if found:
         return found
-    raise RuntimeError(f"未找到 {name}，请配置 FFMPEG_DIR")
+    raise RuntimeError(
+        f"未找到 {name}，请在 backend/.env 配置 VLOGISH_TOOLS_DIR 或 FFMPEG_DIR（当前目录：{ffmpeg_dir}）"
+    )
 
 
 def probe_video_codec(path: Path, ffmpeg_dir: Path) -> str:

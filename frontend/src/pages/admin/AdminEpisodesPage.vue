@@ -17,7 +17,7 @@ const pageSize = ref(20)
 const total = ref(0)
 const rows = ref<AdminEpisodeListItem[]>([])
 const error = ref('')
-const sortBy = ref<AdminEpisodeSortField>('play_count')
+const sortBy = ref<AdminEpisodeSortField>('index')
 const sortDir = ref<'asc' | 'desc'>('desc')
 
 const sortableColumns: { key: AdminEpisodeSortField; label: string; title?: string }[] = [
@@ -25,8 +25,6 @@ const sortableColumns: { key: AdminEpisodeSortField; label: string; title?: stri
   { key: 'unique_learners', label: '学习人数', title: '独立学习用户数' },
   { key: 'completions', label: '完播', title: '学完人数' },
   { key: 'completion_rate', label: '完播率', title: '完播人数 / 学习人数' },
-  { key: 'plays_7d', label: '7 日', title: '近 7 日播放次数' },
-  { key: 'plays_30d', label: '30 日', title: '近 30 日播放次数' },
 ]
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
@@ -175,12 +173,23 @@ onMounted(load)
 
     <div class="rounded-xl border border-black/5 bg-white overflow-x-auto">
       <div v-if="loading" class="p-8 text-center text-neutral-500">加载中...</div>
-      <table v-else class="w-full text-sm min-w-[72rem]">
+      <table v-else class="w-full text-sm min-w-[64rem]">
         <thead class="bg-neutral-50 text-neutral-500">
           <tr>
+            <th class="text-right px-4 py-3 font-medium w-16 whitespace-nowrap">
+              <button
+                type="button"
+                class="inline-flex items-center gap-0.5 hover:text-neutral-900"
+                :class="sortBy === 'index' ? 'text-neutral-900' : ''"
+                title="剧集期数 index"
+                @click="toggleSort('index')"
+              >
+                排序号码{{ sortIndicator('index') }}
+              </button>
+            </th>
             <th class="text-left px-4 py-3 font-medium w-24">封面</th>
             <th class="text-left px-4 py-3 font-medium">标题</th>
-            <th class="text-left px-4 py-3 font-medium">作者</th>
+            <th class="text-left px-4 py-3 font-medium w-28 max-w-[7rem]">作者</th>
             <th class="text-left px-4 py-3 font-medium">难度</th>
             <th class="text-left px-4 py-3 font-medium">字幕</th>
             <th class="text-left px-4 py-3 font-medium">时长</th>
@@ -200,13 +209,13 @@ onMounted(load)
               </button>
             </th>
             <th class="text-left px-4 py-3 font-medium">标签</th>
-            <th class="text-left px-4 py-3 font-medium">来源</th>
-            <th class="text-left px-4 py-3 font-medium">状态</th>
-            <th class="text-right px-4 py-3 font-medium">操作</th>
+            <th class="text-left px-4 py-3 font-medium w-24 whitespace-nowrap">状态</th>
+            <th class="text-right px-4 py-3 font-medium w-36 whitespace-nowrap">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="row in rows" :key="row.id" class="border-t border-black/5">
+            <td class="px-4 py-3 text-right tabular-nums text-neutral-600">{{ row.index }}</td>
             <td class="px-4 py-3">
               <img
                 v-if="row.cover"
@@ -221,7 +230,7 @@ onMounted(load)
               <div class="text-xs text-neutral-400 mt-0.5">{{ row.video_id }}</div>
               <div v-if="row.is_demo" class="text-xs text-amber-600 mt-0.5">Demo</div>
             </td>
-            <td class="px-4 py-3">{{ row.author_name }}</td>
+            <td class="px-4 py-3 max-w-[7rem] truncate" :title="row.author_name">{{ row.author_name }}</td>
             <td class="px-4 py-3">{{ '★'.repeat(row.stars) }}</td>
             <td class="px-4 py-3">{{ row.subtitle_count }} 行</td>
             <td class="px-4 py-3">{{ formatDuration(row.clip_length) }}</td>
@@ -229,8 +238,6 @@ onMounted(load)
             <td class="px-4 py-3 text-right tabular-nums">{{ row.unique_learners }}</td>
             <td class="px-4 py-3 text-right tabular-nums">{{ row.completions }}</td>
             <td class="px-4 py-3 text-right tabular-nums">{{ formatRate(row.completion_rate) }}</td>
-            <td class="px-4 py-3 text-right tabular-nums">{{ row.plays_7d }}</td>
-            <td class="px-4 py-3 text-right tabular-nums">{{ row.plays_30d }}</td>
             <td class="px-4 py-3">
               <div v-if="row.tag_names?.length" class="flex flex-wrap gap-1 max-w-[12rem]">
                 <span
@@ -243,16 +250,7 @@ onMounted(load)
               </div>
               <span v-else class="text-neutral-300">—</span>
             </td>
-            <td class="px-4 py-3">
-              <span
-                v-if="row.is_user_submitted"
-                class="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 ring-1 ring-sky-200/80"
-              >
-                用户投稿
-              </span>
-              <span v-else class="text-neutral-300">—</span>
-            </td>
-            <td class="px-4 py-3">
+            <td class="px-4 py-3 whitespace-nowrap">
               <span
                 class="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full"
                 :class="statusTagClass[row.status] ?? 'bg-neutral-100 text-neutral-600'"
@@ -260,7 +258,7 @@ onMounted(load)
                 {{ statusLabel[row.status] ?? row.status }}
               </span>
             </td>
-            <td class="px-4 py-3 text-right space-x-3">
+            <td class="px-4 py-3 text-right whitespace-nowrap space-x-3">
               <RouterLink :to="`/gnadmin/episodes/${row.id}`" class="text-neutral-900 hover:underline">编辑</RouterLink>
               <a
                 v-if="row.video_id"
@@ -281,7 +279,7 @@ onMounted(load)
             </td>
           </tr>
           <tr v-if="!rows.length">
-            <td colspan="16" class="px-4 py-8 text-center text-neutral-500">暂无剧集</td>
+            <td colspan="14" class="px-4 py-8 text-center text-neutral-500">暂无剧集</td>
           </tr>
         </tbody>
       </table>

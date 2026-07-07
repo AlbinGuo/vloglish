@@ -275,6 +275,8 @@ class UserWordLookup(Base):
     context: Mapped[str] = mapped_column(Text, default="")
     episode_id: Mapped[int | None] = mapped_column(ForeignKey("episodes.id"), nullable=True)
     subtitle_id: Mapped[int | None] = mapped_column(ForeignKey("subtitles.id"), nullable=True)
+    article_id: Mapped[int | None] = mapped_column(ForeignKey("articles.id"), nullable=True)
+    segment_id: Mapped[int | None] = mapped_column(ForeignKey("article_segments.id"), nullable=True)
     video_id: Mapped[str] = mapped_column(String(32), default="")
     looked_up_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -290,6 +292,9 @@ class UserVocabularyItem(Base):
     token_type: Mapped[int] = mapped_column(Integer, default=1)
     source_episode_id: Mapped[int | None] = mapped_column(ForeignKey("episodes.id"), nullable=True)
     source_subtitle_id: Mapped[int | None] = mapped_column(ForeignKey("subtitles.id"), nullable=True)
+    source_article_id: Mapped[int | None] = mapped_column(ForeignKey("articles.id"), nullable=True)
+    source_segment_id: Mapped[int | None] = mapped_column(ForeignKey("article_segments.id"), nullable=True)
+    source_type: Mapped[str] = mapped_column(String(16), default="video")
     source_video_id: Mapped[str] = mapped_column(String(32), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -309,3 +314,83 @@ class LearningSession(Base):
     lookups_count: Mapped[int] = mapped_column(Integer, default=0)
     subtitle_mode: Mapped[str] = mapped_column(String(16), default="both")
     loop_mode: Mapped[str] = mapped_column(String(16), default="off")
+
+
+class Article(Base):
+    __tablename__ = "articles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    article_id: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(512))
+    summary: Mapped[str] = mapped_column(Text, default="")
+    source: Mapped[str] = mapped_column(String(64), default="")
+    source_url: Mapped[str] = mapped_column(Text, default="")
+    topic: Mapped[str] = mapped_column(String(64), default="")
+    cover: Mapped[str] = mapped_column(Text, default="")
+    stars: Mapped[int] = mapped_column(Integer, default=3)
+    word_count: Mapped[int] = mapped_column(Integer, default=0)
+    segment_count: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(16), default="draft")
+    is_free_preview: Mapped[bool] = mapped_column(Boolean, default=False)
+    tts_status: Mapped[str] = mapped_column(String(16), default="none")
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    segments: Mapped[list["ArticleSegment"]] = relationship(
+        back_populates="article",
+        cascade="all, delete-orphan",
+        order_by="ArticleSegment.index",
+    )
+
+
+class ArticleSegment(Base):
+    __tablename__ = "article_segments"
+    __table_args__ = (UniqueConstraint("article_id", "index", name="uq_article_segment_index"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id"), index=True)
+    index: Mapped[int] = mapped_column(Integer)
+    english: Mapped[str] = mapped_column(Text)
+    chinese: Mapped[str] = mapped_column(Text, default="")
+    english_html: Mapped[str] = mapped_column(Text, default="")
+    audio_url: Mapped[str] = mapped_column(Text, default="")
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+
+    article: Mapped["Article"] = relationship(back_populates="segments")
+
+
+class UserArticleProgress(Base):
+    __tablename__ = "user_article_progress"
+    __table_args__ = (UniqueConstraint("user_id", "article_id", name="uq_user_article_progress"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id"), index=True)
+    last_segment_index: Mapped[int] = mapped_column(Integer, default=0)
+    max_reached_index: Mapped[int] = mapped_column(Integer, default=0)
+    read_time_sec: Mapped[int] = mapped_column(Integer, default=0)
+    completion_percent: Mapped[float] = mapped_column(Float, default=0)
+    is_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    first_opened_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_read_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class UserArticleFavorite(Base):
+    __tablename__ = "user_article_favorites"
+    __table_args__ = (UniqueConstraint("user_id", "article_id", name="uq_user_article_favorite"),)
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class UserArticleOpen(Base):
+    __tablename__ = "user_article_opens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    device_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+    article_id: Mapped[int] = mapped_column(ForeignKey("articles.id"), index=True)
+    opened_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -209,6 +209,8 @@ def log_word_lookup(
     episode_id: int | None,
     subtitle_id: int | None,
     video_id: str,
+    article_id: int | None = None,
+    segment_id: int | None = None,
 ) -> UserWordLookup:
     row = UserWordLookup(
         user_id=user.id,
@@ -218,6 +220,8 @@ def log_word_lookup(
         context=context,
         episode_id=episode_id,
         subtitle_id=subtitle_id,
+        article_id=article_id,
+        segment_id=segment_id,
         video_id=video_id or "",
     )
     db.add(row)
@@ -241,8 +245,27 @@ def save_vocabulary(db: Session, user: User, data: dict) -> UserVocabularyItem:
         .filter(UserVocabularyItem.user_id == user.id, UserVocabularyItem.entry_id == data["entry_id"])
         .first()
     )
+    article_id = data.get("article_id")
+    article_ref = (data.get("article_id_str") or "").strip()
+    source_type = data.get("source_type") or ("article" if article_id else "video")
+
     if row:
+        if article_id:
+            row.source_article_id = article_id
+            row.source_segment_id = data.get("segment_id")
+            row.source_type = "article"
+            if article_ref:
+                row.source_video_id = article_ref
+        elif data.get("episode_id"):
+            row.source_episode_id = data.get("episode_id")
+            row.source_subtitle_id = data.get("subtitle_id")
+            row.source_type = source_type
+            if data.get("video_id"):
+                row.source_video_id = data.get("video_id")
+        db.commit()
+        db.refresh(row)
         return row
+
     row = UserVocabularyItem(
         user_id=user.id,
         entry_id=data["entry_id"],
@@ -250,7 +273,10 @@ def save_vocabulary(db: Session, user: User, data: dict) -> UserVocabularyItem:
         token_type=data.get("token_type", 1),
         source_episode_id=data.get("episode_id"),
         source_subtitle_id=data.get("subtitle_id"),
-        source_video_id=data.get("video_id", ""),
+        source_article_id=article_id,
+        source_segment_id=data.get("segment_id"),
+        source_type=source_type,
+        source_video_id=data.get("video_id") or article_ref or "",
     )
     db.add(row)
     db.commit()

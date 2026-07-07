@@ -8,10 +8,10 @@ from ...models import User
 from ...schemas import AdminEpisodeImportIn, AdminEpisodeImportOut
 from ...services.episode_json_import import export_episodes_json, import_episodes_json
 
-router = APIRouter(prefix="/api/admin/episodes", tags=["admin-episode-import"])
+router = APIRouter(prefix="/api/admin", tags=["admin-episode-import"])
 
 
-@router.post("/import-json/", response_model=AdminEpisodeImportOut)
+@router.post("/episodes/import-json/", response_model=AdminEpisodeImportOut)
 def import_json(
     body: AdminEpisodeImportIn,
     _admin: User = Depends(get_current_admin),
@@ -26,7 +26,7 @@ def import_json(
     return AdminEpisodeImportOut(**result)
 
 
-@router.get("/export-json/")
+@router.get("/episodes/export-json/")
 def export_json(
     _admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),

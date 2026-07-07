@@ -24,8 +24,8 @@ copy(JSON.stringify({
 
 | 项目 | 行为 |
 |------|------|
-| 视频 | ffmpeg `delogo` 去除左上角区域 + `drawtext` 加 vloglish |
-| 封面 | 从视频 10%–45% 处截帧（每期偏移不同）+ vloglish / Ep.N / 标题条 |
+| 视频 | 去除 teco 左上角/左下角水印（毛玻璃遮罩），**不添加** vloglish 文字 |
+| 封面 | 从视频截帧生成 webp，无 vloglish 标识 |
 | 字幕 | 直接使用 teco detail API（中英 + IPA），无需 DeepSeek |
 
 可在 `backend/.env` 调整：

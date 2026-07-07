@@ -18,7 +18,7 @@ const props = defineProps<{
   subtitleMode: SubtitleDisplayMode
   showIpa: boolean
   englishHtml: string
-  /** 手机端固定高度紧凑样式 */
+  /** 手机端紧凑样式：高度随内容折行，过长可滚动 */
   compact?: boolean
   /** Pad：实时字幕顶对齐（margin: 0） */
   topAlign?: boolean
@@ -39,9 +39,12 @@ const showBarProgress = computed(
   () => isPlayingSub.value && sentenceProgressStyle.value === 'bar',
 )
 
-const gradientProgress = computed(() =>
-  isPlayingSub.value && sentenceProgressStyle.value === 'gradient' ? progress.value : undefined,
-)
+const gradientWordHighlight = computed(() => {
+  // 手机端实时字幕仅折行展示，不做逐词高亮（与桌面/Pad 区分）
+  if (props.compact) return undefined
+  if (!isPlayingSub.value || sentenceProgressStyle.value !== 'gradient') return undefined
+  return { time: props.currentTime, start: props.sub.start, end: props.sub.end }
+})
 
 const progressFillStyle = computed(() => ({
   transform: `scaleX(${progress.value})`,
@@ -52,9 +55,9 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
 
 <template>
   <div
-    class="current-subtitle-bar relative rounded-2xl border bg-white dark:bg-neutral-900 dark:border-white/10 cursor-pointer shadow-sm transition-shadow hover:shadow-md overflow-hidden"
+    class="current-subtitle-bar relative rounded-2xl border bg-white dark:bg-neutral-900 dark:border-white/10 cursor-pointer shadow-sm transition-shadow hover:shadow-md"
     :class="[
-      compact ? 'current-subtitle-bar--compact h-[7.25rem] shrink-0' : 'min-h-0 flex-1',
+      compact ? 'current-subtitle-bar--compact shrink-0 overflow-hidden' : 'min-h-0 flex-1 overflow-hidden overflow-x-hidden',
       topAlign ? 'current-subtitle-bar--top-align' : '',
       showBarProgress ? 'border-black/8 border-t-0 dark:border-white/10' : 'border-black/8 dark:border-white/10',
     ]"
@@ -71,17 +74,17 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
     <div class="current-subtitle-bar__viewport">
       <div class="subtitle-focus-light current-subtitle-bar__content">
         <SubtitleBlock
-          class="w-full"
+          class="w-full min-w-0"
           :english-html="englishHtml"
           :chinese="sub.chinese"
           :ipa="sub.ipa"
-          :large="true"
+          :large="!compact"
           align="center"
           :chinese-focus="isChineseOnly()"
           :show-english="modeShowsEnglish(subtitleMode)"
           :show-chinese="modeShowsChinese(subtitleMode)"
           :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
-          :read-progress="gradientProgress"
+          :word-highlight="gradientWordHighlight"
           @click.stop="$emit('click', $event)"
         />
       </div>
@@ -90,7 +93,6 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
 </template>
 
 <style scoped>
-/* 占满播放器下方剩余高度，内部用 margin:auto 垂直居中（兼容 iPad 1024 等） */
 .current-subtitle-bar__viewport {
   position: absolute;
   inset: 0;
@@ -109,6 +111,7 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
 .current-subtitle-bar__content {
   margin: auto;
   width: 100%;
+  min-width: 0;
   max-height: 100%;
   overflow-y: auto;
   text-align: center;
@@ -122,17 +125,74 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
   align-items: flex-start;
 }
 
-.current-subtitle-bar :deep(.subtitle-english-progress) {
-  display: flex;
-  width: 100%;
-  justify-content: center;
+/* 手机端：随内容折行，过长时在区域内滚动 */
+.current-subtitle-bar--compact {
+  min-height: 4.5rem;
+  max-height: min(38dvh, 11.5rem);
 }
 
-.current-subtitle-bar--compact :deep(.subtitle-english),
-.current-subtitle-bar--compact :deep(.subtitle-english-dim),
-.current-subtitle-bar--compact :deep(.subtitle-english-read) {
-  font-size: 1.125rem;
-  line-height: 1.4;
+.current-subtitle-bar--compact .current-subtitle-bar__viewport {
+  position: relative;
+  inset: auto;
+  display: block;
+  min-height: 0;
+  max-height: min(38dvh, 11.5rem);
+  padding: 0.625rem 0.75rem;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.current-subtitle-bar--compact .current-subtitle-bar__content {
+  margin: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+.current-subtitle-bar :deep(.subtitle-english-word-progress) {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: center;
+  gap: 0 !important;
+}
+
+.current-subtitle-bar :deep(.subtitle-english-word-progress .subtitle-word-wrap) {
+  display: inline;
+  max-width: 100%;
+}
+
+/* v-html 模式：flex 折行，词间距与列表区一致（gap-x-1.5），不再叠加额外 gap */
+.current-subtitle-bar :deep(.subtitle-english:not(.subtitle-english-word-progress)) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  column-gap: 0.375rem;
+  row-gap: 0.125rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-align: center;
+}
+
+.current-subtitle-bar :deep(.subtitle-chinese),
+.current-subtitle-bar :deep(.subtitle-ipa) {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.current-subtitle-bar--compact :deep(.subtitle-english) {
+  font-size: 1.0625rem;
+  line-height: 1.45;
 }
 
 .current-subtitle-bar--compact :deep(.subtitle-ipa) {
@@ -143,28 +203,20 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
   font-size: 0.875rem;
 }
 
-.current-subtitle-bar--compact .current-subtitle-bar__viewport {
-  padding: 0.625rem 0.75rem;
-}
-
 .sentence-progress-fill {
   transform-origin: left center;
   transition: transform 0.28s linear;
   will-change: transform;
 }
 
-.current-subtitle-bar :deep(.subtitle-english),
-.current-subtitle-bar :deep(.subtitle-english-dim),
-.current-subtitle-bar :deep(.subtitle-english-read) {
+.current-subtitle-bar:not(.current-subtitle-bar--compact) :deep(.subtitle-english) {
   font-size: 1.375rem;
   line-height: 1.45;
   font-weight: 600;
 }
 
 @media (min-width: 640px) {
-  .current-subtitle-bar :deep(.subtitle-english),
-  .current-subtitle-bar :deep(.subtitle-english-dim),
-  .current-subtitle-bar :deep(.subtitle-english-read) {
+  .current-subtitle-bar:not(.current-subtitle-bar--compact) :deep(.subtitle-english) {
     font-size: 1.625rem;
   }
 }

@@ -18,6 +18,13 @@ body {
   min-height: 100dvh;
 }
 
+/* 移动端：禁止双指/双击缩放（配合 viewport meta） */
+@media (max-width: 1023px) {
+  html {
+    touch-action: manipulation;
+  }
+}
+
 a,
 button:not(:disabled),
 [type="button"]:not(:disabled),
@@ -168,15 +175,58 @@ select:disabled {
   color: inherit;
 }
 
-/* 当前句「文字渐深」进度 */
-.subtitle-english-progress .subtitle-english-dim {
-  opacity: 0.28;
+/* 逐词颜色跟读：默认 inline 排版；列表/面板需要 flex 折行处单独覆盖 */
+.subtitle-english-word-progress {
+  display: block;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
-.subtitle-english-progress .subtitle-english-read {
-  pointer-events: auto;
-  transition: clip-path 0.28s linear;
-  will-change: clip-path;
+.subtitle-english-word-progress .subtitle-word-wrap {
+  display: inline;
+  max-width: 100%;
+  transition: color 0.1s ease;
+}
+
+.subtitle-panel .subtitle-english-word-progress,
+.subtitle-focus-light:not(.current-subtitle-bar__content) .subtitle-english-word-progress {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+/* 视频下方实时字幕 */
+.current-subtitle-bar .subtitle-english-word-progress .subtitle-word-read,
+.current-subtitle-bar .subtitle-english-word-progress .subtitle-word-read span {
+  color: #0fbb35 !important;
+}
+
+html.highlight-style-background .current-subtitle-bar .subtitle-english-word-progress .subtitle-word-read span.highlight {
+  background-color: rgb(15 187 53 / 0.18) !important;
+  color: #0a8f28 !important;
+}
+
+.dark html.highlight-style-background .current-subtitle-bar .subtitle-english-word-progress .subtitle-word-read span.highlight,
+.dark.highlight-style-background .current-subtitle-bar .subtitle-english-word-progress .subtitle-word-read span.highlight {
+  background-color: rgb(15 187 53 / 0.22) !important;
+  color: #4ade80 !important;
+}
+
+/* 右侧字幕列表 / 动态聚焦 */
+.subtitle-panel .subtitle-english-word-progress .subtitle-word-read,
+.subtitle-panel .subtitle-english-word-progress .subtitle-word-read span {
+  color: #34e95c !important;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-english-word-progress .subtitle-word-read span.highlight {
+  background-color: rgb(52 233 92 / 0.18) !important;
+  color: #16a34a !important;
+}
+
+.dark html.highlight-style-background .subtitle-panel .subtitle-english-word-progress .subtitle-word-read span.highlight,
+.dark.highlight-style-background .subtitle-panel .subtitle-english-word-progress .subtitle-word-read span.highlight {
+  background-color: rgb(52 233 92 / 0.22) !important;
+  color: #86efac !important;
 }
 
 /* 背景色高亮模式 */
@@ -741,4 +791,138 @@ html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-
 
 .dark.highlight-style-background .subtitle-panel .subtitle-english--active span.text-transparent {
   background-color: rgb(0 0 0 / 0.06);
+}
+
+/* News Reading：词汇高亮（无背景色） */
+.reading-page .subtitle-english span.highlight,
+html.highlight-style-background .reading-page .subtitle-english span.highlight,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight {
+  background-color: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  box-decoration-break: initial;
+  -webkit-box-decoration-break: initial;
+}
+
+.reading-page.reading-highlight-underline .subtitle-english span.highlight,
+html.highlight-style-background .reading-page.reading-highlight-underline .subtitle-english span.highlight,
+.dark.highlight-style-background .reading-page.reading-highlight-underline .subtitle-english span.highlight {
+  text-decoration-line: underline !important;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+}
+
+.reading-page.reading-highlight-color-only .subtitle-english span.highlight,
+html.highlight-style-background .reading-page.reading-highlight-color-only .subtitle-english span.highlight,
+.dark.highlight-style-background .reading-page.reading-highlight-color-only .subtitle-english span.highlight {
+  text-decoration-line: none !important;
+}
+
+.reading-page .subtitle-english span:hover,
+html.highlight-style-background .reading-page .subtitle-english span:hover,
+.dark.highlight-style-background .reading-page .subtitle-english span:hover {
+  background-color: transparent !important;
+}
+
+.reading-page .subtitle-english span.token-clicked,
+html.highlight-style-background .reading-page .subtitle-english span.token-clicked {
+  background-color: transparent !important;
+}
+
+.reading-page .subtitle-english span.highlight-a,
+html.highlight-style-background .reading-page .subtitle-english span.highlight-a {
+  color: #b45309 !important;
+  text-decoration-color: #f59e0b !important;
+  background-color: transparent !important;
+}
+
+.reading-page .subtitle-english span.highlight-d,
+html.highlight-style-background .reading-page .subtitle-english span.highlight-d {
+  color: #6d28d9 !important;
+  text-decoration-color: #8b5cf6 !important;
+  background-color: transparent !important;
+}
+
+.reading-page .subtitle-english span.highlight-i,
+html.highlight-style-background .reading-page .subtitle-english span.highlight-i {
+  color: #0e7490 !important;
+  text-decoration-color: #06b6d4 !important;
+  background-color: transparent !important;
+}
+
+.reading-page .subtitle-english span.highlight-l,
+html.highlight-style-background .reading-page .subtitle-english span.highlight-l {
+  color: #be185d !important;
+  text-decoration-color: #ec4899 !important;
+  background-color: transparent !important;
+}
+
+.reading-page .subtitle-english span.highlight-c,
+html.highlight-style-background .reading-page .subtitle-english span.highlight-c {
+  color: #047857 !important;
+  text-decoration-color: #10b981 !important;
+  background-color: transparent !important;
+}
+
+.reading-page .subtitle-english span.highlight-f,
+html.highlight-style-background .reading-page .subtitle-english span.highlight-f {
+  color: #b91c1c !important;
+  text-decoration-color: #ef4444 !important;
+  background-color: transparent !important;
+}
+
+.dark .reading-page .subtitle-english span.highlight-a,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight-a {
+  color: #fbbf24 !important;
+  text-decoration-color: #f59e0b !important;
+}
+
+.dark .reading-page .subtitle-english span.highlight-d,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight-d {
+  color: #c4b5fd !important;
+  text-decoration-color: #a78bfa !important;
+}
+
+.dark .reading-page .subtitle-english span.highlight-i,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight-i {
+  color: #67e8f9 !important;
+  text-decoration-color: #22d3ee !important;
+}
+
+.dark .reading-page .subtitle-english span.highlight-l,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight-l {
+  color: #f9a8d4 !important;
+  text-decoration-color: #f472b6 !important;
+}
+
+.dark .reading-page .subtitle-english span.highlight-c,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight-c {
+  color: #6ee7b7 !important;
+  text-decoration-color: #34d399 !important;
+}
+
+.dark .reading-page .subtitle-english span.highlight-f,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight-f {
+  color: #fca5a5 !important;
+  text-decoration-color: #f87171 !important;
+}
+
+/* 本篇生词本：已收藏词汇下划线高亮 */
+.reading-page .subtitle-english span.highlight.reading-vocab-saved,
+html.highlight-style-background .reading-page .subtitle-english span.highlight.reading-vocab-saved,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight.reading-vocab-saved {
+  text-decoration-line: underline !important;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+  text-decoration-color: currentColor !important;
+}
+
+/* News Reading：隐藏段落列表滚动条 */
+.reading-scroll-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.reading-scroll-hide::-webkit-scrollbar {
+  display: none;
 }

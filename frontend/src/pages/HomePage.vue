@@ -2,11 +2,13 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getRecentEpisodes, type RecentEpisode } from '@/api/learning'
+import { useCatalogScrollMemory } from '@/composables/useCatalogScrollMemory'
 import { useCatalogViewMode } from '@/composables/useCatalogViewMode'
 import { useIsMobile } from '@/composables/useBreakpoint'
 import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
 import { CARD_INITIAL_SIZE, LIST_INITIAL_SIZE, useCatalogStore } from '@/stores/catalog'
+import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import CatalogCalendar from '@/components/catalog/CatalogCalendar.vue'
 import CatalogFilters from '@/components/catalog/CatalogFilters.vue'
 import CatalogListToolbar from '@/components/catalog/CatalogListToolbar.vue'
@@ -14,6 +16,8 @@ import CatalogViewSettings from '@/components/catalog/CatalogViewSettings.vue'
 import CatalogEpisodeSkeletons from '@/components/skeleton/CatalogEpisodeSkeletons.vue'
 import EpisodeCard from '@/components/EpisodeCard.vue'
 import EpisodeListRow from '@/components/EpisodeListRow.vue'
+
+defineOptions({ name: 'HomePage' })
 
 const store = useCatalogStore()
 const auth = useAuthStore()
@@ -29,6 +33,8 @@ const showSubmitEpisodeEntry = false
 const loadMoreSentinel = ref<HTMLElement | null>(null)
 const recentLearning = ref<RecentEpisode[]>([])
 let loadMoreObserver: IntersectionObserver | null = null
+
+const { restore: restoreCatalogScroll } = useCatalogScrollMemory()
 
 const skeletonCount = computed(() =>
   displayViewMode.value === 'card' ? CARD_INITIAL_SIZE : LIST_INITIAL_SIZE,
@@ -64,7 +70,9 @@ function setupLoadMoreObserver() {
 onMounted(async () => {
   await store.loadFilters()
   store.setListViewMode(displayViewMode.value)
-  await store.loadEpisodes()
+  if (!store.episodes.length) {
+    await store.loadEpisodes()
+  }
   if (auth.isLoggedIn) {
     try {
       recentLearning.value = (await getRecentEpisodes()).filter((e) => !e.is_completed).slice(0, 5)
@@ -73,6 +81,7 @@ onMounted(async () => {
     }
   }
   setupLoadMoreObserver()
+  await restoreCatalogScroll()
 })
 
 onUnmounted(() => {
@@ -124,6 +133,8 @@ watch(
       </aside>
 
       <section class="flex-1 min-w-0">
+        <EnglishNavTabs class="mb-4" />
+
         <section
           v-if="auth.isLoggedIn && recentLearning.length"
           class="mb-5 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4"

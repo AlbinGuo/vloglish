@@ -11,7 +11,7 @@ function loadSentenceProgressStyle(): SentenceProgressStyle {
   } catch {
     /* ignore */
   }
-  return 'off'
+  return 'gradient'
 }
 
 const sentenceProgressStyle = ref<SentenceProgressStyle>(loadSentenceProgressStyle())

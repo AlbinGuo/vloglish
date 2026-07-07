@@ -225,8 +225,8 @@ onMounted(() => {
         <div>
           <h2 class="font-medium text-amber-950">从 teco-lab.com 导入</h2>
           <p class="text-sm text-amber-900/80 mt-1">
-            拉取会员目录剧集，下载视频/音频/字幕，去除左上角原站水印并加上 <strong>vloglish</strong> 标识；
-            封面从视频截帧生成（每期不同），不使用 teco-lab 原封面。
+            拉取会员目录剧集，下载视频/音频/字幕，去除原站左上角/左下角水印（<strong>不添加</strong> vloglish 视频水印）；
+            封面从视频截帧生成（无 vloglish 标识）。
           </p>
         </div>
         <button
@@ -254,6 +254,21 @@ onMounted(() => {
         </template>
       </div>
 
+      <div
+        class="rounded-lg border px-3 py-2 text-sm"
+        :class="tecoAuth?.ffmpeg_configured ? 'border-green-200 bg-green-50 text-green-900' : 'border-red-200 bg-red-50 text-red-800'"
+      >
+        <template v-if="tecoAuth?.ffmpeg_configured">
+          已检测到 ffmpeg / ffprobe
+          <span class="text-green-700">（{{ tecoAuth.ffmpeg_dir }}）</span>
+        </template>
+        <template v-else>
+          未找到 ffmpeg 或 ffprobe。请在 <code class="text-xs">backend/.env</code> 配置
+          <code class="text-xs">VLOGISH_TOOLS_DIR=E:\vloglish</code>（目录内需含 ffmpeg.exe、ffprobe.exe），然后重启 backend。
+          <span v-if="tecoAuth?.ffmpeg_dir" class="block mt-1 text-red-700">当前检测目录：{{ tecoAuth.ffmpeg_dir }}</span>
+        </template>
+      </div>
+
       <div class="flex flex-wrap gap-4 text-sm items-end">
         <label class="flex flex-col gap-1">
           <span class="text-neutral-600">起始期</span>
@@ -276,7 +291,7 @@ onMounted(() => {
         </label>
         <label class="flex items-center gap-2 pb-1.5">
           <input v-model="applyBranding" type="checkbox" class="rounded" />
-          <span>去原水印 + vloglish 水印 + 自生成封面</span>
+          <span>去除原站水印 + 自生成封面（视频不加 vloglish 水印）</span>
         </label>
       </div>
 
@@ -300,7 +315,7 @@ onMounted(() => {
         <button
           type="button"
           class="rounded-lg bg-amber-900 text-white px-5 py-2 text-sm hover:bg-amber-800 disabled:opacity-50"
-          :disabled="tecoImporting || tecoSyncing || !tecoAuth?.configured"
+          :disabled="tecoImporting || tecoSyncing || !tecoAuth?.configured || !tecoAuth?.ffmpeg_configured"
           @click="importTecoRange"
         >
           {{ tecoImporting ? '导入中...' : `一键导入第 ${indexFrom}–${indexTo} 期` }}

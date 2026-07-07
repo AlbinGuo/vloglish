@@ -10,6 +10,67 @@ from .config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
 
 logger = logging.getLogger(__name__)
 
+VALID_EXAM_TAGS = frozenset({"CET4", "CET6", "TEM4", "TEM8", "TOEFL", "IELTS", "GRE"})
+
+_EXAM_TAG_ALIASES = {
+    "四级": "CET4",
+    "大学四级": "CET4",
+    "大学英语四级": "CET4",
+    "cet4": "CET4",
+    "cet-4": "CET4",
+    "六级": "CET6",
+    "大学六级": "CET6",
+    "大学英语六级": "CET6",
+    "cet6": "CET6",
+    "cet-6": "CET6",
+    "专四": "TEM4",
+    "专业四级": "TEM4",
+    "英语专业四级": "TEM4",
+    "tem4": "TEM4",
+    "tem-4": "TEM4",
+    "专八": "TEM8",
+    "专业八级": "TEM8",
+    "英语专业八级": "TEM8",
+    "tem8": "TEM8",
+    "tem-8": "TEM8",
+    "托福": "TOEFL",
+    "toefl": "TOEFL",
+    "雅思": "IELTS",
+    "ielts": "IELTS",
+    "gre": "GRE",
+}
+
+
+def _canonical_exam_tag(raw: str) -> str | None:
+    key = raw.strip()
+    if not key:
+        return None
+    lowered = key.lower()
+    if lowered in _EXAM_TAG_ALIASES:
+        return _EXAM_TAG_ALIASES[lowered]
+    compact = lowered.replace("-", "").replace("_", "").replace(" ", "")
+    if compact in _EXAM_TAG_ALIASES:
+        return _EXAM_TAG_ALIASES[compact]
+    upper = key.upper().replace("-", "").replace("_", "").replace(" ", "")
+    if upper in VALID_EXAM_TAGS:
+        return upper
+    return None
+
+
+def normalize_exam_tags(raw: object) -> list[str]:
+    if not isinstance(raw, list):
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, str):
+            continue
+        normalized = _canonical_exam_tag(item)
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            out.append(normalized)
+    return out
+
 SYSTEM_PROMPT = """你是英语学习词典助手。仅返回合法 JSON，不要 markdown 代码块，不要额外说明。
 
 JSON 结构：
@@ -31,14 +92,16 @@ JSON 结构：
       ]
     }
   ],
-  "exam_tags": []
+  "exam_tags": ["CET4"]
 }
 
 要求：
 1. definitions 至少 1 条，examples 每条释义 1-2 个
 2. 短语(type=2)时 headword 为完整短语，category 为「短语」
 3. pronunciations 至少 1 条美式 IPA；audio_url 留空字符串
-4. exam_tags 返回空数组即可
+4. exam_tags 标注词汇所属考试难度，从以下枚举选 0～3 个（仅选确实符合的）：
+   CET4（大学英语四级）、CET6（大学英语六级）、TEM4（英语专业四级）、TEM8（英语专业八级）、TOEFL、IELTS、GRE
+   使用英文枚举值：CET4, CET6, TEM4, TEM8, TOEFL, IELTS, GRE；普通基础词或不属于上述考试范围则返回空数组 []
 """
 
 
@@ -95,7 +158,7 @@ def _normalize_entry(raw: dict, entry_id: int) -> dict:
         "category": raw.get("category", "单词"),
         "pronunciations": pronunciations,
         "definitions": definitions,
-        "exam_tags": raw.get("exam_tags") or [],
+        "exam_tags": normalize_exam_tags(raw.get("exam_tags")),
         "favorite": None,
     }
 
@@ -269,13 +332,11 @@ def translate_lines_with_deepseek(lines: list[str]) -> list[str]:
     return [str(t) for t in translations]
 
 
-def enrich_subtitle_lines_with_deepseek(
+def _enrich_subtitle_lines_batch(
     lines: list[str],
     *,
     translate_chinese: bool,
 ) -> list[dict[str, str]]:
-    if not lines:
-        return []
     user_payload = {"lines": lines}
     content = _chat_completion(
         system=ENRICH_SYSTEM_PROMPT if translate_chinese else IPA_ONLY_SYSTEM_PROMPT,
@@ -301,6 +362,32 @@ def enrich_subtitle_lines_with_deepseek(
             }
         )
     return result
+
+
+def enrich_subtitle_lines_with_deepseek(
+    lines: list[str],
+    *,
+    translate_chinese: bool,
+) -> list[dict[str, str]]:
+    if not lines:
+        return []
+    if len(lines) == 1:
+        try:
+            return _enrich_subtitle_lines_batch(lines, translate_chinese=translate_chinese)
+        except RuntimeError:
+            return [{"chinese": "", "ipa": ""}]
+
+    try:
+        return _enrich_subtitle_lines_batch(lines, translate_chinese=translate_chinese)
+    except RuntimeError:
+        mid = len(lines) // 2
+        return enrich_subtitle_lines_with_deepseek(
+            lines[:mid],
+            translate_chinese=translate_chinese,
+        ) + enrich_subtitle_lines_with_deepseek(
+            lines[mid:],
+            translate_chinese=translate_chinese,
+        )
 
 
 def localize_video_metadata_with_deepseek(title: str, summary: str) -> dict[str, str]:
@@ -359,9 +446,7 @@ def analyze_episode_metrics_with_deepseek(
     }
 
 
-def annotate_subtitle_lines_with_deepseek(lines: list[str]) -> list[dict]:
-    if not lines:
-        return []
+def _annotate_subtitle_lines_batch(lines: list[str]) -> list[dict]:
     user_payload = {"lines": lines}
     content = _chat_completion(
         system=SUBTITLE_ANNOTATE_SYSTEM_PROMPT,
@@ -385,6 +470,24 @@ def annotate_subtitle_lines_with_deepseek(lines: list[str]) -> list[dict]:
             raise RuntimeError("DeepSeek 字幕标注 tokens 格式无效")
         result.append({"tokens": tokens})
     return result
+
+
+def annotate_subtitle_lines_with_deepseek(lines: list[str]) -> list[dict]:
+    if not lines:
+        return []
+    if len(lines) == 1:
+        try:
+            return _annotate_subtitle_lines_batch(lines)
+        except RuntimeError:
+            return [{"tokens": []}]
+
+    try:
+        return _annotate_subtitle_lines_batch(lines)
+    except RuntimeError:
+        mid = len(lines) // 2
+        return annotate_subtitle_lines_with_deepseek(lines[:mid]) + annotate_subtitle_lines_with_deepseek(
+            lines[mid:]
+        )
 
 
 def lookup_with_deepseek(word: str, token_type: int, context: str, entry_id: int) -> dict:

@@ -269,6 +269,7 @@ export interface AdminSubtitle {
 
 export interface AdminEpisodeListItem {
   id: number
+  index: number
   video_id: string
   short_title: string
   stars: number
@@ -291,6 +292,7 @@ export interface AdminEpisodeListItem {
 
 export type AdminEpisodeSortField =
   | 'id'
+  | 'index'
   | 'play_count'
   | 'unique_learners'
   | 'completions'
@@ -409,6 +411,11 @@ export async function adminListEpisodes(params: {
   return data
 }
 
+export async function adminGetNextEpisodeIndex() {
+  const { data } = await adminApi.get<{ next_index: number }>('/api/admin/episodes/next-index/')
+  return data.next_index
+}
+
 export async function adminGetEpisode(id: number) {
   const { data } = await adminApi.get<AdminEpisodeDetail>(`/api/admin/episodes/${id}/`)
   return data
@@ -447,7 +454,7 @@ export async function adminImportVtt(vttText: string) {
     had_chinese: boolean
     translated_count: number
     ipa_count: number
-  }>('/api/admin/episodes/import-vtt/', { vtt_text: vttText })
+  }>('/api/admin/episodes/import-subtitles/', { vtt_text: vttText }, { timeout: 900000 })
   return data
 }
 
@@ -562,6 +569,10 @@ export interface AdminTecoAuthStatus {
   has_session_file: boolean
   has_access_token: boolean
   has_email_password: boolean
+  ffmpeg_configured: boolean
+  ffmpeg_dir: string
+  has_ffmpeg: boolean
+  has_ffprobe: boolean
 }
 
 export interface AdminTecoCatalogItem {
@@ -662,5 +673,123 @@ export async function adminListBroadcasts(page = 1, pageSize = 20) {
 
 export async function adminCreateBroadcast(payload: { title: string; body: string }) {
   const { data } = await adminApi.post<AdminBroadcast>('/api/admin/notifications/broadcasts/', payload)
+  return data
+}
+
+export interface AdminArticleListItem {
+  id: number
+  article_id: string
+  title: string
+  source: string
+  topic: string
+  stars: number
+  word_count: number
+  segment_count: number
+  status: string
+  published_at: string
+  created_at: string
+}
+
+export interface AdminArticleSegment {
+  english: string
+  chinese: string
+  english_html: string
+  audio_url?: string
+  duration_ms?: number
+}
+
+export interface AdminArticleDetail {
+  id: number
+  article_id: string
+  title: string
+  summary: string
+  source: string
+  source_url: string
+  topic: string
+  stars: number
+  word_count: number
+  segment_count: number
+  cover: string
+  published_at: string
+  status: string
+  tts_status: string
+  segments: AdminArticleSegment[]
+}
+
+export async function adminListArticles(params: {
+  page?: number
+  page_size?: number
+  status?: string
+  q?: string
+} = {}) {
+  const { data } = await adminApi.get<{ count: number; results: AdminArticleListItem[] }>(
+    '/api/admin/articles/',
+    { params },
+  )
+  return data
+}
+
+export async function adminCreateArticle(payload: Partial<AdminArticleDetail> & { title?: string }) {
+  const { data } = await adminApi.post<AdminArticleDetail>('/api/admin/articles/', payload)
+  return data
+}
+
+export async function adminGetArticle(ref: string | number) {
+  const { data } = await adminApi.get<AdminArticleDetail>(`/api/admin/articles/${ref}/`)
+  return data
+}
+
+export async function adminUpdateArticle(ref: string | number, payload: Record<string, unknown>) {
+  const { data } = await adminApi.patch<AdminArticleDetail>(`/api/admin/articles/${ref}/`, payload)
+  return data
+}
+
+export async function adminUploadArticleCover(ref: string | number, sourceUrl: string) {
+  const { data } = await adminApi.post<{ cover: string }>(
+    `/api/admin/articles/${ref}/upload-cover/`,
+    { source_url: sourceUrl },
+    { timeout: 120000 },
+  )
+  return data
+}
+
+export async function adminDeleteArticle(ref: string | number) {
+  await adminApi.delete(`/api/admin/articles/${ref}/`)
+}
+
+export async function adminImportArticleText(
+  ref: string | number,
+  payload: { english_text: string; auto_translate?: boolean; auto_analyze?: boolean },
+) {
+  const { data } = await adminApi.post<{ segment_count: number; word_count: number; stars: number }>(
+    `/api/admin/articles/${ref}/import-text/`,
+    payload,
+    { timeout: 600000 },
+  )
+  return data
+}
+
+export async function adminAnalyzeArticle(ref: string | number) {
+  const { data } = await adminApi.post<Record<string, number>>(`/api/admin/articles/${ref}/analyze/`)
+  return data
+}
+
+export async function adminPublishArticle(ref: string | number) {
+  const { data } = await adminApi.post<{ success: boolean; status: string }>(
+    `/api/admin/articles/${ref}/publish/`,
+  )
+  return data
+}
+
+export async function adminGenerateArticleTts(ref: string | number) {
+  const { data } = await adminApi.post<{
+    generated: number
+    failed: number
+    total: number
+    tts_status: string
+    error_sample?: string
+  }>(`/api/admin/articles/${ref}/generate-tts/`, undefined, {
+    timeout: 900000,
+  })
   return data
 }

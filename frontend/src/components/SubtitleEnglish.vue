@@ -1,5 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import {
+  countSubtitleWords,
+  isSubtitleWordRead,
+  tokenizeSubtitleHtml,
+  type SubtitleWordHighlight,
+} from '@/utils/subtitleWordProgress'
 
 defineEmits<{ click: [event: MouseEvent] }>()
 
@@ -9,63 +15,78 @@ const props = withDefaults(
     active?: boolean
     large?: boolean
     align?: 'left' | 'center'
-    /** 0–1，设置后启用「文字渐深」双层渲染 */
-    readProgress?: number
+    /** 设置后按词逐个点亮 #0fbb35 */
+    wordHighlight?: SubtitleWordHighlight
   }>(),
   { align: 'left' },
 )
 
-const readClipStyle = computed(() => ({
-  clipPath: `inset(0 ${100 - (props.readProgress ?? 0) * 100}% 0 0)`,
-}))
+const tokens = computed(() => normalizeWordSpacing(tokenizeSubtitleHtml(props.html)))
+const wordCount = computed(() => countSubtitleWords(props.html))
 
-function layerClasses(layer: 'dim' | 'read' | 'normal') {
+function normalizeWordSpacing(items: ReturnType<typeof tokenizeSubtitleHtml>) {
+  const out: typeof items = []
+  for (let i = 0; i < items.length; i++) {
+    const token = items[i]
+    out.push(token)
+    const next = items[i + 1]
+    if (token.kind === 'word' && next?.kind === 'word') {
+      out.push({ kind: 'space', text: ' ' })
+    }
+  }
+  return out
+}
+
+function baseTextClasses(extra?: string) {
   return [
     'subtitle-english',
-    layer === 'dim' ? 'subtitle-english-dim' : '',
-    layer === 'read' ? 'subtitle-english-read' : '',
-    'pointer-events-auto flex flex-wrap items-center gap-x-1.5 gap-y-0.5 leading-relaxed tracking-wide font-medium',
+    'pointer-events-auto leading-relaxed tracking-wide font-medium',
+    props.large ? 'text-xl sm:text-2xl' : 'text-base',
+    props.active ? 'subtitle-english--active' : '',
+    extra ?? '',
   ]
+}
+
+function textClasses(extra?: string) {
+  return [
+    ...baseTextClasses(extra),
+    'flex flex-wrap items-center gap-x-1.5 gap-y-0.5',
+    props.align === 'left' ? 'justify-start w-full' : 'justify-center',
+  ]
+}
+
+const wordTokens = computed(() => tokens.value.filter((token) => token.kind === 'word'))
+
+function wordProgressClasses() {
+  return [
+    ...baseTextClasses('subtitle-english-word-progress'),
+    'max-w-full min-w-0',
+    props.align === 'left' ? 'text-left w-full' : 'text-center w-full',
+  ]
+}
+
+function wordRead(wordIndex: number): boolean {
+  const h = props.wordHighlight
+  if (!h) return false
+  return isSubtitleWordRead(wordIndex, wordCount.value, h.time, h.start, h.end)
 }
 </script>
 
 <template>
   <span
-    v-if="readProgress != null"
-    class="subtitle-english-progress relative inline-flex max-w-full"
-    :class="align === 'left' ? 'justify-start w-full' : 'justify-center'"
-  >
-    <span
-      :class="[
-        ...layerClasses('dim'),
-        align === 'left' ? 'justify-start w-full' : 'justify-center',
-        large ? 'text-xl sm:text-2xl' : 'text-base',
-      ]"
-      v-html="html"
-      aria-hidden="true"
-    />
-    <span
-      :class="[
-        ...layerClasses('read'),
-        'absolute inset-0',
-        align === 'left' ? 'justify-start' : 'justify-center',
-        large ? 'text-xl sm:text-2xl' : 'text-base',
-        active ? 'subtitle-english--active' : '',
-      ]"
-      :style="readClipStyle"
-      v-html="html"
-      @click="$emit('click', $event)"
-    />
-  </span>
-  <span
-    v-else
-    :class="[
-      ...layerClasses('normal'),
-      align === 'left' ? 'justify-start w-full' : 'justify-center',
-      large ? 'text-xl sm:text-2xl' : 'text-base',
-      active ? 'subtitle-english--active' : '',
-    ]"
-    v-html="html"
+    v-if="wordHighlight"
+    :class="wordProgressClasses()"
     @click="$emit('click', $event)"
-  />
+  >
+    <template v-for="(token, i) in tokens" :key="i">
+      <span
+        v-if="token.kind === 'word'"
+        class="subtitle-word-wrap inline"
+        :class="{ 'subtitle-word-read': wordRead(token.wordIndex) }"
+        v-html="token.html"
+      />
+      <span v-else class="whitespace-pre">{{ token.text }}</span>
+    </template>
+  </span>
+  <span v-else :class="textClasses()" v-html="html" @click="$emit('click', $event)" />
 </template>

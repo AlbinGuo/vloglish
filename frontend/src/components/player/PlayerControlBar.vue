@@ -15,11 +15,15 @@ const props = defineProps<{
   compact?: boolean
   /** 贴底栏样式（无圆角背景） */
   docked?: boolean
+  /** 手机端：控制栏显示/隐藏切换 */
+  showChromeToggle?: boolean
+  chromeVisible?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:showIpa': [value: boolean]
   'update:videoHidden': [value: boolean]
+  toggleChrome: []
 }>()
 
 const speedOpen = ref(false)
@@ -266,6 +270,41 @@ function handleMainAction() {
         <svg class="w-9 h-9" viewBox="0 0 24 24" fill="currentColor">
           <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm4.28 10.28a.75.75 0 0 0 0-1.06l-3-3a.75.75 0 1 0-1.06 1.06l1.72 1.72H8.25a.75.75 0 0 0 0 1.5h5.69l-1.72 1.72a.75.75 0 0 0 1.06 1.06l3-3Z" />
         </svg>
+      </button>
+
+      <button
+        v-if="showChromeToggle"
+        type="button"
+        class="flex flex-col items-center shrink-0 min-w-[2.75rem] text-xs active:scale-95"
+        :title="chromeVisible ? '隐藏控制栏' : '显示控制栏'"
+        :aria-label="chromeVisible ? '隐藏控制栏' : '显示控制栏'"
+        :aria-expanded="chromeVisible !== false"
+        @click.stop="emit('toggleChrome')"
+      >
+        <div class="w-10 h-10 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10">
+          <svg
+            v-if="chromeVisible !== false"
+            class="w-5 h-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+          </svg>
+          <svg
+            v-else
+            class="w-5 h-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </div>
       </button>
 
       <button

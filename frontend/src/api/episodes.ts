@@ -1,4 +1,5 @@
 import api from './client'
+import { fetchWordLookup, type WordLookupMeta } from '@/composables/useWordLookupCache'
 import type { EntryDetail, EpisodeDetail, EpisodeSummary, Tag } from '@/types'
 
 export interface EpisodeListParams {
@@ -58,10 +59,10 @@ export async function setEpisodeFavorite(videoId: string, favorite: boolean) {
 }
 
 export async function getEntryDetail(entryId: number) {
-  const { data } = await api.get<EntryDetail>('/api/entry-detail/', {
-    params: { entry_id: entryId },
-  })
-  return data
+  const { fetchEntryById } = await import('@/composables/useWordLookupCache')
+  const entry = await fetchEntryById(entryId)
+  if (!entry) throw new Error('Entry not found')
+  return entry
 }
 
 export async function lookupWord(
@@ -70,10 +71,9 @@ export async function lookupWord(
   context: string,
   meta?: { video_id?: string; subtitle_id?: number; episode_id?: number },
 ) {
-  const { data } = await api.get<EntryDetail>('/api/lookup/', {
-    params: { word, type, context, ...meta },
-  })
-  return data
+  const entry = await fetchWordLookup(word, type, context, meta satisfies WordLookupMeta)
+  if (!entry) throw new Error('查词失败')
+  return entry
 }
 
 export interface FetchMediaResult {

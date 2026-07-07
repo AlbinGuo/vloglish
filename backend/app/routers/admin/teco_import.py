@@ -15,6 +15,7 @@ from ...schemas import (
     AdminTecoImportRangeOut,
     AdminTecoSyncDbFromQiniuIn,
 )
+from ...services.media_transcode import ffmpeg_tools_status
 from ...services.teco_client import TecoAuthClient
 from ...services.teco_fetch import (
     catalog_with_db_flags,
@@ -30,8 +31,15 @@ router = APIRouter(prefix="/api/admin/teco", tags=["admin-teco-import"])
 @router.get("/auth-status/", response_model=AdminTecoAuthStatusOut)
 def teco_auth_status(_admin: User = Depends(get_current_admin)):
     client = TecoAuthClient.from_env()
-    status = client.auth_status()
-    return AdminTecoAuthStatusOut(**status)
+    auth = client.auth_status()
+    tools = ffmpeg_tools_status()
+    return AdminTecoAuthStatusOut(
+        **auth,
+        ffmpeg_configured=tools["configured"],
+        ffmpeg_dir=tools["ffmpeg_dir"],
+        has_ffmpeg=tools["has_ffmpeg"],
+        has_ffprobe=tools["has_ffprobe"],
+    )
 
 
 @router.get("/catalog/", response_model=AdminTecoCatalogOut)

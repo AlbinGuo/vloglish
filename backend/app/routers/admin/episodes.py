@@ -11,8 +11,13 @@ from ...schemas import (
     AdminEpisodeDetailOut,
     AdminEpisodeListItemOut,
     AdminEpisodeListOut,
+    AdminFetchMediaIn,
+    AdminFetchMediaOut,
+    AdminNextEpisodeIndexOut,
     AdminEpisodeUpdateIn,
     AdminSubtitleIn,
+    AdminVttImportIn,
+    AdminVttImportOut,
 )
 from ...serializers import episode_detail
 from ...services.episode_admin import (
@@ -20,11 +25,14 @@ from ...services.episode_admin import (
     delete_episode_with_dependencies,
     generate_video_id,
     get_or_create_author,
+    next_episode_index,
     replace_subtitles,
     resolve_tags,
 )
 from ...services.episode_stats import admin_episode_list_query, row_stats_from_query
+from ...services.subtitle_import_admin import import_subtitle_text_for_admin
 from ...services.user_notifications import maybe_notify_submitter_on_status_change
+from ...services.yt_dlp_fetch import fetch_and_upload_from_url
 
 router = APIRouter(prefix="/api/admin", tags=["admin-meta"])
 
@@ -103,7 +111,7 @@ def list_episodes(
     search: str | None = None,
     status: str | None = Query(None, pattern="^(draft|published|archived|rejected)$"),
     stars: int | None = Query(None, ge=1, le=5),
-    sort_by: str = Query("id"),
+    sort_by: str = Query("index"),
     sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     _admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
@@ -124,6 +132,7 @@ def list_episodes(
         results.append(
             AdminEpisodeListItemOut(
                 id=ep.id,
+                index=ep.index,
                 video_id=ep.video_id,
                 short_title=ep.short_title,
                 stars=ep.stars,
@@ -140,6 +149,61 @@ def list_episodes(
             )
         )
     return AdminEpisodeListOut(count=total, results=results)
+
+
+@router.get("/episodes/next-index/", response_model=AdminNextEpisodeIndexOut)
+def get_next_episode_index(
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    return AdminNextEpisodeIndexOut(next_index=next_episode_index(db))
+
+
+@router.post("/episodes/import-vtt/", response_model=AdminVttImportOut)
+@router.post("/episodes/import-subtitles/", response_model=AdminVttImportOut)
+def import_subtitles(
+    body: AdminVttImportIn,
+    _admin: User = Depends(get_current_admin),
+):
+    return import_subtitle_text_for_admin(body.vtt_text)
+
+
+@router.post("/episodes/fetch-media/", response_model=AdminFetchMediaOut)
+def fetch_media(
+    body: AdminFetchMediaIn,
+    _admin: User = Depends(get_current_admin),
+):
+    try:
+        result = fetch_and_upload_from_url(
+            body.url,
+            slug=body.slug,
+            enrich_subtitles=body.enrich_subtitles,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    subtitles = [AdminSubtitleIn(**row) for row in result["subtitles"]]
+    return AdminFetchMediaOut(
+        title=result["title"],
+        summary=result.get("summary", ""),
+        author_name=result.get("author_name", ""),
+        original_video_url=result["original_video_url"],
+        cover=result["cover"],
+        thumbnail_url=result["thumbnail_url"],
+        video_url=result["video_url"],
+        audio_url=result["audio_url"],
+        subtitles=subtitles,
+        subtitle_count=result["subtitle_count"],
+        clip_length=result["clip_length"],
+        had_chinese=result["had_chinese"],
+        translated_count=result["translated_count"],
+        ipa_count=result["ipa_count"],
+        stars=result.get("stars", 3),
+        voca_size=result.get("voca_size", 0),
+        highlight_count=result.get("highlight_count", 0),
+        source_id=result.get("source_id", ""),
+        warnings=result.get("warnings", []),
+    )
 
 
 @router.get("/episodes/preview/{video_id}/")

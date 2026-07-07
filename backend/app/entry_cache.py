@@ -2,6 +2,7 @@ import json
 
 from sqlalchemy.orm import Session
 
+from .dict.deepseek import normalize_exam_tags
 from .models import Entry, TokenRef
 
 
@@ -20,7 +21,7 @@ def cache_entry(db: Session, data: dict) -> Entry:
         db.add(entry)
     entry.headword = data["headword"]
     entry.category = data.get("category", "单词")
-    entry.exam_tags_json = json.dumps(data.get("exam_tags", []))
+    entry.exam_tags_json = json.dumps(normalize_exam_tags(data.get("exam_tags")))
     entry.data_json = json.dumps(payload)
     db.commit()
     db.refresh(entry)

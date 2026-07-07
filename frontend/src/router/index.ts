@@ -71,6 +71,21 @@ const router = createRouter({
           component: () => import('@/pages/admin/AdminEpisodeEditPage.vue'),
         },
         {
+          path: 'reading',
+          name: 'AdminReading',
+          component: () => import('@/pages/admin/AdminReadingListPage.vue'),
+        },
+        {
+          path: 'reading/new',
+          name: 'AdminReadingNew',
+          component: () => import('@/pages/admin/AdminReadingEditPage.vue'),
+        },
+        {
+          path: 'reading/:id',
+          name: 'AdminReadingEdit',
+          component: () => import('@/pages/admin/AdminReadingEditPage.vue'),
+        },
+        {
           path: 'import',
           name: 'AdminImport',
           component: () => import('@/pages/admin/AdminImportPage.vue'),
@@ -125,6 +140,17 @@ const router = createRouter({
           path: 'english',
           name: 'HomePage',
           component: () => import('@/pages/HomePage.vue'),
+        },
+        {
+          path: 'english/reading',
+          name: 'NewsReadingList',
+          component: () => import('@/pages/NewsReadingListPage.vue'),
+        },
+        {
+          path: 'english/reading/:articleId',
+          name: 'NewsReading',
+          component: () => import('@/pages/NewsReadingPage.vue'),
+          meta: { immersive: true },
         },
         {
           path: 'english/episode/:videoId',

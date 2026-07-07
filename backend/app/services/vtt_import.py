@@ -14,6 +14,50 @@ class Cue:
 
 
 _CJK_RE = re.compile(r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]")
+# YouTube auto-caption inline timing: <00:00:07.109> and word markers <c> </c>
+_YT_INLINE_TAG_RE = re.compile(
+    r"<\d{1,2}:\d{2}:\d{2}\.\d{3}>|"
+    r"<\d{1,2}:\d{2}\.\d{3}>|"
+    r"</?c>"
+)
+
+
+def strip_youtube_inline_tags(text: str) -> str:
+    if not text:
+        return ""
+    cleaned = _YT_INLINE_TAG_RE.sub("", text)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def strip_speaker_markers(text: str) -> str:
+    """Remove interview-style speaker markers like >> from plain subtitle text."""
+    if not text:
+        return ""
+    cleaned = text.replace(">>", "")
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def strip_speaker_markers_html(html: str) -> str:
+    """Remove >> markers from tokenized english_html."""
+    if not html:
+        return ""
+    result = html.strip()
+    result = re.sub(r"(?:<span>\s*>+\s*</span>\s*)+", "", result, flags=re.I)
+    result = re.sub(r"^\s*>>+\s*", "", result)
+    return result.strip()
+
+
+def normalize_subtitle_fields(
+    english: str,
+    chinese: str = "",
+    english_html: str = "",
+) -> tuple[str, str, str]:
+    english = strip_speaker_markers(strip_youtube_inline_tags(english))
+    chinese = strip_speaker_markers(chinese)
+    html = strip_speaker_markers_html(english_html)
+    if not html and english:
+        html = words_to_html(english)
+    return english, chinese, html
 
 
 def contains_cjk(text: str) -> bool:
@@ -31,11 +75,17 @@ def split_bilingual_lines(text_lines: list[str]) -> tuple[str, str]:
             chinese_parts.append(line)
         else:
             english_parts.append(line)
-    return " ".join(english_parts).strip(), " ".join(chinese_parts).strip()
+    english = strip_speaker_markers(strip_youtube_inline_tags(" ".join(english_parts)))
+    chinese = strip_speaker_markers(" ".join(chinese_parts).strip())
+    return english, chinese
 
 
 def parse_timestamp(value: str) -> float:
-    parts = value.strip().split(":")
+    # YouTube VTT often appends cue settings after the timestamp, e.g.
+    # "00:00:11.509 align:start position:0%" — take the time token only.
+    token = value.strip().split()[0]
+    token = token.replace(",", ".")
+    parts = token.split(":")
     if len(parts) == 3:
         h, m, s = parts
         return int(h) * 3600 + int(m) * 60 + float(s)
@@ -60,6 +110,73 @@ def parse_vtt(content: str) -> list[Cue]:
         else:
             timing, text_lines = lines[0], lines[1:]
         start_s, end_s = [p.strip() for p in timing.split("-->")]
+        english, chinese = split_bilingual_lines(text_lines)
+        if not english and not chinese:
+            continue
+        if not english and chinese:
+            english, chinese = chinese, ""
+        cues.append(
+            Cue(
+                start=parse_timestamp(start_s),
+                end=parse_timestamp(end_s),
+                english=english,
+                chinese=chinese,
+            )
+        )
+    return cues
+
+
+_SRT_TIMING_RE = re.compile(
+    r"^(\d{1,2}:\d{2}:\d{2}[,\.]\d{1,3})\s*-->\s*(\d{1,2}:\d{2}:\d{2}[,\.]\d{1,3}).*(?:\n|$)",
+    re.MULTILINE,
+)
+
+
+def parse_srt(content: str) -> list[Cue]:
+    """Parse SubRip (.srt) subtitles."""
+    cues: list[Cue] = []
+    normalized = content.lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not normalized:
+        return cues
+
+    matches = list(_SRT_TIMING_RE.finditer(normalized))
+    if matches:
+        for i, match in enumerate(matches):
+            start_s, end_s = match.group(1), match.group(2)
+            text_start = match.end()
+            text_end = matches[i + 1].start() if i + 1 < len(matches) else len(normalized)
+            text_lines: list[str] = []
+            for line in normalized[text_start:text_end].split("\n"):
+                line = line.strip()
+                if not line or re.fullmatch(r"\d+", line):
+                    continue
+                text_lines.append(line)
+            english, chinese = split_bilingual_lines(text_lines)
+            if not english and not chinese:
+                continue
+            if not english and chinese:
+                english, chinese = chinese, ""
+            cues.append(
+                Cue(
+                    start=parse_timestamp(start_s),
+                    end=parse_timestamp(end_s),
+                    english=english,
+                    chinese=chinese,
+                )
+            )
+        return cues
+
+    # Fallback for unusual exports that still use blank-line blocks.
+    for block in re.split(r"\n\s*\n", normalized):
+        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+        if len(lines) < 2:
+            continue
+        timing_idx = next((i for i, ln in enumerate(lines) if "-->" in ln), None)
+        if timing_idx is None:
+            continue
+        timing = lines[timing_idx]
+        text_lines = lines[timing_idx + 1 :]
+        start_s, end_s = [p.strip() for p in timing.split("-->", 1)]
         english, chinese = split_bilingual_lines(text_lines)
         if not english and not chinese:
             continue
@@ -111,15 +228,46 @@ def merge_into_sentences(cues: list[Cue], *, gap_threshold: float = 0.8) -> list
             buf_zh = []
             buf_start = None
 
+    if buf_eng and buf_start is not None:
+        merged.append(
+            Cue(
+                start=buf_start,
+                end=buf_end,
+                english=" ".join(buf_eng).strip(),
+                chinese=" ".join(buf_zh).strip(),
+            )
+        )
+
     return merged
 
 
 def words_to_html(text: str) -> str:
-    return " ".join(f"<span>{word}</span>" for word in re.findall(r"\S+", text))
+    cleaned = strip_youtube_inline_tags(text)
+    return " ".join(f"<span>{word}</span>" for word in re.findall(r"\S+", cleaned))
 
 
 def vtt_to_subtitle_dicts(vtt_text: str) -> list[dict]:
     cues = parse_vtt(vtt_text)
+    return _cues_to_subtitle_dicts(cues)
+
+
+def srt_to_subtitle_dicts(srt_text: str) -> list[dict]:
+    cues = parse_srt(srt_text)
+    return _cues_to_subtitle_dicts(cues)
+
+
+def subtitle_text_to_dicts(text: str) -> list[dict]:
+    stripped = text.lstrip("\ufeff").strip()
+    if stripped.upper().startswith("WEBVTT"):
+        return vtt_to_subtitle_dicts(text)
+    srt_rows = srt_to_subtitle_dicts(text)
+    if srt_rows:
+        return srt_rows
+    # Some tools export WebVTT without a WEBVTT header.
+    return vtt_to_subtitle_dicts(text)
+
+
+def _cues_to_subtitle_dicts(cues: list[Cue]) -> list[dict]:
     sentences = merge_into_sentences(cues)
     subtitles: list[dict] = []
     for i, cue in enumerate(sentences):

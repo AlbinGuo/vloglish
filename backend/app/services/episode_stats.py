@@ -8,6 +8,7 @@ from ..models import Author, Episode, LearningSession, UserEpisodeProgress
 EPISODE_LIST_SORT_FIELDS = frozenset(
     {
         "id",
+        "index",
         "play_count",
         "unique_learners",
         "completions",
@@ -51,7 +52,7 @@ def admin_episode_list_query(
     search: str | None = None,
     status: str | None = None,
     stars: int | None = None,
-    sort_by: str = "id",
+    sort_by: str = "index",
     sort_dir: str = "desc",
 ) -> Query:
     session_sq, progress_sq = _stats_subqueries(db)
@@ -98,6 +99,7 @@ def admin_episode_list_query(
     direction = sort_dir if sort_dir in {"asc", "desc"} else "desc"
     order_map = {
         "id": Episode.id,
+        "index": Episode.index,
         "play_count": play_count_col,
         "unique_learners": unique_learners_col,
         "completions": completions_col,
