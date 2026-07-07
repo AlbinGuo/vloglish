@@ -10,7 +10,6 @@ import { useIsPad, useIsPhone } from '@/composables/useBreakpoint'
 import { useMobilePlayerChrome } from '@/composables/useMobilePlayerChrome'
 import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import { useLearningProgress } from '@/composables/useLearningProgress'
-import { useSubtitleReadProgress } from '@/composables/useSubtitleReadProgress'
 import { consumeEpisodeAutoplay, requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
 import type { EntryDetail, EpisodeDetail, EpisodeSummary } from '@/types'
@@ -193,8 +192,6 @@ const showCurrentSubtitleBar = computed(
 )
 
 const playbackTime = computed(() => player.currentTime.value)
-
-const { wordHighlightFor } = useSubtitleReadProgress(playbackTime)
 
 const mobileChromeEnabled = computed(
   () => isPhone.value && Boolean(episode.value) && !props.adminPreview,
@@ -913,7 +910,6 @@ function subtitleRowClass(index: number) {
               :show-english="modeShowsEnglish(subtitleMode)"
               :show-chinese="modeShowsChinese(subtitleMode)"
               :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
-              :word-highlight="wordHighlightFor(currentSub)"
               @click="onSubtitleClick"
             />
           </Transition>
@@ -962,7 +958,6 @@ function subtitleRowClass(index: number) {
                 :show-english="modeShowsEnglish(subtitleMode)"
                 :show-chinese="modeShowsChinese(subtitleMode)"
                 :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
-                :word-highlight="wordHighlightFor(sub)"
                 @click.stop="onSubtitleClick"
               />
             </div>

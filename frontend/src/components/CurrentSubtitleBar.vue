@@ -1,9 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import SubtitleBlock from '@/components/SubtitleBlock.vue'
-import { useSentenceProgressStyle } from '@/composables/useSentenceProgressStyle'
 import type { Subtitle } from '@/types'
-import { computeSentenceProgress, isSentenceActive } from '@/utils/sentenceProgress'
 import type { SubtitleDisplayMode } from '@/utils/subtitleHtml'
 import {
   modeIsChineseOnly,
@@ -29,48 +26,18 @@ defineEmits<{
   seek: []
 }>()
 
-const { sentenceProgressStyle } = useSentenceProgressStyle()
-
-const isPlayingSub = computed(() => isSentenceActive(props.sub, props.currentTime))
-
-const progress = computed(() => computeSentenceProgress(props.sub, props.currentTime))
-
-const showBarProgress = computed(
-  () => isPlayingSub.value && sentenceProgressStyle.value === 'bar',
-)
-
-const gradientWordHighlight = computed(() => {
-  // 手机端实时字幕仅折行展示，不做逐词高亮（与桌面/Pad 区分）
-  if (props.compact) return undefined
-  if (!isPlayingSub.value || sentenceProgressStyle.value !== 'gradient') return undefined
-  return { time: props.currentTime, start: props.sub.start, end: props.sub.end }
-})
-
-const progressFillStyle = computed(() => ({
-  transform: `scaleX(${progress.value})`,
-}))
-
 const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
 </script>
 
 <template>
   <div
-    class="current-subtitle-bar relative rounded-2xl border bg-white dark:bg-neutral-900 dark:border-white/10 cursor-pointer shadow-sm transition-shadow hover:shadow-md"
+    class="current-subtitle-bar relative rounded-2xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 dark:border-white/10 cursor-pointer shadow-sm transition-shadow hover:shadow-md"
     :class="[
       compact ? 'current-subtitle-bar--compact shrink-0 overflow-hidden' : 'min-h-0 flex-1 overflow-hidden overflow-x-hidden',
       topAlign ? 'current-subtitle-bar--top-align' : '',
-      showBarProgress ? 'border-black/8 border-t-0 dark:border-white/10' : 'border-black/8 dark:border-white/10',
     ]"
     @click="$emit('seek')"
   >
-    <div
-      v-if="showBarProgress"
-      class="sentence-progress-track absolute inset-x-0 top-0 z-10 h-[3px] rounded-t-2xl bg-black/8 dark:bg-white/10 pointer-events-none overflow-hidden"
-      aria-hidden="true"
-    >
-      <div class="sentence-progress-fill h-full w-full bg-neutral-700/70 dark:bg-neutral-300/70" :style="progressFillStyle" />
-    </div>
-
     <div class="current-subtitle-bar__viewport">
       <div class="subtitle-focus-light current-subtitle-bar__content">
         <SubtitleBlock
@@ -84,7 +51,6 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
           :show-english="modeShowsEnglish(subtitleMode)"
           :show-chinese="modeShowsChinese(subtitleMode)"
           :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
-          :word-highlight="gradientWordHighlight"
           @click.stop="$emit('click', $event)"
         />
       </div>
@@ -201,12 +167,6 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
 
 .current-subtitle-bar--compact :deep(.subtitle-chinese) {
   font-size: 0.875rem;
-}
-
-.sentence-progress-fill {
-  transform-origin: left center;
-  transition: transform 0.28s linear;
-  will-change: transform;
 }
 
 .current-subtitle-bar:not(.current-subtitle-bar--compact) :deep(.subtitle-english) {
