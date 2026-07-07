@@ -815,12 +815,17 @@ class AdminArticleSegmentIn(BaseModel):
     duration_ms: int = 0
 
 
+class AdminArticleTtsIn(BaseModel):
+    voice: str | None = None
+
+
 class AdminArticleTtsOut(BaseModel):
     generated: int
     failed: int
     total: int
     tts_status: str
     error_sample: str = ""
+    voice: str = ""
 
 
 class AdminArticleCreateIn(BaseModel):

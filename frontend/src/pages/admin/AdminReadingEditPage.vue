@@ -39,8 +39,14 @@ const form = ref({
 })
 const coverSourceUrl = ref('')
 const uploadingCover = ref(false)
+const ttsVoice = ref('Ryan')
 const englishText = ref('')
 const article = ref<AdminArticleDetail | null>(null)
+
+const ttsVoiceOptions = [
+  { value: 'Ryan', label: 'Ryan（男声，新闻感）' },
+  { value: 'Katerina', label: 'Katerina（女声）' },
+]
 
 async function load() {
   if (isNew.value || !refId.value) return
@@ -150,14 +156,14 @@ async function generateTts() {
   message.value = ''
   error.value = ''
   try {
-    const result = await adminGenerateArticleTts(refId.value)
+    const result = await adminGenerateArticleTts(refId.value, { voice: ttsVoice.value })
     await load()
     if (result.failed > 0) {
       error.value = result.error_sample
-        ? `TTS 部分失败：${result.generated}/${result.total} 段。${result.error_sample}`
+        ? `TTS 部分失败：${result.generated}/${result.total} 段（${result.voice || ttsVoice.value}）。${result.error_sample}`
         : `TTS 部分失败：${result.generated}/${result.total} 段（状态：${result.tts_status}）`
     } else {
-      message.value = `TTS 完成：${result.generated}/${result.total} 段（状态：${result.tts_status}）`
+      message.value = `TTS 完成：${result.generated}/${result.total} 段（音色：${result.voice || ttsVoice.value}，状态：${result.tts_status}）`
     }
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string; response?: { data?: { detail?: string } } }
@@ -275,9 +281,15 @@ onMounted(load)
               <input v-model.number="form.stars" type="number" min="1" max="5" class="mt-1 w-full rounded-lg border px-3 py-2" />
             </label>
           </div>
-          <div class="flex flex-wrap gap-2">
-            <button type="button" class="rounded-lg bg-neutral-900 text-white px-4 py-2 text-sm" :disabled="saving" @click="saveMeta">保存</button>
-            <button type="button" class="rounded-lg border px-4 py-2 text-sm" @click="reanalyze">重新分析词汇</button>
+          <div class="flex flex-wrap items-end gap-3">
+            <label class="block text-sm">
+              <span class="text-neutral-500">朗读音色</span>
+              <select v-model="ttsVoice" class="mt-1 rounded-lg border px-3 py-2 text-sm min-w-[12rem]" :disabled="generatingTts">
+                <option v-for="opt in ttsVoiceOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+            </label>
             <button
               type="button"
               class="rounded-lg border px-4 py-2 text-sm"
@@ -286,6 +298,10 @@ onMounted(load)
             >
               {{ generatingTts ? '生成 TTS 中...' : '生成段落 TTS' }}
             </button>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="rounded-lg bg-neutral-900 text-white px-4 py-2 text-sm" :disabled="saving" @click="saveMeta">保存</button>
+            <button type="button" class="rounded-lg border px-4 py-2 text-sm" @click="reanalyze">重新分析词汇</button>
             <button
               v-if="article.status !== 'published'"
               type="button"

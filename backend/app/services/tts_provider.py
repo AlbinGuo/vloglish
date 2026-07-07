@@ -21,10 +21,10 @@ def tts_configured() -> bool:
     return qwen_dashscope_tts.qwen_tts_configured()
 
 
-def synthesize_speech(text: str) -> bytes:
+def synthesize_speech(text: str, *, voice: str | None = None) -> bytes:
     provider = _provider()
     if provider == "azure":
         return azure_tts.synthesize_speech(text)
     if provider == "qwen":
-        return qwen_dashscope_tts.synthesize_speech(text)
+        return qwen_dashscope_tts.synthesize_speech(text, voice=voice)
     raise RuntimeError(f"未知 TTS_PROVIDER: {provider}")

@@ -781,14 +781,15 @@ export async function adminPublishArticle(ref: string | number) {
   return data
 }
 
-export async function adminGenerateArticleTts(ref: string | number) {
+export async function adminGenerateArticleTts(ref: string | number, options: { voice?: string } = {}) {
   const { data } = await adminApi.post<{
     generated: number
     failed: number
     total: number
     tts_status: string
     error_sample?: string
-  }>(`/api/admin/articles/${ref}/generate-tts/`, undefined, {
+    voice?: string
+  }>(`/api/admin/articles/${ref}/generate-tts/`, options.voice ? { voice: options.voice } : {}, {
     timeout: 900000,
   })
   return data

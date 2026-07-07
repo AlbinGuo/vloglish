@@ -28,9 +28,10 @@ def generate_segment_tts(
     article_public_id: str,
     *,
     qiniu: QiniuConfig,
+    voice: str | None = None,
 ) -> tuple[bool, str | None]:
     try:
-        audio_bytes = synthesize_speech(segment.english)
+        audio_bytes = synthesize_speech(segment.english, voice=voice)
         suffix = audio_file_suffix(audio_bytes)
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
             tmp.write(audio_bytes)
@@ -49,12 +50,16 @@ def generate_segment_tts(
         return False, str(exc)
 
 
-def generate_article_tts(db: Session, article: Article) -> dict:
+def generate_article_tts(db: Session, article: Article, *, voice: str | None = None) -> dict:
     if not tts_configured():
         provider = os.getenv("TTS_PROVIDER", "qwen").strip().lower() or "qwen"
         if provider == "azure":
             raise RuntimeError("未配置 AZURE_SPEECH_KEY，无法生成 TTS")
         raise RuntimeError("未配置 DASHSCOPE_API_KEY，无法生成 TTS")
+
+    from .qwen_dashscope_tts import resolve_qwen_voice
+
+    selected_voice = resolve_qwen_voice(voice)
 
     segments = sorted(article.segments, key=lambda s: s.index)
     if not segments:
@@ -68,7 +73,9 @@ def generate_article_tts(db: Session, article: Article) -> dict:
     failed = 0
     error_sample = ""
     for seg in segments:
-        success, err = generate_segment_tts(db, seg, article.article_id, qiniu=qiniu)
+        success, err = generate_segment_tts(
+            db, seg, article.article_id, qiniu=qiniu, voice=selected_voice
+        )
         if success:
             ok += 1
         else:
@@ -91,4 +98,5 @@ def generate_article_tts(db: Session, article: Article) -> dict:
         "total": total,
         "tts_status": article.tts_status,
         "error_sample": error_sample,
+        "voice": selected_voice,
     }

@@ -13,6 +13,7 @@ from ...schemas import (
     AdminArticleImportTextOut,
     AdminArticleListOut,
     AdminArticleSegmentIn,
+    AdminArticleTtsIn,
     AdminArticleTtsOut,
     AdminArticleUpdateIn,
     AdminArticleUploadCoverIn,
@@ -289,6 +290,7 @@ def admin_upload_cover(
 @router.post("/{ref}/generate-tts/", response_model=AdminArticleTtsOut)
 def admin_generate_tts(
     ref: str,
+    body: AdminArticleTtsIn | None = None,
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
@@ -301,8 +303,9 @@ def admin_generate_tts(
         .segments
     )
     article.segments = segments
+    voice = body.voice if body else None
     try:
-        result = generate_article_tts(db, article)
+        result = generate_article_tts(db, article, voice=voice)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except RuntimeError as e:
