@@ -23,6 +23,13 @@ import SettingsButton from '@/components/SettingsButton.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import CurrentSubtitleBar from '@/components/CurrentSubtitleBar.vue'
 import SubtitleBlock from '@/components/SubtitleBlock.vue'
+import IntensiveReadingBlock from '@/components/intensive/IntensiveReadingBlock.vue'
+import IntensiveReadingStatsBar from '@/components/intensive/IntensiveReadingStatsBar.vue'
+import IntensiveCoreVocabPanel from '@/components/intensive/IntensiveCoreVocabPanel.vue'
+import IntensiveCoreVocabMobile from '@/components/intensive/IntensiveCoreVocabMobile.vue'
+import IntensiveModeToggle from '@/components/intensive/IntensiveModeToggle.vue'
+import { useIntensiveReadingMode } from '@/composables/useIntensiveReadingMode'
+import { useCoreVocabulary, type CoreVocabSource } from '@/composables/useCoreVocabulary'
 import { usePlayerControls } from '@/composables/usePlayerControls'
 import {
   modeIsDynamicFocus,
@@ -83,6 +90,19 @@ function registerVideoEl(el: HTMLVideoElement | null) {
 const sortedSubs = computed(() =>
   [...(episode.value?.subtitles ?? [])].sort((a, b) => a.index - b.index),
 )
+
+const { intensiveMode, intensivePageClass } = useIntensiveReadingMode()
+
+const coreVocabSources = computed<CoreVocabSource[]>(() =>
+  sortedSubs.value.map((sub) => ({
+    id: sub.id,
+    englishHtml: sub.english_html,
+    context: sub.english,
+    meta: { video_id: props.videoId, subtitle_id: sub.id },
+  })),
+)
+const coreVocab = useCoreVocabulary(coreVocabSources)
+const { items: coreVocabItems, loading: coreVocabLoading, count: coreVocabCount } = coreVocab
 
 const currentSub = computed(() => sortedSubs.value[currentIndex.value] ?? null)
 
@@ -704,7 +724,7 @@ function subtitleRowClass(index: number) {
   <!-- h-dvh + overflow-hidden：整页不滚动，仅字幕列表区域滚动 -->
   <div
     class="flex flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-950"
-    :class="adminPreview ? 'h-dvh' : 'h-full'"
+    :class="[adminPreview ? 'h-dvh' : 'h-full', intensivePageClass]"
   >
     <header
       class="flex items-center gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 z-30 transition-transform duration-300 ease-out"
@@ -760,6 +780,7 @@ function subtitleRowClass(index: number) {
             <circle cx="19" cy="12" r="1.75" />
           </svg>
         </button>
+        <IntensiveModeToggle />
         <SettingsButton v-if="!isPhone" @click="showSettings = true" />
         <button class="hidden sm:inline text-xs text-neutral-400 hover:text-black dark:hover:text-white px-2 py-1" @click="player.showHelp.value = true">
           ? 快捷键
@@ -826,11 +847,13 @@ function subtitleRowClass(index: number) {
           @update:video-hidden="videoHidden = $event"
         />
         <CurrentSubtitleBar
-          v-if="showCurrentSubtitleBar"
+          v-if="showCurrentSubtitleBar && displaySub"
           class="w-full"
           :class="isPhone ? '' : 'min-h-0 flex-1'"
           :compact="isPhone"
           :top-align="isPad"
+          :intensive="intensiveMode"
+          :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
           :sub="displaySub"
           :current-time="playbackTime"
           :subtitle-mode="subtitleMode"
@@ -843,8 +866,9 @@ function subtitleRowClass(index: number) {
 
       <!-- 字幕区 -->
       <section
-        class="subtitle-panel flex-1 min-h-0 flex flex-col overflow-hidden bg-neutral-50 dark:bg-neutral-900 border-t lg:border-t-0 border-black/5 dark:border-white/10 max-lg:min-h-0"
+        class="subtitle-panel flex-1 min-h-0 flex overflow-hidden bg-neutral-50 dark:bg-neutral-900 border-t lg:border-t-0 border-black/5 dark:border-white/10 max-lg:min-h-0"
       >
+        <div class="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden">
         <!-- 桌面 / Pad：完整工具栏 -->
         <div
           v-if="!isPhone"
@@ -880,6 +904,15 @@ function subtitleRowClass(index: number) {
           </div>
         </div>
 
+        <IntensiveReadingStatsBar
+          v-if="intensiveMode"
+          :title="episode.short_title"
+          :subtitle="`${episode.author.name} · 第 ${episode.index} 期`"
+          :word-count="episode.voca_size"
+          :highlight-count="coreVocabCount"
+          :segment-count="episode.subtitle_count"
+        />
+
         <!-- 动态模式 -->
         <div
           v-if="modeIsDynamicFocus(subtitleMode) && currentSub && !isPhone"
@@ -898,7 +931,23 @@ function subtitleRowClass(index: number) {
             "
             mode="out-in"
           >
+            <IntensiveReadingBlock
+              v-if="intensiveMode"
+              :key="currentSub.id"
+              :english-html="renderHtml(currentSub.english_html)"
+              :english="currentSub.english"
+              :chinese="currentSub.chinese"
+              :ipa="currentSub.ipa"
+              :large="true"
+              :align="subtitleAlign"
+              :show-english="modeShowsEnglish(subtitleMode)"
+              :show-chinese="modeShowsChinese(subtitleMode)"
+              :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+              :lookup-meta="{ video_id: videoId, subtitle_id: currentSub.id }"
+              @click="onSubtitleClick"
+            />
             <SubtitleBlock
+              v-else
               :key="currentSub.id"
               :english-html="renderHtml(currentSub.english_html)"
               :chinese="currentSub.chinese"
@@ -932,7 +981,16 @@ function subtitleRowClass(index: number) {
           >
             <div
               class="w-full relative transition-all duration-300 ease-out"
-              :class="[subtitleRowClass(i), i === currentIndex && 'subtitle-row--active']"
+              :class="
+                intensiveMode
+                  ? [
+                      'intensive-subtitle-card rounded-xl border p-3 sm:p-4',
+                      i === currentIndex
+                        ? 'border-red-300/80 dark:border-red-700/50 ring-1 ring-red-200/60 dark:ring-red-900/30'
+                        : 'border-red-100/80 dark:border-red-950/40',
+                    ]
+                  : [subtitleRowClass(i), i === currentIndex && 'subtitle-row--active']
+              "
             >
               <button
                 v-if="auth.isLoggedIn && !adminPreview"
@@ -948,7 +1006,22 @@ function subtitleRowClass(index: number) {
               >
                 ✓
               </button>
+              <IntensiveReadingBlock
+                v-if="intensiveMode"
+                :english-html="renderHtml(sub.english_html)"
+                :english="sub.english"
+                :chinese="sub.chinese"
+                :ipa="sub.ipa"
+                :active="false"
+                :align="subtitleAlign"
+                :show-english="modeShowsEnglish(subtitleMode)"
+                :show-chinese="modeShowsChinese(subtitleMode)"
+                :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+                :lookup-meta="{ video_id: videoId, subtitle_id: sub.id }"
+                @click.stop="onSubtitleClick"
+              />
               <SubtitleBlock
+                v-else
                 :english-html="renderHtml(sub.english_html)"
                 :chinese="sub.chinese"
                 :ipa="sub.ipa"
@@ -963,7 +1036,21 @@ function subtitleRowClass(index: number) {
             </div>
           </div>
         </div>
+
+        </div>
+
+        <IntensiveCoreVocabPanel
+          v-if="intensiveMode"
+          :items="coreVocabItems"
+          :loading="coreVocabLoading"
+        />
       </section>
+
+      <IntensiveCoreVocabMobile
+        v-if="intensiveMode"
+        :items="coreVocabItems"
+        :loading="coreVocabLoading"
+      />
 
       <EpisodeSidePanel
         v-if="!adminPreview && showSidePanel && !isPhone"

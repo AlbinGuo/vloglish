@@ -6,6 +6,11 @@ import { fetchWordLookup } from '@/composables/useWordLookupCache'
 import EntryCard from '@/components/EntryCard.vue'
 import ReadingSegmentRow from '@/components/reading/ReadingSegmentRow.vue'
 import ReadingSegmentDesktopRow from '@/components/reading/ReadingSegmentDesktopRow.vue'
+import ReadingIntensiveSegmentRow from '@/components/reading/ReadingIntensiveSegmentRow.vue'
+import IntensiveReadingStatsBar from '@/components/intensive/IntensiveReadingStatsBar.vue'
+import IntensiveCoreVocabPanel from '@/components/intensive/IntensiveCoreVocabPanel.vue'
+import IntensiveCoreVocabMobile from '@/components/intensive/IntensiveCoreVocabMobile.vue'
+import IntensiveModeToggle from '@/components/intensive/IntensiveModeToggle.vue'
 import SettingsButton from '@/components/SettingsButton.vue'
 import ReadingSettingsPanel from '@/components/reading/ReadingSettingsPanel.vue'
 import ReadingWordTooltipHost from '@/components/reading/ReadingWordTooltipHost.vue'
@@ -14,6 +19,8 @@ import { useReadingProgress } from '@/composables/useReadingProgress'
 import ReadingTtsBar from '@/components/reading/ReadingTtsBar.vue'
 import { useReadingTts, READING_TTS_KEY } from '@/composables/useReadingTts'
 import { useReadingSettings } from '@/composables/useReadingSettings'
+import { useIntensiveReadingMode } from '@/composables/useIntensiveReadingMode'
+import { useCoreVocabulary, type CoreVocabSource } from '@/composables/useCoreVocabulary'
 import { ARTICLE_VOCABULARY_KEY, useArticleVocabulary } from '@/composables/useArticleVocabulary'
 import { useAuthStore } from '@/stores/auth'
 import type { EntryDetail } from '@/types'
@@ -47,10 +54,23 @@ const {
   readingPageClass,
 } = useReadingSettings()
 
+const { intensiveMode, intensivePageClass } = useIntensiveReadingMode()
+
+const coreVocabSources = computed<CoreVocabSource[]>(() =>
+  (article.value?.segments ?? []).map((segment) => ({
+    id: segment.id,
+    englishHtml: segment.english_html || segment.english,
+    context: segment.english,
+    meta: { article_id: articleId.value, segment_id: segment.id },
+  })),
+)
+const coreVocab = useCoreVocabulary(coreVocabSources)
+const { items: coreVocabItems, loading: coreVocabLoading, count: coreVocabCount } = coreVocab
+
 const showSettings = ref(false)
 const segmentRefs = ref<(HTMLElement | null)[]>([])
 
-const useDualColumnLayout = computed(() => layoutMode.value === 'dual')
+const useDualColumnLayout = computed(() => layoutMode.value === 'dual' && !intensiveMode.value)
 
 const articleVocabEnabled = computed(() => auth.isLoggedIn)
 const articleVocab = useArticleVocabulary(articleId, { enabled: articleVocabEnabled })
@@ -205,7 +225,10 @@ watch(layoutMode, async () => {
 </script>
 
 <template>
-  <div class="reading-page flex flex-col h-full min-h-0 bg-neutral-100 dark:bg-neutral-950" :class="readingPageClass">
+  <div
+    class="reading-page flex flex-col h-full min-h-0 bg-neutral-100 dark:bg-neutral-950"
+    :class="[readingPageClass, intensivePageClass]"
+  >
     <header class="shrink-0 flex items-center gap-3 px-4 py-3 bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10">
       <button type="button" class="text-sm text-neutral-500 hover:text-black dark:hover:text-white shrink-0" @click="goBack">← 返回</button>
       <div v-if="article" class="flex-1 min-w-0">
@@ -219,6 +242,7 @@ watch(layoutMode, async () => {
           </span>
         </p>
       </div>
+      <IntensiveModeToggle />
       <SettingsButton class="shrink-0" @click="showSettings = true" />
     </header>
 
@@ -229,28 +253,27 @@ watch(layoutMode, async () => {
     </div>
     <div v-else-if="error" class="flex-1 flex items-center justify-center text-red-500">{{ error }}</div>
 
-    <div v-else-if="article" class="flex flex-1 min-h-0">
-      <ReadingWordTooltipHost :article-id="articleId" class="flex-1 min-h-0 overflow-y-auto overscroll-contain reading-scroll-hide">
-        <div class="page-container py-4 max-w-5xl lg:max-w-none">
-          <div v-if="useDualColumnLayout" class="hidden lg:block space-y-3">
-            <ReadingSegmentDesktopRow
-              v-for="segment in article.segments"
-              :key="segment.id"
-              :segment="segment"
-              :article-id="articleId"
-              :active="segment.index === currentIndex"
-              @activate="onActivateSegment(segment.index)"
-              @click="onWordClick($event, segment)"
-            />
-          </div>
+    <div v-else-if="article" class="flex flex-1 min-h-0 flex-col">
+      <IntensiveReadingStatsBar
+        v-if="intensiveMode"
+        :title="article.title"
+        :subtitle="article.source"
+        :word-count="article.word_count"
+        :highlight-count="coreVocabCount"
+        :segment-count="article.segment_count"
+      />
 
-          <div class="space-y-3" :class="useDualColumnLayout ? 'lg:hidden' : ''">
-            <div
-              v-for="segment in article.segments"
-              :key="segment.id"
-              :ref="(el) => setSegmentRef(el as HTMLElement | null, segment.index)"
-            >
-              <ReadingSegmentRow
+      <div class="flex flex-1 min-h-0">
+        <ReadingWordTooltipHost
+          v-if="!intensiveMode"
+          :article-id="articleId"
+          class="flex-1 min-h-0 overflow-y-auto overscroll-contain reading-scroll-hide"
+        >
+          <div class="page-container py-4 max-w-5xl lg:max-w-none">
+            <div v-if="useDualColumnLayout" class="hidden lg:block space-y-3">
+              <ReadingSegmentDesktopRow
+                v-for="segment in article.segments"
+                :key="segment.id"
                 :segment="segment"
                 :article-id="articleId"
                 :active="segment.index === currentIndex"
@@ -258,11 +281,61 @@ watch(layoutMode, async () => {
                 @click="onWordClick($event, segment)"
               />
             </div>
+
+            <div class="space-y-3" :class="useDualColumnLayout ? 'lg:hidden' : ''">
+              <div
+                v-for="segment in article.segments"
+                :key="segment.id"
+                :ref="(el) => setSegmentRef(el as HTMLElement | null, segment.index)"
+              >
+                <ReadingSegmentRow
+                  :segment="segment"
+                  :article-id="articleId"
+                  :active="segment.index === currentIndex"
+                  @activate="onActivateSegment(segment.index)"
+                  @click="onWordClick($event, segment)"
+                />
+              </div>
+            </div>
+          </div>
+        </ReadingWordTooltipHost>
+
+        <div
+          v-else
+          class="flex-1 min-h-0 overflow-y-auto overscroll-contain reading-scroll-hide"
+        >
+          <div class="page-container py-4 max-w-3xl">
+            <div class="space-y-3">
+              <div
+                v-for="segment in article.segments"
+                :key="segment.id"
+                :ref="(el) => setSegmentRef(el as HTMLElement | null, segment.index)"
+              >
+                <ReadingIntensiveSegmentRow
+                  :segment="segment"
+                  :article-id="articleId"
+                  :active="segment.index === currentIndex"
+                  @activate="onActivateSegment(segment.index)"
+                  @click="onWordClick($event, segment)"
+                />
+              </div>
+            </div>
           </div>
         </div>
-      </ReadingWordTooltipHost>
 
-      <ReadingArticleVocabSidebar v-if="auth.isLoggedIn" />
+        <ReadingArticleVocabSidebar v-if="auth.isLoggedIn && !intensiveMode" />
+        <IntensiveCoreVocabPanel
+          v-if="intensiveMode"
+          :items="coreVocabItems"
+          :loading="coreVocabLoading"
+        />
+      </div>
+
+      <IntensiveCoreVocabMobile
+        v-if="intensiveMode"
+        :items="coreVocabItems"
+        :loading="coreVocabLoading"
+      />
     </div>
 
     <ReadingTtsBar

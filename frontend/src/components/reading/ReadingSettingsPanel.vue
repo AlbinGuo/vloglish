@@ -4,10 +4,12 @@ import {
   type ReadingLayoutMode,
   type ReadingWordHighlightStyle,
 } from '@/composables/useReadingSettings'
+import { useIntensiveReadingMode } from '@/composables/useIntensiveReadingMode'
 
 defineEmits<{ close: [] }>()
 
 const { wordHighlightStyle, layoutMode, ttsRate, autoAdvance, autoScrollOnTts, setWordHighlightStyle, setLayoutMode, setTtsRate } = useReadingSettings()
+const { intensiveMode, setIntensiveMode } = useIntensiveReadingMode()
 
 const rateOptions = [0.75, 1, 1.25] as const
 
@@ -45,6 +47,25 @@ const optionDefaultClass =
           ×
         </button>
       </div>
+
+      <section class="mb-6">
+        <h4 class="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-3">精读模式</h4>
+        <label
+          class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors"
+          :class="intensiveMode ? optionSelectedClass : optionDefaultClass"
+        >
+          <input
+            type="checkbox"
+            class="mt-1 shrink-0"
+            :checked="intensiveMode"
+            @change="setIntensiveMode(($event.target as HTMLInputElement).checked)"
+          />
+          <span>
+            <span class="block text-sm font-medium">开启精读</span>
+            <span class="block text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">词下直译、段落译文对照、核心词汇侧栏</span>
+          </span>
+        </label>
+      </section>
 
       <section class="mb-6">
         <h4 class="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-3">词汇高亮</h4>

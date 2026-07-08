@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import SubtitleBlock from '@/components/SubtitleBlock.vue'
+import IntensiveReadingBlock from '@/components/intensive/IntensiveReadingBlock.vue'
 import type { Subtitle } from '@/types'
+import type { WordLookupMeta } from '@/composables/useWordLookupCache'
 import type { SubtitleDisplayMode } from '@/utils/subtitleHtml'
 import {
   modeIsChineseOnly,
@@ -19,6 +21,8 @@ const props = defineProps<{
   compact?: boolean
   /** Pad：实时字幕顶对齐（margin: 0） */
   topAlign?: boolean
+  intensive?: boolean
+  lookupMeta?: WordLookupMeta
 }>()
 
 defineEmits<{
@@ -40,7 +44,23 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
   >
     <div class="current-subtitle-bar__viewport">
       <div class="subtitle-focus-light current-subtitle-bar__content">
+        <IntensiveReadingBlock
+          v-if="intensive"
+          class="w-full min-w-0"
+          :english-html="englishHtml"
+          :english="sub.english"
+          :chinese="sub.chinese"
+          :ipa="sub.ipa"
+          :large="!compact"
+          align="center"
+          :show-english="modeShowsEnglish(subtitleMode)"
+          :show-chinese="modeShowsChinese(subtitleMode)"
+          :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+          :lookup-meta="lookupMeta"
+          @click.stop="$emit('click', $event)"
+        />
         <SubtitleBlock
+          v-else
           class="w-full min-w-0"
           :english-html="englishHtml"
           :chinese="sub.chinese"
@@ -132,7 +152,7 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
 }
 
 /* v-html 模式：flex 折行，词间距与列表区一致（gap-x-1.5），不再叠加额外 gap */
-.current-subtitle-bar :deep(.subtitle-english:not(.subtitle-english-word-progress)) {
+.current-subtitle-bar :deep(.subtitle-english:not(.subtitle-english-word-progress):not(.intensive-english)) {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
