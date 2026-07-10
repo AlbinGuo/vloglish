@@ -1009,9 +1009,9 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
 .intensive-gloss-cn {
   display: block;
   width: 100%;
-  max-width: 9rem;
-  font-size: 10px;
-  line-height: 1.15;
+  max-width: 10rem;
+  font-size: 12px;
+  line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1117,4 +1117,72 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
 
 .dark .intensive-reading-mode .current-subtitle-bar {
   border-color: rgb(127 29 29 / 0.4);
+}
+
+/* 视频面板全屏：视频占满剩余空间，实时字幕固定在下方 */
+.video-panel:fullscreen,
+.video-panel.video-panel--fullscreen {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  box-sizing: border-box;
+  padding: 1rem 1.25rem !important;
+  gap: 0.75rem !important;
+  background: #0a0a0a !important;
+  border: none !important;
+}
+
+.video-panel:fullscreen .video-panel__player,
+.video-panel.video-panel--fullscreen .video-panel__player {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: 100%;
+  aspect-ratio: auto !important;
+  height: auto !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.video-panel:fullscreen .video-panel__subtitle,
+.video-panel.video-panel--fullscreen .video-panel__subtitle {
+  flex: 0 0 auto !important;
+  width: 100%;
+  min-height: 6.75rem;
+  max-height: min(32vh, 15rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.video-panel:fullscreen .video-panel__subtitle .current-subtitle-bar,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .current-subtitle-bar {
+  flex: 1 1 auto;
+  min-height: 6.75rem;
+  max-height: min(32vh, 15rem);
+  background: rgb(23 23 23);
+  border-color: rgb(255 255 255 / 0.12);
+  color: #f5f5f5;
+}
+
+.video-panel:fullscreen .video-panel__subtitle .subtitle-english,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .subtitle-english,
+.video-panel:fullscreen .video-panel__subtitle .intensive-english,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .intensive-english {
+  color: #f5f5f5;
+}
+
+.video-panel:fullscreen .video-panel__subtitle .subtitle-chinese,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .subtitle-chinese,
+.video-panel:fullscreen .video-panel__subtitle .intensive-chinese-block,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .intensive-chinese-block {
+  color: rgb(212 212 212);
+}
+
+.video-panel:fullscreen .video-panel__subtitle .subtitle-english span:hover,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .subtitle-english span:hover {
+  background-color: rgb(255 255 255 / 0.12);
+}
+
+.video-panel:fullscreen .subtitle-word-tooltip,
+.video-panel.video-panel--fullscreen .subtitle-word-tooltip {
+  z-index: 2147483646;
 }

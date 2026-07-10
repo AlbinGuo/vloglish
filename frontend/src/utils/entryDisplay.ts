@@ -11,3 +11,7 @@ export function primaryIpa(entry: EntryDetail): string {
 export function firstChineseDefinition(entry: EntryDetail): string {
   return entry.definitions[0]?.definition_cn?.trim() ?? ''
 }
+
+export function firstEnglishDefinition(entry: EntryDetail): string {
+  return entry.definitions[0]?.definition_en?.trim() ?? ''
+}

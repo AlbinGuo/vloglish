@@ -23,6 +23,7 @@ import SettingsButton from '@/components/SettingsButton.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import CurrentSubtitleBar from '@/components/CurrentSubtitleBar.vue'
 import SubtitleBlock from '@/components/SubtitleBlock.vue'
+import SubtitleWordTooltipHost from '@/components/SubtitleWordTooltipHost.vue'
 import IntensiveReadingBlock from '@/components/intensive/IntensiveReadingBlock.vue'
 import IntensiveReadingStatsBar from '@/components/intensive/IntensiveReadingStatsBar.vue'
 import IntensiveCoreVocabPanel from '@/components/intensive/IntensiveCoreVocabPanel.vue'
@@ -61,6 +62,15 @@ const entryError = ref('')
 const currentIndex = ref(0)
 const videoRef = ref<HTMLVideoElement | null>(null)
 const videoPanelRef = ref<HTMLElement | null>(null)
+const isVideoPanelFullscreen = ref(false)
+
+function onVideoPanelFullscreenChange() {
+  isVideoPanelFullscreen.value = document.fullscreenElement === videoPanelRef.value
+}
+
+const subtitleTooltipTeleport = computed(() =>
+  isVideoPanelFullscreen.value && videoPanelRef.value ? videoPanelRef.value : 'body',
+)
 const videoHidden = ref(false)
 const listRef = ref<HTMLElement | null>(null)
 const showSettings = ref(false)
@@ -123,6 +133,20 @@ const player = usePlayerControls({
   },
 })
 
+/** 悬停查词时若正在播放则暂停，移开后恢复 */
+let resumePlaybackAfterWordHover = false
+
+function onSubtitleWordHoverStart() {
+  if (!player.isPlaying.value) return
+  resumePlaybackAfterWordHover = true
+  player.togglePlay()
+}
+
+function onSubtitleWordHoverEnd() {
+  if (!resumePlaybackAfterWordHover) return
+  resumePlaybackAfterWordHover = false
+  if (!player.isPlaying.value) player.togglePlay()
+}
 const learning = useLearningProgress({
   videoId: toRef(props, 'videoId'),
   currentIndex,
@@ -208,7 +232,7 @@ useSwipeNavigation(dynamicFocusRef, {
 const displaySub = computed(() => resolveDisplaySub(sortedSubs.value, player.currentTime.value))
 
 const showCurrentSubtitleBar = computed(
-  () => Boolean(displaySub.value) && !isPhone.value,
+  () => Boolean(displaySub.value) && (!isPhone.value || isVideoPanelFullscreen.value),
 )
 
 const playbackTime = computed(() => player.currentTime.value)
@@ -274,12 +298,14 @@ function onEntryKeydown(e: KeyboardEvent) {
 onMounted(() => {
   load()
   window.addEventListener('keydown', onEntryKeydown)
+  document.addEventListener('fullscreenchange', onVideoPanelFullscreenChange)
 })
 
 onUnmounted(() => {
   if (listScrollAnim) cancelAnimationFrame(listScrollAnim)
   document.body.style.overflow = ''
   window.removeEventListener('keydown', onEntryKeydown)
+  document.removeEventListener('fullscreenchange', onVideoPanelFullscreenChange)
 })
 watch(() => props.videoId, load)
 watch(currentIndex, (idx, prevIdx) => {
@@ -820,23 +846,26 @@ function subtitleRowClass(index: number) {
       <!-- 视频区 -->
       <aside
         ref="videoPanelRef"
-        class="shrink-0 lg:w-[46%] xl:w-[44%] min-h-0 lg:h-full flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4 max-lg:h-auto max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:shrink-0 max-lg:landscape:static max-lg:landscape:w-[42%] max-lg:landscape:shrink-0 max-lg:landscape:h-auto"
-        :class="mobileVideoImmersive ? 'max-lg:!p-0 max-lg:!gap-0 max-lg:!rounded-none' : ''"
+        class="video-panel shrink-0 lg:w-[46%] xl:w-[44%] min-h-0 lg:h-full flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4 max-lg:h-auto max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:shrink-0 max-lg:landscape:static max-lg:landscape:w-[42%] max-lg:landscape:shrink-0 max-lg:landscape:h-auto"
+        :class="[
+          mobileVideoImmersive ? 'max-lg:!p-0 max-lg:!gap-0 max-lg:!rounded-none' : '',
+          isVideoPanelFullscreen ? 'video-panel--fullscreen' : '',
+        ]"
       >
         <VideoPlayer
-          class="shrink-0"
+          class="shrink-0 video-panel__player"
           :src="playbackSrc"
           :poster="episode.media.thumbnail_url"
           :hidden="videoHidden"
           :autoplay="videoAutoplay"
           :register-video="registerVideoEl"
           :player="player"
-          :show-progress-bar="!isPhone"
-          :auto-hide-progress="!isPhone"
-          :flush="mobileVideoImmersive"
+          :show-progress-bar="!isPhone || isVideoPanelFullscreen"
+          :auto-hide-progress="!isPhone || isVideoPanelFullscreen"
+          :flush="mobileVideoImmersive || isVideoPanelFullscreen"
         />
         <PlayerControls
-          v-if="!isPhone"
+          v-if="!isPhone || isVideoPanelFullscreen"
           class="shrink-0"
           :player="player"
           :show-ipa="showIpa"
@@ -846,22 +875,33 @@ function subtitleRowClass(index: number) {
           @update:show-ipa="showIpa = $event"
           @update:video-hidden="videoHidden = $event"
         />
-        <CurrentSubtitleBar
+        <SubtitleWordTooltipHost
           v-if="showCurrentSubtitleBar && displaySub"
-          class="w-full"
-          :class="isPhone ? '' : 'min-h-0 flex-1'"
-          :compact="isPhone"
-          :top-align="isPad"
-          :intensive="intensiveMode"
+          class="min-h-0 flex flex-col"
+          :class="isVideoPanelFullscreen ? 'video-panel__subtitle shrink-0' : 'flex-1 min-h-0'"
+          :context="displaySub.english"
           :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
-          :sub="displaySub"
-          :current-time="playbackTime"
-          :subtitle-mode="subtitleMode"
-          :show-ipa="showIpa"
-          :english-html="renderHtml(displaySub.english_html)"
-          @seek="player.seekTo(displaySub)"
-          @click="onSubtitleClick"
-        />
+          :teleport-to="subtitleTooltipTeleport"
+          @word-hover-start="onSubtitleWordHoverStart"
+          @word-hover-end="onSubtitleWordHoverEnd"
+        >
+          <CurrentSubtitleBar
+            class="w-full"
+            :class="isPhone && !isVideoPanelFullscreen ? '' : 'min-h-0 flex-1'"
+            :compact="isPhone && !isVideoPanelFullscreen"
+            :top-align="isPad && !isVideoPanelFullscreen"
+            :intensive="intensiveMode"
+            :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
+            :sub="displaySub"
+            :current-time="playbackTime"
+            :subtitle-mode="isVideoPanelFullscreen ? 'both' : subtitleMode"
+            :show-ipa="showIpa && !isVideoPanelFullscreen"
+            :english-html="renderHtml(displaySub.english_html)"
+            :data-subtitle-context="displaySub.english"
+            @seek="player.seekTo(displaySub)"
+            @click="onSubtitleClick"
+          />
+        </SubtitleWordTooltipHost>
       </aside>
 
       <!-- 字幕区 -->
