@@ -8,9 +8,11 @@ import {
   adminGetEpisode,
   adminGetNextEpisodeIndex,
   adminImportVtt,
+  adminListSeries,
   adminListTags,
   adminUpdateEpisode,
   type AdminEpisodePayload,
+  type AdminSeries,
   type AdminSubtitle,
 } from '@/api/admin'
 import { accentOptions } from '@/constants/accentOptions'
@@ -49,12 +51,15 @@ const form = ref<AdminEpisodePayload>({
   is_demo: false,
   status: 'draft',
   rejection_reason: '',
+  series_id: null,
+  series_index: null,
   author: { name: '', gender: 'm', nationality: '', accent: '美国' },
   tag_names: [],
   subtitles: [],
 })
 
 const tagsInput = ref('')
+const seriesOptions = ref<AdminSeries[]>([])
 
 function syncTagsFromInput() {
   form.value.tag_names = tagsInput.value
@@ -113,6 +118,8 @@ async function loadEpisode() {
       is_demo: data.is_demo,
       status: data.status,
       rejection_reason: data.rejection_reason || '',
+      series_id: data.series_id ?? null,
+      series_index: data.series_index ?? null,
       author: { ...data.author },
       tag_names: [...data.tag_names],
       subtitles: data.subtitles.map((s) => ({ ...s })),
@@ -135,6 +142,15 @@ async function loadTags() {
   }
 }
 
+async function loadSeriesOptions() {
+  try {
+    const data = await adminListSeries()
+    seriesOptions.value = data.results
+  } catch {
+    seriesOptions.value = []
+  }
+}
+
 async function save() {
   syncTagsFromInput()
   if (!form.value.short_title.trim()) {
@@ -149,12 +165,22 @@ async function save() {
     error.value = '驳回时需填写原因'
     return
   }
+  if (form.value.series_id != null && !form.value.series_index) {
+    error.value = '加入合集时请填写合集内集序号'
+    return
+  }
 
   saving.value = true
   error.value = ''
   success.value = ''
   try {
-    const payload = { ...form.value, subtitles: form.value.subtitles.map((s) => ({ ...s })) }
+    const payload: AdminEpisodePayload = {
+      ...form.value,
+      subtitles: form.value.subtitles.map((s) => ({ ...s })),
+      clear_series: form.value.series_id == null,
+      series_id: form.value.series_id,
+      series_index: form.value.series_id != null ? form.value.series_index : null,
+    }
     if (isNew.value) {
       if (!payload.video_id?.trim()) delete payload.video_id
       await adminCreateEpisode(payload)
@@ -297,7 +323,7 @@ async function fetchFromSourceUrl() {
 }
 
 onMounted(async () => {
-  await loadTags()
+  await Promise.all([loadTags(), loadSeriesOptions()])
   await loadEpisode()
 })
 
@@ -402,6 +428,35 @@ watch(
           <label class="block text-sm md:col-span-2">
             <span class="text-neutral-500">备注（内部）</span>
             <textarea v-model="form.remark" rows="2" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2" />
+          </label>
+          <label class="block text-sm">
+            <span class="text-neutral-500">所属合集</span>
+            <select
+              :value="form.series_id ?? ''"
+              class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2"
+              @change="
+                form.series_id = ($event.target as HTMLSelectElement).value
+                  ? Number(($event.target as HTMLSelectElement).value)
+                  : null;
+                if (!form.series_id) form.series_index = null
+              "
+            >
+              <option value="">无（独立单集）</option>
+              <option v-for="s in seriesOptions" :key="s.id" :value="s.id">
+                {{ s.title }}（{{ s.status }}）
+              </option>
+            </select>
+          </label>
+          <label class="block text-sm">
+            <span class="text-neutral-500">合集内集序号</span>
+            <input
+              v-model.number="form.series_index"
+              type="number"
+              min="1"
+              :disabled="!form.series_id"
+              placeholder="如 1、2、3"
+              class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 disabled:bg-neutral-50"
+            />
           </label>
           <label class="block text-sm md:col-span-2">
             <span class="text-neutral-500">标签（逗号分隔）</span>

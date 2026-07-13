@@ -228,6 +228,10 @@ onMounted(load)
             <td class="px-4 py-3">
               <div class="font-medium">{{ row.short_title }}</div>
               <div class="text-xs text-neutral-400 mt-0.5">{{ row.video_id }}</div>
+              <div v-if="row.series_title" class="text-xs text-amber-700 mt-0.5">
+                {{ row.series_title }}
+                <span v-if="row.series_index != null"> · 第 {{ row.series_index }} 集</span>
+              </div>
               <div v-if="row.is_demo" class="text-xs text-amber-600 mt-0.5">Demo</div>
             </td>
             <td class="px-4 py-3 max-w-[7rem] truncate" :title="row.author_name">{{ row.author_name }}</td>

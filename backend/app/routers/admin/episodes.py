@@ -33,6 +33,7 @@ from ...services.episode_stats import admin_episode_list_query, row_stats_from_q
 from ...services.subtitle_import_admin import import_subtitle_text_for_admin
 from ...services.user_notifications import maybe_notify_submitter_on_status_change
 from ...services.yt_dlp_fetch import fetch_and_upload_from_url
+from ...services.episode_series import get_series_or_none
 
 router = APIRouter(prefix="/api/admin", tags=["admin-meta"])
 
@@ -56,6 +57,7 @@ def _subtitle_out(s) -> AdminSubtitleIn:
 
 
 def _episode_detail(ep: Episode) -> AdminEpisodeDetailOut:
+    series = ep.series
     return AdminEpisodeDetailOut(
         id=ep.id,
         video_id=ep.video_id,
@@ -76,6 +78,9 @@ def _episode_detail(ep: Episode) -> AdminEpisodeDetailOut:
         status=ep.status,
         rejection_reason=ep.rejection_reason or "",
         is_user_submitted=ep.submitted_by_user_id is not None,
+        series_id=ep.series_id,
+        series_index=ep.series_index,
+        series_title=series.title if series else "",
         author={
             "name": ep.author.name,
             "gender": ep.author.gender,
@@ -95,6 +100,7 @@ def _get_episode_or_404(db: Session, episode_id: int) -> Episode:
             joinedload(Episode.author),
             joinedload(Episode.tags),
             joinedload(Episode.subtitles),
+            joinedload(Episode.series),
         )
         .filter(Episode.id == episode_id)
         .first()
@@ -144,6 +150,9 @@ def list_episodes(
                 is_demo=ep.is_demo,
                 is_user_submitted=ep.submitted_by_user_id is not None,
                 tag_names=[t.name for t in ep.tags],
+                series_id=ep.series_id,
+                series_title=ep.series.title if ep.series else "",
+                series_index=ep.series_index,
                 created_at=_fmt_dt(ep.created_at),
                 **row_stats_from_query(row),
             )
@@ -222,14 +231,16 @@ def preview_episode(
 ):
     episode = (
         db.query(Episode)
-        .options(joinedload(Episode.author), joinedload(Episode.tags), joinedload(Episode.subtitles))
+        .options(joinedload(Episode.author), joinedload(Episode.tags), joinedload(Episode.subtitles), joinedload(Episode.series))
         .filter(Episode.video_id == video_id)
         .first()
     )
     if not episode:
         raise HTTPException(status_code=404, detail="剧集不存在")
     total = db.query(Episode).filter(Episode.status == "published").count()
-    return episode_detail(episode, total)
+    from ...services.episode_series import series_nav_for_episode
+
+    return episode_detail(episode, total, series_nav=series_nav_for_episode(db, episode))
 
 
 @router.post("/episodes/", response_model=AdminEpisodeDetailOut)
@@ -254,6 +265,10 @@ def create_episode(
     tags = resolve_tags(db, body.tag_names)
     payload = body.model_dump()
     payload["subtitles"] = [s.model_dump() for s in body.subtitles]
+    if payload.get("series_id") is not None and not get_series_or_none(db, payload["series_id"]):
+        raise HTTPException(status_code=400, detail="合集不存在")
+    if payload.get("series_id") is not None and payload.get("series_index") is None:
+        raise HTTPException(status_code=400, detail="加入合集时请填写合集内集序号")
 
     ep = Episode(video_id=video_id, status=body.status)
     apply_episode_fields(ep, payload, author=author, tags=tags)
@@ -303,6 +318,16 @@ def update_episode(
     tags = ep.tags
     if body.tag_names is not None:
         tags = resolve_tags(db, body.tag_names)
+
+    if data.get("clear_series"):
+        data["series_id"] = None
+        data["series_index"] = None
+    elif "series_id" in data and data["series_id"] is not None:
+        if not get_series_or_none(db, data["series_id"]):
+            raise HTTPException(status_code=400, detail="合集不存在")
+        next_index = data.get("series_index", ep.series_index)
+        if next_index is None:
+            raise HTTPException(status_code=400, detail="加入合集时请填写合集内集序号")
 
     subtitles_payload = None
     if body.subtitles is not None:

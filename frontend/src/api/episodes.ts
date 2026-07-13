@@ -1,6 +1,7 @@
 import api from './client'
 import { fetchWordLookup, type WordLookupMeta } from '@/composables/useWordLookupCache'
-import type { EntryDetail, EpisodeDetail, EpisodeSummary, Tag } from '@/types'
+import type { EntryDetail, EpisodeDetail, EpisodeSummary, SeriesDetail, SeriesSummary, Tag } from '@/types'
+
 
 export interface EpisodeListParams {
   page?: number
@@ -12,6 +13,8 @@ export interface EpisodeListParams {
   gender?: string
   tag?: number
   tags?: string
+  series_id?: number
+  series_slug?: string
   date?: string
   status?: 'all' | 'learned' | 'unlearned' | 'favorite'
   ordering?: string
@@ -41,6 +44,23 @@ export async function getAuthorAccents() {
 export async function getEpisodeDetail(videoId: string) {
   const { data } = await api.get<{ episode: EpisodeDetail; total_episodes: number }>(
     `/api/episode/${videoId}/detail/`,
+  )
+  return data
+}
+
+export async function getSeriesList() {
+  const { data } = await api.get<{ count: number; results: SeriesSummary[] }>('/api/series/')
+  return data
+}
+
+export async function getSeriesDetail(slug: string) {
+  const { data } = await api.get<SeriesDetail>(`/api/series/${slug}/`)
+  return data
+}
+
+export async function getEnglishNavCounts() {
+  const { data } = await api.get<{ videos: number; series: number; articles: number }>(
+    '/api/english/nav-counts/',
   )
   return data
 }

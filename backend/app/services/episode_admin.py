@@ -174,6 +174,16 @@ def apply_episode_fields(ep: Episode, data: dict, *, author: Author, tags: list[
         ep.rejection_reason = reason or None
     if "index" in data:
         ep.index = data.get("index", ep.index)
+    if data.get("clear_series"):
+        ep.series_id = None
+        ep.series_index = None
+    else:
+        if "series_id" in data:
+            ep.series_id = data.get("series_id")
+            if ep.series_id is None:
+                ep.series_index = None
+        if "series_index" in data and ep.series_id is not None:
+            ep.series_index = data.get("series_index")
     ep.author_id = author.id
     ep.tags = tags
     subtitles = data.get("subtitles")

@@ -25,6 +25,7 @@ from .routers.admin import episodes as admin_episodes
 from .routers.admin import notifications as admin_notifications
 from .routers.admin import presence as admin_presence
 from .routers.admin import tags as admin_tags
+from .routers.admin import series as admin_series
 from .routers.admin import teco_import as admin_teco_import
 from .routers.admin import users as admin_users
 from .services.admin_bootstrap import ensure_admin_user
@@ -59,6 +60,7 @@ app.include_router(admin_articles.router)
 app.include_router(admin_demo_codes.router)
 app.include_router(admin_authors.router)
 app.include_router(admin_tags.router)
+app.include_router(admin_series.router)
 app.include_router(admin_notifications.router)
 app.include_router(admin_learning.router)
 app.include_router(admin_presence.router)
@@ -153,6 +155,12 @@ def _migrate_schema():
                         "WHERE status = 'published' AND published_at IS NULL"
                     )
                 )
+        if "series_id" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE episodes ADD COLUMN series_id INTEGER"))
+        if "series_index" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE episodes ADD COLUMN series_index INTEGER"))
     if "user_notifications" in insp.get_table_names():
         notif_cols = {c["name"] for c in insp.get_columns("user_notifications")}
         if "broadcast_id" not in notif_cols:

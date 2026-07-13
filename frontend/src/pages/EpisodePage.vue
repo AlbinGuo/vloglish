@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, RouterLink } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
 import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
 import { getEpisodeList, setEpisodeFavorite } from '@/api/episodes'
@@ -392,14 +392,27 @@ function startPlayback() {
   }
 }
 
+const relatedPanelLabel = computed(() => (episode.value?.series ? '同合集' : '相似视频'))
+
 async function loadRelatedEpisodes() {
-  const tags = episode.value?.tags ?? []
-  if (!tags.length) {
-    relatedEpisodes.value = []
-    return
-  }
   relatedLoading.value = true
   try {
+    const series = episode.value?.series
+    if (series?.id) {
+      const data = await getEpisodeList({
+        series_id: series.id,
+        ordering: 'series_index',
+        page_size: 50,
+      })
+      relatedEpisodes.value = data.results.filter((ep) => ep.video_id !== props.videoId)
+      return
+    }
+
+    const tags = episode.value?.tags ?? []
+    if (!tags.length) {
+      relatedEpisodes.value = []
+      return
+    }
     const seen = new Set<string>()
     const merged: EpisodeSummary[] = []
     for (const tag of tags) {
@@ -416,6 +429,12 @@ async function loadRelatedEpisodes() {
   } finally {
     relatedLoading.value = false
   }
+}
+
+function goSeriesEpisode(videoId: string | null | undefined) {
+  if (!videoId) return
+  requestEpisodeAutoplay()
+  router.push(episodePath(videoId))
 }
 
 async function loadLookupHistory() {
@@ -774,7 +793,39 @@ function subtitleRowClass(index: number) {
             已学完
           </span>
         </p>
-        <p class="text-xs text-neutral-500 dark:text-neutral-400 max-lg:hidden">{{ episode.author.name }} · 第 {{ episode.index }} 期</p>
+        <p class="text-xs text-neutral-500 dark:text-neutral-400 max-lg:hidden truncate">
+          <template v-if="episode.series">
+            <RouterLink
+              :to="`/english/series/${episode.series.slug}`"
+              class="hover:text-amber-700 dark:hover:text-amber-400"
+            >
+              {{ episode.series.title }}
+            </RouterLink>
+            · 第 {{ episode.series.series_index }} / {{ episode.series.episode_count }} 集
+          </template>
+          <template v-else>{{ episode.author.name }} · 第 {{ episode.index }} 期</template>
+        </p>
+      </div>
+      <div
+        v-if="episode?.series && !adminPreview"
+        class="hidden sm:flex items-center gap-1 shrink-0"
+      >
+        <button
+          type="button"
+          class="text-xs px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40 disabled:pointer-events-none"
+          :disabled="!episode.series.prev_video_id"
+          @click="goSeriesEpisode(episode.series.prev_video_id)"
+        >
+          上一集
+        </button>
+        <button
+          type="button"
+          class="text-xs px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40 disabled:pointer-events-none"
+          :disabled="!episode.series.next_video_id"
+          @click="goSeriesEpisode(episode.series.next_video_id)"
+        >
+          下一集
+        </button>
       </div>
       <div class="flex items-center gap-1 shrink-0">
         <button
@@ -947,7 +998,11 @@ function subtitleRowClass(index: number) {
         <IntensiveReadingStatsBar
           v-if="intensiveMode"
           :title="episode.short_title"
-          :subtitle="`${episode.author.name} · 第 ${episode.index} 期`"
+          :subtitle="
+            episode.series
+              ? `${episode.series.title} · 第 ${episode.series.series_index}/${episode.series.episode_count} 集`
+              : `${episode.author.name} · 第 ${episode.index} 期`
+          "
           :word-count="episode.voca_size"
           :highlight-count="coreVocabCount"
           :segment-count="episode.subtitle_count"
@@ -1095,6 +1150,7 @@ function subtitleRowClass(index: number) {
       <EpisodeSidePanel
         v-if="!adminPreview && showSidePanel && !isPhone"
         :tab="sidePanelTab"
+        :related-label="relatedPanelLabel"
         :related-episodes="relatedEpisodes"
         :related-loading="relatedLoading"
         :lookup-history="lookupHistory"
@@ -1170,12 +1226,37 @@ function subtitleRowClass(index: number) {
               字幕模式
               <span class="float-right text-neutral-400">{{ currentModeLabel }}</span>
             </button>
+            <template v-if="episode?.series">
+              <button
+                type="button"
+                class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40"
+                :disabled="!episode.series.prev_video_id"
+                @click="closeMobileMore(); goSeriesEpisode(episode.series.prev_video_id)"
+              >
+                上一集
+              </button>
+              <button
+                type="button"
+                class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40"
+                :disabled="!episode.series.next_video_id"
+                @click="closeMobileMore(); goSeriesEpisode(episode.series.next_video_id)"
+              >
+                下一集
+              </button>
+              <RouterLink
+                :to="`/english/series/${episode.series.slug}`"
+                class="block w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                @click="closeMobileMore"
+              >
+                查看合集
+              </RouterLink>
+            </template>
             <button
               type="button"
               class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
               @click="openMobileDrawerFromMore('related')"
             >
-              相似视频
+              {{ relatedPanelLabel }}
             </button>
             <button
               v-if="auth.isLoggedIn"
@@ -1211,6 +1292,7 @@ function subtitleRowClass(index: number) {
           <EpisodeSidePanel
             drawer
             :tab="sidePanelTab"
+            :related-label="relatedPanelLabel"
             :related-episodes="relatedEpisodes"
             :related-loading="relatedLoading"
             :lookup-history="lookupHistory"

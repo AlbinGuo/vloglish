@@ -12,8 +12,9 @@ from ..deps import get_current_user_optional, get_device_id
 from ..favorites import favorite_video_ids
 from ..services.learning import learned_episode_ids, progress_map_for_episodes
 from ..media import find_episode_audio_file, find_episode_video_file
-from ..models import Author, Episode, EpisodeFavorite, Tag, User, UserEpisodeFavorite
+from ..models import Author, Episode, EpisodeFavorite, EpisodeSeries, Tag, User, UserEpisodeFavorite
 from ..serializers import episode_detail, episode_summary
+from ..services.episode_series import list_series_episodes, series_nav_for_episode
 
 router = APIRouter(prefix="/api", tags=["episodes"])
 
@@ -29,9 +30,14 @@ def episode_list(
     gender: str | None = None,
     tag: int | None = None,
     tags: str | None = None,
+    series_id: int | None = None,
+    series_slug: str | None = None,
     date: str | None = None,
     status: str | None = Query(None, pattern="^(all|learned|unlearned|favorite)$"),
-    ordering: str = Query("created_at", pattern="^(index|-index|stars|-stars|created_at|-created_at)$"),
+    ordering: str = Query(
+        "created_at",
+        pattern="^(index|-index|stars|-stars|created_at|-created_at|series_index|-series_index)$",
+    ),
     search: str | None = None,
     db: Session = Depends(get_db),
     device_id: str = Depends(get_device_id),
@@ -39,7 +45,11 @@ def episode_list(
 ):
     user_id = user.id if user else None
     fav_ids = favorite_video_ids(db, device_id, user_id)
-    q = db.query(Episode).options(joinedload(Episode.author), joinedload(Episode.tags))
+    q = db.query(Episode).options(
+        joinedload(Episode.author),
+        joinedload(Episode.tags),
+        joinedload(Episode.series),
+    )
     q = q.filter(Episode.status == "published")
     q = q.filter(published_visibility_filter(user))
 
@@ -75,6 +85,13 @@ def episode_list(
         tag_ids = [tag]
     for tag_id in tag_ids:
         q = q.filter(Episode.tags.any(Tag.id == tag_id))
+    if series_id is not None:
+        q = q.filter(Episode.series_id == series_id)
+    elif series_slug and series_slug.strip():
+        q = q.join(EpisodeSeries).filter(EpisodeSeries.slug == series_slug.strip())
+    else:
+        # 视频列表只展示独立单集；合集内视频走 /series
+        q = q.filter(Episode.series_id.is_(None))
     if date:
         try:
             day = datetime.strptime(date, "%Y-%m-%d").date()
@@ -110,6 +127,8 @@ def episode_list(
         "-stars": Episode.stars.asc(),
         "created_at": Episode.created_at.desc(),
         "-created_at": Episode.created_at.asc(),
+        "series_index": Episode.series_index.asc().nulls_last(),
+        "-series_index": Episode.series_index.desc().nulls_last(),
     }
     q = q.order_by(order_map.get(ordering, Episode.created_at.desc()))
 
@@ -184,6 +203,117 @@ def remove_episode_favorite(
     return {"success": True, "is_favorite": False}
 
 
+@router.get("/english/nav-counts/")
+def english_nav_counts(
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user_optional),
+):
+    """用户端顶栏：视频 / 合集 / 新闻阅读 可见数量。"""
+    from ..models import Article
+
+    video_q = (
+        db.query(Episode)
+        .filter(Episode.status == "published")
+        .filter(Episode.series_id.is_(None))
+        .filter(published_visibility_filter(user))
+        .order_by(Episode.created_at.desc())
+    )
+    limit = get_episode_limit(user)
+    if limit is not None:
+        videos = len(video_q.limit(limit).all())
+    else:
+        videos = video_q.count()
+
+    series_rows = (
+        db.query(EpisodeSeries)
+        .filter(EpisodeSeries.status == "published")
+        .order_by(EpisodeSeries.sort_order.asc(), EpisodeSeries.id.desc())
+        .all()
+    )
+    series_count = 0
+    for series in series_rows:
+        episodes = list_series_episodes(db, series.id, published_only=True)
+        visible = [ep for ep in episodes if can_access_episode(db, ep, user)]
+        if not visible and episodes:
+            continue
+        series_count += 1
+
+    articles = db.query(Article).filter(Article.status == "published").count()
+
+    return {"videos": videos, "series": series_count, "articles": articles}
+
+
+@router.get("/series/")
+def series_list(
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user_optional),
+):
+    rows = (
+        db.query(EpisodeSeries)
+        .filter(EpisodeSeries.status == "published")
+        .order_by(EpisodeSeries.sort_order.asc(), EpisodeSeries.id.desc())
+        .all()
+    )
+    results = []
+    for series in rows:
+        episodes = list_series_episodes(db, series.id, published_only=True)
+        visible = [ep for ep in episodes if can_access_episode(db, ep, user)]
+        if not visible and episodes:
+            continue
+        results.append(
+            {
+                "id": series.id,
+                "slug": series.slug,
+                "title": series.title,
+                "summary": series.summary or "",
+                "cover": series.cover or (visible[0].cover if visible else ""),
+                "episode_count": len(visible),
+                "sort_order": series.sort_order or 0,
+            }
+        )
+    return {"count": len(results), "results": results}
+
+
+@router.get("/series/{slug}/")
+def series_detail(
+    slug: str,
+    db: Session = Depends(get_db),
+    device_id: str = Depends(get_device_id),
+    user: User | None = Depends(get_current_user_optional),
+):
+    series = (
+        db.query(EpisodeSeries)
+        .filter(EpisodeSeries.slug == slug, EpisodeSeries.status == "published")
+        .first()
+    )
+    if not series:
+        raise HTTPException(status_code=404, detail="合集不存在")
+
+    episodes = list_series_episodes(db, series.id, published_only=True)
+    visible = [ep for ep in episodes if can_access_episode(db, ep, user)]
+    user_id = user.id if user else None
+    fav_ids = favorite_video_ids(db, device_id, user_id)
+    prog_map = progress_map_for_episodes(db, user.id, [ep.id for ep in visible]) if user else {}
+
+    return {
+        "id": series.id,
+        "slug": series.slug,
+        "title": series.title,
+        "summary": series.summary or "",
+        "cover": series.cover or (visible[0].cover if visible else ""),
+        "episode_count": len(visible),
+        "episodes": [
+            episode_summary(
+                ep,
+                is_favorite=ep.video_id in fav_ids if user_is_member(user) else False,
+                is_learned=prog_map.get(ep.id).is_completed if prog_map.get(ep.id) else False,
+                progress_percent=prog_map.get(ep.id).completion_percent if prog_map.get(ep.id) else 0,
+            )
+            for ep in visible
+        ],
+    }
+
+
 @router.get("/episode/{video_id}/detail/")
 def get_episode_detail(
     video_id: str,
@@ -192,7 +322,12 @@ def get_episode_detail(
 ):
     episode = (
         db.query(Episode)
-        .options(joinedload(Episode.author), joinedload(Episode.tags), joinedload(Episode.subtitles))
+        .options(
+            joinedload(Episode.author),
+            joinedload(Episode.tags),
+            joinedload(Episode.subtitles),
+            joinedload(Episode.series),
+        )
         .filter(Episode.video_id == video_id, Episode.status == "published")
         .first()
     )
@@ -209,7 +344,7 @@ def get_episode_detail(
     if not user_is_member(user):
         limit = get_episode_limit(user) or 0
         total = limit
-    return episode_detail(episode, total)
+    return episode_detail(episode, total, series_nav=series_nav_for_episode(db, episode))
 
 
 @router.get("/episode/{video_id}/audio/")

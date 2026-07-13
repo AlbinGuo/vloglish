@@ -9,6 +9,7 @@ defineProps<{
   lookupHistory: WordLookupRecord[]
   lookupLoading: boolean
   showLookupTab: boolean
+  relatedLabel?: string
   /** 底部抽屉内全高展示 */
   drawer?: boolean
 }>()
@@ -39,7 +40,7 @@ function formatDuration(sec: number) {
         :class="tab === 'related' ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900' : 'text-neutral-500 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-800'"
         @click="emit('update:tab', 'related')"
       >
-        相似视频
+        {{ relatedLabel || '相似视频' }}
       </button>
       <button
         v-if="showLookupTab"
@@ -67,7 +68,9 @@ function formatDuration(sec: number) {
       <!-- 相似视频 -->
       <div v-if="tab === 'related'" class="p-3 space-y-2">
         <p v-if="relatedLoading" class="text-xs text-neutral-400 text-center py-8">加载中...</p>
-        <p v-else-if="!relatedEpisodes.length" class="text-xs text-neutral-400 text-center py-8">暂无相似视频</p>
+        <p v-else-if="!relatedEpisodes.length" class="text-xs text-neutral-400 text-center py-8">
+          {{ relatedLabel === '同合集' ? '暂无同合集其他集' : '暂无相似视频' }}
+        </p>
         <button
           v-for="ep in relatedEpisodes"
           :key="ep.video_id"
@@ -88,7 +91,11 @@ function formatDuration(sec: number) {
             </span>
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-[11px] text-neutral-400 mb-0.5">第 {{ ep.index }} 期 · @{{ ep.author.name }}</p>
+            <p class="text-[11px] text-neutral-400 mb-0.5">
+              <template v-if="ep.series_index != null">第 {{ ep.series_index }} 集</template>
+              <template v-else>第 {{ ep.index }} 期</template>
+              · @{{ ep.author.name }}
+            </p>
             <p class="text-sm font-medium leading-snug line-clamp-2 group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors">
               {{ ep.short_title }}
             </p>

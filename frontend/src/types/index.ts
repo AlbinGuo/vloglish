@@ -35,6 +35,20 @@ export interface EpisodeSummary {
   is_favorite?: boolean
   progress_percent?: number
   is_new?: boolean
+  series_id?: number | null
+  series_slug?: string
+  series_title?: string
+  series_index?: number | null
+}
+
+export interface EpisodeSeriesNav {
+  id: number
+  slug: string
+  title: string
+  series_index: number
+  episode_count: number
+  prev_video_id: string | null
+  next_video_id: string | null
 }
 
 export interface Subtitle {
@@ -65,6 +79,27 @@ export interface EpisodeDetail {
     thumbnail_url: string
   }
   subtitles: Subtitle[]
+  series?: EpisodeSeriesNav | null
+}
+
+export interface SeriesSummary {
+  id: number
+  slug: string
+  title: string
+  summary: string
+  cover: string
+  episode_count: number
+  sort_order: number
+}
+
+export interface SeriesDetail {
+  id: number
+  slug: string
+  title: string
+  summary: string
+  cover: string
+  episode_count: number
+  episodes: EpisodeSummary[]
 }
 
 export interface EntryBrief {

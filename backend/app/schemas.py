@@ -250,6 +250,8 @@ class AdminEpisodeCreateIn(BaseModel):
     is_demo: bool = False
     status: str = Field(default="draft", pattern=EPISODE_STATUS_PATTERN)
     rejection_reason: str = ""
+    series_id: int | None = None
+    series_index: int | None = Field(default=None, ge=1)
     author: AdminAuthorIn
     tag_names: list[str] = []
     subtitles: list[AdminSubtitleIn] = []
@@ -270,6 +272,9 @@ class AdminEpisodeUpdateIn(BaseModel):
     is_demo: bool | None = None
     status: str | None = Field(default=None, pattern=EPISODE_STATUS_PATTERN)
     rejection_reason: str | None = None
+    series_id: int | None = None
+    series_index: int | None = Field(default=None, ge=1)
+    clear_series: bool = False
     author: AdminAuthorIn | None = None
     tag_names: list[str] | None = None
     subtitles: list[AdminSubtitleIn] | None = None
@@ -289,6 +294,9 @@ class AdminEpisodeListItemOut(BaseModel):
     is_demo: bool
     is_user_submitted: bool = False
     tag_names: list[str] = []
+    series_id: int | None = None
+    series_title: str = ""
+    series_index: int | None = None
     created_at: str
     play_count: int = 0
     unique_learners: int = 0
@@ -327,10 +335,52 @@ class AdminEpisodeDetailOut(BaseModel):
     status: str
     rejection_reason: str = ""
     is_user_submitted: bool = False
+    series_id: int | None = None
+    series_index: int | None = None
+    series_title: str = ""
     author: AdminAuthorIn
     tag_names: list[str]
     subtitles: list[AdminSubtitleIn]
     created_at: str
+
+
+SERIES_STATUS_PATTERN = "^(draft|published|archived)$"
+
+
+class AdminSeriesCreateIn(BaseModel):
+    slug: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=256)
+    summary: str = ""
+    cover: str = ""
+    status: str = Field(default="draft", pattern=SERIES_STATUS_PATTERN)
+    sort_order: int = 0
+
+
+class AdminSeriesUpdateIn(BaseModel):
+    slug: str | None = Field(default=None, min_length=1, max_length=64)
+    title: str | None = Field(default=None, min_length=1, max_length=256)
+    summary: str | None = None
+    cover: str | None = None
+    status: str | None = Field(default=None, pattern=SERIES_STATUS_PATTERN)
+    sort_order: int | None = None
+
+
+class AdminSeriesOut(BaseModel):
+    id: int
+    slug: str
+    title: str
+    summary: str
+    cover: str
+    status: str
+    sort_order: int
+    episode_count: int = 0
+    created_at: str
+    published_at: str = ""
+
+
+class AdminSeriesListOut(BaseModel):
+    count: int
+    results: list[AdminSeriesOut]
 
 
 class AdminVttImportIn(BaseModel):
@@ -471,6 +521,10 @@ class EpisodeSummaryOut(BaseModel):
     progress_percent: float = 0
     is_new: bool = False
     remark: str = ""
+    series_id: int | None = None
+    series_slug: str = ""
+    series_title: str = ""
+    series_index: int | None = None
 
 
 class SubtitleOut(BaseModel):
@@ -482,6 +536,16 @@ class SubtitleOut(BaseModel):
     chinese: str
     ipa: str
     english_html: str
+
+
+class EpisodeSeriesNavOut(BaseModel):
+    id: int
+    slug: str
+    title: str
+    series_index: int
+    episode_count: int
+    prev_video_id: str | None = None
+    next_video_id: str | None = None
 
 
 class EpisodeDetailOut(BaseModel):
@@ -498,11 +562,32 @@ class EpisodeDetailOut(BaseModel):
     tags: list[TagOut]
     media: dict
     subtitles: list[SubtitleOut]
+    series: EpisodeSeriesNavOut | None = None
 
 
 class EpisodeDetailResponse(BaseModel):
     episode: EpisodeDetailOut
     total_episodes: int
+
+
+class SeriesSummaryOut(BaseModel):
+    id: int
+    slug: str
+    title: str
+    summary: str
+    cover: str
+    episode_count: int = 0
+    sort_order: int = 0
+
+
+class SeriesDetailOut(BaseModel):
+    id: int
+    slug: str
+    title: str
+    summary: str
+    cover: str
+    episode_count: int
+    episodes: list[EpisodeSummaryOut]
 
 
 class DemoVerifyIn(BaseModel):

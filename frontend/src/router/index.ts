@@ -71,6 +71,11 @@ const router = createRouter({
           component: () => import('@/pages/admin/AdminEpisodeEditPage.vue'),
         },
         {
+          path: 'series',
+          name: 'AdminSeries',
+          component: () => import('@/pages/admin/AdminSeriesPage.vue'),
+        },
+        {
           path: 'reading',
           name: 'AdminReading',
           component: () => import('@/pages/admin/AdminReadingListPage.vue'),
@@ -140,6 +145,16 @@ const router = createRouter({
           path: 'english',
           name: 'HomePage',
           component: () => import('@/pages/HomePage.vue'),
+        },
+        {
+          path: 'english/series',
+          name: 'SeriesList',
+          component: () => import('@/pages/SeriesListPage.vue'),
+        },
+        {
+          path: 'english/series/:slug',
+          name: 'SeriesDetail',
+          component: () => import('@/pages/SeriesDetailPage.vue'),
         },
         {
           path: 'english/reading',

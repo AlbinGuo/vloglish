@@ -281,6 +281,9 @@ export interface AdminEpisodeListItem {
   is_demo: boolean
   is_user_submitted: boolean
   tag_names: string[]
+  series_id?: number | null
+  series_title?: string
+  series_index?: number | null
   created_at: string
   play_count: number
   unique_learners: number
@@ -320,6 +323,9 @@ export interface AdminEpisodeDetail {
   status: string
   rejection_reason?: string
   is_user_submitted?: boolean
+  series_id?: number | null
+  series_index?: number | null
+  series_title?: string
   author: AdminAuthorInput
   tag_names: string[]
   subtitles: AdminSubtitle[]
@@ -342,14 +348,60 @@ export type AdminEpisodePayload = {
   is_demo: boolean
   status: string
   rejection_reason?: string
+  series_id?: number | null
+  series_index?: number | null
+  clear_series?: boolean
   author: AdminAuthorInput
   tag_names: string[]
   subtitles: AdminSubtitle[]
 }
 
+export interface AdminSeries {
+  id: number
+  slug: string
+  title: string
+  summary: string
+  cover: string
+  status: string
+  sort_order: number
+  episode_count: number
+  created_at: string
+  published_at: string
+}
+
+export type AdminSeriesPayload = {
+  slug: string
+  title: string
+  summary: string
+  cover: string
+  status: string
+  sort_order: number
+}
+
 export async function adminListTags() {
   const { data } = await adminApi.get<AdminTag[]>('/api/admin/tags/')
   return data
+}
+
+export async function adminListSeries(params?: { status?: string; search?: string }) {
+  const { data } = await adminApi.get<{ count: number; results: AdminSeries[] }>('/api/admin/series/', {
+    params,
+  })
+  return data
+}
+
+export async function adminCreateSeries(payload: AdminSeriesPayload) {
+  const { data } = await adminApi.post<AdminSeries>('/api/admin/series/', payload)
+  return data
+}
+
+export async function adminUpdateSeries(id: number, payload: Partial<AdminSeriesPayload>) {
+  const { data } = await adminApi.patch<AdminSeries>(`/api/admin/series/${id}/`, payload)
+  return data
+}
+
+export async function adminDeleteSeries(id: number) {
+  await adminApi.delete(`/api/admin/series/${id}/`)
 }
 
 export async function adminListAuthors() {

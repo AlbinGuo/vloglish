@@ -10,6 +10,7 @@ const auth = useAdminAuthStore()
 const nav = [
   { to: '/gnadmin/dashboard', label: '仪表盘' },
   { to: '/gnadmin/episodes', label: '剧集' },
+  { to: '/gnadmin/series', label: '合集' },
   { to: '/gnadmin/reading', label: 'News Reading' },
   { to: '/gnadmin/authors', label: '作者' },
   { to: '/gnadmin/tags', label: '标签' },
@@ -24,6 +25,7 @@ const nav = [
 const pageTitle = computed(() => {
   if (route.path.startsWith('/gnadmin/episodes/new')) return '新建剧集'
   if (route.path.match(/^\/gnadmin\/episodes\/\d+/)) return '编辑剧集'
+  if (route.path.startsWith('/gnadmin/series')) return '合集'
   if (route.path.startsWith('/gnadmin/reading/new')) return '新建文章'
   if (route.path.match(/^\/gnadmin\/reading\/\d+/)) return '编辑文章'
   if (route.path.startsWith('/gnadmin/reading')) return 'News Reading'

@@ -18,6 +18,16 @@ def tags_list(episode: Episode) -> list[dict]:
     return [{"id": t.id, "name": t.name} for t in episode.tags]
 
 
+def _series_brief(episode: Episode) -> dict:
+    series = getattr(episode, "series", None)
+    return {
+        "series_id": episode.series_id,
+        "series_slug": series.slug if series else "",
+        "series_title": series.title if series else "",
+        "series_index": episode.series_index,
+    }
+
+
 def episode_summary(
     episode: Episode,
     *,
@@ -44,10 +54,11 @@ def episode_summary(
         "is_favorite": is_favorite,
         "progress_percent": progress_percent,
         "is_new": episode_is_new(episode),
+        **_series_brief(episode),
     }
 
 
-def episode_detail(episode: Episode, total: int) -> dict:
+def episode_detail(episode: Episode, total: int, *, series_nav: dict | None = None) -> dict:
     return {
         "episode": {
             "index": episode.index,
@@ -88,6 +99,7 @@ def episode_detail(episode: Episode, total: int) -> dict:
                 }
                 for s in sorted(episode.subtitles, key=lambda x: x.index)
             ],
+            "series": series_nav,
         },
         "total_episodes": total,
     }

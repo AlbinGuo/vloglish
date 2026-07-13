@@ -77,7 +77,7 @@ def admin_episode_list_query(
             plays_7d_col,
             plays_30d_col,
         )
-        .options(joinedload(Episode.author), joinedload(Episode.tags))
+        .options(joinedload(Episode.author), joinedload(Episode.tags), joinedload(Episode.series))
         .join(Author)
         .outerjoin(session_sq, Episode.id == session_sq.c.episode_id)
         .outerjoin(progress_sq, Episode.id == progress_sq.c.episode_id)

@@ -38,6 +38,24 @@ class Author(Base):
     accent: Mapped[str] = mapped_column(String(32), default="")
 
 
+class EpisodeSeries(Base):
+    """强顺序合集：一集最多属于一个合集。"""
+
+    __tablename__ = "episode_series"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(256))
+    summary: Mapped[str] = mapped_column(Text, default="")
+    cover: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(16), default="draft")
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    episodes: Mapped[list["Episode"]] = relationship(back_populates="series")
+
+
 class Episode(Base):
     __tablename__ = "episodes"
 
@@ -57,6 +75,8 @@ class Episode(Base):
     thumbnail_url: Mapped[str] = mapped_column(Text, default="")
     original_video_url: Mapped[str] = mapped_column(Text, default="")
     author_id: Mapped[int] = mapped_column(ForeignKey("authors.id"))
+    series_id: Mapped[int | None] = mapped_column(ForeignKey("episode_series.id"), nullable=True, index=True)
+    series_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     submitted_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -65,6 +85,7 @@ class Episode(Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     author: Mapped["Author"] = relationship()
+    series: Mapped["EpisodeSeries | None"] = relationship(back_populates="episodes")
     tags: Mapped[list["Tag"]] = relationship(secondary=episode_tags)
     subtitles: Mapped[list["Subtitle"]] = relationship(back_populates="episode", cascade="all, delete-orphan")
 
