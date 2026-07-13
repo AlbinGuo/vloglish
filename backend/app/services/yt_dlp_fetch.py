@@ -200,12 +200,32 @@ def _yt_dlp_cli_extras() -> list[str]:
 
 def _format_ytdlp_error(detail: str, url: str) -> str:
     lower = detail.lower()
+    platform = "YouTube / TikTok"
+    if "tiktok.com" in url.lower():
+        platform = "TikTok"
+    elif "youtube.com" in url.lower() or "youtu.be" in url.lower():
+        platform = "YouTube"
+
+    if (
+        "eof occurred in violation of protocol" in lower
+        or "ssleoferror" in lower
+        or "unexpected_eof_while_reading" in lower
+        or "ssl: unexpected_eof" in lower
+    ):
+        proxy = os.getenv("YT_DLP_PROXY", "").strip()
+        proxy_hint = (
+            f"当前已配置 YT_DLP_PROXY={proxy}，请确认代理软件已开启、端口正确，并换一个可用节点后重试。"
+            if proxy
+            else "当前未配置 YT_DLP_PROXY。请在 backend/.env 增加例如：YT_DLP_PROXY=http://127.0.0.1:7890（端口以你的 Clash/V2Ray HTTP 代理为准），重启后端后再试。"
+        )
+        return (
+            f"连接 {platform} 时 SSL 握手失败（常见于国内网络、代理节点不稳定或代理未开启）。\n"
+            f"{proxy_hint}\n"
+            "也可执行 yt-dlp -U 更新到最新版，或换节点后再抓取。\n\n"
+            f"原始错误：{detail[-800:]}"
+        )
+
     if "network is unreachable" in lower or "failed to establish" in lower or "timed out" in lower:
-        platform = "YouTube / TikTok"
-        if "tiktok.com" in url.lower():
-            platform = "TikTok"
-        elif "youtube.com" in url.lower() or "youtu.be" in url.lower():
-            platform = "YouTube"
         return (
             f"无法直连 {platform}（国内网络或 ECS 常见）。"
             "本地开发请在 backend/.env 配置 YT_DLP_PROXY；生产环境请在 .env.prod 配置可访问的代理，"
@@ -259,9 +279,13 @@ def _run_yt_dlp(tools: YtDlpTools, url: str, work_dir: Path) -> None:
 
 def _load_info_json(work_dir: Path) -> dict:
     info_path = work_dir / "media.info.json"
-    if info_path.is_file():
-        return json.loads(info_path.read_text(encoding="utf-8"))
-    return {}
+    if not info_path.is_file():
+        return {}
+    try:
+        data = json.loads(info_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"yt-dlp 元数据 JSON 解析失败：{exc}") from exc
+    return data if isinstance(data, dict) else {}
 
 
 def download_source_media(url: str) -> FetchedMedia:
@@ -379,20 +403,20 @@ def upload_fetched_media(
                         subtitles,
                         translate_chinese=not had_chinese,
                     )
-                except RuntimeError as exc:
-                    return exc
+                except Exception as exc:
+                    return RuntimeError(str(exc))
 
             def _run_analyze() -> dict[str, int] | RuntimeError:
                 try:
                     return analyze_subtitles_with_deepseek(subtitles, clip_length=clip_length_est)
-                except RuntimeError as exc:
-                    return exc
+                except Exception as exc:
+                    return RuntimeError(str(exc))
 
             def _run_localize() -> dict[str, str] | RuntimeError:
                 try:
                     return localize_video_metadata_with_deepseek(display_title, display_summary)
-                except RuntimeError as exc:
-                    return exc
+                except Exception as exc:
+                    return RuntimeError(str(exc))
 
             with ThreadPoolExecutor(max_workers=3) as pool:
                 fut_enrich = pool.submit(_run_enrich)

@@ -179,31 +179,39 @@ def fetch_media(
             slug=body.slug,
             enrich_subtitles=body.enrich_subtitles,
         )
-    except RuntimeError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc) or "抓取失败") from exc
 
-    subtitles = [AdminSubtitleIn(**row) for row in result["subtitles"]]
-    return AdminFetchMediaOut(
-        title=result["title"],
-        summary=result.get("summary", ""),
-        author_name=result.get("author_name", ""),
-        original_video_url=result["original_video_url"],
-        cover=result["cover"],
-        thumbnail_url=result["thumbnail_url"],
-        video_url=result["video_url"],
-        audio_url=result["audio_url"],
-        subtitles=subtitles,
-        subtitle_count=result["subtitle_count"],
-        clip_length=result["clip_length"],
-        had_chinese=result["had_chinese"],
-        translated_count=result["translated_count"],
-        ipa_count=result["ipa_count"],
-        stars=result.get("stars", 3),
-        voca_size=result.get("voca_size", 0),
-        highlight_count=result.get("highlight_count", 0),
-        source_id=result.get("source_id", ""),
-        warnings=result.get("warnings", []),
-    )
+    try:
+        subtitles = [AdminSubtitleIn(**row) for row in result["subtitles"]]
+        return AdminFetchMediaOut(
+            title=result["title"],
+            summary=result.get("summary", ""),
+            author_name=result.get("author_name", ""),
+            original_video_url=result["original_video_url"],
+            cover=result["cover"],
+            thumbnail_url=result["thumbnail_url"],
+            video_url=result["video_url"],
+            audio_url=result["audio_url"],
+            subtitles=subtitles,
+            subtitle_count=result["subtitle_count"],
+            clip_length=result["clip_length"],
+            had_chinese=result["had_chinese"],
+            translated_count=result["translated_count"],
+            ipa_count=result["ipa_count"],
+            stars=result.get("stars", 3),
+            voca_size=result.get("voca_size", 0),
+            highlight_count=result.get("highlight_count", 0),
+            source_id=result.get("source_id", ""),
+            warnings=result.get("warnings", []),
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"抓取结果组装失败：{exc}",
+        ) from exc
 
 
 @router.get("/episodes/preview/{video_id}/")

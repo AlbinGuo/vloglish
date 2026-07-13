@@ -106,11 +106,46 @@ JSON 结构：
 
 
 def _extract_json(text: str) -> dict:
-    text = text.strip()
+    """Parse model JSON; tolerate markdown fences and surrounding prose."""
+    text = (text or "").strip()
+    if not text:
+        raise RuntimeError("DeepSeek 返回空内容，无法解析 JSON")
+
     fence = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
     if fence:
         text = fence.group(1).strip()
-    return json.loads(text)
+
+    candidates = [text]
+    start = text.find("{")
+    end = text.rfind("}")
+    if start >= 0 and end > start:
+        sliced = text[start : end + 1]
+        if sliced not in candidates:
+            candidates.append(sliced)
+
+    last_error: Exception | None = None
+    for candidate in candidates:
+        try:
+            data = json.loads(candidate)
+        except json.JSONDecodeError as exc:
+            last_error = exc
+            # 常见：尾逗号导致解析失败
+            repaired = re.sub(r",\s*([}\]])", r"\1", candidate)
+            if repaired != candidate:
+                try:
+                    data = json.loads(repaired)
+                except json.JSONDecodeError as repair_exc:
+                    last_error = repair_exc
+                    continue
+            else:
+                continue
+        if isinstance(data, dict):
+            return data
+        last_error = RuntimeError(f"DeepSeek 返回的 JSON 根类型为 {type(data).__name__}，期望 object")
+
+    snippet = text[:400].replace("\n", "\\n")
+    detail = str(last_error) if last_error else "未知错误"
+    raise RuntimeError(f"DeepSeek 返回的 JSON 无法解析：{detail}；片段：{snippet}")
 
 
 def _normalize_entry(raw: dict, entry_id: int) -> dict:
@@ -197,7 +232,12 @@ def _chat_completion(
 
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            payload = json.loads(resp.read().decode())
+            raw_body = resp.read().decode()
+            try:
+                payload = json.loads(raw_body)
+            except json.JSONDecodeError as exc:
+                snippet = raw_body[:300].replace("\n", "\\n")
+                raise RuntimeError(f"DeepSeek HTTP 响应不是合法 JSON：{exc}；片段：{snippet}") from exc
     except urllib.error.HTTPError as e:
         detail = e.read().decode()
         logger.error("DeepSeek HTTP %s: %s", e.code, detail)
@@ -206,7 +246,10 @@ def _chat_completion(
         logger.error("DeepSeek network error: %s", e)
         raise RuntimeError("无法连接 DeepSeek API") from e
 
-    return payload["choices"][0]["message"]["content"]
+    try:
+        return payload["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError(f"DeepSeek 响应结构异常：{exc}") from exc
 
 
 TRANSLATE_SYSTEM_PROMPT = """你是专业英中字幕翻译。将用户提供的英文字幕行逐条翻译成自然、准确的中文，适合英语学习场景。
@@ -374,12 +417,12 @@ def enrich_subtitle_lines_with_deepseek(
     if len(lines) == 1:
         try:
             return _enrich_subtitle_lines_batch(lines, translate_chinese=translate_chinese)
-        except RuntimeError:
+        except Exception:
             return [{"chinese": "", "ipa": ""}]
 
     try:
         return _enrich_subtitle_lines_batch(lines, translate_chinese=translate_chinese)
-    except RuntimeError:
+    except Exception:
         mid = len(lines) // 2
         return enrich_subtitle_lines_with_deepseek(
             lines[:mid],
@@ -478,12 +521,12 @@ def annotate_subtitle_lines_with_deepseek(lines: list[str]) -> list[dict]:
     if len(lines) == 1:
         try:
             return _annotate_subtitle_lines_batch(lines)
-        except RuntimeError:
+        except Exception:
             return [{"tokens": []}]
 
     try:
         return _annotate_subtitle_lines_batch(lines)
-    except RuntimeError:
+    except Exception:
         mid = len(lines) // 2
         return annotate_subtitle_lines_with_deepseek(lines[:mid]) + annotate_subtitle_lines_with_deepseek(
             lines[mid:]

@@ -85,7 +85,10 @@ def analyze_subtitles_with_deepseek(
         return {"stars": 3, "voca_size": 0, "highlight_count": 0}
 
     english_lines = [text for _, text in pending]
-    metrics = analyze_episode_metrics_with_deepseek(english_lines, clip_length=clip_length)
+    try:
+        metrics = analyze_episode_metrics_with_deepseek(english_lines, clip_length=clip_length)
+    except Exception:
+        metrics = {"stars": 3, "voca_size": 0}
 
     id_gen = _HighlightIdGen()
     highlight_count = 0
@@ -93,7 +96,13 @@ def analyze_subtitles_with_deepseek(
     for offset in range(0, len(pending), batch_size):
         chunk = pending[offset : offset + batch_size]
         chunk_lines = [text for _, text in chunk]
-        items = annotate_subtitle_lines_with_deepseek(chunk_lines)
+        try:
+            items = annotate_subtitle_lines_with_deepseek(chunk_lines)
+        except Exception:
+            for idx, english in chunk:
+                if not (subtitles[idx].get("english_html") or "").strip():
+                    subtitles[idx]["english_html"] = words_to_html(english).replace(" ", "")
+            continue
         for (idx, english), item in zip(chunk, items):
             tokens = item.get("tokens") or []
             if not isinstance(tokens, list):
