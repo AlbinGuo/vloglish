@@ -4,14 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from ..auth_utils import (
+    MAX_CONCURRENT_SESSIONS,
     REMOTE_LOGIN_DETAIL,
     create_access_token,
-    decode_access_claims,
     hash_password,
     hash_password_reset_token,
     hash_refresh_token,
     new_password_reset_token,
     new_refresh_token,
+    new_session_key,
     password_reset_expires_at,
     refresh_token_expires_at,
     verify_password,
@@ -54,16 +55,46 @@ def user_can_refresh_session(user: User) -> bool:
 
 
 def issue_tokens(db: Session, user: User, device_id: str) -> AuthTokensOut:
-    db.query(RefreshToken).filter(RefreshToken.user_id == user.id).delete()
-    user.session_version = (user.session_version or 0) + 1
-    db.flush()
-    access = create_access_token(user.id, user.session_version)
+    """签发 access/refresh；同一账号最多 MAX_CONCURRENT_SESSIONS 台设备同时在线。"""
+    now = datetime.utcnow()
+    device = (device_id or "").strip()[:64]
+
+    # 清理过期会话
+    db.query(RefreshToken).filter(
+        RefreshToken.user_id == user.id,
+        RefreshToken.expires_at <= now,
+    ).delete(synchronize_session=False)
+
+    # 同设备重新登录：替换该设备旧会话
+    db.query(RefreshToken).filter(
+        RefreshToken.user_id == user.id,
+        RefreshToken.device_id == device,
+    ).delete(synchronize_session=False)
+
+    # 其他设备超出上限时，踢掉最早登录的
+    others = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.user_id == user.id)
+        .order_by(RefreshToken.created_at.asc(), RefreshToken.id.asc())
+        .all()
+    )
+    overflow = len(others) - (MAX_CONCURRENT_SESSIONS - 1)
+    if overflow > 0:
+        for row in others[:overflow]:
+            db.delete(row)
+
+    # 普通登录不 bump session_version，避免误伤其他仍有效的设备；
+    # 改密等全局登出场景才会递增。
+    sv = user.session_version or 1
+    session_key = new_session_key()
+    access = create_access_token(user.id, sv, session_key)
     refresh = new_refresh_token()
     db.add(
         RefreshToken(
             user_id=user.id,
             token_hash=hash_refresh_token(refresh),
-            device_id=device_id,
+            device_id=device,
+            session_key=session_key,
             expires_at=refresh_token_expires_at(),
         )
     )

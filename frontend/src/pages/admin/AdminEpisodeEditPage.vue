@@ -210,6 +210,12 @@ async function importSubtitles() {
   try {
     const data = await adminImportVtt(subtitleImportText.value)
     form.value.subtitles = data.subtitles.map((s: AdminSubtitle) => ({ ...s }))
+    if (data.stars >= 1 && data.stars <= 5) {
+      form.value.stars = data.stars
+    }
+    if (data.voca_size > 0) {
+      form.value.voca_size = data.voca_size
+    }
     const parts = [`已导入 ${data.subtitle_count} 条字幕`]
     if (data.had_chinese) {
       parts.push('字幕含中文，未自动翻译')
@@ -218,6 +224,15 @@ async function importSubtitles() {
     }
     if (data.ipa_count > 0) {
       parts.push(`生成 ${data.ipa_count} 条音标`)
+    }
+    if (data.highlight_count > 0) {
+      parts.push(`高亮 ${data.highlight_count} 处难词`)
+    }
+    if (data.voca_size > 0) {
+      parts.push(`词汇量 ${data.voca_size}`)
+    }
+    if (data.stars >= 1) {
+      parts.push(`难度 ${data.stars} 星`)
     }
     success.value = parts.join('，')
     subtitleImportText.value = ''
@@ -275,7 +290,7 @@ async function fetchFromSourceUrl() {
     const data = await adminFetchMediaFromUrl({
       url,
       slug: mediaSlug.value.trim() || form.value.video_id.trim() || undefined,
-      enrich_subtitles: true,
+      enrich_subtitles: false,
     })
     form.value.short_title = data.title || form.value.short_title
     if (data.summary) {
@@ -289,12 +304,9 @@ async function fetchFromSourceUrl() {
     form.value.thumbnail_url = data.thumbnail_url
     form.value.video_url = data.video_url
     form.value.audio_url = data.audio_url
-    form.value.subtitles = data.subtitles.map((s: AdminSubtitle) => ({ ...s }))
-    if (data.stars >= 1 && data.stars <= 5) {
-      form.value.stars = data.stars
-    }
-    if (data.voca_size > 0) {
-      form.value.voca_size = data.voca_size
+    // 抓取时不带字幕；保留已有字幕，避免空数组覆盖
+    if (data.subtitles.length) {
+      form.value.subtitles = data.subtitles.map((s: AdminSubtitle) => ({ ...s }))
     }
     if (isNew.value) {
       form.value.index = await adminGetNextEpisodeIndex()
@@ -302,15 +314,9 @@ async function fetchFromSourceUrl() {
     const parts = [
       `已抓取「${data.title}」`,
       data.author_name ? `作者 ${data.author_name}` : null,
-      '已翻译标题/摘要',
-      `上传视频/音频/封面`,
-      `${data.subtitle_count} 条字幕`,
+      '已上传视频/音频/封面',
+      '未抓取字幕（请下方手动导入 SRT）',
     ].filter(Boolean) as string[]
-    if (data.translated_count > 0) parts.push(`翻译 ${data.translated_count} 条`)
-    if (data.ipa_count > 0) parts.push(`音标 ${data.ipa_count} 条`)
-    if (data.highlight_count > 0) parts.push(`高亮 ${data.highlight_count} 处`)
-    if (data.voca_size > 0) parts.push(`词汇量 ${data.voca_size}`)
-    if (data.stars >= 1) parts.push(`难度 ${data.stars} 星`)
     if (data.warnings.length) parts.push(data.warnings.join('；'))
     success.value = parts.join('，')
     sourceUrl.value = ''
@@ -535,7 +541,7 @@ watch(
       <section class="rounded-xl border border-black/5 bg-white p-5 space-y-4">
         <h2 class="font-medium">从 YouTube / TikTok 抓取</h2>
         <p class="text-sm text-neutral-600">
-          使用本机 yt-dlp 下载视频、封面、音频、英文字幕，上传七牛后自动回填标题、摘要、作者及字幕分析字段。
+          使用本机 yt-dlp 下载视频、封面、音频并上传七牛，回填标题、摘要、作者。不抓取字幕；字幕请在下方手动导入 SRT/VTT（会自动翻译、音标与难词高亮）。
         </p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label class="block text-sm md:col-span-2">
@@ -624,7 +630,7 @@ watch(
 
         <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">
           <p class="text-sm text-neutral-600">
-            从 VTT / SRT 导入（粘贴内容或选择文件）。纯英文将自动翻译中文；所有字幕将自动生成美式 IPA 音标。导入后将替换当前字幕列表。
+            从 VTT / SRT 导入（粘贴内容或选择文件）。纯英文将自动翻译中文；所有字幕将自动生成美式 IPA 音标，并对有难度的单词/短语做高亮。导入后将替换当前字幕列表（耗时可能较长，请耐心等待）。
           </p>
           <textarea
             v-model="subtitleImportText"

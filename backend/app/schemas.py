@@ -394,12 +394,15 @@ class AdminVttImportOut(BaseModel):
     had_chinese: bool = False
     translated_count: int = 0
     ipa_count: int = 0
+    stars: int = 3
+    voca_size: int = 0
+    highlight_count: int = 0
 
 
 class AdminFetchMediaIn(BaseModel):
     url: str = Field(min_length=8)
     slug: str = Field(default="", max_length=64)
-    enrich_subtitles: bool = True
+    enrich_subtitles: bool = False
 
 
 class AdminFetchMediaOut(BaseModel):

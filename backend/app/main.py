@@ -120,6 +120,18 @@ def _migrate_schema():
             conn.execute(
                 text("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 1")
             )
+    if "refresh_tokens" in insp.get_table_names():
+        rt_cols = {c["name"] for c in insp.get_columns("refresh_tokens")}
+        if "session_key" not in rt_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE refresh_tokens ADD COLUMN session_key VARCHAR(64) NOT NULL DEFAULT ''"
+                    )
+                )
+        if "device_id" in rt_cols:
+            # device_id 已有；确保可用索引便于按设备替换会话（无则跳过）
+            pass
     if "last_seen_at" not in cols:
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE users ADD COLUMN last_seen_at {datetime_type}"))

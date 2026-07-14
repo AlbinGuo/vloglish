@@ -506,6 +506,9 @@ export async function adminImportVtt(vttText: string) {
     had_chinese: boolean
     translated_count: number
     ipa_count: number
+    stars: number
+    voca_size: number
+    highlight_count: number
   }>('/api/admin/episodes/import-subtitles/', { vtt_text: vttText }, { timeout: 900000 })
   return data
 }

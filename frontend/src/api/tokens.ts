@@ -33,7 +33,7 @@ export function clearTokens() {
   sessionStorage.removeItem(REFRESH_KEY)
 }
 
-export const REMOTE_LOGIN_DETAIL = '您的账号已在其他设备登录，请重新登录'
+export const REMOTE_LOGIN_DETAIL = '登录已失效，请重新登录（同一账号最多 3 台设备同时在线）'
 const REMOTE_LOGIN_NOTICE_KEY = 'remote_login_notice'
 
 export function isRemoteLoginDetail(detail: unknown): boolean {

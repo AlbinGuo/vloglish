@@ -193,7 +193,8 @@ class RefreshToken(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     token_hash: Mapped[str] = mapped_column(String(255))
-    device_id: Mapped[str] = mapped_column(String(64), default="")
+    device_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+    session_key: Mapped[str] = mapped_column(String(64), default="", index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

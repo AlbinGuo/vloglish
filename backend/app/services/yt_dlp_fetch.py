@@ -235,7 +235,7 @@ def _format_ytdlp_error(detail: str, url: str) -> str:
     return detail[-2000:] if detail else "yt-dlp 执行失败"
 
 
-def _run_yt_dlp(tools: YtDlpTools, url: str, work_dir: Path) -> None:
+def _run_yt_dlp(tools: YtDlpTools, url: str, work_dir: Path, *, write_subtitles: bool = True) -> None:
     out_template = str(work_dir / "media.%(ext)s")
     cmd = [
         str(tools.yt_dlp),
@@ -251,14 +251,19 @@ def _run_yt_dlp(tools: YtDlpTools, url: str, work_dir: Path) -> None:
         "--write-thumbnail",
         "--convert-thumbnails",
         "webp",
-        "--write-subs",
-        "--write-auto-subs",
-        "--sub-langs",
-        "en.*,en",
-        "--sub-format",
-        "vtt",
         "--write-info-json",
     ]
+    if write_subtitles:
+        cmd.extend(
+            [
+                "--write-subs",
+                "--write-auto-subs",
+                "--sub-langs",
+                "en.*,en",
+                "--sub-format",
+                "vtt",
+            ]
+        )
     if tools.cookies:
         cmd.extend(["--cookies", str(tools.cookies)])
     cmd.extend(_yt_dlp_cli_extras())
@@ -288,7 +293,7 @@ def _load_info_json(work_dir: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def download_source_media(url: str) -> FetchedMedia:
+def download_source_media(url: str, *, write_subtitles: bool = True) -> FetchedMedia:
     url = url.strip()
     if not is_supported_source_url(url):
         raise RuntimeError("仅支持 YouTube 或 TikTok 链接")
@@ -296,7 +301,7 @@ def download_source_media(url: str) -> FetchedMedia:
     tools = YtDlpTools.from_env()
     work_dir = Path(tempfile.mkdtemp(prefix="vloglish-ytdlp-", dir=DATA_DIR))
     try:
-        _run_yt_dlp(tools, url, work_dir)
+        _run_yt_dlp(tools, url, work_dir, write_subtitles=write_subtitles)
     except Exception:
         shutil.rmtree(work_dir, ignore_errors=True)
         raise
@@ -310,7 +315,7 @@ def download_source_media(url: str) -> FetchedMedia:
 
     audio_path = _find_media_file(work_dir, "media", (".mp3", ".m4a", ".opus", ".wav"))
     thumbnail_path = _find_media_file(work_dir, "media", (".webp", ".jpg", ".jpeg", ".png"))
-    vtt_path = _pick_english_vtt(work_dir)
+    vtt_path = _pick_english_vtt(work_dir) if write_subtitles else None
 
     title = meta["title"]
     duration = float(info.get("duration") or 0)
@@ -389,12 +394,49 @@ def upload_fetched_media(
     display_title = fetched.title
     display_summary = fetched.summary
 
+    # 管理端「仅抓媒体」：不解析/翻译/高亮字幕，留给后续手动导入 SRT
+    if not enrich_subtitles:
+        warnings.append("已跳过字幕抓取与分析，请稍后手动导入 SRT/VTT")
+        if display_title or display_summary:
+            try:
+                localized = localize_video_metadata_with_deepseek(display_title, display_summary)
+                if localized.get("title"):
+                    display_title = localized["title"]
+                if localized.get("summary") is not None:
+                    display_summary = localized["summary"]
+            except Exception as exc:
+                warnings.append(f"标题/摘要翻译失败：{exc}")
+        clip_length = float(fetched.duration or 0)
+        if len(display_summary) > 2000:
+            display_summary = display_summary[:1997].rstrip() + "..."
+        return {
+            "title": display_title,
+            "summary": display_summary,
+            "author_name": fetched.author_name,
+            "original_video_url": fetched.webpage_url,
+            "cover": uploads.get("cover", ""),
+            "thumbnail_url": uploads.get("thumbnail_url", ""),
+            "video_url": uploads.get("video_url", ""),
+            "audio_url": uploads.get("audio_url", ""),
+            "subtitles": [],
+            "subtitle_count": 0,
+            "clip_length": clip_length,
+            "had_chinese": False,
+            "translated_count": 0,
+            "ipa_count": 0,
+            "stars": 3,
+            "voca_size": 0,
+            "highlight_count": 0,
+            "source_id": fetched.source_id,
+            "warnings": warnings,
+        }
+
     if fetched.vtt_path and fetched.vtt_path.is_file():
         vtt_text = fetched.vtt_path.read_text(encoding="utf-8", errors="replace")
         subtitles = vtt_to_subtitle_dicts(vtt_text)
         had_chinese = subtitles_have_chinese(subtitles)
 
-        if enrich_subtitles and subtitles:
+        if subtitles:
             clip_length_est = float(max((s["end"] for s in subtitles), default=fetched.duration or 0))
 
             def _run_enrich() -> tuple[int, int] | RuntimeError:
@@ -487,7 +529,7 @@ def fetch_and_upload_from_url(
     slug: str = "",
     enrich_subtitles: bool = True,
 ) -> dict:
-    fetched = download_source_media(url)
+    fetched = download_source_media(url, write_subtitles=enrich_subtitles)
     try:
         folder = slug.strip() or fetched.source_id or sanitize_slug(fetched.title)
         folder = sanitize_slug(folder)

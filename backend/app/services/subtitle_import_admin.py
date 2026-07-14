@@ -2,6 +2,7 @@ from fastapi import HTTPException
 
 from ..schemas import AdminSubtitleIn, AdminVttImportOut
 from .episode_admin import subtitle_stats
+from .subtitle_analyze import analyze_subtitles_with_deepseek
 from .subtitle_translate import enrich_subtitles_with_deepseek
 from .vtt_import import subtitles_have_chinese, subtitle_text_to_dicts
 
@@ -29,8 +30,13 @@ def import_subtitle_text_for_admin(text: str) -> AdminVttImportOut:
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    subtitles = [AdminSubtitleIn(**row) for row in rows]
     count, clip_length = subtitle_stats(rows)
+    try:
+        analyze = analyze_subtitles_with_deepseek(rows, clip_length=clip_length)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"字幕难度高亮分析失败：{exc}") from exc
+
+    subtitles = [AdminSubtitleIn(**row) for row in rows]
     return AdminVttImportOut(
         subtitles=subtitles,
         subtitle_count=count,
@@ -38,4 +44,7 @@ def import_subtitle_text_for_admin(text: str) -> AdminVttImportOut:
         had_chinese=had_chinese,
         translated_count=translated_count,
         ipa_count=ipa_count,
+        stars=int(analyze.get("stars") or 3),
+        voca_size=int(analyze.get("voca_size") or 0),
+        highlight_count=int(analyze.get("highlight_count") or 0),
     )
