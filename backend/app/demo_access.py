@@ -37,7 +37,7 @@ def get_visible_episode_ids(db: Session, user, ordering: str = "created_at") -> 
         .filter(Episode.status == "published")
         .filter(Episode.series_id.is_(None))
         .filter(published_visibility_filter(user))
-        .order_by(episode_order(ordering))
+        .order_by(Episode.is_pinned.desc(), episode_order(ordering))
         .limit(limit)
         .all()
     )

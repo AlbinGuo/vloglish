@@ -35,6 +35,7 @@ export interface EpisodeSummary {
   is_favorite?: boolean
   progress_percent?: number
   is_new?: boolean
+  is_pinned?: boolean
   series_id?: number | null
   series_slug?: string
   series_title?: string

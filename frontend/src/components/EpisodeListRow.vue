@@ -50,6 +50,12 @@ function formatDuration(sec: number) {
         <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span class="text-xs text-neutral-500">第 {{ episode.index }} 期</span>
           <span
+            v-if="episode.is_pinned"
+            class="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500 text-white font-bold leading-none"
+          >
+            置顶
+          </span>
+          <span
             v-if="episode.is_new"
             class="text-xs px-2 py-0.5 rounded-md bg-red-500 text-white font-bold leading-none"
           >

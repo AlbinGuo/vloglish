@@ -4,14 +4,19 @@ import { RouterLink } from 'vue-router'
 import {
   adminDeleteEpisode,
   adminListEpisodes,
+  adminListSeries,
   type AdminEpisodeListItem,
   type AdminEpisodeSortField,
+  type AdminSeries,
 } from '@/api/admin'
 
 const loading = ref(true)
 const deletingId = ref<number | null>(null)
 const search = ref('')
 const status = ref('')
+/** '' = 全部；'0' = 独立单集；其它为合集 id */
+const seriesId = ref('')
+const seriesOptions = ref<AdminSeries[]>([])
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
@@ -46,6 +51,15 @@ const statusTagClass: Record<string, string> = {
   rejected: 'bg-red-100 text-red-700 ring-1 ring-red-200/80',
 }
 
+async function loadSeriesOptions() {
+  try {
+    const data = await adminListSeries()
+    seriesOptions.value = data.results
+  } catch {
+    seriesOptions.value = []
+  }
+}
+
 async function load() {
   loading.value = true
   error.value = ''
@@ -55,6 +69,7 @@ async function load() {
       page_size: pageSize.value,
       search: search.value.trim() || undefined,
       status: status.value || undefined,
+      series_id: seriesId.value === '' ? undefined : Number(seriesId.value),
       sort_by: sortBy.value,
       sort_dir: sortDir.value,
     })
@@ -131,7 +146,10 @@ function formatRate(rate: number) {
   return `${rate.toFixed(1)}%`
 }
 
-onMounted(load)
+onMounted(async () => {
+  await loadSeriesOptions()
+  await load()
+})
 </script>
 
 <template>
@@ -159,6 +177,17 @@ onMounted(load)
         <option value="published">已发布</option>
         <option value="archived">已下架</option>
         <option value="rejected">驳回</option>
+      </select>
+      <select
+        v-model="seriesId"
+        class="rounded-lg border border-black/10 px-3 py-2 text-sm min-w-[12rem] max-w-[18rem]"
+        @change="doSearch"
+      >
+        <option value="">全部合集</option>
+        <option value="0">仅独立单集</option>
+        <option v-for="s in seriesOptions" :key="s.id" :value="String(s.id)">
+          {{ s.title }}（{{ s.status }}）
+        </option>
       </select>
       <button
         type="button"
@@ -232,6 +261,7 @@ onMounted(load)
                 {{ row.series_title }}
                 <span v-if="row.series_index != null"> · 第 {{ row.series_index }} 集</span>
               </div>
+              <div v-if="row.is_pinned" class="text-xs text-amber-700 mt-0.5">置顶</div>
               <div v-if="row.is_demo" class="text-xs text-amber-600 mt-0.5">Demo</div>
             </td>
             <td class="px-4 py-3 max-w-[7rem] truncate" :title="row.author_name">{{ row.author_name }}</td>

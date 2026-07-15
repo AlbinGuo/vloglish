@@ -279,6 +279,7 @@ export interface AdminEpisodeListItem {
   author_name: string
   cover: string
   is_demo: boolean
+  is_pinned?: boolean
   is_user_submitted: boolean
   tag_names: string[]
   series_id?: number | null
@@ -320,6 +321,7 @@ export interface AdminEpisodeDetail {
   thumbnail_url: string
   original_video_url: string
   is_demo: boolean
+  is_pinned?: boolean
   status: string
   rejection_reason?: string
   is_user_submitted?: boolean
@@ -346,6 +348,7 @@ export type AdminEpisodePayload = {
   thumbnail_url: string
   original_video_url: string
   is_demo: boolean
+  is_pinned?: boolean
   status: string
   rejection_reason?: string
   series_id?: number | null
@@ -453,6 +456,7 @@ export async function adminListEpisodes(params: {
   search?: string
   status?: string
   stars?: number
+  series_id?: number
   sort_by?: AdminEpisodeSortField
   sort_dir?: 'asc' | 'desc'
 }) {

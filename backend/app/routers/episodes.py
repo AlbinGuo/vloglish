@@ -130,7 +130,8 @@ def episode_list(
         "series_index": Episode.series_index.asc().nulls_last(),
         "-series_index": Episode.series_index.desc().nulls_last(),
     }
-    q = q.order_by(order_map.get(ordering, Episode.created_at.desc()))
+    # 置顶视频始终排在最前（同置顶再按所选排序）
+    q = q.order_by(Episode.is_pinned.desc(), order_map.get(ordering, Episode.created_at.desc()))
 
     limit = get_episode_limit(user)
     start = offset if offset is not None else (page - 1) * page_size

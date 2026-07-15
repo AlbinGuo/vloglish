@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { nextTick, ref, watch } from 'vue'
 import type { EpisodeSummary } from '@/types'
 import type { WordLookupRecord } from '@/api/learning'
 
-defineProps<{
+const props = defineProps<{
   tab: 'related' | 'lookup'
   relatedEpisodes: EpisodeSummary[]
   relatedLoading: boolean
@@ -10,6 +11,7 @@ defineProps<{
   lookupLoading: boolean
   showLookupTab: boolean
   relatedLabel?: string
+  currentVideoId?: string
   /** 底部抽屉内全高展示 */
   drawer?: boolean
 }>()
@@ -21,11 +23,45 @@ const emit = defineEmits<{
   close: []
 }>()
 
+const listScrollRef = ref<HTMLElement | null>(null)
+
 function formatDuration(sec: number) {
   const m = Math.floor(sec / 60)
   const s = Math.floor(sec % 60)
   return `${m}:${String(s).padStart(2, '0')}`
 }
+
+function scrollCurrentToCenter(smooth = true) {
+  if (!props.currentVideoId || props.tab !== 'related') return
+  void nextTick(() => {
+    const scroller = listScrollRef.value
+    if (!scroller) return
+    const item = scroller.querySelector(
+      `[data-series-ep="${CSS.escape(props.currentVideoId!)}"]`,
+    ) as HTMLElement | null
+    if (!item) return
+
+    const scrollerRect = scroller.getBoundingClientRect()
+    const itemRect = item.getBoundingClientRect()
+    const delta =
+      itemRect.top + itemRect.height / 2 - (scrollerRect.top + scrollerRect.height / 2)
+    const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+    const nextTop = Math.min(Math.max(0, scroller.scrollTop + delta), maxTop)
+
+    if (smooth && typeof scroller.scrollTo === 'function') {
+      scroller.scrollTo({ top: nextTop, behavior: 'smooth' })
+    } else {
+      scroller.scrollTop = nextTop
+    }
+  })
+}
+
+watch(
+  () => [props.currentVideoId, props.relatedEpisodes.length, props.tab, props.relatedLoading] as const,
+  ([, , , loading]) => {
+    if (!loading) scrollCurrentToCenter(true)
+  },
+)
 </script>
 
 <template>
@@ -64,18 +100,27 @@ function formatDuration(sec: number) {
       </button>
     </div>
 
-    <div class="side-panel-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain">
-      <!-- 相似视频 -->
+    <div
+      ref="listScrollRef"
+      class="side-panel-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain"
+    >
+      <!-- 相似视频 / 同合集 -->
       <div v-if="tab === 'related'" class="p-3 space-y-2">
         <p v-if="relatedLoading" class="text-xs text-neutral-400 text-center py-8">加载中...</p>
         <p v-else-if="!relatedEpisodes.length" class="text-xs text-neutral-400 text-center py-8">
-          {{ relatedLabel === '同合集' ? '暂无同合集其他集' : '暂无相似视频' }}
+          {{ relatedLabel === '同合集' ? '暂无合集视频' : '暂无相似视频' }}
         </p>
         <button
           v-for="ep in relatedEpisodes"
           :key="ep.video_id"
           type="button"
-          class="w-full flex gap-2.5 rounded-lg border border-black/5 dark:border-white/10 p-2 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition group text-left cursor-pointer"
+          :data-series-ep="ep.video_id"
+          class="w-full flex gap-2.5 rounded-lg border p-2 transition group text-left cursor-pointer"
+          :class="
+            ep.video_id === currentVideoId
+              ? 'border-amber-500 bg-amber-50/80 dark:border-amber-400 dark:bg-amber-950/40 ring-1 ring-amber-500/30'
+              : 'border-black/5 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+          "
           @click="emit('selectEpisode', ep.video_id)"
         >
           <div class="relative w-20 shrink-0 aspect-video rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-700">
@@ -84,7 +129,13 @@ function formatDuration(sec: number) {
               {{ formatDuration(ep.clip_length) }}
             </span>
             <span
-              v-if="ep.is_new"
+              v-if="ep.video_id === currentVideoId"
+              class="absolute top-0.5 left-0.5 text-[9px] px-1 py-0.5 rounded bg-amber-500 text-white font-bold leading-none"
+            >
+              播放中
+            </span>
+            <span
+              v-else-if="ep.is_new"
               class="absolute top-0.5 left-0.5 text-[9px] px-1 py-0.5 rounded bg-red-500 text-white font-bold leading-none"
             >
               新
@@ -96,7 +147,14 @@ function formatDuration(sec: number) {
               <template v-else>第 {{ ep.index }} 期</template>
               · @{{ ep.author.name }}
             </p>
-            <p class="text-sm font-medium leading-snug line-clamp-2 group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors">
+            <p
+              class="text-sm font-medium leading-snug line-clamp-2 transition-colors"
+              :class="
+                ep.video_id === currentVideoId
+                  ? 'text-amber-800 dark:text-amber-300'
+                  : 'group-hover:text-amber-800 dark:group-hover:text-amber-400'
+              "
+            >
               {{ ep.short_title }}
             </p>
             <div v-if="ep.tags.length" class="flex flex-wrap gap-1 mt-1">

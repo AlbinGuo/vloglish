@@ -12,7 +12,7 @@ def import_subtitle_text_for_admin(text: str) -> AdminVttImportOut:
     if not stripped:
         raise HTTPException(status_code=400, detail="字幕内容为空")
 
-    rows = subtitle_text_to_dicts(stripped)
+    rows = subtitle_text_to_dicts(stripped, merge_sentences=False)
     if not rows:
         raise HTTPException(
             status_code=400,

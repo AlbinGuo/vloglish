@@ -54,6 +54,7 @@ def episode_summary(
         "is_favorite": is_favorite,
         "progress_percent": progress_percent,
         "is_new": episode_is_new(episode),
+        "is_pinned": bool(getattr(episode, "is_pinned", False)),
         **_series_brief(episode),
     }
 

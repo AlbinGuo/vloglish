@@ -162,6 +162,8 @@ def apply_episode_fields(ep: Episode, data: dict, *, author: Author, tags: list[
         ep.original_video_url = data.get("original_video_url", "")
     if "is_demo" in data:
         ep.is_demo = data.get("is_demo", False)
+    if "is_pinned" in data:
+        ep.is_pinned = bool(data.get("is_pinned", False))
     if "status" in data and data.get("status") in VALID_STATUSES:
         new_status = data["status"]
         if new_status == "published" and (ep.status != "published" or ep.published_at is None):

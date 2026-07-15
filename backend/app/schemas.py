@@ -248,6 +248,7 @@ class AdminEpisodeCreateIn(BaseModel):
     thumbnail_url: str = ""
     original_video_url: str = ""
     is_demo: bool = False
+    is_pinned: bool = False
     status: str = Field(default="draft", pattern=EPISODE_STATUS_PATTERN)
     rejection_reason: str = ""
     series_id: int | None = None
@@ -270,6 +271,7 @@ class AdminEpisodeUpdateIn(BaseModel):
     thumbnail_url: str | None = None
     original_video_url: str | None = None
     is_demo: bool | None = None
+    is_pinned: bool | None = None
     status: str | None = Field(default=None, pattern=EPISODE_STATUS_PATTERN)
     rejection_reason: str | None = None
     series_id: int | None = None
@@ -292,6 +294,7 @@ class AdminEpisodeListItemOut(BaseModel):
     author_name: str
     cover: str
     is_demo: bool
+    is_pinned: bool = False
     is_user_submitted: bool = False
     tag_names: list[str] = []
     series_id: int | None = None
@@ -332,6 +335,7 @@ class AdminEpisodeDetailOut(BaseModel):
     thumbnail_url: str
     original_video_url: str
     is_demo: bool
+    is_pinned: bool = False
     status: str
     rejection_reason: str = ""
     is_user_submitted: bool = False
@@ -523,6 +527,7 @@ class EpisodeSummaryOut(BaseModel):
     is_favorite: bool = False
     progress_percent: float = 0
     is_new: bool = False
+    is_pinned: bool = False
     remark: str = ""
     series_id: int | None = None
     series_slug: str = ""

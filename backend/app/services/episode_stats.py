@@ -52,6 +52,7 @@ def admin_episode_list_query(
     search: str | None = None,
     status: str | None = None,
     stars: int | None = None,
+    series_id: int | None = None,
     sort_by: str = "index",
     sort_dir: str = "desc",
 ) -> Query:
@@ -94,6 +95,11 @@ def admin_episode_list_query(
         q = q.filter(Episode.status == status)
     if stars is not None:
         q = q.filter(Episode.stars == stars)
+    if series_id is not None:
+        if series_id <= 0:
+            q = q.filter(Episode.series_id.is_(None))
+        else:
+            q = q.filter(Episode.series_id == series_id)
 
     sort_key = sort_by if sort_by in EPISODE_LIST_SORT_FIELDS else "id"
     direction = sort_dir if sort_dir in {"asc", "desc"} else "desc"

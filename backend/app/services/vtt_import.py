@@ -1,4 +1,4 @@
-"""Parse WebVTT and merge cues into sentence-level subtitles."""
+"""Parse WebVTT / SRT. SRT keeps cue boundaries; VTT may merge into sentences."""
 from __future__ import annotations
 
 import re
@@ -246,40 +246,58 @@ def words_to_html(text: str) -> str:
     return " ".join(f"<span>{word}</span>" for word in re.findall(r"\S+", cleaned))
 
 
-def vtt_to_subtitle_dicts(vtt_text: str) -> list[dict]:
+def vtt_to_subtitle_dicts(vtt_text: str, *, merge_sentences: bool = True) -> list[dict]:
     cues = parse_vtt(vtt_text)
-    return _cues_to_subtitle_dicts(cues)
+    return _cues_to_subtitle_dicts(cues, merge_sentences=merge_sentences)
 
 
-def srt_to_subtitle_dicts(srt_text: str) -> list[dict]:
+def srt_to_subtitle_dicts(srt_text: str, *, merge_sentences: bool = False) -> list[dict]:
+    """SRT 默认严格按文件条目分段，不合并多条 cue。"""
     cues = parse_srt(srt_text)
-    return _cues_to_subtitle_dicts(cues)
+    return _cues_to_subtitle_dicts(cues, merge_sentences=merge_sentences)
 
 
-def subtitle_text_to_dicts(text: str) -> list[dict]:
+def subtitle_text_to_dicts(text: str, *, merge_sentences: bool | None = None) -> list[dict]:
     stripped = text.lstrip("\ufeff").strip()
     if stripped.upper().startswith("WEBVTT"):
-        return vtt_to_subtitle_dicts(text)
-    srt_rows = srt_to_subtitle_dicts(text)
+        # YouTube 等自动字幕仍默认按句合并；手动导入时可关掉
+        return vtt_to_subtitle_dicts(
+            text,
+            merge_sentences=True if merge_sentences is None else merge_sentences,
+        )
+    srt_rows = srt_to_subtitle_dicts(
+        text,
+        merge_sentences=False if merge_sentences is None else merge_sentences,
+    )
     if srt_rows:
         return srt_rows
     # Some tools export WebVTT without a WEBVTT header.
-    return vtt_to_subtitle_dicts(text)
+    return vtt_to_subtitle_dicts(
+        text,
+        merge_sentences=True if merge_sentences is None else merge_sentences,
+    )
 
 
-def _cues_to_subtitle_dicts(cues: list[Cue]) -> list[dict]:
-    sentences = merge_into_sentences(cues)
+def _cues_to_subtitle_dicts(cues: list[Cue], *, merge_sentences: bool = True) -> list[dict]:
+    rows = merge_into_sentences(cues) if merge_sentences else list(cues)
     subtitles: list[dict] = []
-    for i, cue in enumerate(sentences):
+    for i, cue in enumerate(rows):
+        english, chinese, english_html = normalize_subtitle_fields(
+            cue.english,
+            cue.chinese,
+            words_to_html(cue.english) if cue.english else "",
+        )
+        if not english and not chinese:
+            continue
         subtitles.append(
             {
-                "index": i,
+                "index": len(subtitles),
                 "start": round(cue.start, 3),
                 "end": round(cue.end, 3),
-                "english": cue.english,
-                "chinese": cue.chinese,
+                "english": english,
+                "chinese": chinese,
                 "ipa": "",
-                "english_html": words_to_html(cue.english),
+                "english_html": english_html,
             }
         )
     return subtitles

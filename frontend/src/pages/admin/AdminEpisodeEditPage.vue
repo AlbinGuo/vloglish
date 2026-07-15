@@ -49,6 +49,7 @@ const form = ref<AdminEpisodePayload>({
   thumbnail_url: '',
   original_video_url: '',
   is_demo: false,
+  is_pinned: false,
   status: 'draft',
   rejection_reason: '',
   series_id: null,
@@ -116,6 +117,7 @@ async function loadEpisode() {
       thumbnail_url: data.thumbnail_url,
       original_video_url: data.original_video_url,
       is_demo: data.is_demo,
+      is_pinned: Boolean(data.is_pinned),
       status: data.status,
       rejection_reason: data.rejection_reason || '',
       series_id: data.series_id ?? null,
@@ -427,6 +429,10 @@ watch(
             <input v-model="form.is_demo" type="checkbox" class="rounded" />
             <span>Demo 体验内容</span>
           </label>
+          <label class="block text-sm flex items-end gap-2 pb-2 md:col-span-2">
+            <input v-model="form.is_pinned" type="checkbox" class="rounded" />
+            <span>置顶（用户端视频列表固定靠前，并显示置顶角标）</span>
+          </label>
           <label class="block text-sm md:col-span-2">
             <span class="text-neutral-500">摘要</span>
             <textarea v-model="form.summary" rows="2" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2" />
@@ -630,7 +636,7 @@ watch(
 
         <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">
           <p class="text-sm text-neutral-600">
-            从 VTT / SRT 导入（粘贴内容或选择文件）。纯英文将自动翻译中文；所有字幕将自动生成美式 IPA 音标，并对有难度的单词/短语做高亮。导入后将替换当前字幕列表（耗时可能较长，请耐心等待）。
+            从 VTT / SRT 导入（粘贴内容或选择文件）。SRT 将严格按文件中的每条字幕分段，不会合并相邻英文条目。纯英文将自动翻译中文；所有字幕将自动生成美式 IPA 音标，并对有难度的单词/短语做高亮。导入后将替换当前字幕列表（耗时可能较长，请耐心等待）。
           </p>
           <textarea
             v-model="subtitleImportText"

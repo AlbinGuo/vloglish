@@ -404,7 +404,8 @@ async function loadRelatedEpisodes() {
         ordering: 'series_index',
         page_size: 50,
       })
-      relatedEpisodes.value = data.results.filter((ep) => ep.video_id !== props.videoId)
+      // 合集侧栏保留当前集，便于定位与高亮
+      relatedEpisodes.value = data.results
       return
     }
 
@@ -1153,6 +1154,7 @@ function subtitleRowClass(index: number) {
         :related-label="relatedPanelLabel"
         :related-episodes="relatedEpisodes"
         :related-loading="relatedLoading"
+        :current-video-id="videoId"
         :lookup-history="lookupHistory"
         :lookup-loading="lookupLoading"
         :show-lookup-tab="auth.isLoggedIn"
@@ -1295,6 +1297,7 @@ function subtitleRowClass(index: number) {
             :related-label="relatedPanelLabel"
             :related-episodes="relatedEpisodes"
             :related-loading="relatedLoading"
+            :current-video-id="videoId"
             :lookup-history="lookupHistory"
             :lookup-loading="lookupLoading"
             :show-lookup-tab="auth.isLoggedIn"
