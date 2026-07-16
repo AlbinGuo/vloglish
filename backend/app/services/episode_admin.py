@@ -104,10 +104,13 @@ def _detach_subtitle_refs(db: Session, subtitle_ids: list[int]) -> None:
 
 
 def replace_subtitles(db: Session, episode_id: int, rows: list[dict]) -> None:
+    from .episode_word_cards import invalidate_episode_word_cards
+
     subtitle_ids = [
         sid for (sid,) in db.query(Subtitle.id).filter(Subtitle.episode_id == episode_id).all()
     ]
     _detach_subtitle_refs(db, subtitle_ids)
+    invalidate_episode_word_cards(db, episode_id)
     db.query(Subtitle).filter(Subtitle.episode_id == episode_id).delete()
     db.flush()
     if not rows:
@@ -208,6 +211,9 @@ def delete_episode_with_dependencies(db: Session, episode: Episode) -> None:
     db.query(UserWordLookup).filter(UserWordLookup.episode_id == episode_id).delete(
         synchronize_session=False
     )
+    from .episode_word_cards import invalidate_episode_word_cards
+
+    invalidate_episode_word_cards(db, episode_id)
     db.query(UserVocabularyItem).filter(UserVocabularyItem.source_episode_id == episode_id).update(
         {
             UserVocabularyItem.source_episode_id: None,

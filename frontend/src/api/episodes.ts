@@ -48,6 +48,32 @@ export async function getEpisodeDetail(videoId: string) {
   return data
 }
 
+export interface EpisodeWordCardDto {
+  word: string
+  type: 1 | 2
+  context: string
+  highlight: string | null
+  subtitle_id?: number | null
+  type_label: string
+  exam_tags: string[]
+  ipa: string
+  meaning: string
+  entry: EntryDetail
+}
+
+export interface EpisodeWordCardsResponse {
+  video_id: string
+  from_cache: boolean
+  count: number
+  cards: EpisodeWordCardDto[]
+}
+
+/** 整集词卡（服务端共享缓存，首次生成后其他用户直接读缓存） */
+export async function getEpisodeWordCards(videoId: string) {
+  const { data } = await api.get<EpisodeWordCardsResponse>(`/api/episode/${videoId}/word-cards/`)
+  return data
+}
+
 export async function getSeriesList() {
   const { data } = await api.get<{ count: number; results: SeriesSummary[] }>('/api/series/')
   return data

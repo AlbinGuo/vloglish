@@ -151,6 +151,17 @@ class LookupCache(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class EpisodeWordCardCache(Base):
+    """整集词卡结果缓存（跨用户共享，避免重复调用 DeepSeek）。"""
+
+    __tablename__ = "episode_word_card_cache"
+
+    episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"), primary_key=True)
+    content_hash: Mapped[str] = mapped_column(String(64), default="")
+    cards_json: Mapped[str] = mapped_column(Text, default="[]")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class EpisodeFavorite(Base):
     __tablename__ = "episode_favorites"
 

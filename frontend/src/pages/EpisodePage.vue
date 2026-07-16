@@ -5,6 +5,9 @@ import { getEpisodeDetail, lookupWord } from '@/api/demo'
 import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
 import { getEpisodeList, setEpisodeFavorite } from '@/api/episodes'
 import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
+import EpisodeWordCardList from '@/components/episode/EpisodeWordCardList.vue'
+import BlankPrintDocument from '@/components/episode/BlankPrintDocument.vue'
+import BlankPrintSheet from '@/components/episode/BlankPrintSheet.vue'
 import SubtitleModeSheet from '@/components/episode/SubtitleModeSheet.vue'
 import { useIsPad, useIsPhone } from '@/composables/useBreakpoint'
 import { useMobilePlayerChrome } from '@/composables/useMobilePlayerChrome'
@@ -31,7 +34,12 @@ import IntensiveCoreVocabMobile from '@/components/intensive/IntensiveCoreVocabM
 import IntensiveModeToggle from '@/components/intensive/IntensiveModeToggle.vue'
 import { useIntensiveReadingMode } from '@/composables/useIntensiveReadingMode'
 import { useCoreVocabulary, type CoreVocabSource } from '@/composables/useCoreVocabulary'
+import {
+  useEpisodeWordCards,
+  type WordCardItem,
+} from '@/composables/useEpisodeWordCards'
 import { usePlayerControls } from '@/composables/usePlayerControls'
+import type { BlankPrintOptions } from '@/utils/blankPrint'
 import {
   modeIsDynamicFocus,
   modeIsChineseOnly,
@@ -53,6 +61,10 @@ const episode = ref<EpisodeDetail | null>(null)
 const loading = ref(true)
 const error = ref('')
 const subtitleMode = ref<SubtitleDisplayMode>('both')
+const contentView = ref<'subtitles' | 'wordcards'>('subtitles')
+const showWordCards = computed(() => contentView.value === 'wordcards')
+const blankPrintSheetOpen = ref(false)
+const blankPrintOptions = ref<BlankPrintOptions | null>(null)
 const subtitleAlign = ref<SubtitleAlign>('left')
 const showIpa = ref(true)
 const selectedEntry = ref<EntryDetail | null>(null)
@@ -113,6 +125,12 @@ const coreVocabSources = computed<CoreVocabSource[]>(() =>
 )
 const coreVocab = useCoreVocabulary(coreVocabSources)
 const { items: coreVocabItems, loading: coreVocabLoading, count: coreVocabCount } = coreVocab
+
+const wordCards = useEpisodeWordCards(
+  computed(() => props.videoId),
+  showWordCards,
+)
+const { items: wordCardItems, loading: wordCardsLoading } = wordCards
 
 const currentSub = computed(() => sortedSubs.value[currentIndex.value] ?? null)
 
@@ -197,9 +215,53 @@ const modeButtons: { key: SubtitleDisplayMode; label: string }[] = [
   { key: 'ipa', label: 'IPA' },
 ]
 
-const currentModeLabel = computed(
-  () => modeButtons.find((m) => m.key === subtitleMode.value)?.label ?? '字幕',
-)
+const currentModeLabel = computed(() => {
+  if (contentView.value === 'wordcards') return '词卡'
+  return modeButtons.find((m) => m.key === subtitleMode.value)?.label ?? '字幕'
+})
+
+function selectSubtitleMode(mode: SubtitleDisplayMode) {
+  subtitleMode.value = mode
+  contentView.value = 'subtitles'
+}
+
+function openWordCardsView() {
+  contentView.value = 'wordcards'
+}
+
+function openBlankPrintSheet() {
+  blankPrintSheetOpen.value = true
+}
+
+async function confirmBlankPrint(options: BlankPrintOptions) {
+  blankPrintSheetOpen.value = false
+  blankPrintOptions.value = options
+  await nextTick()
+  // 再等一帧，确保 Teleport 打印文档已挂载
+  await nextTick()
+  window.print()
+}
+
+function onAfterPrint() {
+  blankPrintOptions.value = null
+}
+
+async function openWordCard(item: WordCardItem) {
+  showEntryPanel.value = true
+  entryLoading.value = true
+  entryError.value = ''
+  selectedEntry.value = item.entry
+  try {
+    selectedEntry.value = await lookupWord(item.word, item.type, item.context, {
+      video_id: props.videoId,
+      subtitle_id: item.meta?.subtitle_id,
+    })
+  } catch {
+    entryError.value = '词条加载失败'
+  } finally {
+    entryLoading.value = false
+  }
+}
 
 watch(
   [isPhone, isPad],
@@ -298,6 +360,7 @@ function onEntryKeydown(e: KeyboardEvent) {
 onMounted(() => {
   load()
   window.addEventListener('keydown', onEntryKeydown)
+  window.addEventListener('afterprint', onAfterPrint)
   document.addEventListener('fullscreenchange', onVideoPanelFullscreenChange)
 })
 
@@ -305,9 +368,13 @@ onUnmounted(() => {
   if (listScrollAnim) cancelAnimationFrame(listScrollAnim)
   document.body.style.overflow = ''
   window.removeEventListener('keydown', onEntryKeydown)
+  window.removeEventListener('afterprint', onAfterPrint)
   document.removeEventListener('fullscreenchange', onVideoPanelFullscreenChange)
 })
-watch(() => props.videoId, load)
+watch(() => props.videoId, () => {
+  contentView.value = 'subtitles'
+  void load()
+})
 watch(currentIndex, (idx, prevIdx) => {
   if (prevIdx !== undefined && idx !== prevIdx) {
     subtitleSlideDir.value = idx > prevIdx ? 'next' : 'prev'
@@ -769,7 +836,7 @@ function subtitleRowClass(index: number) {
 <template>
   <!-- h-dvh + overflow-hidden：整页不滚动，仅字幕列表区域滚动 -->
   <div
-    class="flex flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-950"
+    class="no-print flex flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-950"
     :class="[adminPreview ? 'h-dvh' : 'h-full', intensivePageClass]"
   >
     <header
@@ -970,10 +1037,26 @@ function subtitleRowClass(index: number) {
             v-for="m in modeButtons"
             :key="m.key"
             class="px-3 py-1 rounded-full whitespace-nowrap"
-            :class="subtitleMode === m.key ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900' : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'"
-            @click="subtitleMode = m.key"
+            :class="
+              contentView === 'subtitles' && subtitleMode === m.key
+                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
+                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+            "
+            @click="selectSubtitleMode(m.key)"
           >
             {{ m.label }}
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1 rounded-full whitespace-nowrap"
+            :class="
+              contentView === 'wordcards'
+                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
+                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+            "
+            @click="openWordCardsView"
+          >
+            词卡
           </button>
           <div class="flex items-center gap-0.5 ml-1 pl-2 border-l border-black/10 dark:border-white/10 flex-1 min-w-0">
             <button
@@ -985,19 +1068,29 @@ function subtitleRowClass(index: number) {
             >
               {{ a.label }}
             </button>
-            <button
-              v-if="!adminPreview && !showSidePanel"
-              type="button"
-              class="ml-auto text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
-              @click="toggleSidePanel"
-            >
-              显示侧栏
-            </button>
+            <div class="ml-auto flex items-center gap-1.5 shrink-0">
+              <button
+                v-if="contentView === 'subtitles' && subtitleMode === 'blank'"
+                type="button"
+                class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                @click="openBlankPrintSheet"
+              >
+                打印挖空
+              </button>
+              <button
+                v-if="!adminPreview && !showSidePanel"
+                type="button"
+                class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                @click="toggleSidePanel"
+              >
+                显示侧栏
+              </button>
+            </div>
           </div>
         </div>
 
         <IntensiveReadingStatsBar
-          v-if="intensiveMode"
+          v-if="intensiveMode && contentView === 'subtitles'"
           :title="episode.short_title"
           :subtitle="
             episode.series
@@ -1009,9 +1102,16 @@ function subtitleRowClass(index: number) {
           :segment-count="episode.subtitle_count"
         />
 
+        <EpisodeWordCardList
+          v-if="contentView === 'wordcards'"
+          :items="wordCardItems"
+          :loading="wordCardsLoading"
+          @select="openWordCard"
+        />
+
         <!-- 动态模式 -->
         <div
-          v-if="modeIsDynamicFocus(subtitleMode) && currentSub && !isPhone"
+          v-else-if="modeIsDynamicFocus(subtitleMode) && currentSub && !isPhone"
           ref="dynamicFocusRef"
           class="subtitle-focus-light subtitle-scroll-hide flex-1 min-h-0 overflow-hidden overscroll-contain flex flex-col justify-start pt-2 px-3 pb-4 lg:justify-center lg:p-6 xl:p-10 cursor-pointer touch-pan-y"
           :class="subtitleAlign === 'left' ? 'items-start text-left' : 'items-center text-center'"
@@ -1136,14 +1236,14 @@ function subtitleRowClass(index: number) {
         </div>
 
         <IntensiveCoreVocabPanel
-          v-if="intensiveMode"
+          v-if="intensiveMode && contentView === 'subtitles'"
           :items="coreVocabItems"
           :loading="coreVocabLoading"
         />
       </section>
 
       <IntensiveCoreVocabMobile
-        v-if="intensiveMode"
+        v-if="intensiveMode && contentView === 'subtitles'"
         :items="coreVocabItems"
         :loading="coreVocabLoading"
       />
@@ -1225,8 +1325,16 @@ function subtitleRowClass(index: number) {
               class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
               @click="openSubtitleModeFromMore"
             >
-              字幕模式
+              字幕 / 词卡
               <span class="float-right text-neutral-400">{{ currentModeLabel }}</span>
+            </button>
+            <button
+              v-if="contentView === 'subtitles' && subtitleMode === 'blank'"
+              type="button"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              @click="closeMobileMore(); openBlankPrintSheet()"
+            >
+              打印挖空
             </button>
             <template v-if="episode?.series">
               <button
@@ -1315,11 +1423,27 @@ function subtitleRowClass(index: number) {
       :open="subtitleModeSheetOpen"
       :subtitle-mode="subtitleMode"
       :subtitle-align="subtitleAlign"
+      :content-view="contentView"
       :mode-buttons="modeButtons"
       :align-buttons="alignButtons"
       @close="subtitleModeSheetOpen = false"
-      @update:subtitle-mode="subtitleMode = $event"
+      @update:subtitle-mode="(m) => { selectSubtitleMode(m); subtitleModeSheetOpen = false }"
       @update:subtitle-align="subtitleAlign = $event"
+      @select-word-cards="openWordCardsView(); subtitleModeSheetOpen = false"
+    />
+
+    <BlankPrintSheet
+      :open="blankPrintSheetOpen"
+      @close="blankPrintSheetOpen = false"
+      @confirm="confirmBlankPrint"
+    />
+    <BlankPrintDocument
+      v-if="episode"
+      :title="episode.short_title"
+      :author-name="episode.author.name"
+      :episode-index="episode.index"
+      :subtitles="sortedSubs"
+      :options="blankPrintOptions"
     />
 
     <EntryCard

@@ -5,13 +5,11 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user_optional
-from ..dict.deepseek import lookup_with_deepseek
-from ..dict.lookup_cache import get_cached_lookup, make_cache_key, make_entry_id, save_lookup_cache
-from ..entry_cache import cache_entry
 from ..models import Article, Entry, Episode, User
 from ..serializers import entry_brief
-from ..services.entry_lookup import build_entry_detail, merged_exam_tags
+from ..services.entry_lookup import build_entry_detail
 from ..services.learning import is_entry_saved, log_word_lookup
+from ..services.word_lookup import resolve_word_lookup
 
 logger = logging.getLogger(__name__)
 
@@ -49,30 +47,18 @@ def lookup(
     if not word:
         raise HTTPException(status_code=400, detail="word is required")
 
-    cache_key = make_cache_key(word, type, context)
-    entry_id = make_entry_id(cache_key)
+    try:
+        result = resolve_word_lookup(db, word, type, context)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        logger.warning("Lookup failed word=%r: %s", word, e)
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    except Exception as e:
+        logger.exception("Lookup error word=%r", word)
+        raise HTTPException(status_code=500, detail=f"查词失败: {e}") from e
 
-    cached = get_cached_lookup(db, cache_key)
-    if cached:
-        result = cached
-        try:
-            cache_entry(db, result)
-        except Exception:
-            logger.debug("cache_entry skipped on cache hit word=%r", word, exc_info=True)
-    else:
-        try:
-            result = lookup_with_deepseek(word, type, context, entry_id)
-            save_lookup_cache(db, cache_key, word, type, context, entry_id, result)
-            try:
-                cache_entry(db, result)
-            except Exception:
-                logger.debug("cache_entry skipped for word=%r", word, exc_info=True)
-        except RuntimeError as e:
-            logger.warning("Lookup failed word=%r: %s", word, e)
-            raise HTTPException(status_code=502, detail=str(e)) from e
-        except Exception as e:
-            logger.exception("Lookup error word=%r", word)
-            raise HTTPException(status_code=500, detail=f"查词失败: {e}") from e
+    entry_id = int(result.get("id") or 0)
 
     if user:
         ep_id = episode_id
@@ -86,7 +72,7 @@ def lookup(
         log_word_lookup(
             db,
             user,
-            entry_id=result.get("id", entry_id),
+            entry_id=entry_id,
             word=word,
             token_type=type,
             context=context,
@@ -96,12 +82,10 @@ def lookup(
             article_id=art_id,
             segment_id=segment_id,
         )
-        result["favorite"] = is_entry_saved(db, user.id, result.get("id", entry_id))
+        result["favorite"] = is_entry_saved(db, user.id, entry_id)
     else:
         result["favorite"] = False
 
-    eid = result.get("id", entry_id)
-    result["exam_tags"] = merged_exam_tags(db, eid)
     return result
 
 

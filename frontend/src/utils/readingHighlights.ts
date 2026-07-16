@@ -1,6 +1,15 @@
 export interface HighlightToken {
   word: string
   type: 1 | 2
+  /** 字幕高亮类型：a/d/i/c/l/f */
+  highlight: string | null
+}
+
+const HIGHLIGHT_CLASS_RE = /\bhighlight-([adiclf])\b/i
+
+export function extractHighlightClass(className: string): string | null {
+  const match = className.match(HIGHLIGHT_CLASS_RE)
+  return match?.[1]?.toLowerCase() ?? null
 }
 
 export function extractHighlightTokens(html: string): HighlightToken[] {
@@ -20,7 +29,11 @@ export function extractHighlightTokens(html: string): HighlightToken[] {
     seen.add(key)
 
     const isPhrase = span.hasAttribute('pid') || span.classList.contains('phrase-token')
-    result.push({ word, type: isPhrase ? 2 : 1 })
+    result.push({
+      word,
+      type: isPhrase ? 2 : 1,
+      highlight: extractHighlightClass(span.className),
+    })
   })
 
   return result

@@ -15,6 +15,7 @@ from ..media import find_episode_audio_file, find_episode_video_file
 from ..models import Author, Episode, EpisodeFavorite, EpisodeSeries, Tag, User, UserEpisodeFavorite
 from ..serializers import episode_detail, episode_summary
 from ..services.episode_series import list_series_episodes, series_nav_for_episode
+from ..services.episode_word_cards import get_or_build_episode_word_cards, load_episode_for_word_cards
 
 router = APIRouter(prefix="/api", tags=["episodes"])
 
@@ -346,6 +347,27 @@ def get_episode_detail(
         limit = get_episode_limit(user) or 0
         total = limit
     return episode_detail(episode, total, series_nav=series_nav_for_episode(db, episode))
+
+
+@router.get("/episode/{video_id}/word-cards/")
+def get_episode_word_cards(
+    video_id: str,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user_optional),
+):
+    """整集词卡（带考试标签）。首次生成后写入共享缓存，后续用户直接读缓存。"""
+    episode = load_episode_for_word_cards(db, video_id)
+    if not episode:
+        raise HTTPException(status_code=404, detail="Episode not found")
+    if not can_access_episode(db, episode, user):
+        raise HTTPException(status_code=403, detail="无权访问该内容")
+
+    try:
+        return get_or_build_episode_word_cards(db, episode)
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"词卡加载失败: {e}") from e
 
 
 @router.get("/episode/{video_id}/audio/")

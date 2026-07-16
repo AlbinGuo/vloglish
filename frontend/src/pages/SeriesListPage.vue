@@ -30,13 +30,6 @@ onMounted(async () => {
   <div class="page-container py-6">
     <EnglishNavTabs class="mb-6" />
 
-    <div class="mb-5">
-      <h1 class="text-xl font-semibold tracking-tight">合集</h1>
-      <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-        按顺序学习的系列课程，一集接一集往下看。
-      </p>
-    </div>
-
     <p v-if="loading" class="py-24 text-center text-neutral-500">加载中...</p>
     <p v-else-if="error" class="py-24 text-center text-red-600">{{ error }}</p>
     <p v-else-if="!seriesList.length" class="py-24 text-center text-neutral-500">暂无合集</p>

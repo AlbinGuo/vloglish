@@ -50,7 +50,7 @@ select:disabled {
 
 .page-container {
   width: 100%;
-  max-width: 1600px;
+  max-width: 2300px;
   margin-inline: auto;
   padding-inline: 1rem;
 }
@@ -80,6 +80,8 @@ select:disabled {
   text-decoration-line: underline;
   text-underline-offset: 3px;
   text-decoration-thickness: 2px;
+  /* 避免 g/y/p 等字母处下划线被“挖空”断开 */
+  text-decoration-skip-ink: none;
 }
 
 .subtitle-english span.highlight-a {
@@ -126,19 +128,24 @@ select:disabled {
 
 .subtitle-english span.text-transparent {
   color: transparent !important;
-  text-decoration-color: rgb(0 0 0 / 0.2);
+  /* 挖空：用连续底边代替 text-decoration，避免短语/多词中间断开 */
+  text-decoration-line: none !important;
+  border-bottom: 2px solid rgb(0 0 0 / 0.22);
+  border-radius: 0;
+  padding-bottom: 0.05em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .subtitle-english--active span.text-transparent {
-  text-decoration-color: rgb(255 255 255 / 0.35);
+  border-bottom-color: rgb(255 255 255 / 0.4);
 }
 
-/* 短语 token：整段不换行（pid） */
+/* 短语 token：整段不换行（pid）；勿用 flex，否则下划线易断 */
 .subtitle-english span.phrase-token,
 .subtitle-english span[pid] {
   white-space: nowrap;
-  display: inline-flex;
-  align-items: baseline;
+  display: inline;
 }
 
 /* IPA 音标行 */
@@ -300,6 +307,7 @@ html.highlight-style-background .subtitle-english--active span.highlight-f {
 
 html.highlight-style-background .subtitle-english span.text-transparent {
   text-decoration-line: none;
+  border-bottom: none;
   background-color: rgb(0 0 0 / 0.06);
   border-radius: 0.25rem;
   padding: 0.05em 0.25em;
@@ -500,6 +508,7 @@ html.highlight-style-background .subtitle-focus-light .subtitle-english span.hig
 
 html.highlight-style-background .subtitle-focus-light .subtitle-english span.text-transparent {
   text-decoration-line: none;
+  border-bottom: none;
   background-color: rgb(0 0 0 / 0.06);
 }
 
@@ -581,7 +590,7 @@ html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-
 }
 
 .dark .subtitle-english span.text-transparent {
-  text-decoration-color: rgb(255 255 255 / 0.25);
+  border-bottom-color: rgb(255 255 255 / 0.3);
 }
 
 .dark html.highlight-style-background .subtitle-english span.text-transparent,
@@ -726,7 +735,7 @@ html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-
 }
 
 .dark .subtitle-panel .subtitle-english--active span.text-transparent {
-  text-decoration-color: rgb(0 0 0 / 0.2);
+  border-bottom-color: rgb(0 0 0 / 0.22);
 }
 
 .dark.highlight-style-background .subtitle-panel .subtitle-english span.highlight-a {
@@ -1185,4 +1194,118 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
 .video-panel:fullscreen .subtitle-word-tooltip,
 .video-panel.video-panel--fullscreen .subtitle-word-tooltip {
   z-index: 2147483646;
+}
+
+/* ── 挖空打印 ── */
+.blank-print-document {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 14mm 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .no-print,
+  body > *:not(.blank-print-document) {
+    display: none !important;
+  }
+
+  .blank-print-document {
+    display: block !important;
+    color: #111;
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 12pt;
+    line-height: 1.55;
+  }
+
+  .blank-print-header {
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .blank-print-title {
+    margin: 0;
+    font-size: 16pt;
+    font-weight: 700;
+  }
+
+  .blank-print-meta,
+  .blank-print-hint {
+    margin: 0.35rem 0 0;
+    font-size: 10pt;
+    color: #555;
+  }
+
+  .blank-print-section-title {
+    margin: 0 0 0.75rem;
+    font-size: 12pt;
+    font-weight: 700;
+  }
+
+  .blank-print-answers {
+    break-before: page;
+    page-break-before: always;
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .blank-print-list {
+    margin: 0;
+    padding-left: 1.5rem;
+  }
+
+  .blank-print-item {
+    margin-bottom: 0.85rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .blank-print-english {
+    margin: 0;
+    font-size: 12pt;
+    line-height: 1.65;
+  }
+
+  .blank-print-english--blank {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25em 0.4em;
+    align-items: baseline;
+    letter-spacing: 0.01em;
+  }
+
+  .blank-print-english--blank > span {
+    display: inline;
+  }
+
+  /* 挖空词：打印时用实线底边，避免透明字打印失败 */
+  .blank-print-document .text-transparent,
+  .blank-print-document span.highlight.text-transparent {
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    background: none !important;
+    text-decoration: none !important;
+    border-bottom: 1.5pt solid #222 !important;
+    border-radius: 0 !important;
+    padding: 0 0.08em 0.05em !important;
+    box-shadow: none !important;
+  }
+
+  .blank-print-document .blank-print-english--blank span {
+    cursor: default;
+  }
+
+  .blank-print-chinese {
+    margin: 0.2rem 0 0;
+    font-size: 10pt;
+    color: #444;
+  }
 }

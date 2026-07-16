@@ -5,6 +5,7 @@ defineProps<{
   open: boolean
   subtitleMode: SubtitleDisplayMode
   subtitleAlign: SubtitleAlign
+  contentView?: 'subtitles' | 'wordcards'
   modeButtons: { key: SubtitleDisplayMode; label: string }[]
   alignButtons: { key: SubtitleAlign; label: string }[]
 }>()
@@ -13,6 +14,7 @@ const emit = defineEmits<{
   close: []
   'update:subtitleMode': [value: SubtitleDisplayMode]
   'update:subtitleAlign': [value: SubtitleAlign]
+  selectWordCards: []
 }>()
 </script>
 
@@ -41,13 +43,25 @@ const emit = defineEmits<{
               type="button"
               class="px-3 py-2.5 rounded-xl text-sm border transition-colors"
               :class="
-                subtitleMode === m.key
+                contentView !== 'wordcards' && subtitleMode === m.key
                   ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100'
                   : 'border-black/10 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-neutral-800'
               "
               @click="emit('update:subtitleMode', m.key)"
             >
               {{ m.label }}
+            </button>
+            <button
+              type="button"
+              class="px-3 py-2.5 rounded-xl text-sm border transition-colors"
+              :class="
+                contentView === 'wordcards'
+                  ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100'
+                  : 'border-black/10 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+              "
+              @click="emit('selectWordCards')"
+            >
+              词卡
             </button>
           </div>
           <p class="text-sm font-medium mb-2">对齐</p>

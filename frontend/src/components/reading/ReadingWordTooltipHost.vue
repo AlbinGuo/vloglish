@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { EntryDetail } from '@/types'
 import { firstChineseDefinition, primaryIpa } from '@/utils/entryDisplay'
 import { READING_TTS_KEY } from '@/composables/useReadingTts'
-import { formatExamTags } from '@/utils/examTags'
+import { examTagClass, formatExamTags } from '@/utils/examTags'
 import { playWordPronunciation } from '@/utils/speakWord'
 import { resolveReadingContext, resolveReadingSegmentId } from '@/utils/readingContext'
 
@@ -244,7 +244,8 @@ onUnmounted(() => {
               <span
                 v-for="tag in examTags"
                 :key="tag.key"
-                class="text-[10px] leading-none px-1.5 py-0.5 rounded bg-white/15 text-neutral-100"
+                class="text-[10px] leading-none px-1.5 py-0.5 rounded font-medium"
+                :class="examTagClass(tag.key)"
               >
                 {{ tag.label }}
               </span>

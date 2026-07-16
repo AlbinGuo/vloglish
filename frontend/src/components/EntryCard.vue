@@ -3,7 +3,7 @@ import { computed, inject } from 'vue'
 import type { EntryDetail } from '@/types'
 import { READING_TTS_KEY } from '@/composables/useReadingTts'
 import { posLabel } from '@/utils/posLabel'
-import { formatExamTags } from '@/utils/examTags'
+import { examTagClass, formatExamTags } from '@/utils/examTags'
 import { playWordPronunciation } from '@/utils/speakWord'
 
 const props = defineProps<{
@@ -121,7 +121,8 @@ function onToggleVocabulary() {
             <span
               v-for="tag in examTags"
               :key="tag.key"
-              class="text-[10px] leading-none px-1.5 py-0.5 rounded bg-neutral-200/80 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-200"
+              class="text-[10px] leading-none px-1.5 py-0.5 rounded font-medium"
+              :class="examTagClass(tag.key)"
             >
               {{ tag.label }}
             </span>
