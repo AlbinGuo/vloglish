@@ -27,14 +27,17 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="page-container py-6">
+  <div class="mx-auto w-full max-w-[1600px] px-4 sm:px-6 py-6">
     <EnglishNavTabs class="mb-6" />
 
     <p v-if="loading" class="py-24 text-center text-neutral-500">加载中...</p>
     <p v-else-if="error" class="py-24 text-center text-red-600">{{ error }}</p>
     <p v-else-if="!seriesList.length" class="py-24 text-center text-neutral-500">暂无合集</p>
 
-    <div v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div
+      v-else
+      class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4"
+    >
       <RouterLink
         v-for="item in seriesList"
         :key="item.id"
@@ -50,7 +53,7 @@ onMounted(async () => {
             loading="lazy"
           />
         </div>
-        <div class="p-4">
+        <div class="p-3 sm:p-4">
           <h2 class="font-semibold leading-snug group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors">
             {{ item.title }}
           </h2>
