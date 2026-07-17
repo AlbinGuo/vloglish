@@ -10,6 +10,7 @@ const props = defineProps<{
   player: ReturnType<typeof usePlayerControls>
   showIpa: boolean
   videoHidden: boolean
+  subtitlesHidden?: boolean
   videoPanelRef: HTMLElement | null | undefined
   /** 移动端精简控制条 */
   compact?: boolean
@@ -23,6 +24,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:showIpa': [value: boolean]
   'update:videoHidden': [value: boolean]
+  'update:subtitlesHidden': [value: boolean]
   toggleChrome: []
 }>()
 
@@ -154,6 +156,10 @@ function toggleFullscreen() {
 
 function toggleHideVideo() {
   emit('update:videoHidden', !props.videoHidden)
+}
+
+function toggleHideSubtitles() {
+  emit('update:subtitlesHidden', !props.subtitlesHidden)
 }
 
 function toggleIpa() {
@@ -359,6 +365,28 @@ function handleMainAction() {
         <span class="text-[11px] leading-tight mt-0.5">{{ videoHidden ? '显示视频' : '隐藏视频' }}</span>
       </button>
 
+      <!-- 隐藏字幕 -->
+      <button
+        type="button"
+        class="flex flex-col items-center shrink-0 min-w-[3rem] text-xs transition-all active:scale-95 focus:outline-none cursor-pointer"
+        :title="subtitlesHidden ? '显示字幕' : '隐藏字幕'"
+        @click="toggleHideSubtitles"
+      >
+        <div
+          class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10"
+          :class="subtitlesHidden ? 'text-orange-500' : ''"
+        >
+          <svg v-if="subtitlesHidden" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h10.5m-10.5 5.25H12" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="m15 15 6 6m0-6-6 6" />
+          </svg>
+          <svg v-else class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+          </svg>
+        </div>
+        <span class="text-[11px] leading-tight mt-0.5">{{ subtitlesHidden ? '显示字幕' : '隐藏字幕' }}</span>
+      </button>
+
       <!-- 全屏 -->
       <button
         type="button"
@@ -539,6 +567,28 @@ function handleMainAction() {
             <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="toggleHideVideo(); moreOpen = false">
               <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">{{ videoHidden ? '显' : '隐' }}</div>
               <span>{{ videoHidden ? '显示视频' : '隐藏视频' }}</span>
+            </button>
+            <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="toggleHideSubtitles(); moreOpen = false">
+              <div
+                class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center"
+                :class="subtitlesHidden ? 'text-orange-500' : ''"
+              >
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path
+                    v-if="subtitlesHidden"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M3.75 6.75h16.5M3.75 12h10.5m-10.5 5.25H12m3 0 6 6m0-6-6 6"
+                  />
+                  <path
+                    v-else
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+                  />
+                </svg>
+              </div>
+              <span>{{ subtitlesHidden ? '显示字幕' : '隐藏字幕' }}</span>
             </button>
             <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="toggleFullscreen(); moreOpen = false">
               <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">⛶</div>

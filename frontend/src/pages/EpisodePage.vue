@@ -84,6 +84,22 @@ const subtitleTooltipTeleport = computed(() =>
   isVideoPanelFullscreen.value && videoPanelRef.value ? videoPanelRef.value : 'body',
 )
 const videoHidden = ref(false)
+const SUBTITLES_HIDDEN_KEY = 'teco-subtitles-hidden'
+function loadSubtitlesHidden(): boolean {
+  try {
+    return localStorage.getItem(SUBTITLES_HIDDEN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+const subtitlesHidden = ref(loadSubtitlesHidden())
+watch(subtitlesHidden, (hidden) => {
+  try {
+    localStorage.setItem(SUBTITLES_HIDDEN_KEY, hidden ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+})
 const listRef = ref<HTMLElement | null>(null)
 const showSettings = ref(false)
 const isPhone = useIsPhone()
@@ -294,7 +310,10 @@ useSwipeNavigation(dynamicFocusRef, {
 const displaySub = computed(() => resolveDisplaySub(sortedSubs.value, player.currentTime.value))
 
 const showCurrentSubtitleBar = computed(
-  () => Boolean(displaySub.value) && (!isPhone.value || isVideoPanelFullscreen.value),
+  () =>
+    !subtitlesHidden.value &&
+    Boolean(displaySub.value) &&
+    (!isPhone.value || isVideoPanelFullscreen.value),
 )
 
 const playbackTime = computed(() => player.currentTime.value)
@@ -961,14 +980,21 @@ function subtitleRowClass(index: number) {
     <div v-if="loading && !episode" class="flex-1 flex items-center justify-center text-neutral-500">加载中...</div>
     <div v-else-if="error && !episode" class="flex-1 flex items-center justify-center text-red-500">{{ error }}</div>
 
-    <div v-else-if="episode" class="flex-1 min-h-0 flex flex-col lg:flex-row max-lg:landscape:flex-row overflow-hidden">
+    <div
+      v-else-if="episode"
+      class="flex-1 min-h-0 flex flex-col lg:flex-row max-lg:landscape:flex-row overflow-hidden"
+      :class="subtitlesHidden && isPhone ? 'pb-[calc(1.25rem+env(safe-area-inset-bottom))]' : ''"
+    >
       <!-- 视频区 -->
       <aside
         ref="videoPanelRef"
-        class="video-panel shrink-0 lg:w-[46%] xl:w-[44%] min-h-0 lg:h-full flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4 max-lg:h-auto max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:shrink-0 max-lg:landscape:static max-lg:landscape:w-[42%] max-lg:landscape:shrink-0 max-lg:landscape:h-auto"
+        class="video-panel shrink-0 min-h-0 lg:h-full flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4 max-lg:h-auto max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:shrink-0 max-lg:landscape:static max-lg:landscape:h-auto"
         :class="[
           mobileVideoImmersive ? 'max-lg:!p-0 max-lg:!gap-0 max-lg:!rounded-none' : '',
           isVideoPanelFullscreen ? 'video-panel--fullscreen' : '',
+          subtitlesHidden
+            ? 'video-panel--cinema flex-1 min-w-0 max-lg:landscape:flex-1 max-lg:landscape:min-w-0 lg:justify-center'
+            : 'lg:w-[46%] xl:w-[44%] max-lg:landscape:w-[42%] max-lg:landscape:shrink-0',
         ]"
       >
         <VideoPlayer
@@ -985,15 +1011,25 @@ function subtitleRowClass(index: number) {
         />
         <PlayerControls
           v-if="!isPhone || isVideoPanelFullscreen"
-          class="shrink-0"
+          class="shrink-0 video-panel__controls"
           :player="player"
           :show-ipa="showIpa"
           :video-hidden="videoHidden"
+          :subtitles-hidden="subtitlesHidden"
           :video-panel-ref="videoPanelRef"
           :compact="isPhone"
           @update:show-ipa="showIpa = $event"
           @update:video-hidden="videoHidden = $event"
+          @update:subtitles-hidden="subtitlesHidden = $event"
         />
+        <button
+          v-if="subtitlesHidden && !isVideoPanelFullscreen"
+          type="button"
+          class="shrink-0 self-start lg:self-center text-xs px-2.5 py-1 rounded-full border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-white/80 dark:hover:bg-neutral-800 transition-colors"
+          @click="subtitlesHidden = false"
+        >
+          字幕已隐藏 · 点击显示
+        </button>
         <SubtitleWordTooltipHost
           v-if="showCurrentSubtitleBar && displaySub"
           class="min-h-0 flex flex-col"
@@ -1025,6 +1061,7 @@ function subtitleRowClass(index: number) {
 
       <!-- 字幕区 -->
       <section
+        v-show="!subtitlesHidden"
         class="subtitle-panel flex-1 min-h-0 flex overflow-hidden bg-neutral-50 dark:bg-neutral-900 border-t lg:border-t-0 border-black/5 dark:border-white/10 max-lg:min-h-0"
       >
         <div class="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden">
@@ -1243,7 +1280,7 @@ function subtitleRowClass(index: number) {
       </section>
 
       <IntensiveCoreVocabMobile
-        v-if="intensiveMode && contentView === 'subtitles'"
+        v-if="intensiveMode && contentView === 'subtitles' && !subtitlesHidden"
         :items="coreVocabItems"
         :loading="coreVocabLoading"
       />
@@ -1292,6 +1329,7 @@ function subtitleRowClass(index: number) {
             :player="player"
             :show-ipa="showIpa"
             :video-hidden="videoHidden"
+            :subtitles-hidden="subtitlesHidden"
             :video-panel-ref="videoPanelRef"
             compact
             docked
@@ -1299,6 +1337,7 @@ function subtitleRowClass(index: number) {
             :chrome-visible="mobileChromeVisible"
             @update:show-ipa="showIpa = $event"
             @update:video-hidden="videoHidden = $event"
+            @update:subtitles-hidden="subtitlesHidden = $event"
             @toggle-chrome="toggleMobileChrome"
           />
         </div>
@@ -1327,6 +1366,13 @@ function subtitleRowClass(index: number) {
             >
               字幕 / 词卡
               <span class="float-right text-neutral-400">{{ currentModeLabel }}</span>
+            </button>
+            <button
+              type="button"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              @click="closeMobileMore(); subtitlesHidden = !subtitlesHidden"
+            >
+              {{ subtitlesHidden ? '显示字幕' : '隐藏字幕' }}
             </button>
             <button
               v-if="contentView === 'subtitles' && subtitleMode === 'blank'"

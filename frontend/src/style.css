@@ -1196,6 +1196,34 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
   z-index: 2147483646;
 }
 
+/* 隐藏字幕后的观影布局：尽量放大画面，同时保留底部呼吸空间 */
+.video-panel.video-panel--cinema:not(.video-panel--fullscreen):not(:fullscreen) {
+  padding-bottom: max(1.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+.video-panel.video-panel--cinema:not(.video-panel--fullscreen):not(:fullscreen) .video-panel__player {
+  width: min(100%, 90rem);
+  max-height: min(78vh, calc(100dvh - 11rem));
+  margin-inline: auto;
+  aspect-ratio: 16 / 9;
+  height: auto;
+}
+
+.video-panel.video-panel--cinema:not(.video-panel--fullscreen):not(:fullscreen) .video-panel__controls {
+  width: min(100%, 90rem);
+  margin-inline: auto;
+}
+
+@media (max-width: 1023px) {
+  .video-panel.video-panel--cinema:not(.video-panel--fullscreen):not(:fullscreen) {
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .video-panel.video-panel--cinema:not(.video-panel--fullscreen):not(:fullscreen) .video-panel__player {
+    max-height: min(62vh, calc(100dvh - 10rem));
+  }
+}
+
 /* ── 挖空打印 ── */
 .blank-print-document {
   display: none;
