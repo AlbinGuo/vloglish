@@ -149,7 +149,12 @@ export interface AdminUserGeoStats {
   total_users: number
   known_users: number
   unknown_users: number
+  china_users?: number
+  overseas_users?: number
   by_region: { region: string; count: number }[]
+  by_country?: { name: string; map_name: string; count: number }[]
+  by_province?: { name: string; map_name: string; count: number }[]
+  by_city?: { name: string; province: string; count: number }[]
 }
 
 export type AdminUserSegmentKey =

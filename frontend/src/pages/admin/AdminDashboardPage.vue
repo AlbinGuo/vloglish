@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import UserGeoBarChart from '@/components/charts/UserGeoBarChart.vue'
 import {
   adminFetchDashboard,
@@ -104,6 +105,12 @@ const cards = [
           <h2 class="font-medium">注册用户地区 Top</h2>
           <p class="text-xs text-neutral-400 mt-1">按省份/国家统计，未知 {{ geoStats.unknown_users }} 人</p>
         </div>
+        <RouterLink
+          to="/gnadmin/geo"
+          class="text-sm text-amber-700 hover:underline shrink-0"
+        >
+          查看地图 →
+        </RouterLink>
       </div>
       <UserGeoBarChart :items="geoStats.by_region" height="240px" />
     </section>

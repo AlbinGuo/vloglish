@@ -188,11 +188,28 @@ class AdminUserGeoStatItemOut(BaseModel):
     count: int
 
 
+class AdminUserGeoNamedItemOut(BaseModel):
+    name: str
+    map_name: str = ""
+    count: int
+
+
+class AdminUserGeoCityItemOut(BaseModel):
+    name: str
+    province: str
+    count: int
+
+
 class AdminUserGeoStatsOut(BaseModel):
     total_users: int
     known_users: int
     unknown_users: int
+    china_users: int = 0
+    overseas_users: int = 0
     by_region: list[AdminUserGeoStatItemOut]
+    by_country: list[AdminUserGeoNamedItemOut] = []
+    by_province: list[AdminUserGeoNamedItemOut] = []
+    by_city: list[AdminUserGeoCityItemOut] = []
 
 
 class AdminUserSegmentOut(BaseModel):

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import UserGeoBarChart from '@/components/charts/UserGeoBarChart.vue'
 import {
   adminFetchUserGeoStats,
@@ -156,6 +157,9 @@ onMounted(async () => {
       </div>
       <div v-if="geoLoading" class="py-10 text-center text-neutral-500 text-sm">加载中...</div>
       <div v-else-if="geoStats?.by_region.length">
+        <div class="flex justify-end mb-2">
+          <RouterLink to="/gnadmin/geo" class="text-sm text-amber-700 hover:underline">查看地图 →</RouterLink>
+        </div>
         <UserGeoBarChart :items="geoStats.by_region" />
       </div>
       <p v-else class="py-8 text-center text-sm text-neutral-400">暂无地区数据</p>

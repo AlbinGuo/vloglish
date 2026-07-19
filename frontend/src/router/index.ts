@@ -46,6 +46,11 @@ const router = createRouter({
           component: () => import('@/pages/admin/AdminUsersPage.vue'),
         },
         {
+          path: 'geo',
+          name: 'AdminGeo',
+          component: () => import('@/pages/admin/AdminGeoPage.vue'),
+        },
+        {
           path: 'notifications',
           name: 'AdminNotifications',
           component: () => import('@/pages/admin/AdminNotificationsPage.vue'),

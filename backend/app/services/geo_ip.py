@@ -41,11 +41,32 @@ def _normalize_part(value: str | None) -> str | None:
 
 
 def _parse_region_string(raw: str) -> GeoLocation:
+    """解析 ip2region 定位串。
+
+    当前免费库常见格式：`国家|省份|城市|ISP|ISO`
+    旧格式偶发：`国家|区域|省份|城市|ISP`（区域常为 0）
+    """
     parts = raw.split("|")
-    country = _normalize_part(parts[0] if len(parts) > 0 else None)
-    region = _normalize_part(parts[2] if len(parts) > 2 else None)
-    city = _normalize_part(parts[3] if len(parts) > 3 else None)
-    return GeoLocation(country=country, region=region, city=city)
+
+    def part(idx: int) -> str | None:
+        return _normalize_part(parts[idx] if len(parts) > idx else None)
+
+    country = part(0)
+    mid = part(1)
+    third = part(2)
+    fourth = part(3)
+    fifth = part(4)
+
+    # 新格式：Country|Province|City|ISP|CN
+    if fifth and len(fifth) == 2 and fifth.isalpha():
+        return GeoLocation(country=country, region=mid, city=third)
+
+    # 旧格式：Country|0|Province|City|ISP
+    if mid is None and third:
+        return GeoLocation(country=country, region=third, city=fourth)
+
+    # 默认按新格式 Country|Province|City|ISP
+    return GeoLocation(country=country, region=mid, city=third)
 
 
 def ensure_ip2region_db() -> Path | None:
