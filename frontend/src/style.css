@@ -1224,8 +1224,8 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
   }
 }
 
-/* ── 挖空打印 ── */
-.blank-print-document {
+/* ── 打印（挖空 / 词卡） ── */
+.app-print-document {
   display: none;
 }
 
@@ -1241,11 +1241,11 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
   }
 
   .no-print,
-  body > *:not(.blank-print-document) {
+  body > *:not(.app-print-document) {
     display: none !important;
   }
 
-  .blank-print-document {
+  .app-print-document {
     display: block !important;
     color: #111;
     font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -1253,44 +1253,52 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
     line-height: 1.55;
   }
 
-  .blank-print-header {
+  .blank-print-header,
+  .wordcard-print-header {
     margin-bottom: 1.25rem;
     padding-bottom: 0.75rem;
     border-bottom: 1px solid #ddd;
   }
 
-  .blank-print-title {
+  .blank-print-title,
+  .wordcard-print-title {
     margin: 0;
     font-size: 16pt;
     font-weight: 700;
   }
 
   .blank-print-meta,
-  .blank-print-hint {
+  .blank-print-hint,
+  .wordcard-print-meta,
+  .wordcard-print-hint {
     margin: 0.35rem 0 0;
     font-size: 10pt;
     color: #555;
   }
 
-  .blank-print-section-title {
+  .blank-print-section-title,
+  .wordcard-print-section-title {
     margin: 0 0 0.75rem;
     font-size: 12pt;
     font-weight: 700;
   }
 
-  .blank-print-answers {
+  .blank-print-answers,
+  .wordcard-print-answers {
     break-before: page;
     page-break-before: always;
     margin-top: 0;
     padding-top: 0;
   }
 
-  .blank-print-list {
+  .blank-print-list,
+  .wordcard-print-list {
     margin: 0;
     padding-left: 1.5rem;
   }
 
-  .blank-print-item {
+  .blank-print-item,
+  .wordcard-print-item {
     margin-bottom: 0.85rem;
     break-inside: avoid;
     page-break-inside: avoid;
@@ -1335,5 +1343,64 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
     margin: 0.2rem 0 0;
     font-size: 10pt;
     color: #444;
+  }
+
+  /* 词卡打印 */
+  .wordcard-print-list {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .wordcard-print-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .wordcard-print-index {
+    flex-shrink: 0;
+    width: 1.75rem;
+    font-size: 11pt;
+    color: #666;
+    text-align: right;
+  }
+
+  .wordcard-print-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .wordcard-print-word {
+    margin: 0;
+    font-size: 13pt;
+    font-weight: 600;
+  }
+
+  .wordcard-print-ipa {
+    margin-left: 0.5em;
+    font-family: "Times New Roman", Times, serif;
+    font-weight: 400;
+    font-size: 11pt;
+    color: #555;
+  }
+
+  .wordcard-print-meaning {
+    margin: 0.25rem 0 0;
+    font-size: 11pt;
+    color: #222;
+  }
+
+  .wordcard-print-blank-line {
+    margin: 0.55rem 0 0;
+    height: 0;
+    border-bottom: 1.25pt solid #333;
+    width: 100%;
+    max-width: 28rem;
+  }
+
+  .wordcard-print-tags {
+    margin: 0.2rem 0 0;
+    font-size: 9.5pt;
+    color: #666;
   }
 }

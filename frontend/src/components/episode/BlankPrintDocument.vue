@@ -31,7 +31,7 @@ function plainChinese(sub: Subtitle) {
   <Teleport to="body">
     <div
       v-if="ready && options"
-      class="blank-print-document"
+      class="app-print-document blank-print-document"
       aria-hidden="true"
     >
       <header class="blank-print-header">

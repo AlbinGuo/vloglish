@@ -8,6 +8,8 @@ import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
 import EpisodeWordCardList from '@/components/episode/EpisodeWordCardList.vue'
 import BlankPrintDocument from '@/components/episode/BlankPrintDocument.vue'
 import BlankPrintSheet from '@/components/episode/BlankPrintSheet.vue'
+import WordCardPrintDocument from '@/components/episode/WordCardPrintDocument.vue'
+import WordCardPrintSheet from '@/components/episode/WordCardPrintSheet.vue'
 import SubtitleModeSheet from '@/components/episode/SubtitleModeSheet.vue'
 import { useIsPad, useIsPhone } from '@/composables/useBreakpoint'
 import { useMobilePlayerChrome } from '@/composables/useMobilePlayerChrome'
@@ -40,6 +42,7 @@ import {
 } from '@/composables/useEpisodeWordCards'
 import { usePlayerControls } from '@/composables/usePlayerControls'
 import type { BlankPrintOptions } from '@/utils/blankPrint'
+import type { WordCardPrintOptions } from '@/utils/wordCardPrint'
 import {
   modeIsDynamicFocus,
   modeIsChineseOnly,
@@ -65,6 +68,8 @@ const contentView = ref<'subtitles' | 'wordcards'>('subtitles')
 const showWordCards = computed(() => contentView.value === 'wordcards')
 const blankPrintSheetOpen = ref(false)
 const blankPrintOptions = ref<BlankPrintOptions | null>(null)
+const wordCardPrintSheetOpen = ref(false)
+const wordCardPrintOptions = ref<WordCardPrintOptions | null>(null)
 const subtitleAlign = ref<SubtitleAlign>('left')
 const showIpa = ref(true)
 const selectedEntry = ref<EntryDetail | null>(null)
@@ -249,17 +254,31 @@ function openBlankPrintSheet() {
   blankPrintSheetOpen.value = true
 }
 
+function openWordCardPrintSheet() {
+  wordCardPrintSheetOpen.value = true
+}
+
 async function confirmBlankPrint(options: BlankPrintOptions) {
   blankPrintSheetOpen.value = false
+  wordCardPrintOptions.value = null
   blankPrintOptions.value = options
   await nextTick()
-  // 再等一帧，确保 Teleport 打印文档已挂载
+  await nextTick()
+  window.print()
+}
+
+async function confirmWordCardPrint(options: WordCardPrintOptions) {
+  wordCardPrintSheetOpen.value = false
+  blankPrintOptions.value = null
+  wordCardPrintOptions.value = options
+  await nextTick()
   await nextTick()
   window.print()
 }
 
 function onAfterPrint() {
   blankPrintOptions.value = null
+  wordCardPrintOptions.value = null
 }
 
 async function openWordCard(item: WordCardItem) {
@@ -1115,6 +1134,15 @@ function subtitleRowClass(index: number) {
                 打印挖空
               </button>
               <button
+                v-if="contentView === 'wordcards'"
+                type="button"
+                class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-40"
+                :disabled="wordCardsLoading"
+                @click="openWordCardPrintSheet"
+              >
+                打印词卡
+              </button>
+              <button
                 v-if="!adminPreview && !showSidePanel"
                 type="button"
                 class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
@@ -1382,6 +1410,15 @@ function subtitleRowClass(index: number) {
             >
               打印挖空
             </button>
+            <button
+              v-if="contentView === 'wordcards'"
+              type="button"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40"
+              :disabled="wordCardsLoading"
+              @click="closeMobileMore(); openWordCardPrintSheet()"
+            >
+              打印词卡
+            </button>
             <template v-if="episode?.series">
               <button
                 type="button"
@@ -1490,6 +1527,27 @@ function subtitleRowClass(index: number) {
       :episode-index="episode.index"
       :subtitles="sortedSubs"
       :options="blankPrintOptions"
+    />
+    <WordCardPrintSheet
+      :open="wordCardPrintSheetOpen"
+      :disabled="wordCardsLoading || wordCardItems.length === 0"
+      :disabled-reason="
+        wordCardsLoading
+          ? '词卡加载中，请稍候再打印'
+          : wordCardItems.length === 0
+            ? '本集暂无可打印的词卡'
+            : undefined
+      "
+      @close="wordCardPrintSheetOpen = false"
+      @confirm="confirmWordCardPrint"
+    />
+    <WordCardPrintDocument
+      v-if="episode"
+      :title="episode.short_title"
+      :author-name="episode.author.name"
+      :episode-index="episode.index"
+      :items="wordCardItems"
+      :options="wordCardPrintOptions"
     />
 
     <EntryCard
