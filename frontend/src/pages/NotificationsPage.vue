@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   getNotifications,
@@ -8,6 +8,7 @@ import {
   type Notification,
 } from '@/api/notifications'
 import { useNotificationStore } from '@/stores/notifications'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
 
 const notificationStore = useNotificationStore()
 const loading = ref(true)
@@ -15,6 +16,34 @@ const error = ref('')
 const notifications = ref<Notification[]>([])
 const unreadCount = ref(0)
 const total = ref(0)
+const previewImageUrl = ref('')
+
+function openImagePreview(url: string) {
+  previewImageUrl.value = resolveMediaUrl(url)
+}
+
+function closeImagePreview() {
+  previewImageUrl.value = ''
+}
+
+function onPreviewKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') closeImagePreview()
+}
+
+watch(previewImageUrl, (url) => {
+  if (url) {
+    document.addEventListener('keydown', onPreviewKeydown)
+    document.body.style.overflow = 'hidden'
+  } else {
+    document.removeEventListener('keydown', onPreviewKeydown)
+    document.body.style.overflow = ''
+  }
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', onPreviewKeydown)
+  document.body.style.overflow = ''
+})
 
 async function load() {
   loading.value = true
@@ -127,6 +156,18 @@ onMounted(load)
           <time class="text-xs text-neutral-400 shrink-0">{{ item.created_at }}</time>
         </div>
         <p class="text-sm text-neutral-600 dark:text-neutral-300 whitespace-pre-line leading-relaxed">{{ item.body }}</p>
+        <button
+          v-if="item.image_url"
+          type="button"
+          class="mt-3 block w-full cursor-zoom-in rounded-lg bg-neutral-50 dark:bg-neutral-800 p-0 border-0"
+          @click.stop="openImagePreview(item.image_url)"
+        >
+          <img
+            :src="resolveMediaUrl(item.image_url)"
+            alt="通知配图，点击放大"
+            class="max-h-72 w-full rounded-lg object-contain"
+          />
+        </button>
         <RouterLink
           v-if="item.type === 'episode_published' && item.video_id"
           :to="`/english/episode/${item.video_id}`"
@@ -141,5 +182,31 @@ onMounted(load)
     <p v-if="!loading && total > notifications.length" class="mt-4 text-center text-xs text-neutral-400">
       共 {{ total }} 条通知
     </p>
+
+    <Teleport to="body">
+      <div
+        v-if="previewImageUrl"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-label="图片预览"
+        @click="closeImagePreview"
+      >
+        <button
+          type="button"
+          class="absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white text-2xl leading-none hover:bg-white/25"
+          aria-label="关闭"
+          @click="closeImagePreview"
+        >
+          ×
+        </button>
+        <img
+          :src="previewImageUrl"
+          alt="通知配图预览"
+          class="max-h-[90vh] max-w-[min(96vw,1200px)] object-contain rounded-lg shadow-lg"
+          @click.stop
+        />
+      </div>
+    </Teleport>
   </div>
 </template>

@@ -631,6 +631,7 @@ class NotificationOut(BaseModel):
     type: str
     title: str
     body: str
+    image_url: str = ""
     episode_id: int | None = None
     video_id: str | None = None
     is_read: bool
@@ -650,12 +651,14 @@ class UnreadCountOut(BaseModel):
 class AdminBroadcastCreateIn(BaseModel):
     title: str = Field(min_length=1, max_length=256)
     body: str = Field(min_length=1)
+    image_url: str = ""
 
 
 class AdminBroadcastOut(BaseModel):
     id: int
     title: str
     body: str
+    image_url: str = ""
     recipient_count: int
     created_by_email: str = ""
     created_at: str
@@ -664,6 +667,10 @@ class AdminBroadcastOut(BaseModel):
 class AdminBroadcastListOut(BaseModel):
     count: int
     results: list[AdminBroadcastOut]
+
+
+class AdminNotificationImageOut(BaseModel):
+    image_url: str
 
 
 class EpisodeProgressOut(BaseModel):

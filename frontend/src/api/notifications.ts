@@ -5,6 +5,7 @@ export interface Notification {
   type: string
   title: string
   body: string
+  image_url: string
   episode_id: number | null
   video_id: string | null
   is_read: boolean

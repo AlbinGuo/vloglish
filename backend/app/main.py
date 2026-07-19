@@ -183,6 +183,14 @@ def _migrate_schema():
         if "broadcast_id" not in notif_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE user_notifications ADD COLUMN broadcast_id INTEGER"))
+        if "image_url" not in notif_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE user_notifications ADD COLUMN image_url TEXT NOT NULL DEFAULT ''"))
+    if "admin_broadcasts" in insp.get_table_names():
+        bc_cols = {c["name"] for c in insp.get_columns("admin_broadcasts")}
+        if "image_url" not in bc_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE admin_broadcasts ADD COLUMN image_url TEXT NOT NULL DEFAULT ''"))
     if "user_word_lookups" in insp.get_table_names():
         lookup_cols = {c["name"] for c in insp.get_columns("user_word_lookups")}
         if "article_id" not in lookup_cols:

@@ -9,12 +9,15 @@ def broadcast_notification_to_all_users(
     admin: User,
     title: str,
     body: str,
+    image_url: str = "",
 ) -> AdminBroadcast:
     title = title.strip()
     body = body.strip()
+    image_url = (image_url or "").strip()
     broadcast = AdminBroadcast(
         title=title,
         body=body,
+        image_url=image_url,
         created_by_user_id=admin.id,
         recipient_count=0,
     )
@@ -30,6 +33,7 @@ def broadcast_notification_to_all_users(
                     type="admin_broadcast",
                     title=title,
                     body=body,
+                    image_url=image_url,
                     broadcast_id=broadcast.id,
                 )
                 for user in users

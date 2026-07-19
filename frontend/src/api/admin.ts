@@ -14,6 +14,13 @@ adminApi.interceptors.request.use((config) => {
   config.headers['X-Device-Id'] = getDeviceId()
   const token = getAdminAccessToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
+  // FormData 需由浏览器自动带 multipart boundary，不能沿用默认 application/json
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    const headers = config.headers as { delete?: (key: string) => void; set?: (key: string, value: unknown) => void }
+    if (typeof headers.delete === 'function') headers.delete('Content-Type')
+    else if (typeof headers.set === 'function') headers.set('Content-Type', false)
+    else delete (config.headers as Record<string, unknown>)['Content-Type']
+  }
   return config
 })
 
@@ -717,6 +724,7 @@ export interface AdminBroadcast {
   id: number
   title: string
   body: string
+  image_url: string
   recipient_count: number
   created_by_email: string
   created_at: string
@@ -730,7 +738,22 @@ export async function adminListBroadcasts(page = 1, pageSize = 20) {
   return data
 }
 
-export async function adminCreateBroadcast(payload: { title: string; body: string }) {
+export async function adminUploadNotificationImage(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await adminApi.post<{ image_url: string }>(
+    '/api/admin/notifications/upload-image/',
+    form,
+    { timeout: 120000 },
+  )
+  return data
+}
+
+export async function adminCreateBroadcast(payload: {
+  title: string
+  body: string
+  image_url?: string
+}) {
   const { data } = await adminApi.post<AdminBroadcast>('/api/admin/notifications/broadcasts/', payload)
   return data
 }
