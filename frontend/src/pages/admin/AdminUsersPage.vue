@@ -1,20 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
-import UserGeoBarChart from '@/components/charts/UserGeoBarChart.vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import {
-  adminFetchUserGeoStats,
   adminFetchUserSegments,
   adminListUsers,
   adminUpdateUser,
-  type AdminUserGeoStats,
   type AdminUserSegment,
   type AdminUserSegmentKey,
   type UserRow,
 } from '@/api/admin'
 
 const loading = ref(true)
-const geoLoading = ref(true)
 const segmentsLoading = ref(true)
 const savingId = ref<number | null>(null)
 const search = ref('')
@@ -23,10 +18,12 @@ const page = ref(1)
 const total = ref(0)
 const rows = ref<UserRow[]>([])
 const segments = ref<AdminUserSegment[]>([])
-const geoStats = ref<AdminUserGeoStats | null>(null)
 const error = ref('')
 
+let onlinePollTimer: ReturnType<typeof setInterval> | null = null
+
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / 20)))
+const onlineCount = computed(() => rows.value.filter((u) => u.is_online).length)
 
 const segmentHints: Record<AdminUserSegmentKey, string> = {
   active_7d: '最近 7 天内有学习记录',
@@ -42,17 +39,6 @@ const currentSegmentHint = computed(() => {
   return segmentHints[segment.value]
 })
 
-async function loadGeoStats() {
-  geoLoading.value = true
-  try {
-    geoStats.value = await adminFetchUserGeoStats()
-  } catch {
-    geoStats.value = null
-  } finally {
-    geoLoading.value = false
-  }
-}
-
 async function loadSegments() {
   segmentsLoading.value = true
   try {
@@ -64,9 +50,11 @@ async function loadSegments() {
   }
 }
 
-async function load() {
-  loading.value = true
-  error.value = ''
+async function load(opts: { silent?: boolean } = {}) {
+  if (!opts.silent) {
+    loading.value = true
+    error.value = ''
+  }
   try {
     const data = await adminListUsers({
       page: page.value,
@@ -77,10 +65,12 @@ async function load() {
     rows.value = data.results
     total.value = data.count
   } catch (e: unknown) {
-    const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-    error.value = msg || '加载失败'
+    if (!opts.silent) {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      error.value = msg || '加载失败'
+    }
   } finally {
-    loading.value = false
+    if (!opts.silent) loading.value = false
   }
 }
 
@@ -138,33 +128,17 @@ function formatSignupLocation(user: UserRow) {
 }
 
 onMounted(async () => {
-  await Promise.all([loadSegments(), loadGeoStats(), load()])
+  await Promise.all([loadSegments(), load()])
+  onlinePollTimer = setInterval(() => load({ silent: true }), 30000)
+})
+
+onUnmounted(() => {
+  if (onlinePollTimer) clearInterval(onlinePollTimer)
 })
 </script>
 
 <template>
   <div class="space-y-4">
-    <section class="rounded-xl border border-black/5 bg-white p-5 shadow-sm">
-      <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
-        <div>
-          <h2 class="font-medium">注册用户地区分布</h2>
-          <p class="text-xs text-neutral-400 mt-1">基于注册 IP 解析，历史用户登录后会补录</p>
-        </div>
-        <div v-if="geoStats" class="text-sm text-neutral-500 tabular-nums">
-          已识别 {{ geoStats.known_users }} / {{ geoStats.total_users }}，
-          未知 {{ geoStats.unknown_users }}
-        </div>
-      </div>
-      <div v-if="geoLoading" class="py-10 text-center text-neutral-500 text-sm">加载中...</div>
-      <div v-else-if="geoStats?.by_region.length">
-        <div class="flex justify-end mb-2">
-          <RouterLink to="/gnadmin/geo" class="text-sm text-amber-700 hover:underline">查看地图 →</RouterLink>
-        </div>
-        <UserGeoBarChart :items="geoStats.by_region" />
-      </div>
-      <p v-else class="py-8 text-center text-sm text-neutral-400">暂无地区数据</p>
-    </section>
-
     <div class="rounded-xl border border-black/5 bg-white p-4 space-y-3">
       <div class="flex flex-wrap gap-3">
         <input
@@ -196,7 +170,12 @@ onMounted(async () => {
           搜索
         </button>
       </div>
-      <p class="text-xs text-neutral-500">{{ currentSegmentHint }}</p>
+      <p class="text-xs text-neutral-500">
+        {{ currentSegmentHint }}
+        <span v-if="!loading && onlineCount > 0" class="ml-2 text-emerald-600">
+          · 本页在线 {{ onlineCount }} 人（近 90 秒有活动）
+        </span>
+      </p>
     </div>
 
     <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
@@ -222,8 +201,19 @@ onMounted(async () => {
         <tbody>
           <tr v-for="user in rows" :key="user.id" class="border-t border-black/5">
             <td class="px-4 py-3">
-              <div>{{ user.email }}</div>
-              <div v-if="user.is_staff" class="text-xs text-amber-600">管理员</div>
+              <div class="flex items-center gap-2 min-w-0">
+                <span
+                  class="inline-block w-2 h-2 rounded-full shrink-0"
+                  :class="user.is_online ? 'bg-emerald-500' : 'bg-neutral-200'"
+                  :title="user.is_online ? '当前在线' : '离线'"
+                  aria-hidden="true"
+                />
+                <div class="min-w-0">
+                  <div class="truncate">{{ user.email }}</div>
+                  <div v-if="user.is_staff" class="text-xs text-amber-600">管理员</div>
+                  <div v-else-if="user.is_online" class="text-xs text-emerald-600">在线</div>
+                </div>
+              </div>
             </td>
             <td class="px-4 py-3">{{ user.is_member ? '是' : '否' }}</td>
             <td class="px-4 py-3">{{ user.is_active ? '正常' : '已停用' }}</td>

@@ -15,6 +15,7 @@ from ...schemas import (
     AdminUserSegmentsOut,
     AdminUserUpdateIn,
 )
+from ...services.presence import is_user_online
 from ...services.user_geo import user_geo_stats
 from ...services.user_segments import (
     VALID_SEGMENTS,
@@ -42,6 +43,7 @@ def _user_item(user: User, stats: dict) -> AdminUserListItemOut:
         is_member=user.is_member,
         is_active=user.is_active,
         is_staff=user.is_staff,
+        is_online=is_user_online(user),
         member_activated_at=_fmt_dt(user.member_activated_at),
         created_at=_fmt_dt(user.created_at) or "",
         last_active_at=_fmt_dt(last_active if isinstance(last_active, datetime) else None),

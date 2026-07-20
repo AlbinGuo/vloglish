@@ -8,6 +8,28 @@ export const EXAM_TAG_LABELS: Record<string, string> = {
   GRE: 'GRE',
 }
 
+/** 列表展示顺序：由基础到进阶 */
+export const EXAM_TAG_DISPLAY_ORDER = [
+  'CET4',
+  'CET6',
+  'TEM4',
+  'TEM8',
+  'IELTS',
+  'TOEFL',
+  'GRE',
+] as const
+
+/** 一词多标签时归入更高阶分类（避免重复） */
+export const EXAM_TAG_PRIORITY = [
+  'GRE',
+  'TOEFL',
+  'IELTS',
+  'TEM8',
+  'TEM4',
+  'CET6',
+  'CET4',
+] as const
+
 /** 考试标签配色：浅底 + 深字（含 dark） */
 export const EXAM_TAG_CLASSES: Record<string, string> = {
   CET4: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300',
@@ -25,7 +47,6 @@ const EXAM_TAG_FALLBACK_CLASS =
 export function examTagClass(keyOrLabel: string): string {
   const key = keyOrLabel.toUpperCase().replace(/-/g, '')
   if (EXAM_TAG_CLASSES[key]) return EXAM_TAG_CLASSES[key]
-  // 也支持按中文展示名查找
   const byLabel = Object.entries(EXAM_TAG_LABELS).find(([, label]) => label === keyOrLabel)
   if (byLabel) return EXAM_TAG_CLASSES[byLabel[0]] ?? EXAM_TAG_FALLBACK_CLASS
   return EXAM_TAG_FALLBACK_CLASS
@@ -43,4 +64,16 @@ export function formatExamTags(tags: unknown): { key: string; label: string }[] 
       return { key, label: EXAM_TAG_LABELS[key] ?? tag }
     })
     .filter((item) => item.label.length > 0)
+}
+
+/** 一词多考级时取更高阶作为主分类 */
+export function primaryExamTag(
+  examTags: { key: string; label: string }[],
+): { key: string; label: string } | null {
+  if (!examTags.length) return null
+  for (const key of EXAM_TAG_PRIORITY) {
+    const found = examTags.find((tag) => tag.key === key)
+    if (found) return found
+  }
+  return examTags[0] ?? null
 }

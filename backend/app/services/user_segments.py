@@ -4,6 +4,7 @@ from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Query, Session
 
 from ..models import LearningSession, User, UserEpisodeProgress, UserWordLookup
+from .presence import ONLINE_WINDOW_SEC
 
 SEGMENT_LABELS: dict[str, str] = {
     "active_7d": "7 日活跃",
@@ -141,7 +142,18 @@ def admin_user_list_query(
     if segment and segment in VALID_SEGMENTS:
         q = _apply_segment_filter(q, segment, db)
 
-    return q.order_by(User.id.desc())
+    online_since = datetime.utcnow() - timedelta(seconds=ONLINE_WINDOW_SEC)
+    online_first = case(
+        (
+            User.is_active.is_(True)
+            & User.is_staff.is_(False)
+            & User.last_seen_at.isnot(None)
+            & (User.last_seen_at >= online_since),
+            0,
+        ),
+        else_=1,
+    )
+    return q.order_by(online_first.asc(), User.id.desc())
 
 
 def row_stats_from_user_query(row) -> dict:

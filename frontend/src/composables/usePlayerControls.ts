@@ -30,6 +30,9 @@ export interface PlayerControlOptions {
 
   onWatchTick?: (deltaSec: number) => void
 
+  /** 单句循环次数播完并暂停时回调（用于听写等） */
+  onSentenceLoopComplete?: (sub: Subtitle) => void
+
 }
 
 
@@ -46,7 +49,20 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
   const pauseAfterSentence = ref(false)
 
+  const dictationAfterLoop = ref(
+    (() => {
+      try {
+        return localStorage.getItem('teco-dictation-after-loop') === '1'
+      } catch {
+        return false
+      }
+    })(),
+  )
+
   const loopInterval = ref(0)
+
+  /** 听写「再听一遍」：播完当前句后自动暂停 */
+  let oneShotPauseSub: Subtitle | null = null
 
   const loopPointA = ref<number | null>(null)
 
@@ -390,6 +406,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
     if (sub) {
 
+      oneShotPauseSub = null
+
       seekTo(sub)
 
       void getVideo()?.play()
@@ -402,13 +420,73 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
 
+  function playSentenceOnce(sub?: Subtitle | null) {
+
+    const target = sub ?? currentSub.value
+
+    if (!target) return
+
+    clearSentenceLoopTimer()
+
+    oneShotPauseSub = target
+
+    seekTo(target)
+
+    void getVideo()?.play()
+
+    isPlaying.value = true
+
+  }
+
+
+
+  function setDictationAfterLoop(on: boolean) {
+
+    dictationAfterLoop.value = on
+
+    try {
+
+      localStorage.setItem('teco-dictation-after-loop', on ? '1' : '0')
+
+    } catch {
+
+      // ignore
+
+    }
+
+  }
+
+
+
+  function finishSentenceLoop(v: HTMLVideoElement, sub: Subtitle) {
+
+    loopMode.value = 'off'
+
+    sentenceLoopsDone.value = 0
+
+    clearSentenceLoopTimer()
+
+    oneShotPauseSub = null
+
+    v.pause()
+
+    isPlaying.value = false
+
+    if (dictationAfterLoop.value) {
+
+      opts.onSentenceLoopComplete?.(sub)
+
+    }
+
+  }
+
+
+
   function handleSentenceLoopEnd(v: HTMLVideoElement, sub: Subtitle) {
 
-    if (pauseAfterSentence.value) {
+    if (sentenceLoopCount.value > 0 && sentenceLoopsDone.value >= sentenceLoopCount.value) {
 
-      v.pause()
-
-      isPlaying.value = false
+      finishSentenceLoop(v, sub)
 
       return
 
@@ -416,11 +494,7 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
 
-    if (sentenceLoopCount.value > 0 && sentenceLoopsDone.value >= sentenceLoopCount.value) {
-
-      loopMode.value = 'off'
-
-      sentenceLoopsDone.value = 0
+    if (pauseAfterSentence.value) {
 
       v.pause()
 
@@ -486,6 +560,18 @@ export function usePlayerControls(opts: PlayerControlOptions) {
       opts.onWatchTick(Math.min(t - lastWatchTime, 2))
     }
     lastWatchTime = t
+
+    if (oneShotPauseSub && t >= oneShotPauseSub.end - 0.05) {
+
+      v.pause()
+
+      isPlaying.value = false
+
+      oneShotPauseSub = null
+
+      return
+
+    }
 
     const subs = opts.sortedSubs.value
 
@@ -718,6 +804,12 @@ export function usePlayerControls(opts: PlayerControlOptions) {
     sentenceLoopsDone,
 
     pauseAfterSentence,
+
+    dictationAfterLoop,
+
+    setDictationAfterLoop,
+
+    playSentenceOnce,
 
     loopInterval,
 

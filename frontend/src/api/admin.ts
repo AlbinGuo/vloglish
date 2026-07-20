@@ -134,6 +134,7 @@ export interface UserRow {
   is_member: boolean
   is_active: boolean
   is_staff: boolean
+  is_online?: boolean
   member_activated_at: string | null
   created_at: string
   last_active_at: string | null

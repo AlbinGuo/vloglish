@@ -172,6 +172,7 @@ class AdminUserListItemOut(BaseModel):
     is_member: bool
     is_active: bool
     is_staff: bool
+    is_online: bool = False
     member_activated_at: str | None = None
     created_at: str
     last_active_at: str | None = None

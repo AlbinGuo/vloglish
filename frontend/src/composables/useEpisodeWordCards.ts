@@ -1,7 +1,12 @@
 import { computed, ref, watch, type Ref } from 'vue'
 import { getEpisodeWordCards } from '@/api/episodes'
 import { cacheWordLookupEntry } from '@/composables/useWordLookupCache'
-import { formatExamTags } from '@/utils/examTags'
+import {
+  EXAM_TAG_DISPLAY_ORDER,
+  EXAM_TAG_LABELS,
+  formatExamTags,
+  primaryExamTag,
+} from '@/utils/examTags'
 import type { EntryDetail } from '@/types'
 
 export interface WordCardTag {
@@ -18,11 +23,20 @@ export interface WordCardItem {
   highlight: string | null
   typeLabel: string
   examTags: { key: string; label: string }[]
+  /** 分组用主考试标签 */
+  primaryExam: { key: string; label: string } | null
   tags: WordCardTag[]
   ipa: string
   meaning: string
   loading: boolean
   entry: EntryDetail | null
+}
+
+export interface WordCardExamGroup {
+  key: string
+  label: string
+  count: number
+  items: WordCardItem[]
 }
 
 /** @deprecated 保留类型兼容；词卡已改为服务端整集缓存 */
@@ -49,6 +63,39 @@ function buildTags(
     tags.push({ key: `exam-${exam.key}`, label: exam.label, kind: 'exam' })
   }
   return tags
+}
+
+function groupWordCards(items: WordCardItem[]): WordCardExamGroup[] {
+  const bucket = new Map<string, WordCardItem[]>()
+  for (const item of items) {
+    const key = item.primaryExam?.key || 'OTHER'
+    const list = bucket.get(key)
+    if (list) list.push(item)
+    else bucket.set(key, [item])
+  }
+
+  const groups: WordCardExamGroup[] = []
+  for (const key of EXAM_TAG_DISPLAY_ORDER) {
+    const list = bucket.get(key)
+    if (!list?.length) continue
+    groups.push({
+      key,
+      label: EXAM_TAG_LABELS[key] ?? key,
+      count: list.length,
+      items: list,
+    })
+    bucket.delete(key)
+  }
+  for (const [key, list] of bucket) {
+    if (!list.length) continue
+    groups.push({
+      key,
+      label: key === 'OTHER' ? '其他' : EXAM_TAG_LABELS[key] ?? key,
+      count: list.length,
+      items: list,
+    })
+  }
+  return groups
 }
 
 export function useEpisodeWordCards(videoId: Ref<string>, enabled: Ref<boolean>) {
@@ -85,6 +132,7 @@ export function useEpisodeWordCards(videoId: Ref<string>, enabled: Ref<boolean>)
           highlight: card.highlight,
           typeLabel,
           examTags,
+          primaryExam: primaryExamTag(examTags),
           tags: buildTags(typeLabel, card.highlight, examTags),
           ipa: card.ipa || '',
           meaning: card.meaning || '暂无释义',
@@ -109,6 +157,7 @@ export function useEpisodeWordCards(videoId: Ref<string>, enabled: Ref<boolean>)
   )
 
   const count = computed(() => items.value.length)
+  const groups = computed(() => groupWordCards(items.value))
 
-  return { items, loading, count, fromCache, reload }
+  return { items, groups, loading, count, fromCache, reload }
 }

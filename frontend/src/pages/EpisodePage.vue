@@ -8,6 +8,7 @@ import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
 import EpisodeWordCardList from '@/components/episode/EpisodeWordCardList.vue'
 import BlankPrintDocument from '@/components/episode/BlankPrintDocument.vue'
 import BlankPrintSheet from '@/components/episode/BlankPrintSheet.vue'
+import SentenceDictationSheet from '@/components/episode/SentenceDictationSheet.vue'
 import WordCardPrintDocument from '@/components/episode/WordCardPrintDocument.vue'
 import WordCardPrintSheet from '@/components/episode/WordCardPrintSheet.vue'
 import SubtitleModeSheet from '@/components/episode/SubtitleModeSheet.vue'
@@ -17,7 +18,7 @@ import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import { useLearningProgress } from '@/composables/useLearningProgress'
 import { consumeEpisodeAutoplay, requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
-import type { EntryDetail, EpisodeDetail, EpisodeSummary } from '@/types'
+import type { EntryDetail, EpisodeDetail, EpisodeSummary, Subtitle } from '@/types'
 import EntryCard from '@/components/EntryCard.vue'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import PlayerControls from '@/components/PlayerControls.vue'
@@ -151,7 +152,7 @@ const wordCards = useEpisodeWordCards(
   computed(() => props.videoId),
   showWordCards,
 )
-const { items: wordCardItems, loading: wordCardsLoading } = wordCards
+const { items: wordCardItems, groups: wordCardGroups, loading: wordCardsLoading } = wordCards
 
 const currentSub = computed(() => sortedSubs.value[currentIndex.value] ?? null)
 
@@ -170,7 +171,31 @@ const player = usePlayerControls({
   onWatchTick: (delta) => {
     if (!props.adminPreview && auth.isLoggedIn) learningBridge.tickWatchTime(delta)
   },
+  onSentenceLoopComplete: (sub) => {
+    openDictationFor(sub)
+  },
 })
+
+const dictationOpen = ref(false)
+const dictationSubtitle = ref<Subtitle | null>(null)
+
+function openDictationFor(sub: Subtitle) {
+  dictationSubtitle.value = sub
+  dictationOpen.value = true
+}
+
+function closeDictation() {
+  dictationOpen.value = false
+}
+
+function replayDictationSentence() {
+  if (dictationSubtitle.value) player.playSentenceOnce(dictationSubtitle.value)
+}
+
+function nextAfterDictation() {
+  dictationOpen.value = false
+  player.nextSentence()
+}
 
 /** 悬停查词时若正在播放则暂停，移开后恢复 */
 let resumePlaybackAfterWordHover = false
@@ -1170,6 +1195,7 @@ function subtitleRowClass(index: number) {
         <EpisodeWordCardList
           v-if="contentView === 'wordcards'"
           :items="wordCardItems"
+          :groups="wordCardGroups"
           :loading="wordCardsLoading"
           @select="openWordCard"
         />
@@ -1519,6 +1545,13 @@ function subtitleRowClass(index: number) {
       :open="blankPrintSheetOpen"
       @close="blankPrintSheetOpen = false"
       @confirm="confirmBlankPrint"
+    />
+    <SentenceDictationSheet
+      :open="dictationOpen"
+      :subtitle="dictationSubtitle"
+      @close="closeDictation"
+      @replay="replayDictationSentence"
+      @next="nextAfterDictation"
     />
     <BlankPrintDocument
       v-if="episode"
