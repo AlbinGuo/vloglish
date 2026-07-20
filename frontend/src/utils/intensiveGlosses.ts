@@ -15,6 +15,15 @@ export function wordFromTokenHtml(html: string): string {
   return doc.body.textContent?.trim().replace(/\s+/g, ' ') ?? ''
 }
 
+/** 管理端写入的手动中文释义 */
+export function glossFromTokenHtml(html: string): string {
+  const match = html.match(/\bdata-gloss="([^"]*)"/i)
+  if (!match) return ''
+  const ta = document.createElement('textarea')
+  ta.innerHTML = match[1]
+  return ta.value.trim()
+}
+
 export function tokenTypeFromHtml(html: string): 1 | 2 {
   return html.includes('pid=') || html.includes('phrase-token') ? 2 : 1
 }

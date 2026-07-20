@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { fetchWordLookup, type WordLookupMeta } from '@/composables/useWordLookupCache'
 import {
+  glossFromTokenHtml,
   glossKey,
   isHighlightTokenHtml,
   tokenizeForIntensive,
@@ -46,7 +47,12 @@ async function loadGlosses() {
     const word = wordFromTokenHtml(token.html)
     const key = glossKey(word)
     if (next.has(key) && !next.get(key)?.loading) continue
-    next.set(key, { ipa: '', gloss: '', loading: true })
+    const manual = glossFromTokenHtml(token.html)
+    if (manual) {
+      next.set(key, { ipa: '', gloss: manual, loading: false })
+    } else {
+      next.set(key, { ipa: '', gloss: '', loading: true })
+    }
   }
   glossMap.value = next
 
@@ -55,6 +61,12 @@ async function loadGlosses() {
       if (token.kind !== 'word') return
       const word = wordFromTokenHtml(token.html)
       const key = glossKey(word)
+      const manual = glossFromTokenHtml(token.html)
+      if (manual) {
+        glossMap.value.set(key, { ipa: '', gloss: manual, loading: false })
+        glossMap.value = new Map(glossMap.value)
+        return
+      }
       const type = tokenTypeFromHtml(token.html)
       const entry = await fetchWordLookup(word, type, props.context, props.lookupMeta ?? {})
       const current = glossMap.value.get(key)

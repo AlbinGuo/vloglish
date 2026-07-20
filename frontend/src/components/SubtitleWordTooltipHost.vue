@@ -46,9 +46,14 @@ let hoveringTooltip = false
 let hoverSessionActive = false
 
 const ipa = computed(() => (entry.value ? primaryIpa(entry.value) : ''))
-const meaningCn = computed(() => (entry.value ? firstChineseDefinition(entry.value) || '暂无释义' : ''))
+const meaningCn = computed(() => {
+  if (manualGloss.value) return manualGloss.value
+  return entry.value ? firstChineseDefinition(entry.value) || '暂无释义' : ''
+})
 const meaningEn = computed(() => (entry.value ? firstEnglishDefinition(entry.value) : ''))
-const headword = computed(() => entry.value?.headword ?? '')
+const headword = computed(() => entry.value?.headword || activeWord.value)
+const manualGloss = ref('')
+const activeWord = ref('')
 
 const teleportTarget = computed(() => props.teleportTo || 'body')
 
@@ -152,6 +157,8 @@ function hide() {
   visible.value = false
   loading.value = false
   entry.value = null
+  manualGloss.value = ''
+  activeWord.value = ''
   requestId += 1
   endHoverSession()
 }
@@ -161,8 +168,6 @@ async function showFor(span: HTMLElement) {
   activeSpan = span
   positionTooltip(span)
   visible.value = true
-  loading.value = true
-  entry.value = null
   beginHoverSession()
 
   const word = span.textContent?.trim().replace(/\s+/g, ' ') ?? ''
@@ -170,6 +175,12 @@ async function showFor(span: HTMLElement) {
     hide()
     return
   }
+
+  activeWord.value = word
+  manualGloss.value = (span.getAttribute('data-gloss') || '').trim()
+  // 有手动翻译时先展示，仍后台查词典补音标等
+  loading.value = !manualGloss.value
+  entry.value = null
 
   const isPhrase = span.hasAttribute('pid') || span.classList.contains('phrase-token')
   const type = (isPhrase ? 2 : 1) as 1 | 2
@@ -312,7 +323,7 @@ defineExpose({ hostRef })
       @mouseleave="onTooltipLeave"
     >
       <div v-if="loading" class="text-xs text-neutral-300 animate-pulse py-0.5">加载中…</div>
-      <template v-else-if="entry">
+      <template v-else-if="entry || manualGloss">
         <div class="flex items-start gap-2.5">
           <div class="min-w-0 flex-1 space-y-1">
             <div class="flex items-center gap-2 min-w-0">

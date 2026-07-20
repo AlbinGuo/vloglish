@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import DifficultyStarsInput from '@/components/admin/DifficultyStarsInput.vue'
+import SubtitleHighlightEditor from '@/components/admin/SubtitleHighlightEditor.vue'
 import {
   adminCreateEpisode,
   adminFetchMediaFromUrl,
@@ -17,6 +18,7 @@ import {
 } from '@/api/admin'
 import { accentOptions } from '@/constants/accentOptions'
 import { nationalityOptions } from '@/constants/nationalityOptions'
+import { countHighlights, parseEnglishHtmlTokens } from '@/utils/subtitleHighlightEdit'
 
 const route = useRoute()
 const router = useRouter()
@@ -61,6 +63,16 @@ const form = ref<AdminEpisodePayload>({
 
 const tagsInput = ref('')
 const seriesOptions = ref<AdminSeries[]>([])
+/** 展开高亮编辑的字幕行下标 */
+const highlightEditIndex = ref<number | null>(null)
+
+function subtitleHighlightCount(sub: AdminSubtitle): number {
+  return countHighlights(parseEnglishHtmlTokens(sub.english_html || '', sub.english || ''))
+}
+
+function toggleHighlightEdit(index: number) {
+  highlightEditIndex.value = highlightEditIndex.value === index ? null : index
+}
 
 function syncTagsFromInput() {
   form.value.tag_names = tagsInput.value
@@ -95,6 +107,9 @@ function addSubtitle() {
 function removeSubtitle(index: number) {
   form.value.subtitles.splice(index, 1)
   reindexSubtitles()
+  if (highlightEditIndex.value == null) return
+  if (highlightEditIndex.value === index) highlightEditIndex.value = null
+  else if (highlightEditIndex.value > index) highlightEditIndex.value -= 1
 }
 
 async function loadEpisode() {
@@ -660,9 +675,9 @@ watch(
           </div>
         </div>
 
-        <div class="overflow-auto max-h-[480px] border border-black/5 rounded-lg">
+        <div class="overflow-auto max-h-[640px] border border-black/5 rounded-lg">
           <table class="w-full text-sm min-w-[960px]">
-            <thead class="bg-neutral-50 text-neutral-500 sticky top-0">
+            <thead class="bg-neutral-50 text-neutral-500 sticky top-0 z-[1]">
               <tr>
                 <th class="px-2 py-2 text-left w-10">#</th>
                 <th class="px-2 py-2 text-left w-20">开始</th>
@@ -670,36 +685,59 @@ watch(
                 <th class="px-2 py-2 text-left">英文</th>
                 <th class="px-2 py-2 text-left">中文</th>
                 <th class="px-2 py-2 text-left w-48">音标 (IPA)</th>
-                <th class="px-2 py-2 w-12"></th>
+                <th class="px-2 py-2 w-16"></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(sub, i) in form.subtitles" :key="i" class="border-t border-black/5 align-top">
-                <td class="px-2 py-2 text-neutral-400">{{ i + 1 }}</td>
-                <td class="px-2 py-2">
-                  <input v-model.number="sub.start" type="number" step="0.001" class="w-full rounded border border-black/10 px-2 py-1" />
-                </td>
-                <td class="px-2 py-2">
-                  <input v-model.number="sub.end" type="number" step="0.001" class="w-full rounded border border-black/10 px-2 py-1" />
-                </td>
-                <td class="px-2 py-2">
-                  <textarea v-model="sub.english" rows="2" class="w-full rounded border border-black/10 px-2 py-1" />
-                </td>
-                <td class="px-2 py-2">
-                  <textarea v-model="sub.chinese" rows="2" class="w-full rounded border border-black/10 px-2 py-1" />
-                </td>
-                <td class="px-2 py-2">
-                  <textarea
-                    v-model="sub.ipa"
-                    rows="2"
-                    class="w-full rounded border border-black/10 px-2 py-1 font-serif text-xs"
-                    placeholder="/音标/"
-                  />
-                </td>
-                <td class="px-2 py-2">
-                  <button type="button" class="text-red-600 text-xs hover:underline" @click="removeSubtitle(i)">删</button>
-                </td>
-              </tr>
+              <template v-for="(sub, i) in form.subtitles" :key="i">
+                <tr class="border-t border-black/5 align-top">
+                  <td class="px-2 py-2 text-neutral-400">{{ i + 1 }}</td>
+                  <td class="px-2 py-2">
+                    <input v-model.number="sub.start" type="number" step="0.001" class="w-full rounded border border-black/10 px-2 py-1" />
+                  </td>
+                  <td class="px-2 py-2">
+                    <input v-model.number="sub.end" type="number" step="0.001" class="w-full rounded border border-black/10 px-2 py-1" />
+                  </td>
+                  <td class="px-2 py-2">
+                    <textarea v-model="sub.english" rows="2" class="w-full rounded border border-black/10 px-2 py-1" />
+                    <button
+                      type="button"
+                      class="mt-1 text-[11px] hover:underline"
+                      :class="
+                        highlightEditIndex === i || subtitleHighlightCount(sub)
+                          ? 'text-amber-700'
+                          : 'text-neutral-500'
+                      "
+                      @click="toggleHighlightEdit(i)"
+                    >
+                      {{ highlightEditIndex === i ? '收起高亮' : '编辑高亮' }}
+                      <span v-if="subtitleHighlightCount(sub)">({{ subtitleHighlightCount(sub) }})</span>
+                    </button>
+                  </td>
+                  <td class="px-2 py-2">
+                    <textarea v-model="sub.chinese" rows="2" class="w-full rounded border border-black/10 px-2 py-1" />
+                  </td>
+                  <td class="px-2 py-2">
+                    <textarea
+                      v-model="sub.ipa"
+                      rows="2"
+                      class="w-full rounded border border-black/10 px-2 py-1 font-serif text-xs"
+                      placeholder="/音标/"
+                    />
+                  </td>
+                  <td class="px-2 py-2">
+                    <button type="button" class="text-red-600 text-xs hover:underline" @click="removeSubtitle(i)">删</button>
+                  </td>
+                </tr>
+                <tr v-if="highlightEditIndex === i" class="bg-amber-50/20">
+                  <td colspan="7" class="px-2 pb-3 pt-0">
+                    <SubtitleHighlightEditor
+                      :english="sub.english"
+                      v-model="sub.english_html"
+                    />
+                  </td>
+                </tr>
+              </template>
               <tr v-if="!form.subtitles.length">
                 <td colspan="7" class="px-4 py-6 text-center text-neutral-400">暂无字幕，可导入 VTT/SRT 或手动添加</td>
               </tr>

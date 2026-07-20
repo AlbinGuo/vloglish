@@ -1,6 +1,7 @@
 """Parse WebVTT / SRT. SRT keeps cue boundaries; VTT may merge into sentences."""
 from __future__ import annotations
 
+import html as html_lib
 import re
 from dataclasses import dataclass
 
@@ -47,6 +48,15 @@ def strip_speaker_markers_html(html: str) -> str:
     return result.strip()
 
 
+def english_html_to_plain(html: str) -> str:
+    """Strip highlight/token spans so we can compare with plain english."""
+    if not html:
+        return ""
+    text = re.sub(r"<[^>]+>", " ", html)
+    text = html_lib.unescape(text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def normalize_subtitle_fields(
     english: str,
     chinese: str = "",
@@ -55,7 +65,11 @@ def normalize_subtitle_fields(
     english = strip_speaker_markers(strip_youtube_inline_tags(english))
     chinese = strip_speaker_markers(chinese)
     html = strip_speaker_markers_html(english_html)
-    if not html and english:
+    # 播放器渲染 english_html；若明文 english 与 html 文本不一致，按 english 重建
+    # （管理端只改 english 时，旧 html 不能继续保留）
+    if not english:
+        html = ""
+    elif not html or english_html_to_plain(html) != english:
         html = words_to_html(english)
     return english, chinese, html
 
