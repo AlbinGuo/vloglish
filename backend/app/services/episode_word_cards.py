@@ -1,16 +1,18 @@
-"""整集词卡：抽取高亮 → 查词 → 按视频缓存，跨用户共享。"""
+"""整集词卡：抽取高亮 → 查词 → Redis（主）+ DB（兜底）跨用户共享缓存。"""
 
 from __future__ import annotations
 
 import hashlib
 import json
 import logging
+import os
 import threading
 from datetime import datetime
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, load_only
 
 from ..models import Episode, EpisodeWordCardCache, Subtitle
+from ..redis_client import get_redis
 from .highlight_tokens import extract_highlight_tokens
 from .word_lookup import resolve_word_lookup
 
@@ -18,6 +20,11 @@ logger = logging.getLogger(__name__)
 
 _build_locks: dict[int, threading.Lock] = {}
 _locks_guard = threading.Lock()
+
+# Redis key：整集词卡 JSON；字幕变更时 DELETE
+_REDIS_KEY_PREFIX = "vloglish:wordcards:v1:episode:"
+# 0 = 不过期（直到 invalidate）；需要时可设 WORD_CARDS_REDIS_TTL_SECONDS
+_REDIS_TTL_SEC = int(os.getenv("WORD_CARDS_REDIS_TTL_SECONDS", "0") or "0")
 
 HIGHLIGHT_TYPE_LABELS = {
     "a": "单词",
@@ -38,12 +45,35 @@ def _lock_for(episode_id: int) -> threading.Lock:
         return lock
 
 
+def _redis_key(episode_id: int) -> str:
+    return f"{_REDIS_KEY_PREFIX}{episode_id}"
+
+
 def compute_subtitles_content_hash(subtitles: list[Subtitle]) -> str:
     parts: list[str] = []
     for sub in sorted(subtitles, key=lambda s: s.index):
         parts.append(f"{sub.id}|{sub.index}|{sub.english}|{sub.english_html}")
     raw = "\n".join(parts)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _load_subtitles_for_hash(db: Session, episode_id: int) -> list[Subtitle]:
+    """只取算 hash / 抽词所需列，避免拖入无关字段。"""
+    return (
+        db.query(Subtitle)
+        .options(
+            load_only(
+                Subtitle.id,
+                Subtitle.episode_id,
+                Subtitle.index,
+                Subtitle.english,
+                Subtitle.english_html,
+            )
+        )
+        .filter(Subtitle.episode_id == episode_id)
+        .order_by(Subtitle.index)
+        .all()
+    )
 
 
 def collect_episode_tokens(subtitles: list[Subtitle]) -> list[dict]:
@@ -106,7 +136,77 @@ def _first_meaning_cn(entry: dict) -> str:
     return (defs[0].get("definition_cn") or "").strip()
 
 
+def _parse_cards_json(raw: str | None) -> list | None:
+    try:
+        cards = json.loads(raw or "[]")
+    except json.JSONDecodeError:
+        return None
+    return cards if isinstance(cards, list) else None
+
+
+def _payload(video_id: str, cards: list, *, from_cache: bool) -> dict:
+    return {
+        "video_id": video_id,
+        "from_cache": from_cache,
+        "count": len(cards),
+        "cards": cards,
+    }
+
+
+def _redis_get_cards(episode_id: int) -> list | None:
+    client = get_redis()
+    if client is None:
+        return None
+    try:
+        raw = client.get(_redis_key(episode_id))
+        if not raw:
+            return None
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            cards = data.get("cards")
+            return cards if isinstance(cards, list) else None
+        if isinstance(data, list):
+            return data
+        return None
+    except Exception:
+        logger.warning("Redis word-cards GET failed episode_id=%s", episode_id, exc_info=True)
+        return None
+
+
+def _redis_set_cards(episode_id: int, content_hash: str, cards: list[dict]) -> None:
+    client = get_redis()
+    if client is None:
+        return
+    try:
+        blob = json.dumps(
+            {
+                "content_hash": content_hash,
+                "cards": cards,
+                "updated_at": datetime.utcnow().isoformat() + "Z",
+            },
+            ensure_ascii=False,
+        )
+        key = _redis_key(episode_id)
+        if _REDIS_TTL_SEC > 0:
+            client.setex(key, _REDIS_TTL_SEC, blob)
+        else:
+            client.set(key, blob)
+    except Exception:
+        logger.warning("Redis word-cards SET failed episode_id=%s", episode_id, exc_info=True)
+
+
+def _redis_delete(episode_id: int) -> None:
+    client = get_redis()
+    if client is None:
+        return
+    try:
+        client.delete(_redis_key(episode_id))
+    except Exception:
+        logger.warning("Redis word-cards DEL failed episode_id=%s", episode_id, exc_info=True)
+
+
 def invalidate_episode_word_cards(db: Session, episode_id: int) -> None:
+    _redis_delete(episode_id)
     db.query(EpisodeWordCardCache).filter(EpisodeWordCardCache.episode_id == episode_id).delete(
         synchronize_session=False
     )
@@ -116,7 +216,7 @@ def _load_cache_row(db: Session, episode_id: int) -> EpisodeWordCardCache | None
     return db.query(EpisodeWordCardCache).filter(EpisodeWordCardCache.episode_id == episode_id).first()
 
 
-def _save_cache(db: Session, episode_id: int, content_hash: str, cards: list[dict]) -> None:
+def _save_db_cache(db: Session, episode_id: int, content_hash: str, cards: list[dict]) -> None:
     payload = json.dumps(cards, ensure_ascii=False)
     now = datetime.utcnow()
     row = _load_cache_row(db, episode_id)
@@ -134,6 +234,12 @@ def _save_cache(db: Session, episode_id: int, content_hash: str, cards: list[dic
             )
         )
     db.commit()
+
+
+def _save_cache(db: Session, episode_id: int, content_hash: str, cards: list[dict]) -> None:
+    """同时写入 Redis（热）与 DB（冷备份）。"""
+    _redis_set_cards(episode_id, content_hash, cards)
+    _save_db_cache(db, episode_id, content_hash, cards)
 
 
 def _build_cards(db: Session, episode: Episode, tokens: list[dict]) -> list[dict]:
@@ -175,51 +281,39 @@ def _build_cards(db: Session, episode: Episode, tokens: list[dict]) -> list[dict
 def get_or_build_episode_word_cards(db: Session, episode: Episode) -> dict:
     """
     返回整集词卡。
-    若 content_hash 匹配已有缓存，直接返回；否则查词构建并写入共享缓存。
-    """
-    subtitles = list(episode.subtitles or [])
-    if not subtitles:
-        # 确保 relationship 已加载
-        subtitles = (
-            db.query(Subtitle)
-            .filter(Subtitle.episode_id == episode.id)
-            .order_by(Subtitle.index)
-            .all()
-        )
 
-    content_hash = compute_subtitles_content_hash(subtitles)
+    命中顺序：Redis → DB（并回填 Redis）→ 现查现建。
+    字幕变更经 invalidate 同时删 Redis + DB。
+    """
+    # 1) Redis 热缓存（跨 worker / 跨用户）
+    redis_cards = _redis_get_cards(episode.id)
+    if redis_cards is not None:
+        return _payload(episode.video_id, redis_cards, from_cache=True)
+
+    # 2) DB 冷备份：命中后回填 Redis
     row = _load_cache_row(db, episode.id)
-    if row and row.content_hash == content_hash:
-        try:
-            cards = json.loads(row.cards_json or "[]")
-        except json.JSONDecodeError:
-            cards = []
-        if isinstance(cards, list):
-            return {
-                "video_id": episode.video_id,
-                "from_cache": True,
-                "count": len(cards),
-                "cards": cards,
-            }
+    if row:
+        cards = _parse_cards_json(row.cards_json)
+        if cards is not None:
+            _redis_set_cards(episode.id, row.content_hash or "", cards)
+            return _payload(episode.video_id, cards, from_cache=True)
 
     lock = _lock_for(episode.id)
     with lock:
-        # 双检：等待期间可能已被其他请求写好
+        redis_cards = _redis_get_cards(episode.id)
+        if redis_cards is not None:
+            return _payload(episode.video_id, redis_cards, from_cache=True)
+
         db.expire_all()
         row = _load_cache_row(db, episode.id)
-        if row and row.content_hash == content_hash:
-            try:
-                cards = json.loads(row.cards_json or "[]")
-            except json.JSONDecodeError:
-                cards = []
-            if isinstance(cards, list):
-                return {
-                    "video_id": episode.video_id,
-                    "from_cache": True,
-                    "count": len(cards),
-                    "cards": cards,
-                }
+        if row:
+            cards = _parse_cards_json(row.cards_json)
+            if cards is not None:
+                _redis_set_cards(episode.id, row.content_hash or "", cards)
+                return _payload(episode.video_id, cards, from_cache=True)
 
+        subtitles = _load_subtitles_for_hash(db, episode.id)
+        content_hash = compute_subtitles_content_hash(subtitles)
         tokens = collect_episode_tokens(subtitles)
         logger.info(
             "Building episode word cards video_id=%s tokens=%d",
@@ -228,18 +322,13 @@ def get_or_build_episode_word_cards(db: Session, episode: Episode) -> dict:
         )
         cards = _build_cards(db, episode, tokens)
         _save_cache(db, episode.id, content_hash, cards)
-        return {
-            "video_id": episode.video_id,
-            "from_cache": False,
-            "count": len(cards),
-            "cards": cards,
-        }
+        return _payload(episode.video_id, cards, from_cache=False)
 
 
 def load_episode_for_word_cards(db: Session, video_id: str) -> Episode | None:
+    """只加载剧集本身；字幕按需在 get_or_build 里轻量查询。"""
     return (
         db.query(Episode)
-        .options(joinedload(Episode.subtitles))
         .filter(Episode.video_id == video_id, Episode.status == "published")
         .first()
     )

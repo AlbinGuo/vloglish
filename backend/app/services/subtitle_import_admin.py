@@ -7,7 +7,12 @@ from .subtitle_translate import enrich_subtitles_with_deepseek
 from .vtt_import import subtitles_have_chinese, subtitle_text_to_dicts
 
 
-def import_subtitle_text_for_admin(text: str) -> AdminVttImportOut:
+def import_subtitle_text_for_admin(
+    text: str,
+    *,
+    title: str = "",
+    summary: str = "",
+) -> AdminVttImportOut:
     stripped = text.lstrip("\ufeff").strip()
     if not stripped:
         raise HTTPException(status_code=400, detail="字幕内容为空")
@@ -23,9 +28,13 @@ def import_subtitle_text_for_admin(text: str) -> AdminVttImportOut:
     translated_count = 0
     ipa_count = 0
     try:
+        # 无论 SRT 是否已有中文，都按剧情重译为更自然的口语字幕
         translated_count, ipa_count = enrich_subtitles_with_deepseek(
             rows,
-            translate_chinese=not had_chinese,
+            translate_chinese=True,
+            overwrite_chinese=True,
+            episode_title=title or "",
+            episode_summary=summary or "",
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

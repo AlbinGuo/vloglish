@@ -444,6 +444,8 @@ def upload_fetched_media(
                     return enrich_subtitles_with_deepseek(
                         subtitles,
                         translate_chinese=not had_chinese,
+                        episode_title=display_title or "",
+                        episode_summary=display_summary or "",
                     )
                 except Exception as exc:
                     return RuntimeError(str(exc))

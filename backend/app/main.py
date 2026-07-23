@@ -83,12 +83,28 @@ async def unhandled_exception(_request: Request, exc: Exception):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    from .redis_client import REDIS_URL, redis_ping
+
+    redis_ok = redis_ping() if REDIS_URL else None
+    return {
+        "status": "ok",
+        "redis": "ok" if redis_ok else ("disabled" if not REDIS_URL else "down"),
+    }
 
 
 @app.on_event("startup")
 def startup():
+    from .redis_client import REDIS_URL, get_redis, redis_url_label
+
     print(f"[vloglish] database → {database_host_label(DATABASE_URL)}")
+    if REDIS_URL:
+        client = get_redis()
+        print(
+            f"[vloglish] redis → {redis_url_label()} "
+            f"({'ok' if client else 'unavailable, falling back to DB'})"
+        )
+    else:
+        print("[vloglish] redis → disabled (set REDIS_URL to enable word-card hot cache)")
     Base.metadata.create_all(bind=engine)
     _migrate_schema()
     db = SessionLocal()

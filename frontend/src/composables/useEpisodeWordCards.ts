@@ -102,14 +102,17 @@ export function useEpisodeWordCards(videoId: Ref<string>, enabled: Ref<boolean>)
   const items = ref<WordCardItem[]>([])
   const loading = ref(false)
   const fromCache = ref(false)
+  /** 已成功请求过的 videoId（含 0 条结果），同页切回词卡不重复打接口 */
+  const loadedVideoId = ref('')
 
-  async function reload() {
-    if (!enabled.value) return
+  async function reload(force = false) {
     const id = videoId.value?.trim()
     if (!id) {
       items.value = []
+      loadedVideoId.value = ''
       return
     }
+    if (!force && loadedVideoId.value === id) return
 
     loading.value = true
     try {
@@ -140,9 +143,11 @@ export function useEpisodeWordCards(videoId: Ref<string>, enabled: Ref<boolean>)
           entry: card.entry ?? null,
         } satisfies WordCardItem
       })
+      loadedVideoId.value = id
     } catch {
       items.value = []
       fromCache.value = false
+      loadedVideoId.value = ''
     } finally {
       loading.value = false
     }
@@ -151,7 +156,11 @@ export function useEpisodeWordCards(videoId: Ref<string>, enabled: Ref<boolean>)
   watch(
     [videoId, enabled],
     () => {
-      if (enabled.value) void reload()
+      if (!enabled.value) return
+      const vid = videoId.value?.trim()
+      if (!vid) return
+      if (loadedVideoId.value === vid) return
+      void reload()
     },
     { immediate: true },
   )

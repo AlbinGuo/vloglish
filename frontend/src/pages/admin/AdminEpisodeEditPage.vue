@@ -225,7 +225,10 @@ async function importSubtitles() {
   error.value = ''
   success.value = ''
   try {
-    const data = await adminImportVtt(subtitleImportText.value)
+    const data = await adminImportVtt(subtitleImportText.value, {
+      title: form.value.short_title,
+      summary: form.value.summary,
+    })
     form.value.subtitles = data.subtitles.map((s: AdminSubtitle) => ({ ...s }))
     if (data.stars >= 1 && data.stars <= 5) {
       form.value.stars = data.stars
@@ -234,10 +237,14 @@ async function importSubtitles() {
       form.value.voca_size = data.voca_size
     }
     const parts = [`已导入 ${data.subtitle_count} 条字幕`]
-    if (data.had_chinese) {
-      parts.push('字幕含中文，未自动翻译')
-    } else if (data.translated_count > 0) {
-      parts.push(`翻译 ${data.translated_count} 条中文`)
+    if (data.translated_count > 0) {
+      parts.push(
+        data.had_chinese
+          ? `按剧情重译 ${data.translated_count} 条中文`
+          : `翻译 ${data.translated_count} 条中文`,
+      )
+    } else if (data.had_chinese) {
+      parts.push('字幕含中文（本次未改写）')
     }
     if (data.ipa_count > 0) {
       parts.push(`生成 ${data.ipa_count} 条音标`)
@@ -651,7 +658,7 @@ watch(
 
         <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">
           <p class="text-sm text-neutral-600">
-            从 VTT / SRT 导入（粘贴内容或选择文件）。SRT 将严格按文件中的每条字幕分段，不会合并相邻英文条目。纯英文将自动翻译中文；所有字幕将自动生成美式 IPA 音标，并对有难度的单词/短语做高亮。导入后将替换当前字幕列表（耗时可能较长，请耐心等待）。
+            从 VTT / SRT 导入（粘贴内容或选择文件）。SRT 将严格按文件中的每条字幕分段，不会合并相邻英文条目。导入后会用 DeepSeek 按剧情重译中文（即使文件里已有中文也会改写成更自然的口语字幕），并生成美式 IPA 音标与难词高亮。建议先填写标题与摘要。导入后将替换当前字幕列表（耗时可能较长，请耐心等待）。
           </p>
           <textarea
             v-model="subtitleImportText"

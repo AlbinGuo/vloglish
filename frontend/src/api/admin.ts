@@ -515,7 +515,10 @@ export async function adminDeleteEpisode(id: number) {
   await adminApi.delete(`/api/admin/episodes/${id}/`)
 }
 
-export async function adminImportVtt(vttText: string) {
+export async function adminImportVtt(
+  vttText: string,
+  options?: { title?: string; summary?: string },
+) {
   const { data } = await adminApi.post<{
     subtitles: AdminSubtitle[]
     subtitle_count: number
@@ -526,7 +529,15 @@ export async function adminImportVtt(vttText: string) {
     stars: number
     voca_size: number
     highlight_count: number
-  }>('/api/admin/episodes/import-subtitles/', { vtt_text: vttText }, { timeout: 900000 })
+  }>(
+    '/api/admin/episodes/import-subtitles/',
+    {
+      vtt_text: vttText,
+      title: options?.title || '',
+      summary: options?.summary || '',
+    },
+    { timeout: 900000 },
+  )
   return data
 }
 

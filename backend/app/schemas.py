@@ -407,6 +407,8 @@ class AdminSeriesListOut(BaseModel):
 
 class AdminVttImportIn(BaseModel):
     vtt_text: str = Field(min_length=1)
+    title: str = Field(default="", description="剧集标题，帮助按剧情翻译")
+    summary: str = Field(default="", description="剧集摘要，帮助按剧情翻译")
 
 
 class AdminVttImportOut(BaseModel):

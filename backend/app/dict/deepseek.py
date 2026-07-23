@@ -261,14 +261,29 @@ TRANSLATE_SYSTEM_PROMPT = """你是专业英中字幕翻译。将用户提供的
 JSON 结构：{"translations": ["中文1", "中文2", ...]}"""
 
 
-ENRICH_SYSTEM_PROMPT = """你是英语学习字幕助手。对用户提供的每行英文字幕，输出对应的中文翻译和美式英语整句 IPA 音标。
-要求：
-1. 严格保持与输入相同的行数和顺序
-2. chinese：自然准确的中文翻译
-3. ipa：整句美式 IPA，用斜杠包裹，如 /həˈloʊ wɜːrld/
-4. 仅返回合法 JSON，不要 markdown 代码块
+ENRICH_SYSTEM_PROMPT = """你是影视/Vlog 英中字幕翻译，同时负责美式 IPA。用户每次给出一段待译字幕（lines），以及可选的剧情上下文。
 
-JSON 结构：{"items": [{"chinese": "中文", "ipa": "/音标/"}, ...]}"""
+## 上下文（只作理解，不要翻译这些字段）
+- episode.title / episode.summary：视频标题与简介
+- before：本批之前的英文字幕（剧情 continuity）
+- after：本批之后的英文字幕
+- lines：【需要处理】的条目；每项含 english（必填），以及可选的 draft_chinese（文件里已有的草稿中文，往往偏机械）
+
+## 翻译风格（chinese）
+1. 以 english 为准，按剧情与说话场景意译，像人口语对白，不要逐词机械直译
+2. 若有 draft_chinese：可参考其大致含义，但必须改写成更自然、口语、简洁的中文字幕，不要照搬草稿
+3. 语气、人称、省略主语要与前后文一致（it/that/this、口语省略等）
+4. 习语、俚语、玩笑按中文观众能懂的方式表达，可意译，勿生硬直译
+5. 字幕宜短：一句中文尽量简洁上口，避免书面腔、翻译腔（如「正在进行…」「被…所…」）
+6. 专有名词可保留英文或用通行译名；不要擅自剧透或补全原文没有的信息
+7. 不要解释、不要加括号注释、不要合并/拆分行
+
+## 音标（ipa）
+整句美式 IPA，用斜杠包裹，如 /həˈloʊ wɜːrld/
+
+仅返回合法 JSON，不要 markdown。
+JSON：{"items": [{"chinese": "中文", "ipa": "/音标/"}, ...]}
+条目数必须与 lines 完全一致。"""
 
 
 IPA_ONLY_SYSTEM_PROMPT = """你是英语语音学助手。对用户提供的每行英文字幕，输出对应的美式英语整句 IPA 音标。
@@ -375,24 +390,70 @@ def translate_lines_with_deepseek(lines: list[str]) -> list[str]:
     return [str(t) for t in translations]
 
 
+def _normalize_enrich_lines(lines: list[str] | list[dict]) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    for line in lines:
+        if isinstance(line, dict):
+            english = str(line.get("english", "")).strip()
+            draft = str(line.get("draft_chinese", "")).strip()
+            item: dict[str, str] = {"english": english}
+            if draft:
+                item["draft_chinese"] = draft
+            items.append(item)
+        else:
+            items.append({"english": str(line).strip()})
+    return items
+
+
+def _line_englishs(lines: list[str] | list[dict]) -> list[str]:
+    return [
+        str(line.get("english", "")).strip() if isinstance(line, dict) else str(line).strip()
+        for line in lines
+    ]
+
+
 def _enrich_subtitle_lines_batch(
-    lines: list[str],
+    lines: list[str] | list[dict],
     *,
     translate_chinese: bool,
+    before: list[str] | None = None,
+    after: list[str] | None = None,
+    episode_title: str = "",
+    episode_summary: str = "",
 ) -> list[dict[str, str]]:
-    user_payload = {"lines": lines}
+    if translate_chinese:
+        line_items = _normalize_enrich_lines(lines)
+        user_payload: dict = {"lines": line_items}
+        episode: dict[str, str] = {}
+        if episode_title.strip():
+            episode["title"] = episode_title.strip()
+        if episode_summary.strip():
+            episode["summary"] = episode_summary.strip()[:800]
+        if episode:
+            user_payload["episode"] = episode
+        if before:
+            user_payload["before"] = before
+        if after:
+            user_payload["after"] = after
+        line_count = len(line_items)
+    else:
+        english_lines = _line_englishs(lines)
+        user_payload = {"lines": english_lines}
+        line_count = len(english_lines)
+
     content = _chat_completion(
         system=ENRICH_SYSTEM_PROMPT if translate_chinese else IPA_ONLY_SYSTEM_PROMPT,
         user=json.dumps(user_payload, ensure_ascii=False),
         response_format={"type": "json_object"},
-        temperature=0.2,
+        # 翻译略提高温度，减少机械直译；仅 IPA 仍偏低温
+        temperature=0.35 if translate_chinese else 0.2,
         timeout=180,
     )
     raw = _extract_json(content)
     items = raw.get("items")
     if not isinstance(items, list):
         raise RuntimeError("DeepSeek 字幕增强返回格式无效")
-    if len(items) != len(lines):
+    if len(items) != line_count:
         raise RuntimeError("DeepSeek 返回条数与输入不一致")
     result: list[dict[str, str]] = []
     for item in items:
@@ -408,27 +469,49 @@ def _enrich_subtitle_lines_batch(
 
 
 def enrich_subtitle_lines_with_deepseek(
-    lines: list[str],
+    lines: list[str] | list[dict],
     *,
     translate_chinese: bool,
+    before: list[str] | None = None,
+    after: list[str] | None = None,
+    episode_title: str = "",
+    episode_summary: str = "",
 ) -> list[dict[str, str]]:
     if not lines:
         return []
+    kwargs = dict(
+        translate_chinese=translate_chinese,
+        before=before,
+        after=after,
+        episode_title=episode_title,
+        episode_summary=episode_summary,
+    )
     if len(lines) == 1:
         try:
-            return _enrich_subtitle_lines_batch(lines, translate_chinese=translate_chinese)
+            return _enrich_subtitle_lines_batch(lines, **kwargs)
         except Exception:
             return [{"chinese": "", "ipa": ""}]
 
     try:
-        return _enrich_subtitle_lines_batch(lines, translate_chinese=translate_chinese)
+        return _enrich_subtitle_lines_batch(lines, **kwargs)
     except Exception:
         mid = len(lines) // 2
+        englishs = _line_englishs(lines)
+        left_after = englishs[mid:] + list(after or [])
+        right_before = list(before or []) + englishs[:mid]
         return enrich_subtitle_lines_with_deepseek(
             lines[:mid],
+            before=before,
+            after=left_after[:6],
+            episode_title=episode_title,
+            episode_summary=episode_summary,
             translate_chinese=translate_chinese,
         ) + enrich_subtitle_lines_with_deepseek(
             lines[mid:],
+            before=right_before[-6:],
+            after=after,
+            episode_title=episode_title,
+            episode_summary=episode_summary,
             translate_chinese=translate_chinese,
         )
 

@@ -181,7 +181,11 @@ def import_subtitles(
     body: AdminVttImportIn,
     _admin: User = Depends(get_current_admin),
 ):
-    return import_subtitle_text_for_admin(body.vtt_text)
+    return import_subtitle_text_for_admin(
+        body.vtt_text,
+        title=body.title or "",
+        summary=body.summary or "",
+    )
 
 
 @router.post("/episodes/fetch-media/", response_model=AdminFetchMediaOut)

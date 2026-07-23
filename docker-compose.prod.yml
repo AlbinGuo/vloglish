@@ -20,6 +20,21 @@ services:
       retries: 5
       start_period: 10s
 
+  redis:
+    image: ${REDIS_IMAGE:-redis:7-alpine}
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory', '256mb', '--maxmemory-policy', 'allkeys-lru']
+    volumes:
+      - redis-data:/data
+    ports:
+      - '${REDIS_PUBLISH:-127.0.0.1:6379}:6379'
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
   backend:
     image: ${BACKEND_IMAGE:?set BACKEND_IMAGE or run deploy/update.sh}
     env_file:
@@ -28,6 +43,8 @@ services:
       - backend-data:/app/backend/data
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -65,5 +82,6 @@ services:
 volumes:
   postgres-data:
   backend-data:
+  redis-data:
   caddy-data:
   caddy-config:
