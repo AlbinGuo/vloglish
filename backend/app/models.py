@@ -269,6 +269,33 @@ class UserNotification(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class UserFeedback(Base):
+    """用户意见反馈。"""
+
+    __tablename__ = "user_feedbacks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(120))
+    body: Mapped[str] = mapped_column(Text, default="")
+    image_urls_json: Mapped[str] = mapped_column(Text, default="[]")
+    # pending / reviewing / done / closed
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    admin_note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def image_urls(self) -> list[str]:
+        try:
+            raw = json.loads(self.image_urls_json or "[]")
+        except json.JSONDecodeError:
+            return []
+        if not isinstance(raw, list):
+            return []
+        return [str(u).strip() for u in raw if str(u).strip()]
+
+
 class UserEpisodeProgress(Base):
     __tablename__ = "user_episode_progress"
     __table_args__ = (UniqueConstraint("user_id", "episode_id", name="uq_user_episode_progress"),)

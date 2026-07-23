@@ -893,3 +893,33 @@ export async function adminGenerateArticleTts(ref: string | number, options: { v
   })
   return data
 }
+
+export interface AdminFeedback {
+  id: number
+  user_id: number
+  user_email: string
+  user_nickname: string
+  title: string
+  body: string
+  image_urls: string[]
+  status: string
+  admin_note: string
+  created_at: string
+  updated_at: string
+}
+
+export async function adminListFeedback(params: { page?: number; page_size?: number; status?: string } = {}) {
+  const { data } = await adminApi.get<{ count: number; results: AdminFeedback[] }>(
+    '/api/admin/feedback/',
+    { params },
+  )
+  return data
+}
+
+export async function adminUpdateFeedback(
+  id: number,
+  payload: { status?: string; admin_note?: string },
+) {
+  const { data } = await adminApi.patch<AdminFeedback>(`/api/admin/feedback/${id}/`, payload)
+  return data
+}

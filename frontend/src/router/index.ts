@@ -56,6 +56,11 @@ const router = createRouter({
           component: () => import('@/pages/admin/AdminNotificationsPage.vue'),
         },
         {
+          path: 'feedback',
+          name: 'AdminFeedback',
+          component: () => import('@/pages/admin/AdminFeedbackPage.vue'),
+        },
+        {
           path: 'learning',
           name: 'AdminLearning',
           component: () => import('@/pages/admin/AdminLearningPage.vue'),

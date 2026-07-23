@@ -1029,3 +1029,53 @@ class AdminArticleImportTextOut(BaseModel):
     segment_count: int
     word_count: int
     stars: int
+
+
+# ——— 用户反馈 ———
+
+class FeedbackImageOut(BaseModel):
+    image_url: str
+
+
+class FeedbackCreateIn(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    body: str = Field(min_length=1, max_length=4000)
+    image_urls: list[str] = Field(default_factory=list, max_length=3)
+
+
+class FeedbackOut(BaseModel):
+    id: int
+    title: str
+    body: str
+    image_urls: list[str] = []
+    status: str
+    created_at: str
+
+
+class FeedbackCreateOut(BaseModel):
+    id: int
+    message: str = "感谢反馈，我们会尽快查看"
+
+
+class AdminFeedbackOut(BaseModel):
+    id: int
+    user_id: int
+    user_email: str = ""
+    user_nickname: str = ""
+    title: str
+    body: str
+    image_urls: list[str] = []
+    status: str
+    admin_note: str = ""
+    created_at: str
+    updated_at: str = ""
+
+
+class AdminFeedbackListOut(BaseModel):
+    count: int
+    results: list[AdminFeedbackOut]
+
+
+class AdminFeedbackUpdateIn(BaseModel):
+    status: str | None = None
+    admin_note: str | None = None

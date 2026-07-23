@@ -49,6 +49,14 @@ api.interceptors.request.use((config) => {
   config.headers['X-Timestamp'] = String(Math.floor(Date.now() / 1000))
   config.headers['X-Nonce'] = randomUUID()
 
+  // FormData 需由浏览器自动带 multipart boundary，不能沿用默认 application/json
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    const headers = config.headers as { delete?: (k: string) => void; set?: (k: string, v: unknown) => void }
+    if (typeof headers.delete === 'function') headers.delete('Content-Type')
+    else if (typeof headers.set === 'function') headers.set('Content-Type', false)
+    else delete (config.headers as Record<string, unknown>)['Content-Type']
+  }
+
   const token = getAccessToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`

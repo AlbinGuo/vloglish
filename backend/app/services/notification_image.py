@@ -35,14 +35,21 @@ def _normalize_suffix(filename: str | None, data: bytes) -> str:
     return detected
 
 
-def upload_notification_image(cfg: QiniuConfig, data: bytes, filename: str | None = None) -> str:
+def upload_notification_image(
+    cfg: QiniuConfig,
+    data: bytes,
+    filename: str | None = None,
+    *,
+    folder: str = "notifications",
+) -> str:
     if not data:
         raise ValueError("图片内容为空")
     if len(data) > MAX_IMAGE_BYTES:
         raise ValueError("图片不能超过 8MB")
 
     suffix = _normalize_suffix(filename, data)
-    key = cfg.object_key("notifications", f"{uuid.uuid4().hex}{suffix}")
+    folder_name = (folder or "notifications").strip().strip("/") or "notifications"
+    key = cfg.object_key(folder_name, f"{uuid.uuid4().hex}{suffix}")
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(data)
         tmp_path = Path(tmp.name)
