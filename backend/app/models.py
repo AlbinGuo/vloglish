@@ -65,6 +65,7 @@ class Episode(Base):
     short_title: Mapped[str] = mapped_column(String(256))
     summary: Mapped[str] = mapped_column(Text, default="")
     remark: Mapped[str] = mapped_column(Text, default="")
+    vocab_summary: Mapped[str] = mapped_column(Text, default="")
     stars: Mapped[int] = mapped_column(Integer, default=3)
     voca_size: Mapped[int] = mapped_column(Integer, default=0)
     subtitle_count: Mapped[int] = mapped_column(Integer, default=0)

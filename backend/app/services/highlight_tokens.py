@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from html.parser import HTMLParser
 
-HIGHLIGHT_CLASS_RE = re.compile(r"\bhighlight-([adiclf])\b", re.I)
+HIGHLIGHT_CLASS_RE = re.compile(r"\bhighlight-([adiclfp])\b", re.I)
 
 
 class HighlightToken:

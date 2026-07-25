@@ -19,6 +19,7 @@ import {
 import { accentOptions } from '@/constants/accentOptions'
 import { nationalityOptions } from '@/constants/nationalityOptions'
 import { countHighlights, parseEnglishHtmlTokens } from '@/utils/subtitleHighlightEdit'
+import { countVocabSummaryItems, parseVocabSummary } from '@/utils/vocabSummary'
 
 const route = useRoute()
 const router = useRouter()
@@ -34,6 +35,8 @@ const error = ref('')
 const success = ref('')
 const tagSuggestions = ref<string[]>([])
 const subtitleImportText = ref('')
+/** keep = 保留文件中文不翻译；ai = DeepSeek 按剧情翻译/改写 */
+const subtitleTranslateMode = ref<'keep' | 'ai'>('keep')
 const sourceUrl = ref('')
 const mediaSlug = ref('')
 
@@ -59,12 +62,16 @@ const form = ref<AdminEpisodePayload>({
   author: { name: '', gender: 'm', nationality: '', accent: '美国' },
   tag_names: [],
   subtitles: [],
+  vocab_summary: '',
 })
 
 const tagsInput = ref('')
 const seriesOptions = ref<AdminSeries[]>([])
 /** 展开高亮编辑的字幕行下标 */
 const highlightEditIndex = ref<number | null>(null)
+
+const vocabSummaryPreview = computed(() => parseVocabSummary(form.value.vocab_summary || ''))
+const vocabSummaryCount = computed(() => countVocabSummaryItems(vocabSummaryPreview.value))
 
 function subtitleHighlightCount(sub: AdminSubtitle): number {
   return countHighlights(parseEnglishHtmlTokens(sub.english_html || '', sub.english || ''))
@@ -140,6 +147,7 @@ async function loadEpisode() {
       author: { ...data.author },
       tag_names: [...data.tag_names],
       subtitles: data.subtitles.map((s) => ({ ...s })),
+      vocab_summary: data.vocab_summary || '',
     }
     syncTagsToInput()
   } catch (e: unknown) {
@@ -205,7 +213,16 @@ async function save() {
       await router.replace('/gnadmin/episodes')
     } else if (episodeId.value) {
       await adminUpdateEpisode(episodeId.value, payload)
-      success.value = '已保存'
+      const parsed = parseVocabSummary(payload.vocab_summary || '')
+      const n = countVocabSummaryItems(parsed)
+      if ((payload.vocab_summary || '').trim() && n === 0) {
+        success.value =
+          '已保存，但汇总文本未识别到词条：请用 Tab 分隔英文与中文，或「英文 + 空格 + 中文」；分类名请单独成行'
+      } else if (n > 0) {
+        success.value = `已保存（汇总 ${n} 条 / ${parsed.length} 组）`
+      } else {
+        success.value = '已保存'
+      }
       await loadEpisode()
     }
   } catch (e: unknown) {
@@ -225,9 +242,11 @@ async function importSubtitles() {
   error.value = ''
   success.value = ''
   try {
+    const useAiTranslate = subtitleTranslateMode.value === 'ai'
     const data = await adminImportVtt(subtitleImportText.value, {
       title: form.value.short_title,
       summary: form.value.summary,
+      translateChinese: useAiTranslate,
     })
     form.value.subtitles = data.subtitles.map((s: AdminSubtitle) => ({ ...s }))
     if (data.stars >= 1 && data.stars <= 5) {
@@ -237,7 +256,9 @@ async function importSubtitles() {
       form.value.voca_size = data.voca_size
     }
     const parts = [`已导入 ${data.subtitle_count} 条字幕`]
-    if (data.translated_count > 0) {
+    if (!useAiTranslate) {
+      parts.push(data.had_chinese ? '已保留文件中文（未翻译）' : '未做中文翻译')
+    } else if (data.translated_count > 0) {
       parts.push(
         data.had_chinese
           ? `按剧情重译 ${data.translated_count} 条中文`
@@ -259,6 +280,10 @@ async function importSubtitles() {
       parts.push(`难度 ${data.stars} 星`)
     }
     success.value = parts.join('，')
+    const warnList = (data.warnings || []).filter(Boolean)
+    if (warnList.length) {
+      error.value = warnList.join('；')
+    }
     subtitleImportText.value = ''
   } catch (e: unknown) {
     const err = e as { response?: { status?: number; data?: { detail?: string | { msg?: string }[] } } }
@@ -569,7 +594,7 @@ watch(
       <section class="rounded-xl border border-black/5 bg-white p-5 space-y-4">
         <h2 class="font-medium">从 YouTube / TikTok 抓取</h2>
         <p class="text-sm text-neutral-600">
-          使用本机 yt-dlp 下载视频、封面、音频并上传七牛，回填标题、摘要、作者。不抓取字幕；字幕请在下方手动导入 SRT/VTT（会自动翻译、音标与难词高亮）。
+          使用本机 yt-dlp 下载视频、封面、音频并上传七牛，回填标题、摘要、作者。不抓取字幕；字幕请在下方手动导入 SRT/VTT（可选是否 AI 翻译，并生成音标与难词高亮）。
         </p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label class="block text-sm md:col-span-2">
@@ -658,8 +683,25 @@ watch(
 
         <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">
           <p class="text-sm text-neutral-600">
-            从 VTT / SRT 导入（粘贴内容或选择文件）。SRT 将严格按文件中的每条字幕分段，不会合并相邻英文条目。导入后会用 DeepSeek 按剧情重译中文（即使文件里已有中文也会改写成更自然的口语字幕），并生成美式 IPA 音标与难词高亮。建议先填写标题与摘要。导入后将替换当前字幕列表（耗时可能较长，请耐心等待）。
+            从 VTT / SRT 导入（粘贴内容或选择文件）。按文件原始条目导入，不合并碎句；并生成音标与重点/难点/专业词汇等高亮。中文是否翻译请在下方选择。建议先填写标题与摘要；AI 处理可能较久。
           </p>
+          <div class="flex flex-col gap-2 text-sm">
+            <span class="text-neutral-500">中文处理</span>
+            <label class="flex items-start gap-2 cursor-pointer">
+              <input v-model="subtitleTranslateMode" type="radio" value="keep" class="mt-1" />
+              <span>
+                <span class="font-medium text-neutral-800">直接使用文件内容</span>
+                <span class="block text-neutral-500 text-xs mt-0.5">保留 SRT/VTT 里的中文（或留空），不做翻译改写；仍会生成音标与难词高亮</span>
+              </span>
+            </label>
+            <label class="flex items-start gap-2 cursor-pointer">
+              <input v-model="subtitleTranslateMode" type="radio" value="ai" class="mt-1" />
+              <span>
+                <span class="font-medium text-neutral-800">AI 翻译中文</span>
+                <span class="block text-neutral-500 text-xs mt-0.5">按剧情做口语化翻译；文件里已有中文也会改写</span>
+              </span>
+            </label>
+          </div>
           <textarea
             v-model="subtitleImportText"
             rows="4"
@@ -679,6 +721,48 @@ watch(
             >
               {{ importing ? '解析/生成中...' : '解析并替换字幕' }}
             </button>
+          </div>
+        </div>
+
+        <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 class="text-sm font-medium text-neutral-800">词汇与表达汇总</h3>
+            <span class="text-xs text-neutral-400">
+              {{ vocabSummaryCount > 0 ? `已解析 ${vocabSummaryCount} 条 / ${vocabSummaryPreview.length} 组` : '用户端「汇总」Tab 展示' }}
+            </span>
+          </div>
+          <p class="text-xs text-neutral-500 leading-relaxed">
+            分类名单独成行；每条词条可写「剧中含义 / 例句 / 释义」，也可选填「难度：四级」。示例：
+            <code class="block mt-1.5 p-2 rounded bg-white border border-black/5 font-mono text-[11px] whitespace-pre-wrap text-neutral-600">医学术语
+
+CPR (cardiopulmonary resuscitation)
+剧中含义：剧中多次出现，指心肺复苏急救操作。
+例句："Who knows CPR?"（谁知道心肺复苏怎么做？）
+释义：心肺复苏</code>
+          </p>
+          <textarea
+            v-model="form.vocab_summary"
+            rows="10"
+            placeholder="粘贴汇总内容…"
+            class="w-full rounded-lg border border-black/10 px-3 py-2 text-sm font-mono"
+          />
+          <div v-if="vocabSummaryPreview.length" class="rounded-lg border border-black/5 bg-white p-3 space-y-4 max-h-80 overflow-y-auto">
+            <section v-for="(g, i) in vocabSummaryPreview" :key="`${g.title}-${i}`" class="space-y-2">
+              <p class="text-xs font-medium text-neutral-700">{{ g.title }}（{{ g.items.length }}）</p>
+              <ul class="space-y-2.5">
+                <li
+                  v-for="(it, j) in g.items"
+                  :key="`${it.en}-${j}`"
+                  class="text-xs text-neutral-600 leading-relaxed border-t border-black/[0.04] pt-2 first:border-0 first:pt-0"
+                >
+                  <p class="font-medium text-neutral-800">{{ j + 1 }}. {{ it.en }}</p>
+                  <p v-if="it.note" class="mt-0.5"><span class="text-neutral-400">剧中含义：</span>{{ it.note }}</p>
+                  <p v-if="it.example" class="mt-0.5"><span class="text-neutral-400">例句：</span>{{ it.example }}</p>
+                  <p v-if="it.zh" class="mt-0.5"><span class="text-neutral-400">释义：</span>{{ it.zh }}</p>
+                  <p v-if="it.level" class="mt-0.5"><span class="text-neutral-400">难度：</span>{{ it.level }}</p>
+                </li>
+              </ul>
+            </section>
           </div>
         </div>
 
@@ -707,6 +791,11 @@ watch(
                   </td>
                   <td class="px-2 py-2">
                     <textarea v-model="sub.english" rows="2" class="w-full rounded border border-black/10 px-2 py-1" />
+                    <div
+                      v-if="sub.english_html"
+                      class="subtitle-english mt-1.5 text-[13px] leading-relaxed text-neutral-800 flex flex-wrap gap-x-1 gap-y-0.5"
+                      v-html="sub.english_html"
+                    />
                     <button
                       type="button"
                       class="mt-1 text-[11px] hover:underline"

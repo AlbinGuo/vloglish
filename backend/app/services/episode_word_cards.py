@@ -27,11 +27,12 @@ _REDIS_KEY_PREFIX = "vloglish:wordcards:v1:episode:"
 _REDIS_TTL_SEC = int(os.getenv("WORD_CARDS_REDIS_TTL_SECONDS", "0") or "0")
 
 HIGHLIGHT_TYPE_LABELS = {
-    "a": "单词",
+    "a": "核心词汇",
     "d": "短语动词",
     "i": "惯用表达",
     "c": "固定搭配",
     "l": "长难表达",
+    "p": "专业词汇",
     "f": "话语标记",
 }
 
@@ -256,9 +257,7 @@ def _build_cards(db: Session, episode: Episode, tokens: list[dict]) -> list[dict
             continue
 
         exam_tags = entry.get("exam_tags") or []
-        if not exam_tags:
-            continue
-
+        # 凡 AI 高亮的重点词都进词卡；考试标签有则展示，无则不强制
         highlight = token.get("highlight")
         type_label = _type_label(highlight, token["type"] == 2, entry.get("category") or "")
         cards.append(

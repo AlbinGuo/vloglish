@@ -261,27 +261,40 @@ TRANSLATE_SYSTEM_PROMPT = """你是专业英中字幕翻译。将用户提供的
 JSON 结构：{"translations": ["中文1", "中文2", ...]}"""
 
 
-ENRICH_SYSTEM_PROMPT = """你是影视/Vlog 英中字幕翻译，同时负责美式 IPA。用户每次给出一段待译字幕（lines），以及可选的剧情上下文。
+SUBTITLE_BRIEF_SYSTEM_PROMPT = """你是影视/Vlog 字幕导演助理。用户提供一整段英文字幕（按时间顺序），以及可选标题/简介。
+请先通读全文，输出一份**简短剧情简报**，供后续逐句翻译使用。不要翻译字幕正文。
 
-## 上下文（只作理解，不要翻译这些字段）
-- episode.title / episode.summary：视频标题与简介
-- before：本批之前的英文字幕（剧情 continuity）
-- after：本批之后的英文字幕
-- lines：【需要处理】的条目；每项含 english（必填），以及可选的 draft_chinese（文件里已有的草稿中文，往往偏机械）
-
-## 翻译风格（chinese）
-1. 以 english 为准，按剧情与说话场景意译，像人口语对白，不要逐词机械直译
-2. 若有 draft_chinese：可参考其大致含义，但必须改写成更自然、口语、简洁的中文字幕，不要照搬草稿
-3. 语气、人称、省略主语要与前后文一致（it/that/this、口语省略等）
-4. 习语、俚语、玩笑按中文观众能懂的方式表达，可意译，勿生硬直译
-5. 字幕宜短：一句中文尽量简洁上口，避免书面腔、翻译腔（如「正在进行…」「被…所…」）
-6. 专有名词可保留英文或用通行译名；不要擅自剧透或补全原文没有的信息
-7. 不要解释、不要加括号注释、不要合并/拆分行
-
-## 音标（ipa）
-整句美式 IPA，用斜杠包裹，如 /həˈloʊ wɜːrld/
+简报应覆盖：
+1. topic：视频在讲什么（1-2 句）
+2. tone：语气风格（如轻松吐槽、真诚分享、紧张叙事、访谈等）
+3. speakers：若能判断说话人关系/人数，简述；不确定可写 unknown
+4. glossary：专有名词、反复出现的梗/称呼/产品名的建议中文译法（数组，每项 {en, zh}），没有则 []
+5. notes：翻译时要特别注意的 continuity（人称、指代、时间线），1-3 条短句
 
 仅返回合法 JSON，不要 markdown。
+JSON：{"topic":"...","tone":"...","speakers":"...","glossary":[{"en":"...","zh":"..."}],"notes":["..."]}"""
+
+
+ENRICH_SYSTEM_PROMPT = """你是资深影视/Vlog 字幕译制，同时输出美式 IPA。先理解剧情再译，拒绝翻译腔。
+
+## 输入字段
+- episode / brief：整集剧情简报（topic/tone/glossary/notes）——翻译时必须遵守
+- before / after：前后英文字幕，只作 continuity，不要翻译
+- lines：【唯一要产出】的条目；含 english，可选 draft_chinese（文件草稿，往往生硬）
+
+## 中文（chinese）硬性要求
+1. **先意译再落字**：像人口语对白，不要逐词对应；避免「正在…」「被…所…」「进行一个…」等书面/翻译腔
+2. **断句自然**：中文用逗号、句号、省略号自然呼吸；英文行若是半截话，中文也可半截承接上文，不要硬凑完整书面句
+3. **前后连贯**：人称/指代（I/you/it/that）与 brief、before/after 一致；语气贴合 tone
+4. **glossary 优先**：brief.glossary 里的专名/梗按给定译法
+5. **draft_chinese**：可参考意思，必须改写得更口语、更短；禁止照搬
+6. **字幕宜短**：信息密度够就行，删虚词；玩笑/俚语用中文观众能懂的说法
+7. 不要解释、括号注释、emoji；不要合并/拆分 lines 条数
+
+## 音标（ipa）
+整句美式 IPA，斜杠包裹，如 /həˈloʊ wɜːrld/
+
+仅返回合法 JSON。
 JSON：{"items": [{"chinese": "中文", "ipa": "/音标/"}, ...]}
 条目数必须与 lines 完全一致。"""
 
@@ -339,22 +352,31 @@ EPISODE_METRICS_SYSTEM_PROMPT = """你是英语教学数据分析助手。根据
 JSON 结构：{"stars": 3, "voca_size": 42}"""
 
 
-SUBTITLE_ANNOTATE_SYSTEM_PROMPT = """你是英语学习字幕标注助手。对每行英文字幕分词并标注有学习价值的 token。
-要求：
+SUBTITLE_ANNOTATE_SYSTEM_PROMPT = """你是英语学习字幕标注助手。通读每行英文字幕，标出学习者应掌握的重点、难点。
+
+## 输入
+- lines：待标注英文行（顺序不可乱）
+- brief（可选）：整集剧情简报（topic/tone/glossary），用于识别领域专业词
+
+## 硬性要求
 1. 严格保持与输入相同的行数和顺序
 2. tokens 按顺序拼接后应还原为原句（标点附着在对应 token 上，如 "failure."）
 3. phrase=true 表示多词短语；phrase=false 表示单词
-4. highlight 仅对有学习难度的词/短语设置，简单功能词必须为 null
-5. highlight 类型：
-   - "a"：核心词汇（中高级单词）
-   - "d"：短语动词、动词搭配
+4. 简单功能词（a/the/is/are/to/of/and/I/you 等）highlight 必须为 null
+5. 对有学习价值的表达务必标注，不要过于吝啬；但不要整句全亮
+6. highlight 类型（只能用下列字母或 null）：
+   - "a"：重点/难点单词（中高级词汇、抽象词、易混淆词）
+   - "d"：短语动词、动词搭配（look for / end up / get over）
    - "i"：习语、惯用表达
-   - "c"：固定搭配、介词短语
-   - "l"：较难的从句片段或多词表达
-6. 仅返回合法 JSON，不要 markdown 代码块
+   - "c"：固定搭配、介词短语（in terms of / on the other hand）
+   - "l"：长难表达——较长从句片段或多词复杂结构（phrase=true，勿整句塞一个 token 除非本身很短）
+   - "p"：专业/领域词汇（金融、科技、医学、法律、职场术语等；可结合 brief.topic）
+   - "f"：话语标记（well / you know / I mean 等，仅在有教学价值时标）
+7. 多词结构优先合并为一个 phrase token，再设 highlight
+8. 仅返回合法 JSON，不要 markdown
 
-JSON 结构：
-{"items": [{"tokens": [{"text": "You", "phrase": false, "highlight": null}, {"text": "look for", "phrase": true, "highlight": "d"}]}, ...]}"""
+JSON：
+{"items": [{"tokens": [{"text": "You", "phrase": false, "highlight": null}, {"text": "look for", "phrase": true, "highlight": "d"}, {"text": "liquidity", "phrase": false, "highlight": "p"}]}, ...]}"""
 
 
 METADATA_LOCALIZE_PROMPT = """你是视频内容本地化助手。用户提供已从社交平台抓取并去除 #话题 和 @用户 后的视频标题与简介（可能为英文或其他语言）。
@@ -390,6 +412,73 @@ def translate_lines_with_deepseek(lines: list[str]) -> list[str]:
     return [str(t) for t in translations]
 
 
+def _sample_lines_for_brief(lines: list[str], *, max_lines: int = 120) -> list[str]:
+    """过长字幕抽样，保证 brief 仍覆盖开头/中段/结尾。"""
+    cleaned = [ln.strip() for ln in lines if ln and ln.strip()]
+    if len(cleaned) <= max_lines:
+        return cleaned
+    head = max_lines // 3
+    tail = max_lines // 3
+    mid_count = max_lines - head - tail
+    mid_start = max(head, (len(cleaned) - mid_count) // 2)
+    mid = cleaned[mid_start : mid_start + mid_count]
+    return cleaned[:head] + mid + cleaned[-tail:]
+
+
+def build_subtitle_translation_brief(
+    lines: list[str],
+    *,
+    episode_title: str = "",
+    episode_summary: str = "",
+) -> dict:
+    """通读字幕后生成剧情简报，供分批翻译复用。失败时返回空 dict。"""
+    sampled = _sample_lines_for_brief(lines)
+    if not sampled:
+        return {}
+    user_payload: dict = {"lines": sampled}
+    episode: dict[str, str] = {}
+    if episode_title.strip():
+        episode["title"] = episode_title.strip()
+    if episode_summary.strip():
+        episode["summary"] = episode_summary.strip()[:800]
+    if episode:
+        user_payload["episode"] = episode
+    try:
+        content = _chat_completion(
+            system=SUBTITLE_BRIEF_SYSTEM_PROMPT,
+            user=json.dumps(user_payload, ensure_ascii=False),
+            response_format={"type": "json_object"},
+            temperature=0.3,
+            timeout=180,
+        )
+        raw = _extract_json(content)
+        if not isinstance(raw, dict):
+            return {}
+        brief: dict = {
+            "topic": str(raw.get("topic", "")).strip()[:400],
+            "tone": str(raw.get("tone", "")).strip()[:200],
+            "speakers": str(raw.get("speakers", "")).strip()[:200],
+        }
+        glossary = raw.get("glossary")
+        if isinstance(glossary, list):
+            items = []
+            for g in glossary[:20]:
+                if not isinstance(g, dict):
+                    continue
+                en = str(g.get("en", "")).strip()
+                zh = str(g.get("zh", "")).strip()
+                if en and zh:
+                    items.append({"en": en[:80], "zh": zh[:80]})
+            if items:
+                brief["glossary"] = items
+        notes = raw.get("notes")
+        if isinstance(notes, list):
+            brief["notes"] = [str(n).strip()[:200] for n in notes if str(n).strip()][:6]
+        return {k: v for k, v in brief.items() if v}
+    except Exception:
+        return {}
+
+
 def _normalize_enrich_lines(lines: list[str] | list[dict]) -> list[dict[str, str]]:
     items: list[dict[str, str]] = []
     for line in lines:
@@ -420,6 +509,7 @@ def _enrich_subtitle_lines_batch(
     after: list[str] | None = None,
     episode_title: str = "",
     episode_summary: str = "",
+    translation_brief: dict | None = None,
 ) -> list[dict[str, str]]:
     if translate_chinese:
         line_items = _normalize_enrich_lines(lines)
@@ -431,6 +521,8 @@ def _enrich_subtitle_lines_batch(
             episode["summary"] = episode_summary.strip()[:800]
         if episode:
             user_payload["episode"] = episode
+        if translation_brief:
+            user_payload["brief"] = translation_brief
         if before:
             user_payload["before"] = before
         if after:
@@ -446,7 +538,7 @@ def _enrich_subtitle_lines_batch(
         user=json.dumps(user_payload, ensure_ascii=False),
         response_format={"type": "json_object"},
         # 翻译略提高温度，减少机械直译；仅 IPA 仍偏低温
-        temperature=0.35 if translate_chinese else 0.2,
+        temperature=0.45 if translate_chinese else 0.2,
         timeout=180,
     )
     raw = _extract_json(content)
@@ -476,6 +568,7 @@ def enrich_subtitle_lines_with_deepseek(
     after: list[str] | None = None,
     episode_title: str = "",
     episode_summary: str = "",
+    translation_brief: dict | None = None,
 ) -> list[dict[str, str]]:
     if not lines:
         return []
@@ -485,6 +578,7 @@ def enrich_subtitle_lines_with_deepseek(
         after=after,
         episode_title=episode_title,
         episode_summary=episode_summary,
+        translation_brief=translation_brief,
     )
     if len(lines) == 1:
         try:
@@ -502,17 +596,19 @@ def enrich_subtitle_lines_with_deepseek(
         return enrich_subtitle_lines_with_deepseek(
             lines[:mid],
             before=before,
-            after=left_after[:6],
+            after=left_after[:8],
             episode_title=episode_title,
             episode_summary=episode_summary,
             translate_chinese=translate_chinese,
+            translation_brief=translation_brief,
         ) + enrich_subtitle_lines_with_deepseek(
             lines[mid:],
-            before=right_before[-6:],
+            before=right_before[-8:],
             after=after,
             episode_title=episode_title,
             episode_summary=episode_summary,
             translate_chinese=translate_chinese,
+            translation_brief=translation_brief,
         )
 
 
@@ -572,13 +668,19 @@ def analyze_episode_metrics_with_deepseek(
     }
 
 
-def _annotate_subtitle_lines_batch(lines: list[str]) -> list[dict]:
-    user_payload = {"lines": lines}
+def _annotate_subtitle_lines_batch(
+    lines: list[str],
+    *,
+    translation_brief: dict | None = None,
+) -> list[dict]:
+    user_payload: dict = {"lines": lines}
+    if translation_brief:
+        user_payload["brief"] = translation_brief
     content = _chat_completion(
         system=SUBTITLE_ANNOTATE_SYSTEM_PROMPT,
         user=json.dumps(user_payload, ensure_ascii=False),
         response_format={"type": "json_object"},
-        temperature=0.2,
+        temperature=0.25,
         timeout=240,
     )
     raw = _extract_json(content)
@@ -598,21 +700,26 @@ def _annotate_subtitle_lines_batch(lines: list[str]) -> list[dict]:
     return result
 
 
-def annotate_subtitle_lines_with_deepseek(lines: list[str]) -> list[dict]:
+def annotate_subtitle_lines_with_deepseek(
+    lines: list[str],
+    *,
+    translation_brief: dict | None = None,
+) -> list[dict]:
     if not lines:
         return []
-    if len(lines) == 1:
-        try:
-            return _annotate_subtitle_lines_batch(lines)
-        except Exception:
-            return [{"tokens": []}]
-
     try:
-        return _annotate_subtitle_lines_batch(lines)
+        return _annotate_subtitle_lines_batch(lines, translation_brief=translation_brief)
     except Exception:
+        # 单行失败直接抛出，交给上层回退；多行则拆半重试
+        if len(lines) == 1:
+            raise
         mid = len(lines) // 2
-        return annotate_subtitle_lines_with_deepseek(lines[:mid]) + annotate_subtitle_lines_with_deepseek(
-            lines[mid:]
+        return annotate_subtitle_lines_with_deepseek(
+            lines[:mid],
+            translation_brief=translation_brief,
+        ) + annotate_subtitle_lines_with_deepseek(
+            lines[mid:],
+            translation_brief=translation_brief,
         )
 
 

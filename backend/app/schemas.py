@@ -258,6 +258,7 @@ class AdminEpisodeCreateIn(BaseModel):
     short_title: str = Field(min_length=1, max_length=256)
     summary: str = ""
     remark: str = ""
+    vocab_summary: str = ""
     stars: int = Field(default=3, ge=1, le=5)
     voca_size: int = Field(default=0, ge=0)
     cover: str = ""
@@ -281,6 +282,7 @@ class AdminEpisodeUpdateIn(BaseModel):
     short_title: str | None = Field(default=None, min_length=1, max_length=256)
     summary: str | None = None
     remark: str | None = None
+    vocab_summary: str | None = None
     stars: int | None = Field(default=None, ge=1, le=5)
     voca_size: int | None = Field(default=None, ge=0)
     cover: str | None = None
@@ -343,6 +345,7 @@ class AdminEpisodeDetailOut(BaseModel):
     short_title: str
     summary: str
     remark: str
+    vocab_summary: str = ""
     stars: int
     voca_size: int
     subtitle_count: int
@@ -364,6 +367,19 @@ class AdminEpisodeDetailOut(BaseModel):
     tag_names: list[str]
     subtitles: list[AdminSubtitleIn]
     created_at: str
+
+
+class VocabSummaryItemOut(BaseModel):
+    en: str
+    zh: str = ""
+    note: str = ""
+    example: str = ""
+    level: str = ""
+
+
+class VocabSummaryGroupOut(BaseModel):
+    title: str
+    items: list[VocabSummaryItemOut] = []
 
 
 SERIES_STATUS_PATTERN = "^(draft|published|archived)$"
@@ -409,6 +425,10 @@ class AdminVttImportIn(BaseModel):
     vtt_text: str = Field(min_length=1)
     title: str = Field(default="", description="剧集标题，帮助按剧情翻译")
     summary: str = Field(default="", description="剧集摘要，帮助按剧情翻译")
+    translate_chinese: bool = Field(
+        default=True,
+        description="是否用 AI 翻译/改写中文；False 则保留文件内中文（或留空），不做任何翻译",
+    )
 
 
 class AdminVttImportOut(BaseModel):
@@ -421,6 +441,7 @@ class AdminVttImportOut(BaseModel):
     stars: int = 3
     voca_size: int = 0
     highlight_count: int = 0
+    warnings: list[str] = []
 
 
 class AdminFetchMediaIn(BaseModel):
@@ -591,6 +612,8 @@ class EpisodeDetailOut(BaseModel):
     media: dict
     subtitles: list[SubtitleOut]
     series: EpisodeSeriesNavOut | None = None
+    vocab_summary: list[VocabSummaryGroupOut] = []
+    vocab_summary_text: str = ""
 
 
 class EpisodeDetailResponse(BaseModel):

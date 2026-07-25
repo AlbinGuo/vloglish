@@ -1,11 +1,11 @@
 export interface HighlightToken {
   word: string
   type: 1 | 2
-  /** 字幕高亮类型：a/d/i/c/l/f */
+  /** 字幕高亮类型：a/d/i/c/l/f/p */
   highlight: string | null
 }
 
-const HIGHLIGHT_CLASS_RE = /\bhighlight-([adiclf])\b/i
+const HIGHLIGHT_CLASS_RE = /\bhighlight-([adiclfp])\b/i
 
 export function extractHighlightClass(className: string): string | null {
   const match = className.match(HIGHLIGHT_CLASS_RE)

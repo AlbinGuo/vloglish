@@ -207,7 +207,7 @@ def parse_srt(content: str) -> list[Cue]:
     return cues
 
 
-def merge_into_sentences(cues: list[Cue], *, gap_threshold: float = 0.8) -> list[Cue]:
+def merge_into_sentences(cues: list[Cue], *, gap_threshold: float = 0.55) -> list[Cue]:
     if not cues:
         return []
 

@@ -1,11 +1,12 @@
 /** 管理端字幕高亮编辑：解析 / 生成 english_html（含可选 data-gloss） */
 
 export const HIGHLIGHT_TYPE_OPTIONS = [
-  { key: 'a', label: '单词', hint: '核心词汇' },
+  { key: 'a', label: '核心词汇', hint: '重点难点单词' },
   { key: 'd', label: '短语动词', hint: '动词搭配' },
   { key: 'i', label: '惯用表达', hint: '习语' },
   { key: 'c', label: '固定搭配', hint: '介词短语等' },
   { key: 'l', label: '长难表达', hint: '从句片段' },
+  { key: 'p', label: '专业词汇', hint: '领域术语' },
   { key: 'f', label: '话语标记', hint: 'filler 等' },
 ] as const
 
@@ -19,7 +20,7 @@ export interface HighlightEditToken {
   phrase: boolean
 }
 
-const HIGHLIGHT_CLASS_RE = /\bhighlight-([adiclf])\b/i
+const HIGHLIGHT_CLASS_RE = /\bhighlight-([adiclfp])\b/i
 
 export function escapeHtmlAttr(value: string): string {
   return value

@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ..episode_visibility import published_visibility_filter
 from ..database import get_db
@@ -322,12 +322,13 @@ def get_episode_detail(
     db: Session = Depends(get_db),
     user: User | None = Depends(get_current_user_optional),
 ):
+    # collections must use selectinload: joinedload(subtitles) is ~20s on remote PG
     episode = (
         db.query(Episode)
         .options(
             joinedload(Episode.author),
-            joinedload(Episode.tags),
-            joinedload(Episode.subtitles),
+            selectinload(Episode.tags),
+            selectinload(Episode.subtitles),
             joinedload(Episode.series),
         )
         .filter(Episode.video_id == video_id, Episode.status == "published")

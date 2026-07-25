@@ -149,6 +149,8 @@ def apply_episode_fields(ep: Episode, data: dict, *, author: Author, tags: list[
         ep.summary = data.get("summary", "")
     if "remark" in data:
         ep.remark = data.get("remark", "")
+    if "vocab_summary" in data:
+        ep.vocab_summary = data.get("vocab_summary") or ""
     if "stars" in data:
         ep.stars = data.get("stars", 3)
     if "voca_size" in data:

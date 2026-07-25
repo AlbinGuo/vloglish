@@ -6,6 +6,7 @@ import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary
 import { getEpisodeList, setEpisodeFavorite } from '@/api/episodes'
 import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
 import EpisodeWordCardList from '@/components/episode/EpisodeWordCardList.vue'
+import EpisodeVocabSummaryList from '@/components/episode/EpisodeVocabSummaryList.vue'
 import BlankPrintDocument from '@/components/episode/BlankPrintDocument.vue'
 import BlankPrintSheet from '@/components/episode/BlankPrintSheet.vue'
 import SentenceDictationSheet from '@/components/episode/SentenceDictationSheet.vue'
@@ -44,6 +45,7 @@ import {
 import { usePlayerControls } from '@/composables/usePlayerControls'
 import type { BlankPrintOptions } from '@/utils/blankPrint'
 import type { WordCardPrintOptions } from '@/utils/wordCardPrint'
+import { parseVocabSummary } from '@/utils/vocabSummary'
 import {
   modeIsDynamicFocus,
   modeIsChineseOnly,
@@ -65,8 +67,52 @@ const episode = ref<EpisodeDetail | null>(null)
 const loading = ref(true)
 const error = ref('')
 const subtitleMode = ref<SubtitleDisplayMode>('both')
-const contentView = ref<'subtitles' | 'wordcards'>('subtitles')
+const contentView = ref<'subtitles' | 'wordcards' | 'summary'>('subtitles')
 const showWordCards = computed(() => contentView.value === 'wordcards')
+const vocabSummaryGroups = computed(() => {
+  const ep = episode.value
+  if (!ep) return []
+
+  const fromText = (text: string) => {
+    const parsed = parseVocabSummary(text)
+    return parsed.filter((g) => g.items.length > 0)
+  }
+
+  const text = typeof ep.vocab_summary_text === 'string' ? ep.vocab_summary_text : ''
+  if (text.trim()) {
+    const parsed = fromText(text)
+    if (parsed.length) return parsed
+  }
+
+  const raw = ep.vocab_summary
+  if (typeof raw === 'string' && raw.trim()) return fromText(raw)
+  if (Array.isArray(raw) && raw.length) {
+    return raw
+      .map((g) => ({
+        title: (g?.title || '汇总').trim() || '汇总',
+        items: (g?.items || [])
+          .map((it) => {
+            const row = it as {
+              en?: string
+              zh?: string
+              note?: string
+              example?: string
+              level?: string
+            }
+            return {
+              en: String(row.en || '').trim(),
+              zh: String(row.zh || '').trim(),
+              note: String(row.note || '').trim(),
+              example: String(row.example || '').trim(),
+              level: String(row.level || '').trim(),
+            }
+          })
+          .filter((it) => it.en),
+      }))
+      .filter((g) => g.items.length > 0)
+  }
+  return []
+})
 const blankPrintSheetOpen = ref(false)
 const blankPrintOptions = ref<BlankPrintOptions | null>(null)
 const wordCardPrintSheetOpen = ref(false)
@@ -263,6 +309,7 @@ const modeButtons: { key: SubtitleDisplayMode; label: string }[] = [
 
 const currentModeLabel = computed(() => {
   if (contentView.value === 'wordcards') return '词卡'
+  if (contentView.value === 'summary') return '汇总'
   return modeButtons.find((m) => m.key === subtitleMode.value)?.label ?? '字幕'
 })
 
@@ -273,6 +320,10 @@ function selectSubtitleMode(mode: SubtitleDisplayMode) {
 
 function openWordCardsView() {
   contentView.value = 'wordcards'
+}
+
+function openVocabSummaryView() {
+  contentView.value = 'summary'
 }
 
 function openBlankPrintSheet() {
@@ -1139,6 +1190,18 @@ function subtitleRowClass(index: number) {
           >
             词卡
           </button>
+          <button
+            type="button"
+            class="px-3 py-1 rounded-full whitespace-nowrap"
+            :class="
+              contentView === 'summary'
+                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
+                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+            "
+            @click="openVocabSummaryView"
+          >
+            汇总
+          </button>
           <div class="flex items-center gap-0.5 ml-1 pl-2 border-l border-black/10 dark:border-white/10 flex-1 min-w-0">
             <button
               v-for="a in alignButtons"
@@ -1198,6 +1261,11 @@ function subtitleRowClass(index: number) {
           :groups="wordCardGroups"
           :loading="wordCardsLoading"
           @select="openWordCard"
+        />
+
+        <EpisodeVocabSummaryList
+          v-else-if="contentView === 'summary'"
+          :groups="vocabSummaryGroups"
         />
 
         <!-- 动态模式 -->
@@ -1418,7 +1486,7 @@ function subtitleRowClass(index: number) {
               class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
               @click="openSubtitleModeFromMore"
             >
-              字幕 / 词卡
+              字幕 / 词卡 / 汇总
               <span class="float-right text-neutral-400">{{ currentModeLabel }}</span>
             </button>
             <button
@@ -1535,10 +1603,12 @@ function subtitleRowClass(index: number) {
       :content-view="contentView"
       :mode-buttons="modeButtons"
       :align-buttons="alignButtons"
+      :show-vocab-summary="true"
       @close="subtitleModeSheetOpen = false"
       @update:subtitle-mode="(m) => { selectSubtitleMode(m); subtitleModeSheetOpen = false }"
       @update:subtitle-align="subtitleAlign = $event"
       @select-word-cards="openWordCardsView(); subtitleModeSheetOpen = false"
+      @select-vocab-summary="openVocabSummaryView(); subtitleModeSheetOpen = false"
     />
 
     <BlankPrintSheet

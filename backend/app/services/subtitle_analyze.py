@@ -6,7 +6,7 @@ import re
 from ..dict.deepseek import analyze_episode_metrics_with_deepseek, annotate_subtitle_lines_with_deepseek
 from .vtt_import import words_to_html
 
-VALID_HIGHLIGHTS = frozenset({"a", "d", "i", "c", "l", "f"})
+VALID_HIGHLIGHTS = frozenset({"a", "d", "i", "c", "l", "f", "p"})
 ANNOTATE_BATCH_SIZE = 8
 
 
@@ -53,7 +53,13 @@ def tokens_to_english_html(tokens: list[dict], ids: _HighlightIdGen) -> str:
 
 
 def _token_texts(tokens: list[dict]) -> str:
-    return " ".join(str(t.get("text", "")).strip() for t in tokens if isinstance(t, dict) and str(t.get("text", "")).strip())
+    return " ".join(
+        str(t.get("text", "")).strip() for t in tokens if isinstance(t, dict) and str(t.get("text", "")).strip()
+    )
+
+
+def _alnum_key(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", (text or "").lower())
 
 
 def _tokens_usable(tokens: list[dict], english: str) -> bool:
@@ -65,7 +71,23 @@ def _tokens_usable(tokens: list[dict], english: str) -> bool:
     normalized_english = re.sub(r"\s+", " ", english.strip())
     if joined == normalized_english:
         return True
-    return joined.replace(" ", "") == normalized_english.replace(" ", "")
+    if joined.replace(" ", "") == normalized_english.replace(" ", ""):
+        return True
+    # 标点/弯引号等轻微差异时仍采用 AI token，避免丢掉高亮
+    ka, kb = _alnum_key(joined), _alnum_key(normalized_english)
+    if not ka or not kb:
+        return False
+    if ka == kb:
+        return True
+    longer = max(len(ka), len(kb))
+    shorter = min(len(ka), len(kb))
+    if longer == 0:
+        return False
+    return shorter / longer >= 0.9 and (ka in kb or kb in ka)
+
+
+def _count_token_highlights(tokens: list[dict]) -> int:
+    return sum(1 for t in tokens if isinstance(t, dict) and _normalize_highlight(t.get("highlight")))
 
 
 def analyze_subtitles_with_deepseek(
@@ -73,6 +95,7 @@ def analyze_subtitles_with_deepseek(
     *,
     clip_length: float | None = None,
     batch_size: int = ANNOTATE_BATCH_SIZE,
+    translation_brief: dict | None = None,
 ) -> dict[str, int]:
     """Fill english_html highlights; return episode stars, voca_size, highlight_count."""
     pending: list[tuple[int, str]] = []
@@ -82,7 +105,7 @@ def analyze_subtitles_with_deepseek(
             pending.append((i, english))
 
     if not pending:
-        return {"stars": 3, "voca_size": 0, "highlight_count": 0}
+        return {"stars": 3, "voca_size": 0, "highlight_count": 0, "annotate_failed": 0}
 
     english_lines = [text for _, text in pending]
     try:
@@ -92,33 +115,45 @@ def analyze_subtitles_with_deepseek(
 
     id_gen = _HighlightIdGen()
     highlight_count = 0
+    annotate_failed = 0
 
     for offset in range(0, len(pending), batch_size):
         chunk = pending[offset : offset + batch_size]
         chunk_lines = [text for _, text in chunk]
         try:
-            items = annotate_subtitle_lines_with_deepseek(chunk_lines)
+            items = annotate_subtitle_lines_with_deepseek(
+                chunk_lines,
+                translation_brief=translation_brief,
+            )
         except Exception:
+            annotate_failed += len(chunk)
             for idx, english in chunk:
                 if not (subtitles[idx].get("english_html") or "").strip():
                     subtitles[idx]["english_html"] = words_to_html(english).replace(" ", "")
             continue
+
         for (idx, english), item in zip(chunk, items):
             tokens = item.get("tokens") or []
             if not isinstance(tokens, list):
-                continue
+                tokens = []
+            hl_n = _count_token_highlights(tokens)
             if _tokens_usable(tokens, english):
                 html = tokens_to_english_html(tokens, id_gen)
+                highlight_count += hl_n
             else:
-                html = words_to_html(english).replace(" ", "")
+                # token 对不齐时仍尽量保留已有高亮；完全不可用才回退
+                if hl_n > 0 and _token_texts(tokens):
+                    html = tokens_to_english_html(tokens, id_gen)
+                    highlight_count += hl_n
+                else:
+                    html = words_to_html(english).replace(" ", "")
+                    annotate_failed += 1
             if html:
                 subtitles[idx]["english_html"] = html
-            highlight_count += sum(
-                1 for t in tokens if isinstance(t, dict) and _normalize_highlight(t.get("highlight"))
-            )
 
     return {
         "stars": metrics["stars"],
         "voca_size": metrics["voca_size"],
         "highlight_count": highlight_count,
+        "annotate_failed": annotate_failed,
     }

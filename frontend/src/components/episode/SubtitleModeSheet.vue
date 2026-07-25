@@ -5,9 +5,11 @@ defineProps<{
   open: boolean
   subtitleMode: SubtitleDisplayMode
   subtitleAlign: SubtitleAlign
-  contentView?: 'subtitles' | 'wordcards'
+  contentView?: 'subtitles' | 'wordcards' | 'summary'
   modeButtons: { key: SubtitleDisplayMode; label: string }[]
   alignButtons: { key: SubtitleAlign; label: string }[]
+  /** @deprecated 汇总 Tab 始终显示 */
+  showVocabSummary?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -15,6 +17,7 @@ const emit = defineEmits<{
   'update:subtitleMode': [value: SubtitleDisplayMode]
   'update:subtitleAlign': [value: SubtitleAlign]
   selectWordCards: []
+  selectVocabSummary: []
 }>()
 </script>
 
@@ -43,7 +46,7 @@ const emit = defineEmits<{
               type="button"
               class="px-3 py-2.5 rounded-xl text-sm border transition-colors"
               :class="
-                contentView !== 'wordcards' && subtitleMode === m.key
+                contentView === 'subtitles' && subtitleMode === m.key
                   ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100'
                   : 'border-black/10 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-neutral-800'
               "
@@ -62,6 +65,18 @@ const emit = defineEmits<{
               @click="emit('selectWordCards')"
             >
               词卡
+            </button>
+            <button
+              type="button"
+              class="px-3 py-2.5 rounded-xl text-sm border transition-colors"
+              :class="
+                contentView === 'summary'
+                  ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100'
+                  : 'border-black/10 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+              "
+              @click="emit('selectVocabSummary')"
+            >
+              汇总
             </button>
           </div>
           <p class="text-sm font-medium mb-2">对齐</p>

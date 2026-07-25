@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ...database import get_db
 from ...deps import get_current_admin
@@ -65,6 +65,7 @@ def _episode_detail(ep: Episode) -> AdminEpisodeDetailOut:
         short_title=ep.short_title,
         summary=ep.summary or "",
         remark=ep.remark or "",
+        vocab_summary=getattr(ep, "vocab_summary", None) or "",
         stars=ep.stars,
         voca_size=ep.voca_size,
         subtitle_count=ep.subtitle_count,
@@ -95,12 +96,13 @@ def _episode_detail(ep: Episode) -> AdminEpisodeDetailOut:
 
 
 def _get_episode_or_404(db: Session, episode_id: int) -> Episode:
+    # collections must use selectinload: joinedload(subtitles) is ~20s on remote PG
     ep = (
         db.query(Episode)
         .options(
             joinedload(Episode.author),
-            joinedload(Episode.tags),
-            joinedload(Episode.subtitles),
+            selectinload(Episode.tags),
+            selectinload(Episode.subtitles),
             joinedload(Episode.series),
         )
         .filter(Episode.id == episode_id)
@@ -185,6 +187,7 @@ def import_subtitles(
         body.vtt_text,
         title=body.title or "",
         summary=body.summary or "",
+        translate_chinese=body.translate_chinese,
     )
 
 
@@ -242,7 +245,12 @@ def preview_episode(
 ):
     episode = (
         db.query(Episode)
-        .options(joinedload(Episode.author), joinedload(Episode.tags), joinedload(Episode.subtitles), joinedload(Episode.series))
+        .options(
+            joinedload(Episode.author),
+            selectinload(Episode.tags),
+            selectinload(Episode.subtitles),
+            joinedload(Episode.series),
+        )
         .filter(Episode.video_id == video_id)
         .first()
     )

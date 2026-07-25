@@ -1,11 +1,15 @@
 """Enrich subtitles with Chinese translation and IPA via DeepSeek."""
 from __future__ import annotations
 
-from ..dict.deepseek import enrich_subtitle_lines_with_deepseek
+import logging
+
+from ..dict.deepseek import build_subtitle_translation_brief, enrich_subtitle_lines_with_deepseek
+
+logger = logging.getLogger(__name__)
 
 # 每批翻译行数；前后各带若干句作剧情上下文
-_BATCH_SIZE = 8
-_CONTEXT_WINDOW = 4
+_BATCH_SIZE = 10
+_CONTEXT_WINDOW = 6
 
 
 def enrich_subtitles_with_deepseek(
@@ -16,10 +20,12 @@ def enrich_subtitles_with_deepseek(
     episode_title: str = "",
     episode_summary: str = "",
     overwrite_chinese: bool = False,
-) -> tuple[int, int]:
-    """Fill chinese/ipa fields. Returns (translated_count, ipa_count).
+    translation_brief: dict | None = None,
+) -> tuple[int, int, dict]:
+    """Fill chinese/ipa fields.
 
-    overwrite_chinese=True 时：即使已有中文也会按剧情重译覆盖（导入双语 SRT 用）。
+    Returns (translated_count, ipa_count, translation_brief).
+    若未传入 translation_brief 且需要翻译，会先生成整集剧情简报。
     """
     pending: list[int] = []
     for i, row in enumerate(subtitles):
@@ -32,17 +38,34 @@ def enrich_subtitles_with_deepseek(
         if need_zh or need_ipa:
             pending.append(i)
 
+    brief = dict(translation_brief or {})
     if not pending:
-        return 0, 0
+        return 0, 0, brief
 
-    # 全量英文轴，用于取前后文
     all_english = [(row.get("english") or "").strip() for row in subtitles]
+
+    if translate_chinese and not brief:
+        try:
+            brief = build_subtitle_translation_brief(
+                [t for t in all_english if t],
+                episode_title=episode_title,
+                episode_summary=episode_summary,
+            )
+            if brief:
+                logger.info(
+                    "subtitle translation brief ready topic=%r tone=%r glossary=%d",
+                    brief.get("topic", "")[:40],
+                    brief.get("tone", "")[:40],
+                    len(brief.get("glossary") or []),
+                )
+        except Exception:
+            logger.warning("subtitle translation brief failed; continue without it", exc_info=True)
+            brief = {}
 
     translated = 0
     ipa_filled = 0
     for offset in range(0, len(pending), batch_size):
         chunk_idxs = pending[offset : offset + batch_size]
-        # 本批是否需要出中文：只要其中有一行需要翻译，整批走翻译 prompt
         batch_need_zh = False
         line_items: list[dict[str, str]] = []
         for idx in chunk_idxs:
@@ -76,6 +99,7 @@ def enrich_subtitles_with_deepseek(
             after=after if batch_need_zh else None,
             episode_title=episode_title if batch_need_zh else "",
             episode_summary=episode_summary if batch_need_zh else "",
+            translation_brief=brief if batch_need_zh else None,
         )
         for idx, item in zip(chunk_idxs, items):
             row = subtitles[idx]
@@ -91,4 +115,4 @@ def enrich_subtitles_with_deepseek(
                 if ipa:
                     row["ipa"] = ipa
                     ipa_filled += 1
-    return translated, ipa_filled
+    return translated, ipa_filled, brief

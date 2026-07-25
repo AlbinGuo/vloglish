@@ -81,6 +81,23 @@ export interface EpisodeDetail {
   }
   subtitles: Subtitle[]
   series?: EpisodeSeriesNav | null
+  /** 词汇与表达汇总（已解析分组；兼容偶发原始文本） */
+  vocab_summary?: VocabSummaryGroup[] | string
+  /** 汇总原文（优先用此字段在前端再解析，避免旧后端只返回空数组） */
+  vocab_summary_text?: string
+}
+
+export interface VocabSummaryItem {
+  en: string
+  zh: string
+  note?: string
+  example?: string
+  level?: string
+}
+
+export interface VocabSummaryGroup {
+  title: string
+  items: VocabSummaryItem[]
 }
 
 export interface SeriesSummary {

@@ -197,6 +197,9 @@ def _migrate_schema():
                 conn.execute(
                     text(f"ALTER TABLE episodes ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT {bool_default}")
                 )
+        if "vocab_summary" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE episodes ADD COLUMN vocab_summary TEXT NOT NULL DEFAULT ''"))
     if "user_notifications" in insp.get_table_names():
         notif_cols = {c["name"] for c in insp.get_columns("user_notifications")}
         if "broadcast_id" not in notif_cols:

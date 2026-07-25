@@ -3,6 +3,7 @@ from datetime import datetime
 from .models import Article, ArticleSegment, Author, Episode, Entry, Tag, UserArticleProgress
 from .media import resolve_audio_url, resolve_video_url
 from .services.episode_admin import episode_is_new
+from .services.vocab_summary import parse_vocab_summary
 
 
 def author_dict(author: Author) -> dict:
@@ -93,14 +94,16 @@ def episode_detail(episode: Episode, total: int, *, series_nav: dict | None = No
                     "index": s.index,
                     "start": s.start,
                     "end": s.end,
-                    "english": s.english,
-                    "chinese": s.chinese,
-                    "ipa": s.ipa,
-                    "english_html": s.english_html,
+                    "english": s.english or "",
+                    "chinese": s.chinese or "",
+                    "ipa": s.ipa or "",
+                    "english_html": s.english_html or "",
                 }
                 for s in sorted(episode.subtitles, key=lambda x: x.index)
             ],
             "series": series_nav,
+            "vocab_summary": parse_vocab_summary(getattr(episode, "vocab_summary", None) or ""),
+            "vocab_summary_text": getattr(episode, "vocab_summary", None) or "",
         },
         "total_episodes": total,
     }

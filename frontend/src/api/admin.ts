@@ -324,6 +324,7 @@ export interface AdminEpisodeDetail {
   short_title: string
   summary: string
   remark: string
+  vocab_summary?: string
   stars: number
   voca_size: number
   subtitle_count: number
@@ -353,6 +354,7 @@ export type AdminEpisodePayload = {
   short_title: string
   summary: string
   remark: string
+  vocab_summary?: string
   stars: number
   voca_size: number
   cover: string
@@ -517,7 +519,7 @@ export async function adminDeleteEpisode(id: number) {
 
 export async function adminImportVtt(
   vttText: string,
-  options?: { title?: string; summary?: string },
+  options?: { title?: string; summary?: string; translateChinese?: boolean },
 ) {
   const { data } = await adminApi.post<{
     subtitles: AdminSubtitle[]
@@ -529,12 +531,14 @@ export async function adminImportVtt(
     stars: number
     voca_size: number
     highlight_count: number
+    warnings?: string[]
   }>(
     '/api/admin/episodes/import-subtitles/',
     {
       vtt_text: vttText,
       title: options?.title || '',
       summary: options?.summary || '',
+      translate_chinese: options?.translateChinese !== false,
     },
     { timeout: 900000 },
   )

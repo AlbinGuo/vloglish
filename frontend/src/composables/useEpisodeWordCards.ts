@@ -7,6 +7,7 @@ import {
   formatExamTags,
   primaryExamTag,
 } from '@/utils/examTags'
+import { HIGHLIGHT_TYPE_OPTIONS } from '@/utils/subtitleHighlightEdit'
 import type { EntryDetail } from '@/types'
 
 export interface WordCardTag {
@@ -65,10 +66,16 @@ function buildTags(
   return tags
 }
 
+const HIGHLIGHT_GROUP_ORDER = HIGHLIGHT_TYPE_OPTIONS.map((o) => o.key)
+const HIGHLIGHT_GROUP_LABELS = Object.fromEntries(
+  HIGHLIGHT_TYPE_OPTIONS.map((o) => [o.key, o.label]),
+) as Record<string, string>
+
 function groupWordCards(items: WordCardItem[]): WordCardExamGroup[] {
   const bucket = new Map<string, WordCardItem[]>()
   for (const item of items) {
-    const key = item.primaryExam?.key || 'OTHER'
+    // 优先按考试标签；无考试标签则按高亮类型（核心词汇/短语动词/专业词汇…）
+    const key = item.primaryExam?.key || (item.highlight ? `HL-${item.highlight}` : 'OTHER')
     const list = bucket.get(key)
     if (list) list.push(item)
     else bucket.set(key, [item])
@@ -81,6 +88,18 @@ function groupWordCards(items: WordCardItem[]): WordCardExamGroup[] {
     groups.push({
       key,
       label: EXAM_TAG_LABELS[key] ?? key,
+      count: list.length,
+      items: list,
+    })
+    bucket.delete(key)
+  }
+  for (const hl of HIGHLIGHT_GROUP_ORDER) {
+    const key = `HL-${hl}`
+    const list = bucket.get(key)
+    if (!list?.length) continue
+    groups.push({
+      key,
+      label: HIGHLIGHT_GROUP_LABELS[hl] ?? hl,
       count: list.length,
       items: list,
     })

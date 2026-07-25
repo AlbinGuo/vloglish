@@ -52,11 +52,13 @@ watch(
 )
 
 const typeTagClass: Record<string, string> = {
+  核心词汇: 'bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-300',
   单词: 'bg-orange-50 text-orange-600 dark:bg-orange-950/40 dark:text-orange-300',
   短语动词: 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300',
   惯用表达: 'bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-300',
   固定搭配: 'bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300',
   长难表达: 'bg-fuchsia-50 text-fuchsia-600 dark:bg-fuchsia-950/40 dark:text-fuchsia-300',
+  专业词汇: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
   话语标记: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300',
   短语: 'bg-sky-50 text-sky-600 dark:bg-sky-950/40 dark:text-sky-300',
 }
@@ -69,8 +71,18 @@ function tagClass(tag: { key: string; kind: string; label: string }) {
   return typeTagClass[tag.label] || 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'
 }
 
+const hlGroupClass: Record<string, string> = {
+  'HL-a': 'bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300',
+  'HL-d': 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300',
+  'HL-i': 'bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300',
+  'HL-c': 'bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300',
+  'HL-l': 'bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-300',
+  'HL-p': 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
+  'HL-f': 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
+}
+
 function tabClass(group: WordCardExamGroup, active: boolean) {
-  const color = examTagClass(group.key)
+  const color = hlGroupClass[group.key] || examTagClass(group.key)
   if (active) return `${color} ring-1 ring-black/10 dark:ring-white/20`
   return 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400 hover:bg-neutral-200/80 dark:hover:bg-neutral-700'
 }
@@ -88,7 +100,7 @@ function speakItem(item: WordCardItem, event: Event) {
   <div class="reading-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-2 lg:px-4 lg:py-3">
     <p v-if="loading && !items.length" class="py-16 text-center text-sm text-neutral-400">加载词卡中…</p>
     <p v-else-if="!items.length" class="py-16 text-center text-sm text-neutral-400">
-      本集暂无带考试标签的词卡（需高亮标注且词条含四级/六级等标签）
+      本集暂无词卡（需字幕含重点/短语/搭配等高亮标注）
     </p>
     <div v-else class="space-y-3">
       <div class="sticky top-0 z-10 -mx-3 px-3 py-1.5 lg:-mx-4 lg:px-4 bg-neutral-50/95 dark:bg-neutral-950/95 backdrop-blur-sm">

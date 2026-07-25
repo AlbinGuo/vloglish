@@ -211,17 +211,23 @@ def _format_ytdlp_error(detail: str, url: str) -> str:
         or "ssleoferror" in lower
         or "unexpected_eof_while_reading" in lower
         or "ssl: unexpected_eof" in lower
+        or "connection aborted" in lower
+        or "connectionreseterror" in lower
+        or "connection reset" in lower
+        or "10054" in detail
+        or "forcibly closed" in lower
     ):
         proxy = os.getenv("YT_DLP_PROXY", "").strip()
         proxy_hint = (
-            f"当前已配置 YT_DLP_PROXY={proxy}，请确认代理软件已开启、端口正确，并换一个可用节点后重试。"
+            f"当前已配置 YT_DLP_PROXY={proxy}，请确认：① 代理软件已开启；② 端口一致；"
+            f"③ 系统代理/TUN 不要和 yt-dlp 双重劫持（可先关 Clash 系统代理，只留 YT_DLP_PROXY）；④ 换可用节点后重试。"
             if proxy
-            else "当前未配置 YT_DLP_PROXY。请在 backend/.env 增加例如：YT_DLP_PROXY=http://127.0.0.1:7890（端口以你的 Clash/V2Ray HTTP 代理为准），重启后端后再试。"
+            else "当前未配置 YT_DLP_PROXY。本地请在 backend/.env 增加例如：YT_DLP_PROXY=http://127.0.0.1:7890（端口以 Clash/V2Ray 的 HTTP 代理为准），保存后重启后端再试。"
         )
         return (
-            f"连接 {platform} 时 SSL 握手失败（常见于国内网络、代理节点不稳定或代理未开启）。\n"
+            f"连接 {platform} 被中断（Connection reset / 10054，常见于国内直连 YouTube 失败或代理未生效）。\n"
             f"{proxy_hint}\n"
-            "也可执行 yt-dlp -U 更新到最新版，或换节点后再抓取。\n\n"
+            "也可执行 yt-dlp -U 更新，或在本地成功下载后再上传七牛。\n\n"
             f"原始错误：{detail[-800:]}"
         )
 
@@ -439,7 +445,7 @@ def upload_fetched_media(
         if subtitles:
             clip_length_est = float(max((s["end"] for s in subtitles), default=fetched.duration or 0))
 
-            def _run_enrich() -> tuple[int, int] | RuntimeError:
+            def _run_enrich() -> tuple[int, int, dict] | RuntimeError:
                 try:
                     return enrich_subtitles_with_deepseek(
                         subtitles,
@@ -450,21 +456,16 @@ def upload_fetched_media(
                 except Exception as exc:
                     return RuntimeError(str(exc))
 
-            def _run_analyze() -> dict[str, int] | RuntimeError:
-                try:
-                    return analyze_subtitles_with_deepseek(subtitles, clip_length=clip_length_est)
-                except Exception as exc:
-                    return RuntimeError(str(exc))
-
             def _run_localize() -> dict[str, str] | RuntimeError:
                 try:
                     return localize_video_metadata_with_deepseek(display_title, display_summary)
                 except Exception as exc:
                     return RuntimeError(str(exc))
 
-            with ThreadPoolExecutor(max_workers=3) as pool:
+            # 翻译与标题本地化并行；高亮分析等 brief 就绪后串行，便于标出专业词汇
+            translation_brief: dict = {}
+            with ThreadPoolExecutor(max_workers=2) as pool:
                 fut_enrich = pool.submit(_run_enrich)
-                fut_analyze = pool.submit(_run_analyze)
                 fut_localize = (
                     pool.submit(_run_localize)
                     if display_title or display_summary
@@ -475,15 +476,7 @@ def upload_fetched_media(
                 if isinstance(enrich_result, RuntimeError):
                     warnings.append(f"字幕翻译/音标生成失败：{enrich_result}")
                 else:
-                    translated_count, ipa_count = enrich_result
-
-                analyze_result = fut_analyze.result()
-                if isinstance(analyze_result, RuntimeError):
-                    warnings.append(f"字幕难度/词汇分析失败：{analyze_result}")
-                else:
-                    stars = analyze_result["stars"]
-                    voca_size = analyze_result["voca_size"]
-                    highlight_count = analyze_result["highlight_count"]
+                    translated_count, ipa_count, translation_brief = enrich_result
 
                 if fut_localize:
                     localize_result = fut_localize.result()
@@ -494,6 +487,18 @@ def upload_fetched_media(
                             display_title = localize_result["title"]
                         if localize_result.get("summary") is not None:
                             display_summary = localize_result["summary"]
+
+            try:
+                analyze_result = analyze_subtitles_with_deepseek(
+                    subtitles,
+                    clip_length=clip_length_est,
+                    translation_brief=translation_brief or None,
+                )
+                stars = analyze_result["stars"]
+                voca_size = analyze_result["voca_size"]
+                highlight_count = analyze_result["highlight_count"]
+            except Exception as exc:
+                warnings.append(f"字幕难度/词汇分析失败：{exc}")
     else:
         warnings.append("未找到英文字幕 VTT，请稍后手动导入")
 
