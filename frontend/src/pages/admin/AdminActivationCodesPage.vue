@@ -19,6 +19,22 @@ const error = ref('')
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / 20)))
 
+function inviteLink(code: string) {
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  return `${origin}/signup?code=${encodeURIComponent(code)}`
+}
+
+async function copyInviteLink(code: string) {
+  const link = inviteLink(code)
+  try {
+    await navigator.clipboard.writeText(link)
+    message.value = `已复制邀请链接：${link}`
+    error.value = ''
+  } catch {
+    error.value = `复制失败，请手动复制：${link}`
+  }
+}
+
 async function load() {
   loading.value = true
   error.value = ''
@@ -44,7 +60,18 @@ async function generate() {
   error.value = ''
   try {
     const data = await adminGenerateCodes(count.value)
-    message.value = `已生成 ${data.codes.length} 个：${data.codes.join('、')}`
+    const links = data.codes.map((c) => inviteLink(c))
+    message.value =
+      data.codes.length === 1
+        ? `已生成邀请链接（已复制）：${links[0]}`
+        : `已生成 ${data.codes.length} 个邀请链接，可在列表中逐条复制`
+    if (data.codes.length === 1) {
+      try {
+        await navigator.clipboard.writeText(links[0])
+      } catch {
+        /* ignore */
+      }
+    }
     page.value = 1
     await load()
   } catch (e: unknown) {
@@ -127,6 +154,7 @@ onMounted(load)
         <thead class="bg-neutral-50 text-neutral-500">
           <tr>
             <th class="text-left px-4 py-3 font-medium">激活码</th>
+            <th class="text-left px-4 py-3 font-medium">邀请链接</th>
             <th class="text-left px-4 py-3 font-medium">状态</th>
             <th class="text-left px-4 py-3 font-medium">使用者</th>
             <th class="text-left px-4 py-3 font-medium">使用时间</th>
@@ -137,11 +165,22 @@ onMounted(load)
         <tbody>
           <tr v-for="row in rows" :key="row.id" class="border-t border-black/5">
             <td class="px-4 py-3 font-mono">{{ row.code }}</td>
+            <td class="px-4 py-3 text-xs text-neutral-500 font-mono max-w-[240px] truncate" :title="row.used_by_user_id ? '' : inviteLink(row.code)">
+              {{ row.used_by_user_id ? '-' : inviteLink(row.code) }}
+            </td>
             <td class="px-4 py-3">{{ row.used_by_user_id ? '已使用' : '未使用' }}</td>
             <td class="px-4 py-3">{{ row.used_by_email || '-' }}</td>
             <td class="px-4 py-3">{{ row.used_at || '-' }}</td>
             <td class="px-4 py-3">{{ row.created_at }}</td>
-            <td class="px-4 py-3 text-right">
+            <td class="px-4 py-3 text-right space-x-3 whitespace-nowrap">
+              <button
+                v-if="!row.used_by_user_id"
+                type="button"
+                class="text-neutral-800 hover:underline"
+                @click="copyInviteLink(row.code)"
+              >
+                复制邀请链接
+              </button>
               <button
                 v-if="!row.used_by_user_id"
                 type="button"
@@ -153,7 +192,7 @@ onMounted(load)
             </td>
           </tr>
           <tr v-if="!rows.length">
-            <td colspan="6" class="px-4 py-8 text-center text-neutral-500">暂无数据</td>
+            <td colspan="7" class="px-4 py-8 text-center text-neutral-500">暂无数据</td>
           </tr>
         </tbody>
       </table>
