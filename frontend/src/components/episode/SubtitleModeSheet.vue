@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import type { SubtitleAlign, SubtitleDisplayMode } from '@/utils/subtitleHtml'
+import type { SubtitleDisplayMode } from '@/utils/subtitleHtml'
 
 defineProps<{
   open: boolean
   subtitleMode: SubtitleDisplayMode
-  subtitleAlign: SubtitleAlign
   contentView?: 'subtitles' | 'wordcards' | 'summary'
   modeButtons: { key: SubtitleDisplayMode; label: string }[]
-  alignButtons: { key: SubtitleAlign; label: string }[]
   /** @deprecated 汇总 Tab 始终显示 */
   showVocabSummary?: boolean
 }>()
@@ -15,7 +13,6 @@ defineProps<{
 const emit = defineEmits<{
   close: []
   'update:subtitleMode': [value: SubtitleDisplayMode]
-  'update:subtitleAlign': [value: SubtitleAlign]
   selectWordCards: []
   selectVocabSummary: []
 }>()
@@ -39,7 +36,7 @@ const emit = defineEmits<{
         </div>
         <div class="px-4 pb-4">
           <p class="text-sm font-medium mb-3">字幕模式</p>
-          <div class="grid grid-cols-3 gap-2 mb-4">
+          <div class="grid grid-cols-3 gap-2">
             <button
               v-for="m in modeButtons"
               :key="m.key"
@@ -77,23 +74,6 @@ const emit = defineEmits<{
               @click="emit('selectVocabSummary')"
             >
               汇总
-            </button>
-          </div>
-          <p class="text-sm font-medium mb-2">对齐</p>
-          <div class="flex gap-2">
-            <button
-              v-for="a in alignButtons"
-              :key="a.key"
-              type="button"
-              class="flex-1 px-3 py-2.5 rounded-xl text-sm border transition-colors"
-              :class="
-                subtitleAlign === a.key
-                  ? 'bg-neutral-800 text-white border-neutral-800 dark:bg-neutral-200 dark:text-neutral-900'
-                  : 'border-black/10 dark:border-white/10'
-              "
-              @click="emit('update:subtitleAlign', a.key)"
-            >
-              {{ a.label }}
             </button>
           </div>
         </div>

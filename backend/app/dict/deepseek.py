@@ -241,7 +241,16 @@ def _chat_completion(
     except urllib.error.HTTPError as e:
         detail = e.read().decode()
         logger.error("DeepSeek HTTP %s: %s", e.code, detail)
-        raise RuntimeError(f"DeepSeek 请求失败 (HTTP {e.code})") from e
+        hint = ""
+        try:
+            err = json.loads(detail).get("error") or {}
+            msg = str(err.get("message") or "").strip()
+            if msg:
+                hint = f"：{msg}"
+        except Exception:
+            if detail.strip():
+                hint = f"：{detail.strip()[:240]}"
+        raise RuntimeError(f"DeepSeek 请求失败 (HTTP {e.code}){hint}") from e
     except urllib.error.URLError as e:
         logger.error("DeepSeek network error: %s", e)
         raise RuntimeError("无法连接 DeepSeek API") from e

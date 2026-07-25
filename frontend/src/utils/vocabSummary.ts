@@ -128,19 +128,32 @@ export function countVocabSummaryItems(groups: VocabSummaryGroup[]): number {
   return groups.reduce((n, g) => n + g.items.length, 0)
 }
 
-/** 分组标题 → 标签配色（用户端「难度/类型」标签） */
+/** 分组标题 → 标签配色（用户端二级 Tab / 词条标签） */
 const GROUP_TAG_CLASSES: Record<string, string> = {
   医学术语: 'bg-blue-50 text-blue-700 dark:bg-blue-950/45 dark:text-blue-300',
   '固定搭配 / 惯用表达': 'bg-violet-50 text-violet-700 dark:bg-violet-950/45 dark:text-violet-300',
+  '固定搭配／惯用表达': 'bg-violet-50 text-violet-700 dark:bg-violet-950/45 dark:text-violet-300',
   固定搭配: 'bg-violet-50 text-violet-700 dark:bg-violet-950/45 dark:text-violet-300',
   惯用表达: 'bg-sky-50 text-sky-700 dark:bg-sky-950/45 dark:text-sky-300',
   '口语 / 非正式表达': 'bg-rose-50 text-rose-700 dark:bg-rose-950/45 dark:text-rose-300',
+  '口语／非正式表达': 'bg-rose-50 text-rose-700 dark:bg-rose-950/45 dark:text-rose-300',
   口语: 'bg-rose-50 text-rose-700 dark:bg-rose-950/45 dark:text-rose-300',
   非正式表达: 'bg-rose-50 text-rose-700 dark:bg-rose-950/45 dark:text-rose-300',
   其他重点词汇: 'bg-amber-50 text-amber-700 dark:bg-amber-950/45 dark:text-amber-300',
   重点词汇: 'bg-amber-50 text-amber-700 dark:bg-amber-950/45 dark:text-amber-300',
-  汇总: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
 }
+
+/** 未知分类名时按标题稳定轮转，避免落到无辨识度的灰色 */
+const GROUP_TAG_PALETTE = [
+  'bg-blue-50 text-blue-700 dark:bg-blue-950/45 dark:text-blue-300',
+  'bg-violet-50 text-violet-700 dark:bg-violet-950/45 dark:text-violet-300',
+  'bg-rose-50 text-rose-700 dark:bg-rose-950/45 dark:text-rose-300',
+  'bg-amber-50 text-amber-700 dark:bg-amber-950/45 dark:text-amber-300',
+  'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300',
+  'bg-sky-50 text-sky-700 dark:bg-sky-950/45 dark:text-sky-300',
+  'bg-orange-50 text-orange-700 dark:bg-orange-950/45 dark:text-orange-300',
+  'bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/45 dark:text-fuchsia-300',
+] as const
 
 const LEVEL_TAG_CLASSES: Record<string, string> = {
   四级: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300',
@@ -155,17 +168,42 @@ const LEVEL_TAG_CLASSES: Record<string, string> = {
   高级: 'bg-rose-50 text-rose-700 dark:bg-rose-950/45 dark:text-rose-300',
 }
 
-const FALLBACK_TAG_CLASS =
-  'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'
+const FALLBACK_TAG_CLASS = GROUP_TAG_PALETTE[0]
+
+function normalizeGroupTitle(title: string): string {
+  return (title || '')
+    .trim()
+    .replace(/[／∕]/g, '/')
+    .replace(/\s*\/\s*/g, ' / ')
+    .replace(/\s+/g, ' ')
+}
+
+function paletteClassForTitle(title: string): string {
+  const s = normalizeGroupTitle(title) || '汇总'
+  let hash = 0
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0
+  return GROUP_TAG_PALETTE[hash % GROUP_TAG_PALETTE.length]
+}
 
 export function vocabGroupTagClass(title: string): string {
-  if (GROUP_TAG_CLASSES[title]) return GROUP_TAG_CLASSES[title]
-  for (const [key, cls] of Object.entries(GROUP_TAG_CLASSES)) {
-    if (title.includes(key) || key.includes(title)) return cls
+  const normalized = normalizeGroupTitle(title)
+  if (!normalized) return paletteClassForTitle(title)
+
+  if (GROUP_TAG_CLASSES[normalized]) return GROUP_TAG_CLASSES[normalized]
+  if (GROUP_TAG_CLASSES[title.trim()]) return GROUP_TAG_CLASSES[title.trim()]
+
+  // 先匹配更长的 key，避免「口语」抢先匹配「口语 / 非正式表达」
+  const keys = Object.keys(GROUP_TAG_CLASSES).sort((a, b) => b.length - a.length)
+  for (const key of keys) {
+    const nk = normalizeGroupTitle(key)
+    if (normalized.includes(nk) || nk.includes(normalized)) {
+      return GROUP_TAG_CLASSES[key]
+    }
   }
-  return FALLBACK_TAG_CLASS
+  return paletteClassForTitle(normalized)
 }
 
 export function vocabLevelTagClass(level: string): string {
-  return LEVEL_TAG_CLASSES[level] || FALLBACK_TAG_CLASS
+  const key = (level || '').trim()
+  return LEVEL_TAG_CLASSES[key] || paletteClassForTitle(key || 'level')
 }

@@ -293,11 +293,6 @@ const playbackSrc = computed(() => {
 
 const isChineseOnly = computed(() => modeIsChineseOnly(subtitleMode.value))
 
-const alignButtons: { key: SubtitleAlign; label: string }[] = [
-  { key: 'left', label: '左对齐' },
-  { key: 'center', label: '居中' },
-]
-
 const modeButtons: { key: SubtitleDisplayMode; label: string }[] = [
   { key: 'both', label: '双语' },
   { key: 'en', label: '英语' },
@@ -1202,43 +1197,32 @@ function subtitleRowClass(index: number) {
           >
             汇总
           </button>
-          <div class="flex items-center gap-0.5 ml-1 pl-2 border-l border-black/10 dark:border-white/10 flex-1 min-w-0">
+          <div class="flex items-center gap-1.5 ml-auto shrink-0">
             <button
-              v-for="a in alignButtons"
-              :key="a.key"
-              class="px-2.5 py-1 rounded-full whitespace-nowrap text-xs"
-              :class="subtitleAlign === a.key ? 'bg-neutral-800 text-white dark:bg-neutral-200 dark:text-neutral-900' : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'"
-              @click="subtitleAlign = a.key"
+              v-if="contentView === 'subtitles' && subtitleMode === 'blank'"
+              type="button"
+              class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+              @click="openBlankPrintSheet"
             >
-              {{ a.label }}
+              打印挖空
             </button>
-            <div class="ml-auto flex items-center gap-1.5 shrink-0">
-              <button
-                v-if="contentView === 'subtitles' && subtitleMode === 'blank'"
-                type="button"
-                class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
-                @click="openBlankPrintSheet"
-              >
-                打印挖空
-              </button>
-              <button
-                v-if="contentView === 'wordcards'"
-                type="button"
-                class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-40"
-                :disabled="wordCardsLoading"
-                @click="openWordCardPrintSheet"
-              >
-                打印词卡
-              </button>
-              <button
-                v-if="!adminPreview && !showSidePanel"
-                type="button"
-                class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
-                @click="toggleSidePanel"
-              >
-                显示侧栏
-              </button>
-            </div>
+            <button
+              v-if="contentView === 'wordcards'"
+              type="button"
+              class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-40"
+              :disabled="wordCardsLoading"
+              @click="openWordCardPrintSheet"
+            >
+              打印词卡
+            </button>
+            <button
+              v-if="!adminPreview && !showSidePanel"
+              type="button"
+              class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+              @click="toggleSidePanel"
+            >
+              显示侧栏
+            </button>
           </div>
         </div>
 
@@ -1599,14 +1583,11 @@ function subtitleRowClass(index: number) {
       v-if="isPhone"
       :open="subtitleModeSheetOpen"
       :subtitle-mode="subtitleMode"
-      :subtitle-align="subtitleAlign"
       :content-view="contentView"
       :mode-buttons="modeButtons"
-      :align-buttons="alignButtons"
       :show-vocab-summary="true"
       @close="subtitleModeSheetOpen = false"
       @update:subtitle-mode="(m) => { selectSubtitleMode(m); subtitleModeSheetOpen = false }"
-      @update:subtitle-align="subtitleAlign = $event"
       @select-word-cards="openWordCardsView(); subtitleModeSheetOpen = false"
       @select-vocab-summary="openVocabSummaryView(); subtitleModeSheetOpen = false"
     />
@@ -1663,7 +1644,12 @@ function subtitleRowClass(index: number) {
       @toggle-vocabulary="toggleVocabulary"
     />
     <KeyboardHelp v-if="player.showHelp.value" @close="player.showHelp.value = false" />
-    <SettingsPanel v-if="showSettings" @close="showSettings = false" />
+    <SettingsPanel
+      v-if="showSettings"
+      :subtitle-align="subtitleAlign"
+      @close="showSettings = false"
+      @update:subtitle-align="subtitleAlign = $event"
+    />
   </div>
 </template>
 
