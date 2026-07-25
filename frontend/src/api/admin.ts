@@ -33,11 +33,8 @@ adminApi.interceptors.response.use(
     if (!original || error.response?.status !== 401 || original._adminAuthRetry) {
       return Promise.reject(error)
     }
-    if (String(original.url ?? '').includes('/api/admin/auth/login')) {
-      return Promise.reject(error)
-    }
-    if (String(original.url ?? '').includes('/api/admin/auth/me')) {
-      clearAdminTokens()
+    const url = String(original.url ?? '')
+    if (url.includes('/api/admin/auth/login') || url.includes('/api/token/refresh')) {
       return Promise.reject(error)
     }
 

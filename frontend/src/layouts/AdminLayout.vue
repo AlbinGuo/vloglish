@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useAdminAuthStore } from '@/stores/adminAuth'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAdminAuthStore()
+const mobileNavOpen = ref(false)
 
 const nav = [
   { to: '/gnadmin/dashboard', label: '仪表盘' },
@@ -39,9 +40,17 @@ const pageTitle = computed(() => {
   if (route.path.startsWith('/gnadmin/feedback')) return '用户反馈'
   if (route.path.startsWith('/gnadmin/geo')) return '地区分布'
   if (route.path.startsWith('/gnadmin/learning')) return '学习统计'
+  if (route.path.startsWith('/gnadmin/activation-codes')) return '激活码'
   const item = nav.find((n) => route.path.startsWith(n.to))
   return item?.label ?? '管理后台'
 })
+
+watch(
+  () => route.fullPath,
+  () => {
+    mobileNavOpen.value = false
+  },
+)
 
 async function logout() {
   auth.logout()
@@ -51,12 +60,13 @@ async function logout() {
 
 <template>
   <div class="min-h-dvh bg-neutral-100 flex">
-    <aside class="w-56 shrink-0 bg-neutral-900 text-white flex flex-col">
+    <!-- 桌面侧栏 -->
+    <aside class="hidden md:flex w-56 shrink-0 bg-neutral-900 text-white flex-col">
       <div class="px-4 py-5 border-b border-white/10">
         <p class="font-semibold">Vloglish</p>
         <p class="text-xs text-neutral-400 mt-1">管理后台</p>
       </div>
-      <nav class="flex-1 p-3 space-y-1">
+      <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
         <RouterLink
           v-for="item in nav"
           :key="item.to"
@@ -73,11 +83,64 @@ async function logout() {
       </div>
     </aside>
 
+    <!-- 手机侧栏抽屉 -->
+    <Teleport to="body">
+      <div
+        v-if="mobileNavOpen"
+        class="md:hidden fixed inset-0 z-50 flex"
+      >
+        <div class="absolute inset-0 bg-black/40" @click="mobileNavOpen = false" />
+        <aside class="relative z-10 w-[min(18rem,85vw)] h-full bg-neutral-900 text-white flex flex-col shadow-xl">
+          <div class="px-4 py-4 border-b border-white/10 flex items-center justify-between">
+            <div>
+              <p class="font-semibold">Vloglish</p>
+              <p class="text-xs text-neutral-400 mt-0.5">管理后台</p>
+            </div>
+            <button
+              type="button"
+              class="w-9 h-9 rounded-lg text-neutral-300 hover:bg-white/10"
+              aria-label="关闭菜单"
+              @click="mobileNavOpen = false"
+            >
+              ×
+            </button>
+          </div>
+          <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
+            <RouterLink
+              v-for="item in nav"
+              :key="item.to"
+              :to="item.to"
+              class="block px-3 py-2.5 rounded-lg text-sm transition"
+              :class="route.path.startsWith(item.to) ? 'bg-white/10 text-white' : 'text-neutral-300 hover:bg-white/5'"
+            >
+              {{ item.label }}
+            </RouterLink>
+          </nav>
+          <div class="p-3 border-t border-white/10 text-xs text-neutral-400">
+            <p class="truncate mb-2">{{ auth.user?.email }}</p>
+            <button type="button" class="text-neutral-200 hover:text-white" @click="logout">退出登录</button>
+          </div>
+        </aside>
+      </div>
+    </Teleport>
+
     <div class="flex-1 min-w-0 flex flex-col">
-      <header class="bg-white border-b border-black/5 px-6 py-4">
-        <h1 class="text-lg font-semibold">{{ pageTitle }}</h1>
+      <header class="bg-white border-b border-black/5 px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3">
+        <button
+          type="button"
+          class="md:hidden shrink-0 w-10 h-10 rounded-lg border border-black/10 flex items-center justify-center text-neutral-700"
+          aria-label="打开菜单"
+          @click="mobileNavOpen = true"
+        >
+          <span class="flex flex-col gap-1.5" aria-hidden="true">
+            <span class="block w-4 h-0.5 bg-neutral-800 rounded" />
+            <span class="block w-4 h-0.5 bg-neutral-800 rounded" />
+            <span class="block w-4 h-0.5 bg-neutral-800 rounded" />
+          </span>
+        </button>
+        <h1 class="text-base sm:text-lg font-semibold truncate">{{ pageTitle }}</h1>
       </header>
-      <main class="flex-1 p-6 overflow-auto">
+      <main class="flex-1 p-4 sm:p-6 overflow-auto">
         <RouterView />
       </main>
     </div>

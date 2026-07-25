@@ -1,7 +1,12 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { adminFetchMe, adminLogin, type AdminUser } from '@/api/admin'
-import { clearAdminTokens, getAdminAccessToken, setAdminTokens } from '@/api/adminTokens'
+import {
+  clearAdminTokens,
+  getAdminAccessToken,
+  getAdminRefreshToken,
+  setAdminTokens,
+} from '@/api/adminTokens'
 
 export const useAdminAuthStore = defineStore('adminAuth', () => {
   const accessToken = ref<string | null>(getAdminAccessToken())
@@ -30,7 +35,16 @@ export const useAdminAuthStore = defineStore('adminAuth', () => {
 
   async function hydrate() {
     try {
-      if (accessToken.value) await fetchMe()
+      // access 过期时 adminApi 会自动用 refresh 续期；勿在 /me 失败时直接清会话
+      if (accessToken.value || getAdminRefreshToken()) {
+        if (!accessToken.value) {
+          // 仅有 refresh 时先占位，真正 token 由拦截器写入 localStorage
+          accessToken.value = 'pending'
+        }
+        const me = await fetchMe()
+        accessToken.value = getAdminAccessToken()
+        if (!me?.is_staff) logout()
+      }
     } catch {
       logout()
     } finally {
