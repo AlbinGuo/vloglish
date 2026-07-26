@@ -23,6 +23,8 @@ const props = defineProps<{
   topAlign?: boolean
   intensive?: boolean
   lookupMeta?: WordLookupMeta
+  /** 听写中：毛玻璃遮罩 */
+  dictationFrost?: boolean
 }>()
 
 defineEmits<{
@@ -75,6 +77,11 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
         />
       </div>
     </div>
+    <div
+      v-if="dictationFrost"
+      class="absolute inset-0 z-[6] rounded-2xl pointer-events-none bg-white/50 dark:bg-neutral-950/55 backdrop-blur-[7px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.28)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]"
+      aria-hidden="true"
+    />
   </div>
 </template>
 

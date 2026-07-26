@@ -123,6 +123,8 @@ const selectedEntry = ref<EntryDetail | null>(null)
 const showEntryPanel = ref(false)
 const entryLoading = ref(false)
 const entryError = ref('')
+/** 打开词条弹窗前是否在播放；关闭后据此决定是否恢复 */
+const resumeAfterEntryClose = ref(false)
 const currentIndex = ref(0)
 const videoRef = ref<HTMLVideoElement | null>(null)
 const videoPanelRef = ref<HTMLElement | null>(null)
@@ -224,24 +226,65 @@ const player = usePlayerControls({
 
 const dictationOpen = ref(false)
 const dictationSubtitle = ref<Subtitle | null>(null)
+/** 听写弹窗打开时，对该句施加毛玻璃遮罩 */
+const dictationTargetId = ref<number | null>(null)
+/** 暂时隐藏「标记已掌握」入口，改为每句「听写」 */
+const showSubtitleLearnedMark = false
+
+function pauseForDictationSheet() {
+  const v = videoRef.value
+  if (!v || v.paused) return
+  v.pause()
+  player.isPlaying.value = false
+}
 
 function openDictationFor(sub: Subtitle) {
   dictationSubtitle.value = sub
+  dictationTargetId.value = sub.id
   dictationOpen.value = true
 }
 
 function closeDictation() {
   dictationOpen.value = false
+  dictationTargetId.value = null
+}
+
+function startSubtitleDictation(sub: Subtitle, e?: Event) {
+  e?.stopPropagation()
+  pauseForDictationSheet()
+  // 立刻弹填空；需要播放时再点弹窗里的「播放」
+  openDictationFor(sub)
 }
 
 function replayDictationSentence() {
-  if (dictationSubtitle.value) player.playSentenceOnce(dictationSubtitle.value)
+  const sub = dictationSubtitle.value
+  if (!sub) return
+  // 按设定循环次数播放，弹窗保持打开
+  player.startDictationLoop(sub)
 }
 
 function nextAfterDictation() {
-  dictationOpen.value = false
-  player.nextSentence()
+  const subs = sortedSubs.value
+  const idx = subs.findIndex((s) => s.id === dictationSubtitle.value?.id)
+  const next = idx >= 0 ? subs[idx + 1] : null
+  if (!next) {
+    closeDictation()
+    return
+  }
+  pauseForDictationSheet()
+  openDictationFor(next)
 }
+
+function onDictationLoopCountChange(count: number) {
+  player.setSentenceLoopCount(count > 0 ? count : 1)
+}
+
+function isDictationFrost(subId: number) {
+  return dictationOpen.value && dictationTargetId.value === subId
+}
+
+const dictationFrostClass =
+  'absolute inset-0 z-[5] rounded-[inherit] pointer-events-none bg-white/50 dark:bg-neutral-950/55 backdrop-blur-[7px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.28)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]'
 
 /** 悬停查词时若正在播放则暂停，移开后恢复 */
 let resumePlaybackAfterWordHover = false
@@ -352,7 +395,31 @@ function onAfterPrint() {
   wordCardPrintOptions.value = null
 }
 
+function pausePlaybackForEntry() {
+  const v = videoRef.value
+  if (!v || v.paused || v.ended) return
+  resumeAfterEntryClose.value = true
+  v.pause()
+  player.isPlaying.value = false
+}
+
+function resumePlaybackAfterEntry() {
+  if (!resumeAfterEntryClose.value) return
+  resumeAfterEntryClose.value = false
+  const v = videoRef.value
+  if (!v || v.ended) return
+  void v
+    .play()
+    .then(() => {
+      player.isPlaying.value = true
+    })
+    .catch(() => {
+      /* 自动播放被拦截时保持暂停 */
+    })
+}
+
 async function openWordCard(item: WordCardItem) {
+  pausePlaybackForEntry()
   showEntryPanel.value = true
   entryLoading.value = true
   entryError.value = ''
@@ -418,7 +485,8 @@ const mobileChromeBlocked = computed(
     mobileDrawerOpen.value ||
     showEntryPanel.value ||
     subtitleModeSheetOpen.value ||
-    showSettings.value,
+    showSettings.value ||
+    dictationOpen.value,
 )
 
 const {
@@ -775,6 +843,7 @@ async function toggleVocabulary(entry: EntryDetail) {
 }
 
 async function reopenLookup(record: WordLookupRecord) {
+  pausePlaybackForEntry()
   showEntryPanel.value = true
   entryLoading.value = true
   entryError.value = ''
@@ -873,6 +942,7 @@ async function onSubtitleClick(e: MouseEvent) {
   const isPhrase = Boolean(pid) || target.classList.contains('phrase-token')
   const type = isPhrase ? 2 : 1
 
+  pausePlaybackForEntry()
   showEntryPanel.value = true
   entryLoading.value = true
   entryError.value = ''
@@ -899,6 +969,7 @@ function closeEntryPanel() {
   showEntryPanel.value = false
   selectedEntry.value = null
   entryError.value = ''
+  resumePlaybackAfterEntry()
 }
 
 async function toggleSubtitleLearned(sub: { id: number }, e: Event) {
@@ -1142,6 +1213,7 @@ function subtitleRowClass(index: number) {
             :subtitle-mode="isVideoPanelFullscreen ? 'both' : subtitleMode"
             :show-ipa="showIpa && !isVideoPanelFullscreen"
             :english-html="renderHtml(displaySub.english_html)"
+            :dictation-frost="isDictationFrost(displaySub.id)"
             :data-subtitle-context="displaySub.english"
             @seek="player.seekTo(displaySub)"
             @click="onSubtitleClick"
@@ -1260,47 +1332,55 @@ function subtitleRowClass(index: number) {
           :class="subtitleAlign === 'left' ? 'items-start text-left' : 'items-center text-center'"
           @click="currentSub && player.seekTo(currentSub)"
         >
-          <Transition
-            :name="
-              isPhone
-                ? subtitleSlideDir === 'next'
-                  ? 'subtitle-slide-next'
-                  : 'subtitle-slide-prev'
-                : 'subtitle-fade'
-            "
-            mode="out-in"
-          >
-            <IntensiveReadingBlock
-              v-if="intensiveMode"
-              :key="currentSub.id"
-              :english-html="renderHtml(currentSub.english_html)"
-              :english="currentSub.english"
-              :chinese="currentSub.chinese"
-              :ipa="currentSub.ipa"
-              :large="true"
-              :align="subtitleAlign"
-              :show-english="modeShowsEnglish(subtitleMode)"
-              :show-chinese="modeShowsChinese(subtitleMode)"
-              :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
-              :lookup-meta="{ video_id: videoId, subtitle_id: currentSub.id }"
-              @click="onSubtitleClick"
+          <div class="relative w-full max-w-3xl">
+            <Transition
+              :name="
+                isPhone
+                  ? subtitleSlideDir === 'next'
+                    ? 'subtitle-slide-next'
+                    : 'subtitle-slide-prev'
+                  : 'subtitle-fade'
+              "
+              mode="out-in"
+            >
+              <IntensiveReadingBlock
+                v-if="intensiveMode"
+                :key="currentSub.id"
+                :english-html="renderHtml(currentSub.english_html)"
+                :english="currentSub.english"
+                :chinese="currentSub.chinese"
+                :ipa="currentSub.ipa"
+                :large="true"
+                :align="subtitleAlign"
+                :show-english="modeShowsEnglish(subtitleMode)"
+                :show-chinese="modeShowsChinese(subtitleMode)"
+                :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+                :lookup-meta="{ video_id: videoId, subtitle_id: currentSub.id }"
+                @click="onSubtitleClick"
+              />
+              <SubtitleBlock
+                v-else
+                :key="currentSub.id"
+                :english-html="renderHtml(currentSub.english_html)"
+                :chinese="currentSub.chinese"
+                :ipa="currentSub.ipa"
+                :active="false"
+                :large="true"
+                :align="subtitleAlign"
+                :chinese-focus="isChineseOnly"
+                :show-english="modeShowsEnglish(subtitleMode)"
+                :show-chinese="modeShowsChinese(subtitleMode)"
+                :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+                @click="onSubtitleClick"
+              />
+            </Transition>
+            <div
+              v-if="isDictationFrost(currentSub.id)"
+              :class="dictationFrostClass"
+              class="rounded-xl"
+              aria-hidden="true"
             />
-            <SubtitleBlock
-              v-else
-              :key="currentSub.id"
-              :english-html="renderHtml(currentSub.english_html)"
-              :chinese="currentSub.chinese"
-              :ipa="currentSub.ipa"
-              :active="false"
-              :large="true"
-              :align="subtitleAlign"
-              :chinese-focus="isChineseOnly"
-              :show-english="modeShowsEnglish(subtitleMode)"
-              :show-chinese="modeShowsChinese(subtitleMode)"
-              :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
-              @click="onSubtitleClick"
-            />
-          </Transition>
+          </div>
         </div>
 
         <!-- 列表模式 -->
@@ -1319,7 +1399,7 @@ function subtitleRowClass(index: number) {
             @click="player.seekTo(sub)"
           >
             <div
-              class="w-full relative transition-all duration-300 ease-out"
+              class="w-full relative transition-all duration-300 ease-out pr-14"
               :class="
                 intensiveMode
                   ? [
@@ -1332,7 +1412,7 @@ function subtitleRowClass(index: number) {
               "
             >
               <button
-                v-if="auth.isLoggedIn && !adminPreview"
+                v-if="showSubtitleLearnedMark && auth.isLoggedIn && !adminPreview"
                 type="button"
                 class="absolute top-2 right-2 z-10 w-7 h-7 rounded-full text-sm flex items-center justify-center border transition"
                 :class="
@@ -1344,6 +1424,16 @@ function subtitleRowClass(index: number) {
                 @click="toggleSubtitleLearned(sub, $event)"
               >
                 ✓
+              </button>
+              <button
+                v-else-if="!adminPreview"
+                type="button"
+                class="absolute top-2 right-2 z-10 px-2 h-7 rounded-full text-[11px] font-medium flex items-center justify-center border transition bg-white/90 border-black/10 text-neutral-600 hover:border-amber-400 hover:text-amber-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300 dark:hover:border-amber-500 dark:hover:text-amber-300"
+                :class="dictationTargetId === sub.id ? 'border-amber-400 text-amber-700 dark:border-amber-500 dark:text-amber-300' : ''"
+                title="听写本句"
+                @click="startSubtitleDictation(sub, $event)"
+              >
+                听写
               </button>
               <IntensiveReadingBlock
                 v-if="intensiveMode"
@@ -1371,6 +1461,12 @@ function subtitleRowClass(index: number) {
                 :show-chinese="modeShowsChinese(subtitleMode)"
                 :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
                 @click.stop="onSubtitleClick"
+              />
+              <!-- 听写中：单词区毛玻璃遮罩，关闭弹窗后消失 -->
+              <div
+                v-if="isDictationFrost(sub.id)"
+                :class="dictationFrostClass"
+                aria-hidden="true"
               />
             </div>
           </div>
@@ -1600,9 +1696,11 @@ function subtitleRowClass(index: number) {
     <SentenceDictationSheet
       :open="dictationOpen"
       :subtitle="dictationSubtitle"
+      :loop-count="player.sentenceLoopCount.value"
       @close="closeDictation"
       @replay="replayDictationSentence"
       @next="nextAfterDictation"
+      @update:loop-count="onDictationLoopCountChange"
     />
     <BlankPrintDocument
       v-if="episode"

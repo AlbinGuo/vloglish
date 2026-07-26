@@ -7,29 +7,34 @@ import {
   splitDictationSlots,
 } from '@/utils/dictationCompare'
 
+const LOOP_OPTIONS = [1, 2, 3, 4, 5, 10] as const
+
 const props = defineProps<{
   open: boolean
   subtitle: Subtitle | null
+  /** 单句循环次数（播完后再听写） */
+  loopCount: number
 }>()
 
 const emit = defineEmits<{
   close: []
   replay: []
   next: []
+  'update:loopCount': [value: number]
 }>()
 
-const STORAGE_HINT = 'teco-dictation-show-chinese'
+const STORAGE_HINT = 'teco-dictation-show-reference'
 
 const answers = ref<string[]>([])
 const checked = ref(false)
 const celebrateNonce = ref(0)
-const showChinese = ref(
+/** 对照字幕默认关闭；开启后显示英文 + 中文 */
+const showReference = ref(
   (() => {
     try {
-      const v = localStorage.getItem(STORAGE_HINT)
-      return v !== '0'
+      return localStorage.getItem(STORAGE_HINT) === '1'
     } catch {
-      return true
+      return false
     }
   })(),
 )
@@ -47,6 +52,10 @@ const isCorrect = computed(
     expectedWords.value.every((word, i) => dictationWordMatches(answers.value[i] ?? '', word)),
 )
 const hasAnyInput = computed(() => answers.value.some((w) => w.trim().length > 0))
+const normalizedLoopCount = computed(() => {
+  const n = props.loopCount
+  return n > 0 ? n : 1
+})
 
 function setInputRef(el: unknown, index: number) {
   if (!Array.isArray(inputEls.value)) inputEls.value = []
@@ -77,7 +86,7 @@ watch(
   },
 )
 
-watch(showChinese, (on) => {
+watch(showReference, (on) => {
   try {
     localStorage.setItem(STORAGE_HINT, on ? '1' : '0')
   } catch {
@@ -87,7 +96,6 @@ watch(showChinese, (on) => {
 
 function slotWidthCh(expectedWord: string, answer = '') {
   const len = Math.max(expectedWord.length, answer.length, 4)
-  // 额外留白，避免左右 padding 把字符裁切
   return Math.min(22, len + 3)
 }
 
@@ -159,6 +167,12 @@ function onSkip() {
   emit('close')
 }
 
+function onLoopCountChange(event: Event) {
+  const value = Number((event.target as HTMLSelectElement).value)
+  if (!Number.isFinite(value) || value <= 0) return
+  emit('update:loopCount', value)
+}
+
 function boxClass(index: number) {
   if (!checked.value) {
     return 'border-black/15 dark:border-white/15 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30'
@@ -203,27 +217,45 @@ function boxClass(index: number) {
         </div>
 
         <div class="px-4 space-y-3 pb-4">
-          <div class="flex items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 justify-between">
+            <label class="inline-flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300">
+              <span class="shrink-0">循环次数</span>
+              <select
+                class="rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-800 px-2 py-1 text-xs"
+                :value="normalizedLoopCount"
+                @change="onLoopCountChange"
+              >
+                <option v-for="n in LOOP_OPTIONS" :key="n" :value="n">{{ n }} 遍</option>
+              </select>
+            </label>
             <label class="inline-flex items-center gap-2 text-xs text-neutral-500 cursor-pointer select-none">
-              <input v-model="showChinese" type="checkbox" class="rounded border-neutral-300" />
-              显示中文提示
+              <input v-model="showReference" type="checkbox" class="rounded border-neutral-300" />
+              对照字幕
             </label>
             <button
               type="button"
               class="text-xs text-amber-700 dark:text-amber-400 hover:underline"
               @click="onReplay"
             >
-              再听一遍
+              播放 {{ normalizedLoopCount }} 遍
             </button>
           </div>
 
-          <p
-            v-if="showChinese && chinese"
-            class="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed rounded-xl bg-neutral-50 dark:bg-neutral-800/80 px-3 py-2"
+          <div
+            v-if="showReference"
+            class="rounded-xl bg-neutral-50 dark:bg-neutral-800/80 px-3 py-2.5 space-y-1.5"
           >
-            {{ chinese }}
-          </p>
-          <p v-else-if="showChinese" class="text-xs text-neutral-400">本句暂无中文</p>
+            <p v-if="expected" class="text-sm text-neutral-800 dark:text-neutral-100 leading-relaxed">
+              {{ expected }}
+            </p>
+            <p
+              v-if="chinese"
+              class="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed"
+            >
+              {{ chinese }}
+            </p>
+            <p v-if="!expected && !chinese" class="text-xs text-neutral-400">本句暂无对照字幕</p>
+          </div>
 
           <div
             v-if="expectedWords.length"
