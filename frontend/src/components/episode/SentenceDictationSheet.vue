@@ -241,44 +241,46 @@ function boxClass(index: number) {
             </button>
           </div>
 
-          <div
-            v-if="showReference"
-            class="rounded-xl bg-neutral-50 dark:bg-neutral-800/80 px-3 py-2.5 space-y-1.5"
+          <p
+            v-if="showReference && chinese"
+            class="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed rounded-xl bg-neutral-50 dark:bg-neutral-800/80 px-3 py-2"
           >
-            <p v-if="expected" class="text-sm text-neutral-800 dark:text-neutral-100 leading-relaxed">
-              {{ expected }}
-            </p>
-            <p
-              v-if="chinese"
-              class="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed"
-            >
-              {{ chinese }}
-            </p>
-            <p v-if="!expected && !chinese" class="text-xs text-neutral-400">本句暂无对照字幕</p>
-          </div>
+            {{ chinese }}
+          </p>
 
           <div
             v-if="expectedWords.length"
-            class="flex flex-wrap gap-2.5 content-start rounded-xl bg-neutral-50/80 dark:bg-neutral-950/40 px-3 py-3"
+            class="flex flex-wrap gap-x-2.5 gap-y-3 content-start rounded-xl bg-neutral-50/80 dark:bg-neutral-950/40 px-3 py-3"
           >
-            <input
+            <div
               v-for="(word, index) in expectedWords"
               :key="`${subtitle.id}-${index}-${word}`"
-              :ref="(el) => setInputRef(el, index)"
-              :value="answers[index] ?? ''"
-              type="text"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-              :aria-label="`第 ${index + 1} 个词`"
-              class="box-content rounded-lg border bg-white dark:bg-neutral-900 px-2.5 py-2.5 text-base text-center focus:outline-none transition-[width,colors] overflow-visible"
-              :class="boxClass(index)"
-              :style="{ width: `${slotWidthCh(word, answers[index] ?? '')}ch`, minWidth: '4.5ch' }"
-              :readonly="checked"
-              @input="onWordInput(index, $event)"
-              @keydown="onWordKeydown(index, $event)"
-            />
+              class="flex flex-col items-center gap-1"
+              :style="{ minWidth: '4.5ch' }"
+            >
+              <input
+                :ref="(el) => setInputRef(el, index)"
+                :value="answers[index] ?? ''"
+                type="text"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
+                :aria-label="`第 ${index + 1} 个词`"
+                class="box-content rounded-lg border bg-white dark:bg-neutral-900 px-2.5 py-2.5 text-base text-center focus:outline-none transition-[width,colors] overflow-visible w-full"
+                :class="boxClass(index)"
+                :style="{ width: `${slotWidthCh(word, answers[index] ?? '')}ch`, minWidth: '4.5ch' }"
+                :readonly="checked"
+                @input="onWordInput(index, $event)"
+                @keydown="onWordKeydown(index, $event)"
+              />
+              <span
+                v-if="showReference"
+                class="text-[11px] leading-tight text-neutral-500 dark:text-neutral-400 text-center max-w-full break-all px-0.5 select-none"
+              >
+                {{ word }}
+              </span>
+            </div>
           </div>
           <p v-else class="text-xs text-neutral-400">本句无可听写单词</p>
 
