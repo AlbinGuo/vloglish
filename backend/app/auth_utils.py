@@ -12,8 +12,8 @@ JWT_ALGORITHM = "HS256"
 ACCESS_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_EXPIRE_MINUTES", "720"))
 REFRESH_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_EXPIRE_DAYS", "30"))
 
-REMOTE_LOGIN_DETAIL = "登录已失效，请重新登录（同一账号最多 3 台设备同时在线）"
-MAX_CONCURRENT_SESSIONS = 3
+REMOTE_LOGIN_DETAIL = "登录已失效，请重新登录（同一账号最多 2 台设备同时在线）"
+MAX_CONCURRENT_SESSIONS = 2
 
 
 def hash_password(password: str) -> str:

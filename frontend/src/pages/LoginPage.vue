@@ -17,7 +17,7 @@ const remoteNotice = ref('')
 
 onMounted(() => {
   if (route.query.reason === 'remote' || consumeRemoteLoginNotice()) {
-    remoteNotice.value = '登录已失效（同一账号最多 3 台设备同时在线），请重新登录'
+    remoteNotice.value = '登录已失效（同一账号最多 2 台设备同时在线），请重新登录'
   }
 })
 
