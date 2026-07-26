@@ -153,58 +153,10 @@ export async function lookupWord(
   return entry
 }
 
-export interface FetchMediaResult {
-  title: string
-  summary: string
-  author_name: string
-  original_video_url: string
-  cover: string
-  thumbnail_url: string
-  video_url: string
-  audio_url: string
-  subtitles: {
-    index: number
-    start: number
-    end: number
-    english: string
-    chinese: string
-    ipa: string
-    english_html: string
-  }[]
-  subtitle_count: number
-  clip_length: number
-  had_chinese: boolean
-  translated_count: number
-  ipa_count: number
-  stars: number
-  voca_size: number
-  highlight_count: number
-  source_id: string
-  warnings: string[]
-}
-
-export async function fetchSubmitMediaFromUrl(payload: { url: string }) {
-  const { data } = await api.post<FetchMediaResult>(
-    '/api/episodes/submit/fetch-media/',
-    { url: payload.url, enrich_subtitles: true },
-    { timeout: 900000 },
-  )
-  return data
-}
-
 export interface SubmitEpisodePayload {
-  accent: string
-  title: string
-  summary: string
-  author_name: string
-  stars: number
-  voca_size: number
   original_video_url: string
-  cover: string
-  thumbnail_url: string
-  video_url: string
-  audio_url: string
-  subtitles: FetchMediaResult['subtitles']
+  accent?: string
+  note?: string
 }
 
 export interface SubmitEpisodeResult {
@@ -214,8 +166,27 @@ export interface SubmitEpisodeResult {
   message: string
 }
 
+export interface UserSubmissionItem {
+  video_id: string
+  short_title: string
+  original_video_url: string
+  status: string
+  rejection_reason: string
+  created_at: string
+  has_media: boolean
+  accent: string
+  cover: string
+}
+
 export async function submitUserEpisode(payload: SubmitEpisodePayload) {
   const { data } = await api.post<SubmitEpisodeResult>('/api/episodes/submit/', payload)
+  return data
+}
+
+export async function listMySubmissions() {
+  const { data } = await api.get<{ count: number; results: UserSubmissionItem[] }>(
+    '/api/episodes/submit/',
+  )
   return data
 }
 

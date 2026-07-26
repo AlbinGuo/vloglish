@@ -296,6 +296,7 @@ export interface AdminEpisodeListItem {
   is_demo: boolean
   is_pinned?: boolean
   is_user_submitted: boolean
+  is_catalog_public?: boolean
   tag_names: string[]
   series_id?: number | null
   series_title?: string
@@ -341,6 +342,10 @@ export interface AdminEpisodeDetail {
   status: string
   rejection_reason?: string
   is_user_submitted?: boolean
+  is_catalog_public?: boolean
+  submitted_by_user_id?: number | null
+  submitted_by_email?: string
+  submitted_by_nickname?: string
   series_id?: number | null
   series_index?: number | null
   series_title?: string
@@ -374,6 +379,8 @@ export type AdminEpisodePayload = {
   author: AdminAuthorInput
   tag_names: string[]
   subtitles: AdminSubtitle[]
+  /** 用户投稿：true=全站可见；false=仅投稿者可见 */
+  is_catalog_public?: boolean
 }
 
 export interface AdminSeries {
@@ -474,6 +481,7 @@ export async function adminListEpisodes(params: {
   status?: string
   stars?: number
   series_id?: number
+  user_submitted?: boolean
   sort_by?: AdminEpisodeSortField
   sort_dir?: 'asc' | 'desc'
 }) {

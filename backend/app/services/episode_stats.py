@@ -53,6 +53,7 @@ def admin_episode_list_query(
     status: str | None = None,
     stars: int | None = None,
     series_id: int | None = None,
+    user_submitted: bool | None = None,
     sort_by: str = "index",
     sort_dir: str = "desc",
 ) -> Query:
@@ -100,6 +101,10 @@ def admin_episode_list_query(
             q = q.filter(Episode.series_id.is_(None))
         else:
             q = q.filter(Episode.series_id == series_id)
+    if user_submitted is True:
+        q = q.filter(Episode.submitted_by_user_id.isnot(None))
+    elif user_submitted is False:
+        q = q.filter(Episode.submitted_by_user_id.is_(None))
 
     sort_key = sort_by if sort_by in EPISODE_LIST_SORT_FIELDS else "id"
     direction = sort_dir if sort_dir in {"asc", "desc"} else "desc"

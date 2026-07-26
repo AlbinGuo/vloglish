@@ -35,7 +35,7 @@ const isMobile = useIsMobile()
 const displayViewMode = computed(() => (isMobile.value || !auth.isLoggedIn ? 'card' : viewMode.value))
 
 /** 用户端「添加外链视频」入口（暂隐藏，改 true 即可重新开放） */
-const showSubmitEpisodeEntry = false
+const showSubmitEpisodeEntry = true
 
 const loadMoreSentinel = ref<HTMLElement | null>(null)
 const recentLearning = ref<RecentEpisode[]>([])
@@ -252,7 +252,14 @@ watch(
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 shrink-0">
             <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
           </svg>
-          添加外链视频
+          投稿外链视频
+        </RouterLink>
+        <RouterLink
+          v-if="showSubmitEpisodeEntry && auth.isMember"
+          to="/english/my-submissions"
+          class="flex items-center justify-center w-full rounded-xl border border-black/10 dark:border-white/10 text-sm text-neutral-600 dark:text-neutral-300 px-4 py-2.5 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition"
+        >
+          我的语料库
         </RouterLink>
         <CatalogFilters />
         <CatalogViewSettings />

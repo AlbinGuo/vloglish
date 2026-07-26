@@ -172,6 +172,13 @@ def _migrate_schema():
         if "submitted_by_user_id" not in ep_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE episodes ADD COLUMN submitted_by_user_id INTEGER"))
+        if "is_catalog_public" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        f"ALTER TABLE episodes ADD COLUMN is_catalog_public BOOLEAN NOT NULL DEFAULT {bool_default}"
+                    )
+                )
         if "rejection_reason" not in ep_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE episodes ADD COLUMN rejection_reason TEXT"))

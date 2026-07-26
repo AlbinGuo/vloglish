@@ -300,6 +300,8 @@ class AdminEpisodeUpdateIn(BaseModel):
     author: AdminAuthorIn | None = None
     tag_names: list[str] | None = None
     subtitles: list[AdminSubtitleIn] | None = None
+    # 用户投稿：True=全站可见；False=仅投稿者可见（仍在「我的语料库」）
+    is_catalog_public: bool | None = None
 
 
 class AdminEpisodeListItemOut(BaseModel):
@@ -316,6 +318,7 @@ class AdminEpisodeListItemOut(BaseModel):
     is_demo: bool
     is_pinned: bool = False
     is_user_submitted: bool = False
+    is_catalog_public: bool = False
     tag_names: list[str] = []
     series_id: int | None = None
     series_title: str = ""
@@ -360,6 +363,10 @@ class AdminEpisodeDetailOut(BaseModel):
     status: str
     rejection_reason: str = ""
     is_user_submitted: bool = False
+    is_catalog_public: bool = False
+    submitted_by_user_id: int | None = None
+    submitted_by_email: str = ""
+    submitted_by_nickname: str = ""
     series_id: int | None = None
     series_index: int | None = None
     series_title: str = ""
@@ -473,25 +480,35 @@ class AdminFetchMediaOut(BaseModel):
 
 
 class UserEpisodeSubmitIn(BaseModel):
-    accent: str = Field(min_length=1, max_length=32)
-    title: str = Field(min_length=1, max_length=256)
-    summary: str = ""
-    author_name: str = ""
-    stars: int = Field(default=3, ge=1, le=5)
-    voca_size: int = Field(default=0, ge=0)
+    """用户仅提交外链；媒体与字幕由管理员手工上传。"""
+
     original_video_url: str = Field(min_length=8)
-    cover: str = ""
-    thumbnail_url: str = ""
-    video_url: str = Field(min_length=1)
-    audio_url: str = ""
-    subtitles: list[AdminSubtitleIn] = []
+    accent: str = Field(default="美国", max_length=32)
+    note: str = Field(default="", max_length=500)
 
 
 class UserEpisodeSubmitOut(BaseModel):
     video_id: str
     short_title: str
     status: str
-    message: str = "提交成功，审核通过后将出现在目录中"
+    message: str = "提交成功，视频将在管理员审核通过后上传语料，预计1-2个小时出审核结果~"
+
+
+class UserSubmissionItemOut(BaseModel):
+    video_id: str
+    short_title: str
+    original_video_url: str
+    status: str
+    rejection_reason: str = ""
+    created_at: str
+    has_media: bool = False
+    accent: str = ""
+    cover: str = ""
+
+
+class UserSubmissionListOut(BaseModel):
+    count: int
+    results: list[UserSubmissionItemOut]
 
 
 class AdminTagOut(BaseModel):

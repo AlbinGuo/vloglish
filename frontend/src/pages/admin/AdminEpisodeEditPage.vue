@@ -39,6 +39,10 @@ const subtitleImportText = ref('')
 const subtitleTranslateMode = ref<'keep' | 'ai'>('keep')
 const sourceUrl = ref('')
 const mediaSlug = ref('')
+const isUserSubmitted = ref(false)
+/** 用户投稿：勾选=全站可见；不勾选=仅投稿者可见 */
+const isCatalogPublic = ref(false)
+const submitterLabel = ref('')
 
 const form = ref<AdminEpisodePayload>({
   video_id: '',
@@ -125,6 +129,11 @@ async function loadEpisode() {
   error.value = ''
   try {
     const data = await adminGetEpisode(episodeId.value)
+    isUserSubmitted.value = Boolean(data.is_user_submitted)
+    isCatalogPublic.value = Boolean(data.is_catalog_public)
+    const nick = (data.submitted_by_nickname || '').trim()
+    const email = (data.submitted_by_email || '').trim()
+    submitterLabel.value = nick && email ? `${nick}（${email}）` : nick || email || (data.submitted_by_user_id ? `#${data.submitted_by_user_id}` : '')
     form.value = {
       video_id: data.video_id,
       index: data.index,
@@ -148,6 +157,9 @@ async function loadEpisode() {
       tag_names: [...data.tag_names],
       subtitles: data.subtitles.map((s) => ({ ...s })),
       vocab_summary: data.vocab_summary || '',
+    }
+    if (data.original_video_url) {
+      sourceUrl.value = data.original_video_url
     }
     syncTagsToInput()
   } catch (e: unknown) {
@@ -190,6 +202,18 @@ async function save() {
     error.value = '驳回时需填写原因'
     return
   }
+  if (
+    isUserSubmitted.value &&
+    form.value.status === 'published' &&
+    (!form.value.video_url?.trim() || !form.value.subtitles.length)
+  ) {
+    error.value = '用户投稿发布前须手工上传视频直链与字幕'
+    return
+  }
+  if (isCatalogPublic.value && isUserSubmitted.value && form.value.status !== 'published') {
+    error.value = '请先将状态设为「已发布」再设为全站可见'
+    return
+  }
   if (form.value.series_id != null && !form.value.series_index) {
     error.value = '加入合集时请填写合集内集序号'
     return
@@ -212,10 +236,17 @@ async function save() {
       success.value = '创建成功'
       await router.replace('/gnadmin/episodes')
     } else if (episodeId.value) {
+      if (isUserSubmitted.value) {
+        payload.is_catalog_public = isCatalogPublic.value
+      }
       await adminUpdateEpisode(episodeId.value, payload)
       const parsed = parseVocabSummary(payload.vocab_summary || '')
       const n = countVocabSummaryItems(parsed)
-      if ((payload.vocab_summary || '').trim() && n === 0) {
+      if (isUserSubmitted.value) {
+        success.value = isCatalogPublic.value
+          ? '已保存（全站可见）'
+          : '已保存（仅投稿者可见）'
+      } else if ((payload.vocab_summary || '').trim() && n === 0) {
         success.value =
           '已保存，但汇总文本未识别到词条：请用 Tab 分隔英文与中文，或「英文 + 空格 + 中文」；分类名请单独成行'
       } else if (n > 0) {
@@ -426,6 +457,38 @@ watch(
     <div v-if="loading" class="text-neutral-500">加载中...</div>
 
     <template v-else>
+      <section
+        v-if="isUserSubmitted"
+        class="rounded-xl border border-violet-200 bg-violet-50 px-5 py-4 space-y-3 text-sm"
+      >
+        <div class="space-y-2">
+          <p class="font-medium text-violet-900">用户投稿 · 请纯手工上传媒体</p>
+          <p class="text-violet-800">
+            投稿者：{{ submitterLabel || '未知' }}。勾选「全站可见」后所有用户可在目录看到；不勾选则仅投稿者可见。无论是否勾选，都会保留在投稿者的「我的语料库」。
+          </p>
+          <p v-if="form.original_video_url" class="break-all">
+            原链接：
+            <a
+              :href="form.original_video_url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="underline text-violet-900"
+            >
+              {{ form.original_video_url }}
+            </a>
+          </p>
+        </div>
+        <label class="flex items-start gap-2.5 cursor-pointer rounded-lg border border-violet-200 bg-white/70 px-3 py-2.5">
+          <input v-model="isCatalogPublic" type="checkbox" class="mt-0.5 rounded" />
+          <span>
+            <span class="font-medium text-violet-900">全站可见</span>
+            <span class="block text-violet-700 text-xs mt-0.5 leading-relaxed">
+              勾选：所有用户可在公共目录看到。不勾选：仅投稿者可见。设为全站可见前请先将状态设为「已发布」。
+            </span>
+          </span>
+        </label>
+      </section>
+
       <section class="rounded-xl border border-black/5 bg-white p-5 space-y-4">
         <h2 class="font-medium">基本信息</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

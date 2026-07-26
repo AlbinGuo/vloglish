@@ -79,6 +79,8 @@ class Episode(Base):
     series_id: Mapped[int | None] = mapped_column(ForeignKey("episode_series.id"), nullable=True, index=True)
     series_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     submitted_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    # 用户投稿默认 False（仅投稿者可见）；管理员「转为全站可见」后为 True（公共目录 + 仍留在我的语料库）
+    is_catalog_public: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)

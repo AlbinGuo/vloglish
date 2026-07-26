@@ -56,7 +56,7 @@ def _subtitle_out(s) -> AdminSubtitleIn:
     )
 
 
-def _episode_detail(ep: Episode) -> AdminEpisodeDetailOut:
+def _episode_detail(ep: Episode, submitter: User | None = None) -> AdminEpisodeDetailOut:
     series = ep.series
     return AdminEpisodeDetailOut(
         id=ep.id,
@@ -80,6 +80,10 @@ def _episode_detail(ep: Episode) -> AdminEpisodeDetailOut:
         status=ep.status,
         rejection_reason=ep.rejection_reason or "",
         is_user_submitted=ep.submitted_by_user_id is not None,
+        is_catalog_public=bool(getattr(ep, "is_catalog_public", False)),
+        submitted_by_user_id=ep.submitted_by_user_id,
+        submitted_by_email=(submitter.email if submitter else ""),
+        submitted_by_nickname=((submitter.nickname or "") if submitter else ""),
         series_id=ep.series_id,
         series_index=ep.series_index,
         series_title=series.title if series else "",
@@ -93,6 +97,12 @@ def _episode_detail(ep: Episode) -> AdminEpisodeDetailOut:
         subtitles=[_subtitle_out(s) for s in sorted(ep.subtitles, key=lambda x: x.index)],
         created_at=_fmt_dt(ep.created_at),
     )
+
+
+def _get_submitter(db: Session, user_id: int | None) -> User | None:
+    if not user_id:
+        return None
+    return db.query(User).filter(User.id == user_id).first()
 
 
 def _get_episode_or_404(db: Session, episode_id: int) -> Episode:
@@ -124,6 +134,10 @@ def list_episodes(
         None,
         description="合集 ID；传 0 表示仅独立单集（无合集）",
     ),
+    user_submitted: bool | None = Query(
+        None,
+        description="true=仅用户投稿；false=仅官方内容；不传=全部",
+    ),
     sort_by: str = Query("index"),
     sort_dir: str = Query("desc", pattern="^(asc|desc)$"),
     _admin: User = Depends(get_current_admin),
@@ -135,6 +149,7 @@ def list_episodes(
         status=status,
         stars=stars,
         series_id=series_id,
+        user_submitted=user_submitted,
         sort_by=sort_by,
         sort_dir=sort_dir,
     )
@@ -158,6 +173,7 @@ def list_episodes(
                 is_demo=ep.is_demo,
                 is_pinned=bool(getattr(ep, "is_pinned", False)),
                 is_user_submitted=ep.submitted_by_user_id is not None,
+                is_catalog_public=bool(getattr(ep, "is_catalog_public", False)),
                 tag_names=[t.name for t in ep.tags],
                 series_id=ep.series_id,
                 series_title=ep.series.title if ep.series else "",
@@ -299,7 +315,8 @@ def create_episode(
 
     db.commit()
     db.refresh(ep)
-    return _episode_detail(_get_episode_or_404(db, ep.id))
+    ep = _get_episode_or_404(db, ep.id)
+    return _episode_detail(ep, _get_submitter(db, ep.submitted_by_user_id))
 
 
 @router.get("/episodes/{episode_id}/", response_model=AdminEpisodeDetailOut)
@@ -308,7 +325,8 @@ def get_episode(
     _admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    return _episode_detail(_get_episode_or_404(db, episode_id))
+    ep = _get_episode_or_404(db, episode_id)
+    return _episode_detail(ep, _get_submitter(db, ep.submitted_by_user_id))
 
 
 @router.patch("/episodes/{episode_id}/", response_model=AdminEpisodeDetailOut)
@@ -353,9 +371,20 @@ def update_episode(
         subtitles_payload = [s.model_dump() for s in body.subtitles]
         data["subtitles"] = subtitles_payload
 
+    catalog_public = data.pop("is_catalog_public", None)
+
     apply_episode_fields(ep, data, author=author, tags=tags)
     if subtitles_payload is not None:
         replace_subtitles(db, ep.id, subtitles_payload)
+
+    if ep.submitted_by_user_id and ep.status == "published":
+        video_ok = bool((ep.video_url or "").strip())
+        subtitle_ok = ep.subtitle_count > 0 or bool(subtitles_payload)
+        if not video_ok or not subtitle_ok:
+            raise HTTPException(
+                status_code=400,
+                detail="用户投稿发布前须手工上传视频直链与字幕",
+            )
 
     maybe_notify_submitter_on_status_change(
         db,
@@ -365,8 +394,18 @@ def update_episode(
         rejection_reason=ep.rejection_reason,
     )
 
+    if catalog_public is not None and ep.submitted_by_user_id is not None:
+        want_public = bool(catalog_public)
+        if want_public and ep.status != "published":
+            raise HTTPException(status_code=400, detail="请先发布后再设为全站可见")
+        ep.is_catalog_public = want_public
+    elif ep.submitted_by_user_id is None:
+        # 官方内容始终按公共目录处理
+        ep.is_catalog_public = False
+
     db.commit()
-    return _episode_detail(_get_episode_or_404(db, episode_id))
+    ep = _get_episode_or_404(db, episode_id)
+    return _episode_detail(ep, _get_submitter(db, ep.submitted_by_user_id))
 
 
 @router.delete("/episodes/{episode_id}/")

@@ -14,6 +14,8 @@ const loading = ref(true)
 const deletingId = ref<number | null>(null)
 const search = ref('')
 const status = ref('')
+/** '' = 全部；'user' = 用户投稿；'official' = 官方 */
+const sourceFilter = ref('')
 /** '' = 全部；'0' = 独立单集；其它为合集 id */
 const seriesId = ref('')
 const seriesOptions = ref<AdminSeries[]>([])
@@ -70,6 +72,8 @@ async function load() {
       search: search.value.trim() || undefined,
       status: status.value || undefined,
       series_id: seriesId.value === '' ? undefined : Number(seriesId.value),
+      user_submitted:
+        sourceFilter.value === 'user' ? true : sourceFilter.value === 'official' ? false : undefined,
       sort_by: sortBy.value,
       sort_dir: sortDir.value,
     })
@@ -178,6 +182,11 @@ onMounted(async () => {
         <option value="archived">已下架</option>
         <option value="rejected">驳回</option>
       </select>
+      <select v-model="sourceFilter" class="rounded-lg border border-black/10 px-3 py-2 text-sm" @change="doSearch">
+        <option value="">全部来源</option>
+        <option value="user">用户投稿</option>
+        <option value="official">官方内容</option>
+      </select>
       <select
         v-model="seriesId"
         class="rounded-lg border border-black/10 px-3 py-2 text-sm min-w-[12rem] max-w-[18rem]"
@@ -263,6 +272,9 @@ onMounted(async () => {
               </div>
               <div v-if="row.is_pinned" class="text-xs text-amber-700 mt-0.5">置顶</div>
               <div v-if="row.is_demo" class="text-xs text-amber-600 mt-0.5">Demo</div>
+              <div v-if="row.is_user_submitted" class="text-xs text-violet-700 mt-0.5">
+                用户投稿 · {{ row.is_catalog_public ? '全站可见' : '仅投稿者可见' }}
+              </div>
             </td>
             <td class="px-4 py-3 max-w-[7rem] truncate" :title="row.author_name">{{ row.author_name }}</td>
             <td class="px-4 py-3">{{ '★'.repeat(row.stars) }}</td>
