@@ -7,10 +7,22 @@ export interface User {
 }
 
 export interface Author {
+  id?: number
   name: string
   gender: 'm' | 'f'
   nationality: string
   accent: string
+}
+
+/** 首页按作者分类 / 作者详情 */
+export interface AuthorCatalogItem {
+  id: number
+  name: string
+  gender: 'm' | 'f' | string
+  nationality: string
+  accent: string
+  episode_count: number
+  covers: string[]
 }
 
 export interface Tag {
@@ -106,6 +118,8 @@ export interface SeriesSummary {
   title: string
   summary: string
   cover: string
+  /** 叠卡用封面（最多 3 张） */
+  covers?: string[]
   episode_count: number
   sort_order: number
 }

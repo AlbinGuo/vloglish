@@ -1,6 +1,14 @@
 import api from './client'
 import { fetchWordLookup, type WordLookupMeta } from '@/composables/useWordLookupCache'
-import type { EntryDetail, EpisodeDetail, EpisodeSummary, SeriesDetail, SeriesSummary, Tag } from '@/types'
+import type {
+  AuthorCatalogItem,
+  EntryDetail,
+  EpisodeDetail,
+  EpisodeSummary,
+  SeriesDetail,
+  SeriesSummary,
+  Tag,
+} from '@/types'
 
 
 export interface EpisodeListParams {
@@ -15,6 +23,7 @@ export interface EpisodeListParams {
   tags?: string
   series_id?: number
   series_slug?: string
+  author_id?: number
   date?: string
   status?: 'all' | 'learned' | 'unlearned' | 'favorite'
   ordering?: string
@@ -39,6 +48,28 @@ export async function getEpisodeTags() {
 export async function getAuthorAccents() {
   const { data } = await api.get<{ accent: string }[]>('/api/author-accents/')
   return data.map((a) => a.accent)
+}
+
+export interface AuthorCatalogParams {
+  accents?: string
+  gender?: string
+  stars?: number
+  tags?: string
+  date?: string
+  status?: 'all' | 'learned' | 'unlearned' | 'favorite'
+  search?: string
+}
+
+export async function getAuthorsCatalog(params: AuthorCatalogParams = {}) {
+  const { data } = await api.get<{ count: number; results: AuthorCatalogItem[] }>('/api/authors/', {
+    params,
+  })
+  return data
+}
+
+export async function getAuthorDetail(authorId: number) {
+  const { data } = await api.get<AuthorCatalogItem>(`/api/authors/${authorId}/`)
+  return data
 }
 
 export async function getEpisodeDetail(videoId: string) {

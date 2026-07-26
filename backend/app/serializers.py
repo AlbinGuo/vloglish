@@ -8,6 +8,7 @@ from .services.vocab_summary import parse_vocab_summary
 
 def author_dict(author: Author) -> dict:
     return {
+        "id": author.id,
         "name": author.name,
         "gender": author.gender,
         "nationality": author.nationality,

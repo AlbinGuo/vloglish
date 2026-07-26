@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
 import { getSeriesList } from '@/api/episodes'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
-import { resolveMediaUrl } from '@/utils/mediaUrl'
+import SeriesStackCard from '@/components/catalog/SeriesStackCard.vue'
 import type { SeriesSummary } from '@/types'
 
 defineOptions({ name: 'SeriesListPage' })
@@ -36,33 +35,9 @@ onMounted(async () => {
 
     <div
       v-else
-      class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4"
+      class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3"
     >
-      <RouterLink
-        v-for="item in seriesList"
-        :key="item.id"
-        :to="`/english/series/${item.slug}`"
-        class="group rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 overflow-hidden hover:shadow-md transition"
-      >
-        <div class="aspect-video bg-neutral-200 dark:bg-neutral-800">
-          <img
-            v-if="item.cover"
-            :src="resolveMediaUrl(item.cover)"
-            :alt="item.title"
-            class="w-full h-full object-cover"
-            loading="lazy"
-          />
-        </div>
-        <div class="p-3 sm:p-4">
-          <h2 class="font-semibold leading-snug group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors">
-            {{ item.title }}
-          </h2>
-          <p class="mt-1 text-xs text-neutral-500">共 {{ item.episode_count }} 集 · 按序学习</p>
-          <p v-if="item.summary" class="mt-2 text-sm text-neutral-600 dark:text-neutral-400 line-clamp-2">
-            {{ item.summary }}
-          </p>
-        </div>
-      </RouterLink>
+      <SeriesStackCard v-for="item in seriesList" :key="item.id" :series="item" />
     </div>
   </div>
 </template>

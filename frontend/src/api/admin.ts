@@ -1,6 +1,11 @@
 import axios from 'axios'
-import { clearAdminTokens, getAdminAccessToken, getAdminRefreshToken, setAdminTokens } from '@/api/adminTokens'
-import { getDeviceId } from '@/api/client'
+import {
+  clearAdminTokens,
+  getAdminAccessToken,
+  getAdminDeviceId,
+  getAdminRefreshToken,
+  setAdminTokens,
+} from '@/api/adminTokens'
 import type { EpisodeDetail } from '@/types'
 
 const adminApi = axios.create({
@@ -11,7 +16,7 @@ const adminApi = axios.create({
 
 adminApi.interceptors.request.use((config) => {
   config.headers = config.headers ?? {}
-  config.headers['X-Device-Id'] = getDeviceId()
+  config.headers['X-Device-Id'] = getAdminDeviceId()
   const token = getAdminAccessToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
   // FormData 需由浏览器自动带 multipart boundary，不能沿用默认 application/json

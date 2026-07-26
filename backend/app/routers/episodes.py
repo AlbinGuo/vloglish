@@ -33,6 +33,7 @@ def episode_list(
     tags: str | None = None,
     series_id: int | None = None,
     series_slug: str | None = None,
+    author_id: int | None = None,
     date: str | None = None,
     status: str | None = Query(None, pattern="^(all|learned|unlearned|favorite)$"),
     ordering: str = Query(
@@ -86,6 +87,8 @@ def episode_list(
         tag_ids = [tag]
     for tag_id in tag_ids:
         q = q.filter(Episode.tags.any(Tag.id == tag_id))
+    if author_id is not None:
+        q = q.filter(Episode.author_id == author_id)
     if series_id is not None:
         q = q.filter(Episode.series_id == series_id)
     elif series_slug and series_slug.strip():
@@ -262,13 +265,17 @@ def series_list(
         visible = [ep for ep in episodes if can_access_episode(db, ep, user)]
         if not visible and episodes:
             continue
+        covers = [ep.cover for ep in visible if ep.cover][:3]
+        if not covers and series.cover:
+            covers = [series.cover]
         results.append(
             {
                 "id": series.id,
                 "slug": series.slug,
                 "title": series.title,
                 "summary": series.summary or "",
-                "cover": series.cover or (visible[0].cover if visible else ""),
+                "cover": covers[0] if covers else (series.cover or ""),
+                "covers": covers,
                 "episode_count": len(visible),
                 "sort_order": series.sort_order or 0,
             }
@@ -429,3 +436,134 @@ def author_accents(db: Session = Depends(get_db)):
 
     rows = db.query(distinct(Author.accent)).filter(Author.accent != "").all()
     return [{"accent": r[0]} for r in rows if r[0]]
+
+
+@router.get("/authors/")
+def authors_catalog(
+    accents: str | None = None,
+    gender: str | None = None,
+    stars: int | None = None,
+    tags: str | None = None,
+    date: str | None = None,
+    status: str | None = Query(None, pattern="^(all|learned|unlearned|favorite)$"),
+    search: str | None = None,
+    db: Session = Depends(get_db),
+    device_id: str = Depends(get_device_id),
+    user: User | None = Depends(get_current_user_optional),
+):
+    """首页「按作者分类」：有可见独立单集的作者，附封面叠卡与数量。"""
+    user_id = user.id if user else None
+    fav_ids = favorite_video_ids(db, device_id, user_id)
+    q = db.query(Episode).options(joinedload(Episode.author), joinedload(Episode.tags))
+    q = q.filter(Episode.status == "published")
+    q = q.filter(published_visibility_filter(user))
+    q = q.filter(Episode.series_id.is_(None))
+
+    author_joined = False
+
+    def ensure_author_join():
+        nonlocal q, author_joined
+        if not author_joined:
+            q = q.join(Author)
+            author_joined = True
+
+    if stars is not None:
+        q = q.filter(Episode.stars == stars)
+    accent_values = [a.strip() for a in (accents or "").split(",") if a.strip()]
+    if accent_values:
+        ensure_author_join()
+        q = q.filter(Author.accent.in_(accent_values))
+    if gender:
+        ensure_author_join()
+        q = q.filter(Author.gender == gender)
+    if search and search.strip():
+        ensure_author_join()
+        term = f"%{search.strip()}%"
+        q = q.filter(or_(Episode.short_title.ilike(term), Author.name.ilike(term)))
+    tag_ids = [int(t) for t in (tags or "").split(",") if t.strip().isdigit()]
+    for tag_id in tag_ids:
+        q = q.filter(Episode.tags.any(Tag.id == tag_id))
+    if date:
+        try:
+            day = datetime.strptime(date, "%Y-%m-%d").date()
+            q = q.filter(func.date(Episode.created_at) == day)
+        except ValueError:
+            pass
+    if status == "learned":
+        if not user:
+            q = q.filter(Episode.id < 0)
+        else:
+            learned_ids = learned_episode_ids(db, user.id)
+            q = q.filter(Episode.id.in_(learned_ids) if learned_ids else Episode.id < 0)
+    elif status == "unlearned":
+        if not user:
+            q = q.filter(Episode.id < 0)
+        else:
+            learned_ids = learned_episode_ids(db, user.id)
+            if learned_ids:
+                q = q.filter(~Episode.id.in_(learned_ids))
+    elif status == "favorite":
+        q = q.filter(Episode.video_id.in_(fav_ids) if fav_ids else Episode.id < 0)
+
+    q = q.order_by(Episode.is_pinned.desc(), Episode.created_at.desc())
+    limit = get_episode_limit(user)
+    episodes = q.limit(limit).all() if limit is not None else q.all()
+
+    grouped: dict[int, dict] = {}
+    order: list[int] = []
+    for ep in episodes:
+        author = ep.author
+        if author.id not in grouped:
+            grouped[author.id] = {
+                "id": author.id,
+                "name": author.name,
+                "gender": author.gender,
+                "nationality": author.nationality or "",
+                "accent": author.accent or "",
+                "episode_count": 0,
+                "covers": [],
+            }
+            order.append(author.id)
+        row = grouped[author.id]
+        row["episode_count"] += 1
+        if len(row["covers"]) < 3 and ep.cover:
+            row["covers"].append(ep.cover)
+
+    results = [grouped[aid] for aid in order]
+    results.sort(key=lambda r: (-r["episode_count"], r["name"].lower()))
+    return {"count": len(results), "results": results}
+
+
+@router.get("/authors/{author_id}/")
+def author_detail(
+    author_id: int,
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user_optional),
+):
+    author = db.query(Author).filter(Author.id == author_id).first()
+    if not author:
+        raise HTTPException(status_code=404, detail="作者不存在")
+
+    q = (
+        db.query(Episode)
+        .filter(
+            Episode.author_id == author_id,
+            Episode.status == "published",
+            Episode.series_id.is_(None),
+        )
+        .filter(published_visibility_filter(user))
+        .order_by(Episode.is_pinned.desc(), Episode.created_at.desc())
+    )
+    limit = get_episode_limit(user)
+    episodes = q.limit(limit).all() if limit is not None else q.all()
+    covers = [ep.cover for ep in episodes if ep.cover][:3]
+
+    return {
+        "id": author.id,
+        "name": author.name,
+        "gender": author.gender,
+        "nationality": author.nationality or "",
+        "accent": author.accent or "",
+        "episode_count": len(episodes),
+        "covers": covers,
+    }

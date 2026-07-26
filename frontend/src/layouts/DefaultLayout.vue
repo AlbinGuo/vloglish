@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { sendPresenceHeartbeat } from '@/api/presence'
+import BrandLogo from '@/components/BrandLogo.vue'
 import FeedbackModal from '@/components/FeedbackModal.vue'
 import { useCatalogMobileHeaderHide } from '@/composables/useCatalogMobileHeaderHide'
 import { useAuthStore } from '@/stores/auth'
@@ -93,9 +94,17 @@ watch(
       ]"
     >
       <div class="page-container py-3 flex items-center justify-between gap-4">
-        <RouterLink to="/english" class="flex flex-col shrink-0">
-          <span class="text-lg font-semibold">Vloglish</span>
-          <span class="text-xs text-neutral-500 dark:text-neutral-400">Real vlogs · Real English</span>
+        <RouterLink to="/english" class="group flex items-center gap-3 shrink-0 min-w-0">
+          <BrandLogo
+            class="transition-transform duration-200 group-hover:scale-[1.04]"
+            :size="34"
+          />
+          <span class="flex flex-col min-w-0">
+            <span class="text-[1.05rem] font-semibold tracking-[-0.02em] leading-tight">Vloglish</span>
+            <span class="text-[11px] text-neutral-500 dark:text-neutral-400 tracking-[0.01em] leading-tight mt-0.5">
+              Real vlogs · Real English
+            </span>
+          </span>
         </RouterLink>
 
         <div class="flex items-center gap-3 text-sm shrink-0">

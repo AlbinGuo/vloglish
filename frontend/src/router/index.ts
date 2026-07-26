@@ -167,6 +167,11 @@ const router = createRouter({
           component: () => import('@/pages/SeriesDetailPage.vue'),
         },
         {
+          path: 'english/authors/:authorId',
+          name: 'AuthorDetail',
+          component: () => import('@/pages/AuthorDetailPage.vue'),
+        },
+        {
           path: 'english/reading',
           name: 'NewsReadingList',
           component: () => import('@/pages/NewsReadingListPage.vue'),

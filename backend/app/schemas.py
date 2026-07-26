@@ -540,10 +540,21 @@ class AdminAuthorMergeIn(BaseModel):
 
 
 class AuthorOut(BaseModel):
+    id: int = 0
     name: str
     gender: str
     nationality: str
     accent: str
+
+
+class AuthorCatalogOut(BaseModel):
+    id: int
+    name: str
+    gender: str
+    nationality: str
+    accent: str
+    episode_count: int
+    covers: list[str] = []
 
 
 class TagOut(BaseModel):
