@@ -2,13 +2,11 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getAuthorsCatalog } from '@/api/episodes'
-import { getRecentEpisodes, type RecentEpisode } from '@/api/learning'
 import { useCatalogBrowseMode } from '@/composables/useCatalogBrowseMode'
 import { useCatalogScrollMemory } from '@/composables/useCatalogScrollMemory'
 import { useCatalogSidebar } from '@/composables/useCatalogSidebar'
 import { useCatalogViewMode } from '@/composables/useCatalogViewMode'
 import { useIsMobile } from '@/composables/useBreakpoint'
-import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
 import { CARD_INITIAL_SIZE, LIST_INITIAL_SIZE, useCatalogStore } from '@/stores/catalog'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
@@ -38,7 +36,6 @@ const displayViewMode = computed(() => (isMobile.value || !auth.isLoggedIn ? 'ca
 const showSubmitEpisodeEntry = true
 
 const loadMoreSentinel = ref<HTMLElement | null>(null)
-const recentLearning = ref<RecentEpisode[]>([])
 const authors = ref<AuthorCatalogItem[]>([])
 const authorsLoading = ref(false)
 const authorSearchQuery = ref(store.filters.search)
@@ -127,13 +124,6 @@ onMounted(async () => {
     await loadAuthors()
   } else if (!store.episodes.length) {
     await store.loadEpisodes()
-  }
-  if (auth.isLoggedIn) {
-    try {
-      recentLearning.value = (await getRecentEpisodes()).filter((e) => !e.is_completed).slice(0, 5)
-    } catch {
-      recentLearning.value = []
-    }
   }
   setupLoadMoreObserver()
   await restoreCatalogScroll()
@@ -281,33 +271,6 @@ watch(
         </div>
 
         <CatalogBrowseModeBar class="lg:hidden mb-4" />
-
-        <section
-          v-if="auth.isLoggedIn && recentLearning.length"
-          class="mb-5 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4"
-        >
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="text-sm font-semibold">继续学习</h2>
-            <RouterLink to="/english/learning" class="text-xs text-amber-700 dark:text-amber-400 hover:underline">全部统计</RouterLink>
-          </div>
-          <div class="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
-            <RouterLink
-              v-for="item in recentLearning"
-              :key="item.video_id"
-              :to="episodePath(item.video_id)"
-              class="shrink-0 w-40 rounded-lg border border-black/5 dark:border-white/10 overflow-hidden hover:shadow-sm transition cursor-pointer"
-              @click="requestEpisodeAutoplay"
-            >
-              <div class="relative aspect-video bg-neutral-200 dark:bg-neutral-800">
-                <img :src="item.cover" :alt="item.short_title" class="w-full h-full object-cover" loading="lazy" />
-                <span class="absolute bottom-1 right-1 text-[10px] text-white bg-black/60 px-1 rounded">
-                  {{ Math.round(item.completion_percent) }}%
-                </span>
-              </div>
-              <p class="p-2 text-xs font-medium line-clamp-2 leading-snug">{{ item.short_title }}</p>
-            </RouterLink>
-          </div>
-        </section>
 
         <div
           v-if="previewBanner"

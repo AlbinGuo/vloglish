@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { sendPresenceHeartbeat } from '@/api/presence'
 import BrandLogo from '@/components/BrandLogo.vue'
+import ContinueLearningDropdown from '@/components/ContinueLearningDropdown.vue'
 import FeedbackModal from '@/components/FeedbackModal.vue'
 import { useCatalogMobileHeaderHide } from '@/composables/useCatalogMobileHeaderHide'
 import { useAuthStore } from '@/stores/auth'
@@ -168,9 +169,7 @@ watch(
             <span v-if="auth.isMember" class="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
               会员
             </span>
-            <span class="hidden sm:inline text-neutral-500 dark:text-neutral-400 max-w-[10rem] truncate">
-              {{ auth.user?.nickname || auth.user?.email }}
-            </span>
+            <ContinueLearningDropdown />
             <button type="button" class="text-neutral-600 hover:text-black dark:text-neutral-400 dark:hover:text-white" @click="handleLogout">退出</button>
           </template>
           <template v-else>
