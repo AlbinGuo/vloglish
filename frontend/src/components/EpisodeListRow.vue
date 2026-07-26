@@ -7,6 +7,7 @@ import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import type { EpisodeSummary } from '@/types'
+import { displayLearnerCount } from '@/utils/displayLearnerCount'
 
 const props = defineProps<{
   episode: EpisodeSummary
@@ -24,6 +25,10 @@ function formatDuration(sec: number) {
   const m = Math.floor(sec / 60)
   const s = Math.floor(sec % 60)
   return `${m}:${String(s).padStart(2, '0')}`
+}
+
+function learnerLabel() {
+  return `${displayLearnerCount(props.episode.learner_count, props.episode.video_id)}人学过`
 }
 </script>
 
@@ -86,7 +91,7 @@ function formatDuration(sec: number) {
         </div>
         <h3 class="font-semibold text-sm leading-snug line-clamp-1">{{ episode.short_title }}</h3>
         <p class="text-xs text-neutral-500 line-clamp-1">{{ episode.summary }}</p>
-        <div class="flex items-center gap-1.5 text-[11px] text-neutral-400">
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-neutral-400">
           <span>{{ episode.voca_size }} 词 · {{ episode.subtitle_count }} 句 · {{ episode.author.name }}</span>
           <img
             v-if="accentIcon"
@@ -94,6 +99,9 @@ function formatDuration(sec: number) {
             :alt="episode.author.accent"
             class="w-4 h-4 object-contain shrink-0"
           />
+          <span class="font-semibold text-amber-700 dark:text-amber-400 tabular-nums">
+            {{ learnerLabel() }}
+          </span>
         </div>
       </div>
     </RouterLink>

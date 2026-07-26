@@ -10,6 +10,7 @@ from ..database import get_db
 from ..demo_access import can_access_episode, get_episode_limit, user_is_member
 from ..deps import get_current_user_optional, get_device_id
 from ..favorites import favorite_video_ids
+from ..services.episode_stats import learner_count_map_for_episodes
 from ..services.learning import learned_episode_ids, progress_map_for_episodes
 from ..media import find_episode_audio_file, find_episode_video_file
 from ..models import Author, Episode, EpisodeFavorite, EpisodeSeries, Tag, User, UserEpisodeFavorite
@@ -147,6 +148,7 @@ def episode_list(
         total = q.count()
         items = q.offset(start).limit(page_size).all()
     prog_map = progress_map_for_episodes(db, user.id, [ep.id for ep in items]) if user else {}
+    learner_map = learner_count_map_for_episodes(db, [ep.id for ep in items])
     return {
         "count": total,
         "results": [
@@ -155,6 +157,7 @@ def episode_list(
                 is_favorite=ep.video_id in fav_ids if user_is_member(user) else False,
                 is_learned=prog_map.get(ep.id).is_completed if prog_map.get(ep.id) else False,
                 progress_percent=prog_map.get(ep.id).completion_percent if prog_map.get(ep.id) else 0,
+                learner_count=learner_map.get(ep.id, 0),
             )
             for ep in items
         ],
@@ -303,6 +306,7 @@ def series_detail(
     user_id = user.id if user else None
     fav_ids = favorite_video_ids(db, device_id, user_id)
     prog_map = progress_map_for_episodes(db, user.id, [ep.id for ep in visible]) if user else {}
+    learner_map = learner_count_map_for_episodes(db, [ep.id for ep in visible])
 
     return {
         "id": series.id,
@@ -317,6 +321,7 @@ def series_detail(
                 is_favorite=ep.video_id in fav_ids if user_is_member(user) else False,
                 is_learned=prog_map.get(ep.id).is_completed if prog_map.get(ep.id) else False,
                 progress_percent=prog_map.get(ep.id).completion_percent if prog_map.get(ep.id) else 0,
+                learner_count=learner_map.get(ep.id, 0),
             )
             for ep in visible
         ],

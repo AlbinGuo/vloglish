@@ -48,6 +48,8 @@ export interface EpisodeSummary {
   progress_percent?: number
   is_new?: boolean
   is_pinned?: boolean
+  /** 独立学习过该集的用户数 */
+  learner_count?: number
   series_id?: number | null
   series_slug?: string
   series_title?: string

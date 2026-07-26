@@ -36,6 +36,7 @@ def episode_summary(
     is_favorite: bool = False,
     is_learned: bool = False,
     progress_percent: float = 0,
+    learner_count: int = 0,
 ) -> dict:
     created_at = episode.created_at.isoformat() + "Z" if episode.created_at else ""
     return {
@@ -57,6 +58,7 @@ def episode_summary(
         "progress_percent": progress_percent,
         "is_new": episode_is_new(episode),
         "is_pinned": bool(getattr(episode, "is_pinned", False)),
+        "learner_count": int(learner_count or 0),
         **_series_brief(episode),
     }
 

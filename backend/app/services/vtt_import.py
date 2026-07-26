@@ -140,16 +140,43 @@ def parse_vtt(content: str) -> list[Cue]:
     return cues
 
 
+# 毫秒可选；兼容 00:00:01 / 00:00:01,0 / 00:00:01,000 / 00:00:01.000
 _SRT_TIMING_RE = re.compile(
-    r"^(\d{1,2}:\d{2}:\d{2}[,\.]\d{1,3})\s*-->\s*(\d{1,2}:\d{2}:\d{2}[,\.]\d{1,3}).*(?:\n|$)",
+    r"^(\d{1,2}:\d{2}:\d{2}(?:[,\.]\d{1,3})?)\s*-->\s*(\d{1,2}:\d{2}:\d{2}(?:[,\.]\d{1,3})?).*(?:\n|$)",
     re.MULTILINE,
 )
+
+
+def _normalize_subtitle_newlines(content: str) -> str:
+    text = content.lstrip("\ufeff")
+    # UTF-16 误读为 UTF-8 时常见大量 NUL；去掉后时间轴才可能匹配
+    if "\x00" in text:
+        text = text.replace("\x00", "")
+    # 全角冒号 / 特殊箭头 → 标准 SRT
+    text = text.replace("：", ":").replace("→", "-->").replace("➜", "-->")
+    return text.replace("\r\n", "\n").replace("\r", "\n").strip()
+
+
+def _cue_from_timing_and_lines(start_s: str, end_s: str, text_lines: list[str]) -> Cue | None:
+    english, chinese = split_bilingual_lines(text_lines)
+    if not english and not chinese:
+        return None
+    if not english and chinese:
+        english, chinese = chinese, ""
+    try:
+        start = parse_timestamp(start_s)
+        end = parse_timestamp(end_s)
+    except (ValueError, IndexError):
+        return None
+    if end < start:
+        end = start
+    return Cue(start=start, end=end, english=english, chinese=chinese)
 
 
 def parse_srt(content: str) -> list[Cue]:
     """Parse SubRip (.srt) subtitles."""
     cues: list[Cue] = []
-    normalized = content.lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n").strip()
+    normalized = _normalize_subtitle_newlines(content)
     if not normalized:
         return cues
 
@@ -165,19 +192,9 @@ def parse_srt(content: str) -> list[Cue]:
                 if not line or re.fullmatch(r"\d+", line):
                     continue
                 text_lines.append(line)
-            english, chinese = split_bilingual_lines(text_lines)
-            if not english and not chinese:
-                continue
-            if not english and chinese:
-                english, chinese = chinese, ""
-            cues.append(
-                Cue(
-                    start=parse_timestamp(start_s),
-                    end=parse_timestamp(end_s),
-                    english=english,
-                    chinese=chinese,
-                )
-            )
+            cue = _cue_from_timing_and_lines(start_s, end_s, text_lines)
+            if cue:
+                cues.append(cue)
         return cues
 
     # Fallback for unusual exports that still use blank-line blocks.
@@ -191,19 +208,9 @@ def parse_srt(content: str) -> list[Cue]:
         timing = lines[timing_idx]
         text_lines = lines[timing_idx + 1 :]
         start_s, end_s = [p.strip() for p in timing.split("-->", 1)]
-        english, chinese = split_bilingual_lines(text_lines)
-        if not english and not chinese:
-            continue
-        if not english and chinese:
-            english, chinese = chinese, ""
-        cues.append(
-            Cue(
-                start=parse_timestamp(start_s),
-                end=parse_timestamp(end_s),
-                english=english,
-                chinese=chinese,
-            )
-        )
+        cue = _cue_from_timing_and_lines(start_s, end_s, text_lines)
+        if cue:
+            cues.append(cue)
     return cues
 
 

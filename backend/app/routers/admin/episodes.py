@@ -15,6 +15,7 @@ from ...schemas import (
     AdminFetchMediaOut,
     AdminNextEpisodeIndexOut,
     AdminEpisodeUpdateIn,
+    AdminSubtitleEnrichIn,
     AdminSubtitleIn,
     AdminVttImportIn,
     AdminVttImportOut,
@@ -30,7 +31,10 @@ from ...services.episode_admin import (
     resolve_tags,
 )
 from ...services.episode_stats import admin_episode_list_query, row_stats_from_query
-from ...services.subtitle_import_admin import import_subtitle_text_for_admin
+from ...services.subtitle_import_admin import (
+    enrich_existing_subtitles_for_admin,
+    import_subtitle_text_for_admin,
+)
 from ...services.user_notifications import maybe_notify_submitter_on_status_change
 from ...services.yt_dlp_fetch import fetch_and_upload_from_url
 from ...services.episode_series import get_series_or_none
@@ -201,6 +205,21 @@ def import_subtitles(
 ):
     return import_subtitle_text_for_admin(
         body.vtt_text,
+        title=body.title or "",
+        summary=body.summary or "",
+        translate_chinese=body.translate_chinese,
+        enrich_ai=body.enrich_ai,
+    )
+
+
+@router.post("/episodes/enrich-subtitles/", response_model=AdminVttImportOut)
+def enrich_subtitles(
+    body: AdminSubtitleEnrichIn,
+    _admin: User = Depends(get_current_admin),
+):
+    """对已加载的字幕做 AI 增强（无需重新上传 SRT）。"""
+    return enrich_existing_subtitles_for_admin(
+        body.subtitles,
         title=body.title or "",
         summary=body.summary or "",
         translate_chinese=body.translate_chinese,

@@ -433,8 +433,12 @@ class AdminVttImportIn(BaseModel):
     title: str = Field(default="", description="剧集标题，帮助按剧情翻译")
     summary: str = Field(default="", description="剧集摘要，帮助按剧情翻译")
     translate_chinese: bool = Field(
-        default=True,
-        description="是否用 AI 翻译/改写中文；False 则保留文件内中文（或留空），不做任何翻译",
+        default=False,
+        description="是否用 AI 翻译/改写中文；需 enrich_ai=True 才生效",
+    )
+    enrich_ai: bool = Field(
+        default=False,
+        description="是否调用 DeepSeek（翻译/音标/高亮）。False 时仅解析导入，秒级返回",
     )
 
 
@@ -449,6 +453,16 @@ class AdminVttImportOut(BaseModel):
     voca_size: int = 0
     highlight_count: int = 0
     warnings: list[str] = []
+
+
+class AdminSubtitleEnrichIn(BaseModel):
+    subtitles: list[AdminSubtitleIn] = Field(min_length=1)
+    title: str = Field(default="", description="剧集标题，帮助按剧情翻译")
+    summary: str = Field(default="", description="剧集摘要，帮助按剧情翻译")
+    translate_chinese: bool = Field(
+        default=False,
+        description="True=AI 翻译/改写中文；False=保留现有中文，仅生成音标与高亮",
+    )
 
 
 class AdminFetchMediaIn(BaseModel):
@@ -597,6 +611,7 @@ class EpisodeSummaryOut(BaseModel):
     progress_percent: float = 0
     is_new: bool = False
     is_pinned: bool = False
+    learner_count: int = 0
     remark: str = ""
     series_id: int | None = None
     series_slug: str = ""

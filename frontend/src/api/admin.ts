@@ -529,7 +529,12 @@ export async function adminDeleteEpisode(id: number) {
 
 export async function adminImportVtt(
   vttText: string,
-  options?: { title?: string; summary?: string; translateChinese?: boolean },
+  options?: {
+    title?: string
+    summary?: string
+    translateChinese?: boolean
+    enrichAi?: boolean
+  },
 ) {
   const { data } = await adminApi.post<{
     subtitles: AdminSubtitle[]
@@ -548,7 +553,36 @@ export async function adminImportVtt(
       vtt_text: vttText,
       title: options?.title || '',
       summary: options?.summary || '',
-      translate_chinese: options?.translateChinese !== false,
+      translate_chinese: Boolean(options?.translateChinese),
+      enrich_ai: Boolean(options?.enrichAi),
+    },
+    { timeout: 900000 },
+  )
+  return data
+}
+
+export async function adminEnrichSubtitles(
+  subtitles: AdminSubtitle[],
+  options?: { title?: string; summary?: string; translateChinese?: boolean },
+) {
+  const { data } = await adminApi.post<{
+    subtitles: AdminSubtitle[]
+    subtitle_count: number
+    clip_length: number
+    had_chinese: boolean
+    translated_count: number
+    ipa_count: number
+    stars: number
+    voca_size: number
+    highlight_count: number
+    warnings?: string[]
+  }>(
+    '/api/admin/episodes/enrich-subtitles/',
+    {
+      subtitles,
+      title: options?.title || '',
+      summary: options?.summary || '',
+      translate_chinese: Boolean(options?.translateChinese),
     },
     { timeout: 900000 },
   )

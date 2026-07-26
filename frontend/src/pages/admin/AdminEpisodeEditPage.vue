@@ -5,6 +5,7 @@ import DifficultyStarsInput from '@/components/admin/DifficultyStarsInput.vue'
 import SubtitleHighlightEditor from '@/components/admin/SubtitleHighlightEditor.vue'
 import {
   adminCreateEpisode,
+  adminEnrichSubtitles,
   adminFetchMediaFromUrl,
   adminGetEpisode,
   adminGetNextEpisodeIndex,
@@ -30,13 +31,14 @@ const episodeId = computed(() => (isNew.value ? null : Number(route.params.id)))
 const loading = ref(!isNew.value)
 const saving = ref(false)
 const importing = ref(false)
+const enriching = ref(false)
 const fetching = ref(false)
 const error = ref('')
 const success = ref('')
 const tagSuggestions = ref<string[]>([])
 const subtitleImportText = ref('')
-/** keep = 保留文件中文不翻译；ai = DeepSeek 按剧情翻译/改写 */
-const subtitleTranslateMode = ref<'keep' | 'ai'>('keep')
+/** 对当前字幕 AI 增强：keep=不翻译；translate=翻译中文 */
+const subtitleEnrichMode = ref<'keep' | 'translate'>('keep')
 const sourceUrl = ref('')
 const mediaSlug = ref('')
 const isUserSubmitted = ref(false)
@@ -264,6 +266,74 @@ async function save() {
   }
 }
 
+function formatImportError(e: unknown): string {
+  const err = e as {
+    code?: string
+    message?: string
+    response?: { status?: number; data?: { detail?: string | { msg?: string }[]; message?: string } }
+  }
+  const detail = err.response?.data?.detail
+  const altMessage = err.response?.data?.message
+  let msg =
+    typeof detail === 'string'
+      ? detail
+      : Array.isArray(detail)
+        ? detail.map((item) => item.msg).filter(Boolean).join('；')
+        : typeof altMessage === 'string'
+          ? altMessage
+          : ''
+  if (msg) return msg
+  if (err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '')) {
+    return '处理超时：条目较多时 AI 可能需数分钟。可稍后重试，或先保存再增强'
+  }
+  if (err.response?.status === 404) return '接口未找到，请重启后端服务后再试'
+  if (err.response?.status === 502 || err.response?.status === 504) {
+    return '网关超时或后端中断，请确认服务仍在运行后重试'
+  }
+  if (!err.response) return '无法连接后端或请求被中断，请确认服务已启动后重试'
+  return `请求失败（HTTP ${err.response.status}）`
+}
+
+function applyImportResult(
+  data: {
+    subtitles: AdminSubtitle[]
+    stars: number
+    voca_size: number
+    subtitle_count: number
+    had_chinese: boolean
+    translated_count: number
+    ipa_count: number
+    highlight_count: number
+    warnings?: string[]
+  },
+  opts: { kind: 'import' | 'enrich'; translated: boolean },
+) {
+  const { kind, translated } = opts
+  form.value.subtitles = data.subtitles.map((s) => ({ ...s }))
+  if (kind === 'enrich') {
+    if (data.stars >= 1 && data.stars <= 5) form.value.stars = data.stars
+    if (data.voca_size > 0) form.value.voca_size = data.voca_size
+  }
+  const parts =
+    kind === 'import'
+      ? [`已导入 ${data.subtitle_count} 条字幕`, data.had_chinese ? '已保留文件中文' : '未含中文']
+      : [`已 AI 增强 ${data.subtitle_count} 条字幕`]
+  if (kind === 'enrich') {
+    if (translated && data.translated_count > 0) {
+      parts.push(`翻译/改写 ${data.translated_count} 条中文`)
+    } else if (!translated) {
+      parts.push(data.had_chinese ? '已保留现有中文' : '未翻译中文')
+    }
+    if (data.ipa_count > 0) parts.push(`音标 ${data.ipa_count} 条`)
+    if (data.highlight_count > 0) parts.push(`高亮 ${data.highlight_count} 处`)
+    if (data.voca_size > 0) parts.push(`词汇量 ${data.voca_size}`)
+    if (data.stars >= 1) parts.push(`难度 ${data.stars} 星`)
+  }
+  success.value = parts.join('，')
+  const warnList = (data.warnings || []).filter(Boolean)
+  error.value = warnList.length ? warnList.join('；') : ''
+}
+
 async function importSubtitles() {
   if (!subtitleImportText.value.trim()) {
     error.value = '请粘贴 VTT / SRT 字幕内容'
@@ -273,73 +343,93 @@ async function importSubtitles() {
   error.value = ''
   success.value = ''
   try {
-    const useAiTranslate = subtitleTranslateMode.value === 'ai'
     const data = await adminImportVtt(subtitleImportText.value, {
       title: form.value.short_title,
       summary: form.value.summary,
-      translateChinese: useAiTranslate,
+      enrichAi: false,
     })
-    form.value.subtitles = data.subtitles.map((s: AdminSubtitle) => ({ ...s }))
-    if (data.stars >= 1 && data.stars <= 5) {
-      form.value.stars = data.stars
-    }
-    if (data.voca_size > 0) {
-      form.value.voca_size = data.voca_size
-    }
-    const parts = [`已导入 ${data.subtitle_count} 条字幕`]
-    if (!useAiTranslate) {
-      parts.push(data.had_chinese ? '已保留文件中文（未翻译）' : '未做中文翻译')
-    } else if (data.translated_count > 0) {
-      parts.push(
-        data.had_chinese
-          ? `按剧情重译 ${data.translated_count} 条中文`
-          : `翻译 ${data.translated_count} 条中文`,
-      )
-    } else if (data.had_chinese) {
-      parts.push('字幕含中文（本次未改写）')
-    }
-    if (data.ipa_count > 0) {
-      parts.push(`生成 ${data.ipa_count} 条音标`)
-    }
-    if (data.highlight_count > 0) {
-      parts.push(`高亮 ${data.highlight_count} 处难词`)
-    }
-    if (data.voca_size > 0) {
-      parts.push(`词汇量 ${data.voca_size}`)
-    }
-    if (data.stars >= 1) {
-      parts.push(`难度 ${data.stars} 星`)
-    }
-    success.value = parts.join('，')
-    const warnList = (data.warnings || []).filter(Boolean)
-    if (warnList.length) {
-      error.value = warnList.join('；')
-    }
+    applyImportResult(data, { kind: 'import', translated: false })
     subtitleImportText.value = ''
   } catch (e: unknown) {
-    const err = e as { response?: { status?: number; data?: { detail?: string | { msg?: string }[] } } }
-    const detail = err.response?.data?.detail
-    const msg =
-      typeof detail === 'string'
-        ? detail
-        : Array.isArray(detail)
-          ? detail.map((item) => item.msg).filter(Boolean).join('；')
-          : err.response?.status === 404
-            ? '字幕导入接口未找到，请重启后端服务后再试'
-            : ''
-    error.value = msg || '字幕解析失败'
+    error.value = formatImportError(e)
   } finally {
     importing.value = false
   }
 }
 
+async function enrichCurrentSubtitles() {
+  if (!form.value.subtitles.length) {
+    error.value = '请先导入或添加字幕'
+    return
+  }
+  enriching.value = true
+  error.value = ''
+  success.value = ''
+  try {
+    const translateChinese = subtitleEnrichMode.value === 'translate'
+    const data = await adminEnrichSubtitles(
+      form.value.subtitles.map((s) => ({ ...s })),
+      {
+        title: form.value.short_title,
+        summary: form.value.summary,
+        translateChinese,
+      },
+    )
+    applyImportResult(data, { kind: 'enrich', translated: translateChinese })
+  } catch (e: unknown) {
+    error.value = formatImportError(e)
+  } finally {
+    enriching.value = false
+  }
+}
+
+function looksLikeSubtitleText(text: string): boolean {
+  return /-->/.test(text) || /^WEBVTT/i.test(text.trim())
+}
+
 async function readSubtitleFile(file: File): Promise<string> {
   const buffer = await file.arrayBuffer()
   const bytes = new Uint8Array(buffer)
+
+  // UTF-8 BOM
   if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
     return new TextDecoder('utf-8').decode(bytes.slice(3))
   }
-  return new TextDecoder('utf-8').decode(bytes)
+  // UTF-16 LE BOM
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder('utf-16le').decode(bytes.slice(2))
+  }
+  // UTF-16 BE BOM
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder('utf-16be').decode(bytes.slice(2))
+  }
+
+  const utf8 = new TextDecoder('utf-8').decode(bytes)
+  if (looksLikeSubtitleText(utf8) && !utf8.includes('\uFFFD')) {
+    return utf8
+  }
+
+  // 常见中文 Windows 导出：GBK / GB18030
+  try {
+    const gbk = new TextDecoder('gbk').decode(bytes)
+    if (looksLikeSubtitleText(gbk)) return gbk
+  } catch {
+    // browser may not support gbk label
+  }
+  try {
+    const gb18030 = new TextDecoder('gb18030').decode(bytes)
+    if (looksLikeSubtitleText(gb18030)) return gb18030
+  } catch {
+    // ignore
+  }
+
+  // UTF-16 LE without BOM（大量偶数位 NUL）
+  if (bytes.length >= 4 && bytes[1] === 0 && bytes[3] === 0) {
+    const utf16 = new TextDecoder('utf-16le').decode(bytes)
+    if (looksLikeSubtitleText(utf16)) return utf16
+  }
+
+  return utf8
 }
 
 async function onSubtitleFileChange(event: Event) {
@@ -746,25 +836,8 @@ watch(
 
         <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">
           <p class="text-sm text-neutral-600">
-            从 VTT / SRT 导入（粘贴内容或选择文件）。按文件原始条目导入，不合并碎句；并生成音标与重点/难点/专业词汇等高亮。中文是否翻译请在下方选择。建议先填写标题与摘要；AI 处理可能较久。
+            从 VTT / SRT 导入文本（秒级，不调 AI）。导入后可点下方「AI 增强当前字幕」生成翻译/音标/高亮，无需再选文件。
           </p>
-          <div class="flex flex-col gap-2 text-sm">
-            <span class="text-neutral-500">中文处理</span>
-            <label class="flex items-start gap-2 cursor-pointer">
-              <input v-model="subtitleTranslateMode" type="radio" value="keep" class="mt-1" />
-              <span>
-                <span class="font-medium text-neutral-800">直接使用文件内容</span>
-                <span class="block text-neutral-500 text-xs mt-0.5">保留 SRT/VTT 里的中文（或留空），不做翻译改写；仍会生成音标与难词高亮</span>
-              </span>
-            </label>
-            <label class="flex items-start gap-2 cursor-pointer">
-              <input v-model="subtitleTranslateMode" type="radio" value="ai" class="mt-1" />
-              <span>
-                <span class="font-medium text-neutral-800">AI 翻译中文</span>
-                <span class="block text-neutral-500 text-xs mt-0.5">按剧情做口语化翻译；文件里已有中文也会改写</span>
-              </span>
-            </label>
-          </div>
           <textarea
             v-model="subtitleImportText"
             rows="4"
@@ -779,12 +852,46 @@ watch(
             <button
               type="button"
               class="text-sm px-3 py-1.5 rounded-lg bg-neutral-900 text-white disabled:opacity-50"
-              :disabled="importing"
+              :disabled="importing || enriching"
               @click="importSubtitles"
             >
-              {{ importing ? '解析/生成中...' : '解析并替换字幕' }}
+              {{ importing ? '解析中...' : '解析并替换字幕' }}
             </button>
           </div>
+        </div>
+
+        <div
+          v-if="form.subtitles.length"
+          class="rounded-lg border border-violet-200 bg-violet-50/60 p-4 space-y-3"
+        >
+          <p class="text-sm font-medium text-violet-900">AI 增强当前字幕</p>
+          <p class="text-xs text-violet-800 leading-relaxed">
+            对上方已加载的 {{ form.subtitles.length }} 条字幕调用 DeepSeek（不必重新上传文件）。条目多时可能需数分钟，完成后请记得保存。
+          </p>
+          <div class="flex flex-col gap-2 text-sm">
+            <label class="flex items-start gap-2 cursor-pointer">
+              <input v-model="subtitleEnrichMode" type="radio" value="keep" class="mt-1" />
+              <span>
+                <span class="font-medium text-neutral-800">保留现有中文</span>
+                <span class="block text-neutral-500 text-xs mt-0.5">不翻译；生成音标与难词高亮</span>
+              </span>
+            </label>
+            <label class="flex items-start gap-2 cursor-pointer">
+              <input v-model="subtitleEnrichMode" type="radio" value="translate" class="mt-1" />
+              <span>
+                <span class="font-medium text-neutral-800">AI 翻译中文</span>
+                <span class="block text-neutral-500 text-xs mt-0.5">按剧情翻译/改写中文，并生成音标与高亮</span>
+              </span>
+            </label>
+          </div>
+          <button
+            type="button"
+            class="text-sm px-4 py-2 rounded-lg bg-violet-700 text-white hover:bg-violet-800 disabled:opacity-50"
+            :disabled="enriching || importing || !form.subtitles.length"
+            @click="enrichCurrentSubtitles"
+          >
+            {{ enriching ? 'AI 增强中（可能较久）...' : 'AI 增强当前字幕' }}
+          </button>
         </div>
 
         <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">

@@ -137,3 +137,19 @@ def row_stats_from_query(row) -> dict:
         "plays_7d": int(plays_7d or 0),
         "plays_30d": int(plays_30d or 0),
     }
+
+
+def learner_count_map_for_episodes(db: Session, episode_ids: list[int]) -> dict[int, int]:
+    """批量查询每集独立学习人数（有 UserEpisodeProgress 记录的用户数）。"""
+    if not episode_ids:
+        return {}
+    rows = (
+        db.query(
+            UserEpisodeProgress.episode_id,
+            func.count(UserEpisodeProgress.id),
+        )
+        .filter(UserEpisodeProgress.episode_id.in_(episode_ids))
+        .group_by(UserEpisodeProgress.episode_id)
+        .all()
+    )
+    return {int(eid): int(cnt or 0) for eid, cnt in rows}

@@ -7,6 +7,7 @@ import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import type { EpisodeSummary } from '@/types'
+import { displayLearnerCount } from '@/utils/displayLearnerCount'
 
 const props = defineProps<{ episode: EpisodeSummary; to: string }>()
 
@@ -22,13 +23,9 @@ function formatDuration(sec: number) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-function formatDate(iso?: string) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
+function learnerLabel() {
+  return `${displayLearnerCount(props.episode.learner_count, props.episode.video_id)}人学过`
 }
-
 </script>
 
 <template>
@@ -119,10 +116,11 @@ function formatDate(iso?: string) {
         <h3 class="font-semibold text-sm leading-snug truncate min-w-0">{{ episode.short_title }}</h3>
         <p class="text-xs text-neutral-500 line-clamp-2 leading-relaxed">{{ episode.summary }}</p>
 
-        <div class="flex items-center justify-between text-[11px] text-neutral-400 pt-1.5 border-t border-black/5 dark:border-white/10">
-          <span>{{ episode.voca_size }} 词</span>
-          <span>{{ episode.subtitle_count }} 句</span>
-          <span v-if="episode.created_at">{{ formatDate(episode.created_at) }}</span>
+        <div class="flex items-center justify-between gap-2 text-[11px] text-neutral-400 pt-1.5 border-t border-black/5 dark:border-white/10">
+          <span class="truncate">{{ episode.voca_size }} 词 · {{ episode.subtitle_count }} 句</span>
+          <span class="shrink-0 font-semibold text-amber-700 dark:text-amber-400 tabular-nums">
+            {{ learnerLabel() }}
+          </span>
         </div>
       </div>
     </article>
