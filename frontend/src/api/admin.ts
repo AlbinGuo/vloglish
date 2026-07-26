@@ -860,6 +860,8 @@ export interface AdminArticleDetail {
   published_at: string
   status: string
   tts_status: string
+  vocab_summary?: import('@/utils/vocabSummary').VocabSummaryGroup[]
+  vocab_summary_text?: string
   segments: AdminArticleSegment[]
 }
 
@@ -910,14 +912,43 @@ export async function adminImportArticleText(
 ) {
   const { data } = await adminApi.post<{ segment_count: number; word_count: number; stars: number }>(
     `/api/admin/articles/${ref}/import-text/`,
-    payload,
-    { timeout: 600000 },
+    {
+      auto_translate: false,
+      auto_analyze: false,
+      ...payload,
+    },
+    { timeout: 120000 },
   )
   return data
 }
 
 export async function adminAnalyzeArticle(ref: string | number) {
-  const { data } = await adminApi.post<Record<string, number>>(`/api/admin/articles/${ref}/analyze/`)
+  const { data } = await adminApi.post<Record<string, number>>(
+    `/api/admin/articles/${ref}/analyze/`,
+    {},
+    { timeout: 900000 },
+  )
+  return data
+}
+
+export async function adminEnrichArticle(
+  ref: string | number,
+  payload: { translate?: boolean; analyze?: boolean } = {},
+) {
+  const { data } = await adminApi.post<{
+    segment_count: number
+    word_count: number
+    stars: number
+    translated: boolean
+    analyzed: boolean
+    voca_size: number
+    highlight_count: number
+    annotate_failed: number
+  }>(
+    `/api/admin/articles/${ref}/enrich/`,
+    { translate: true, analyze: true, ...payload },
+    { timeout: 900000 },
+  )
   return data
 }
 

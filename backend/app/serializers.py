@@ -193,6 +193,7 @@ def article_detail(
     *,
     progress: UserArticleProgress | None = None,
 ) -> dict:
+    vocab_text = getattr(article, "vocab_summary", None) or ""
     return {
         "article_id": article.article_id,
         "title": article.title,
@@ -206,6 +207,8 @@ def article_detail(
         "cover": article.cover or "",
         "published_at": _article_fmt_dt(article.published_at),
         "tts_status": article.tts_status or "none",
+        "vocab_summary": parse_vocab_summary(vocab_text),
+        "vocab_summary_text": vocab_text,
         "segments": [article_segment_out(s) for s in segments],
         "progress": article_progress_out(progress),
     }

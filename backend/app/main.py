@@ -248,6 +248,11 @@ def _migrate_schema():
                 conn.execute(
                     text("ALTER TABLE articles ADD COLUMN tts_status VARCHAR(16) NOT NULL DEFAULT 'none'")
                 )
+        if "vocab_summary" not in art_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE articles ADD COLUMN vocab_summary TEXT NOT NULL DEFAULT ''")
+                )
     if "article_segments" in insp.get_table_names():
         seg_cols = {c["name"] for c in insp.get_columns("article_segments")}
         if "audio_url" not in seg_cols:

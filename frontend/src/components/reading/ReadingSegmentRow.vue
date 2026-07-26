@@ -11,14 +11,18 @@ const props = defineProps<{
   segment: ArticleSegment
   articleId: string
   active?: boolean
+  /** 词文对照模式下的高亮 HTML（优先于 english_html） */
+  vocabLinkHtml?: string
 }>()
 
 defineEmits<{ click: [event: MouseEvent]; activate: [] }>()
 
 const displayChinese = computed(() => stripSpeakerMarkers(props.segment.chinese))
-const englishHtml = computed(() =>
-  preprocessSubtitleHtml(props.segment.english_html || props.segment.english),
-)
+const englishHtml = computed(() => {
+  if (props.vocabLinkHtml) return props.vocabLinkHtml
+  return preprocessSubtitleHtml(props.segment.english_html || props.segment.english)
+})
+const useHtml = computed(() => Boolean(props.vocabLinkHtml || props.segment.english_html))
 </script>
 
 <template>
@@ -37,7 +41,7 @@ const englishHtml = computed(() =>
       <ReadingSegmentPlayButton :segment-index="segment.index" :has-audio="Boolean(segment.audio_url)" />
       <div class="min-w-0 flex-1">
       <SubtitleEnglish
-        v-if="segment.english_html"
+        v-if="useHtml"
         :html="englishHtml"
         align="left"
         @click="$emit('click', $event)"

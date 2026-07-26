@@ -207,3 +207,176 @@ export function vocabLevelTagClass(level: string): string {
   const key = (level || '').trim()
   return LEVEL_TAG_CLASSES[key] || paletteClassForTitle(key || 'level')
 }
+
+/** 词文串学：正文高亮底色（与分组标签同色系） */
+const GROUP_HIGHLIGHT_CLASSES: Record<string, string> = {
+  医学术语: 'bg-blue-200/80 text-blue-950 dark:bg-blue-700/45 dark:text-blue-50',
+  '固定搭配 / 惯用表达': 'bg-violet-200/80 text-violet-950 dark:bg-violet-700/45 dark:text-violet-50',
+  '固定搭配／惯用表达': 'bg-violet-200/80 text-violet-950 dark:bg-violet-700/45 dark:text-violet-50',
+  固定搭配: 'bg-violet-200/80 text-violet-950 dark:bg-violet-700/45 dark:text-violet-50',
+  惯用表达: 'bg-sky-200/80 text-sky-950 dark:bg-sky-700/45 dark:text-sky-50',
+  '口语 / 非正式表达': 'bg-rose-200/80 text-rose-950 dark:bg-rose-700/45 dark:text-rose-50',
+  '口语／非正式表达': 'bg-rose-200/80 text-rose-950 dark:bg-rose-700/45 dark:text-rose-50',
+  口语: 'bg-rose-200/80 text-rose-950 dark:bg-rose-700/45 dark:text-rose-50',
+  非正式表达: 'bg-rose-200/80 text-rose-950 dark:bg-rose-700/45 dark:text-rose-50',
+  其他重点词汇: 'bg-amber-200/80 text-amber-950 dark:bg-amber-700/45 dark:text-amber-50',
+  重点词汇: 'bg-amber-200/80 text-amber-950 dark:bg-amber-700/45 dark:text-amber-50',
+}
+
+const GROUP_HIGHLIGHT_PALETTE = [
+  'bg-blue-200/80 text-blue-950 dark:bg-blue-700/45 dark:text-blue-50',
+  'bg-violet-200/80 text-violet-950 dark:bg-violet-700/45 dark:text-violet-50',
+  'bg-rose-200/80 text-rose-950 dark:bg-rose-700/45 dark:text-rose-50',
+  'bg-amber-200/80 text-amber-950 dark:bg-amber-700/45 dark:text-amber-50',
+  'bg-emerald-200/80 text-emerald-950 dark:bg-emerald-700/45 dark:text-emerald-50',
+  'bg-sky-200/80 text-sky-950 dark:bg-sky-700/45 dark:text-sky-50',
+  'bg-orange-200/80 text-orange-950 dark:bg-orange-700/45 dark:text-orange-50',
+  'bg-fuchsia-200/80 text-fuchsia-950 dark:bg-fuchsia-700/45 dark:text-fuchsia-50',
+] as const
+
+/** 词文串学：左侧词卡底色 */
+const GROUP_CARD_CLASSES: Record<string, string> = {
+  医学术语: 'bg-blue-100 border-blue-200/80 dark:bg-blue-950/50 dark:border-blue-800/60',
+  '固定搭配 / 惯用表达': 'bg-violet-100 border-violet-200/80 dark:bg-violet-950/50 dark:border-violet-800/60',
+  '固定搭配／惯用表达': 'bg-violet-100 border-violet-200/80 dark:bg-violet-950/50 dark:border-violet-800/60',
+  固定搭配: 'bg-violet-100 border-violet-200/80 dark:bg-violet-950/50 dark:border-violet-800/60',
+  惯用表达: 'bg-sky-100 border-sky-200/80 dark:bg-sky-950/50 dark:border-sky-800/60',
+  '口语 / 非正式表达': 'bg-rose-100 border-rose-200/80 dark:bg-rose-950/50 dark:border-rose-800/60',
+  '口语／非正式表达': 'bg-rose-100 border-rose-200/80 dark:bg-rose-950/50 dark:border-rose-800/60',
+  口语: 'bg-rose-100 border-rose-200/80 dark:bg-rose-950/50 dark:border-rose-800/60',
+  非正式表达: 'bg-rose-100 border-rose-200/80 dark:bg-rose-950/50 dark:border-rose-800/60',
+  其他重点词汇: 'bg-amber-100 border-amber-200/80 dark:bg-amber-950/50 dark:border-amber-800/60',
+  重点词汇: 'bg-amber-100 border-amber-200/80 dark:bg-amber-950/50 dark:border-amber-800/60',
+}
+
+const GROUP_CARD_PALETTE = [
+  'bg-blue-100 border-blue-200/80 dark:bg-blue-950/50 dark:border-blue-800/60',
+  'bg-violet-100 border-violet-200/80 dark:bg-violet-950/50 dark:border-violet-800/60',
+  'bg-rose-100 border-rose-200/80 dark:bg-rose-950/50 dark:border-rose-800/60',
+  'bg-amber-100 border-amber-200/80 dark:bg-amber-950/50 dark:border-amber-800/60',
+  'bg-emerald-100 border-emerald-200/80 dark:bg-emerald-950/50 dark:border-emerald-800/60',
+  'bg-sky-100 border-sky-200/80 dark:bg-sky-950/50 dark:border-sky-800/60',
+  'bg-orange-100 border-orange-200/80 dark:bg-orange-950/50 dark:border-orange-800/60',
+  'bg-fuchsia-100 border-fuchsia-200/80 dark:bg-fuchsia-950/50 dark:border-fuchsia-800/60',
+] as const
+
+function resolveGroupMappedClass(
+  title: string,
+  map: Record<string, string>,
+  palette: readonly string[],
+): string {
+  const normalized = normalizeGroupTitle(title)
+  if (!normalized) {
+    let hash = 0
+    const s = title || '汇总'
+    for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0
+    return palette[hash % palette.length]
+  }
+  if (map[normalized]) return map[normalized]
+  if (map[title.trim()]) return map[title.trim()]
+  const keys = Object.keys(map).sort((a, b) => b.length - a.length)
+  for (const key of keys) {
+    const nk = normalizeGroupTitle(key)
+    if (normalized.includes(nk) || nk.includes(normalized)) return map[key]
+  }
+  let hash = 0
+  for (let i = 0; i < normalized.length; i++) hash = (hash * 31 + normalized.charCodeAt(i)) >>> 0
+  return palette[hash % palette.length]
+}
+
+export function vocabGroupHighlightClass(title: string): string {
+  return resolveGroupMappedClass(title, GROUP_HIGHLIGHT_CLASSES, GROUP_HIGHLIGHT_PALETTE)
+}
+
+export function vocabGroupCardClass(title: string): string {
+  return resolveGroupMappedClass(title, GROUP_CARD_CLASSES, GROUP_CARD_PALETTE)
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+export interface VocabLinkTerm {
+  en: string
+  groupTitle: string
+}
+
+/** 从分组汇总生成待高亮词条（更长优先，去重） */
+export function collectVocabLinkTerms(groups: VocabSummaryGroup[]): VocabLinkTerm[] {
+  const seen = new Set<string>()
+  const terms: VocabLinkTerm[] = []
+  for (const g of groups) {
+    for (const item of g.items) {
+      const en = (item.en || '').trim()
+      if (!en) continue
+      const key = en.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      terms.push({ en, groupTitle: g.title })
+    }
+  }
+  terms.sort((a, b) => b.en.length - a.en.length)
+  return terms
+}
+
+/**
+ * 在纯英文上叠加词文串学高亮（转义 HTML）。
+ * 词边界：短语按字面匹配；单词要求非字母数字边界。
+ */
+export function highlightVocabLinkText(text: string, groups: VocabSummaryGroup[]): string {
+  const source = text || ''
+  if (!source.trim() || !groups.length) return escapeHtml(source)
+
+  const terms = collectVocabLinkTerms(groups)
+  if (!terms.length) return escapeHtml(source)
+
+  type Hit = { start: number; end: number; groupTitle: string }
+  const hits: Hit[] = []
+  const lower = source.toLowerCase()
+
+  for (const term of terms) {
+    const needle = term.en.toLowerCase()
+    if (!needle) continue
+    const isPhrase = /\s/.test(term.en) || /[^A-Za-z0-9']/.test(term.en.replace(/[()]/g, ''))
+    let from = 0
+    while (from < lower.length) {
+      const idx = lower.indexOf(needle, from)
+      if (idx < 0) break
+      const end = idx + needle.length
+      if (!isPhrase) {
+        const before = idx === 0 ? '' : source[idx - 1]
+        const after = end >= source.length ? '' : source[end]
+        if (before && /[A-Za-z0-9']/i.test(before)) {
+          from = idx + 1
+          continue
+        }
+        if (after && /[A-Za-z0-9']/i.test(after)) {
+          from = idx + 1
+          continue
+        }
+      }
+      const overlap = hits.some((h) => !(end <= h.start || idx >= h.end))
+      if (!overlap) hits.push({ start: idx, end, groupTitle: term.groupTitle })
+      from = end
+    }
+  }
+
+  hits.sort((a, b) => a.start - b.start)
+  if (!hits.length) return escapeHtml(source)
+
+  let out = ''
+  let cursor = 0
+  for (const hit of hits) {
+    if (hit.start > cursor) out += escapeHtml(source.slice(cursor, hit.start))
+    const cls = vocabGroupHighlightClass(hit.groupTitle)
+    const slice = escapeHtml(source.slice(hit.start, hit.end))
+    out += `<span class="vocab-link-hl rounded px-0.5 ${cls}" data-vocab-en="${escapeHtml(source.slice(hit.start, hit.end))}">${slice}</span>`
+    cursor = hit.end
+  }
+  if (cursor < source.length) out += escapeHtml(source.slice(cursor))
+  return out
+}

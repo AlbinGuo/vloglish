@@ -6,6 +6,7 @@ import {
   adminCreateArticle,
   adminGetArticle,
   adminGenerateArticleTts,
+  adminEnrichArticle,
   adminImportArticleText,
   adminPublishArticle,
   adminUpdateArticle,
@@ -13,6 +14,7 @@ import {
   type AdminArticleDetail,
 } from '@/api/admin'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
+import { countVocabSummaryItems, parseVocabSummary } from '@/utils/vocabSummary'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,6 +25,7 @@ const refId = computed(() => route.params.id as string | undefined)
 const loading = ref(false)
 const saving = ref(false)
 const importing = ref(false)
+const enriching = ref(false)
 const generatingTts = ref(false)
 const error = ref('')
 const message = ref('')
@@ -36,12 +39,16 @@ const form = ref({
   cover: '',
   stars: 3,
   status: 'draft',
+  vocab_summary: '',
 })
 const coverSourceUrl = ref('')
 const uploadingCover = ref(false)
 const ttsVoice = ref('Ryan')
 const englishText = ref('')
 const article = ref<AdminArticleDetail | null>(null)
+
+const vocabSummaryPreview = computed(() => parseVocabSummary(form.value.vocab_summary || ''))
+const vocabSummaryCount = computed(() => countVocabSummaryItems(vocabSummaryPreview.value))
 
 const ttsVoiceOptions = [
   { value: 'Ryan', label: 'Ryan（男声，新闻感）' },
@@ -63,6 +70,7 @@ async function load() {
       cover: article.value.cover,
       stars: article.value.stars,
       status: article.value.status,
+      vocab_summary: article.value.vocab_summary_text || '',
     }
   } catch {
     error.value = '加载失败'
@@ -77,14 +85,29 @@ async function saveMeta() {
   error.value = ''
   try {
     if (isNew.value) {
-      const created = await adminCreateArticle(form.value)
+      const { vocab_summary: _vocab, ...meta } = form.value
+      const created = await adminCreateArticle(meta)
       await router.replace(`/gnadmin/reading/${created.id}`)
       article.value = created
       if (coverSourceUrl.value.trim()) {
         await uploadCover(created.id)
       }
     } else if (refId.value) {
-      article.value = await adminUpdateArticle(refId.value, form.value)
+      const parsed = parseVocabSummary(form.value.vocab_summary || '')
+      const n = countVocabSummaryItems(parsed)
+      article.value = await adminUpdateArticle(refId.value, {
+        ...form.value,
+        vocab_summary: form.value.vocab_summary || '',
+      })
+      form.value.vocab_summary = article.value.vocab_summary_text || form.value.vocab_summary
+      if ((form.value.vocab_summary || '').trim() && n === 0) {
+        message.value = '已保存，但汇总文本未能解析出词条，请检查格式'
+      } else if (n > 0) {
+        message.value = `已保存（汇总 ${n} 条 / ${parsed.length} 组）`
+      } else {
+        message.value = '已保存'
+      }
+      return
     }
     message.value = '已保存'
   } catch {
@@ -120,31 +143,68 @@ async function importText() {
   message.value = ''
   error.value = ''
   try {
-    await adminImportArticleText(refId.value, {
+    const result = await adminImportArticleText(refId.value, {
       english_text: englishText.value,
-      auto_translate: true,
-      auto_analyze: true,
+      auto_translate: false,
+      auto_analyze: false,
     })
     englishText.value = ''
     await load()
-    message.value = '导入成功'
+    message.value = `已导入 ${result.segment_count} 段（纯文本）。需要译文/高亮时再点「AI 增强段落」`
   } catch (e: unknown) {
-    const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-    error.value = detail || '导入失败'
+    const err = e as { code?: string; message?: string; response?: { data?: { detail?: string } } }
+    const detail = err.response?.data?.detail
+    if (err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '')) {
+      error.value = '导入超时，请刷新后重试；若段落已出现可直接发布或再点 AI 增强'
+    } else {
+      error.value = detail || '导入失败'
+    }
   } finally {
     importing.value = false
+  }
+}
+
+async function enrichSegments() {
+  if (!refId.value || !article.value?.segment_count) return
+  enriching.value = true
+  message.value = ''
+  error.value = ''
+  try {
+    const result = await adminEnrichArticle(refId.value, { translate: true, analyze: true })
+    await load()
+    message.value = `AI 增强完成：${result.segment_count} 段，高亮 ${result.highlight_count || 0} 处`
+  } catch (e: unknown) {
+    const err = e as { code?: string; message?: string; response?: { data?: { detail?: string } } }
+    const detail = err.response?.data?.detail
+    if (err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '')) {
+      error.value = 'AI 增强超时（段落多时可能需数分钟）。请刷新查看是否已部分完成，或重试'
+    } else if (/server closed the connection|OperationalError|consuming input failed/i.test(detail || '')) {
+      error.value = '数据库连接在长时间 AI 处理后断开。请刷新后重试「AI 增强段落」（导入文本已改为秒级，一般不受影响）'
+    } else {
+      error.value = detail || 'AI 增强失败'
+    }
+  } finally {
+    enriching.value = false
   }
 }
 
 async function reanalyze() {
   if (!refId.value) return
   importing.value = true
+  message.value = ''
+  error.value = ''
   try {
     await adminAnalyzeArticle(refId.value)
     await load()
     message.value = '词汇分析完成'
-  } catch {
-    error.value = '分析失败'
+  } catch (e: unknown) {
+    const err = e as { code?: string; message?: string; response?: { data?: { detail?: string } } }
+    const detail = err.response?.data?.detail
+    if (err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '')) {
+      error.value = '分析超时，请刷新后重试'
+    } else {
+      error.value = detail || '分析失败'
+    }
   } finally {
     importing.value = false
   }
@@ -301,7 +361,17 @@ onMounted(load)
           </div>
           <div class="flex flex-wrap gap-2">
             <button type="button" class="rounded-lg bg-neutral-900 text-white px-4 py-2 text-sm" :disabled="saving" @click="saveMeta">保存</button>
-            <button type="button" class="rounded-lg border px-4 py-2 text-sm" @click="reanalyze">重新分析词汇</button>
+            <button
+              type="button"
+              class="rounded-lg border px-4 py-2 text-sm"
+              :disabled="enriching || importing || !article.segment_count"
+              @click="enrichSegments"
+            >
+              {{ enriching ? 'AI 增强中（可能较久）...' : 'AI 增强段落' }}
+            </button>
+            <button type="button" class="rounded-lg border px-4 py-2 text-sm" :disabled="importing || enriching || !article.segment_count" @click="reanalyze">
+              仅重新分析词汇
+            </button>
             <button
               v-if="article.status !== 'published'"
               type="button"
@@ -322,15 +392,56 @@ onMounted(load)
 
         <div class="rounded-xl border bg-white p-6 space-y-4">
           <h2 class="font-semibold">导入英文原文</h2>
-          <p class="text-sm text-neutral-500">粘贴后会自动分句、机翻、词汇高亮（需配置 DeepSeek）</p>
+          <p class="text-sm text-neutral-500">
+            粘贴后会<strong>快速分句入库</strong>（不调 AI）。导入成功后即可发布；译文与词汇高亮请点上方「AI 增强段落」。
+          </p>
           <textarea v-model="englishText" rows="10" class="w-full rounded-lg border px-3 py-2 text-sm font-mono" placeholder="Paste English article text here..." />
           <button
             type="button"
             class="rounded-lg bg-amber-600 text-white px-4 py-2 text-sm"
-            :disabled="importing || !englishText.trim()"
+            :disabled="importing || enriching || !englishText.trim()"
             @click="importText"
           >
-            {{ importing ? '处理中...' : '导入并处理' }}
+            {{ importing ? '导入中...' : '导入并分句' }}
+          </button>
+        </div>
+
+        <div class="rounded-xl border bg-white p-6 space-y-3">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 class="font-semibold">词汇与表达汇总</h2>
+            <span class="text-xs text-neutral-400">
+              {{ vocabSummaryCount > 0 ? `已解析 ${vocabSummaryCount} 条 / ${vocabSummaryPreview.length} 组` : '用户端「词文对照」分组来源' }}
+            </span>
+          </div>
+          <p class="text-xs text-neutral-500 leading-relaxed">
+            格式与剧集编辑页相同：分类名单独成行；词条可写「剧中含义 / 例句 / 释义」，也可选填「难度：四级」。
+          </p>
+          <textarea
+            v-model="form.vocab_summary"
+            rows="10"
+            placeholder="粘贴汇总内容…"
+            class="w-full rounded-lg border border-black/10 px-3 py-2 text-sm font-mono"
+          />
+          <div v-if="vocabSummaryPreview.length" class="rounded-lg border border-black/5 bg-neutral-50 p-3 space-y-4 max-h-80 overflow-y-auto">
+            <section v-for="(g, i) in vocabSummaryPreview" :key="`${g.title}-${i}`" class="space-y-2">
+              <p class="text-xs font-medium text-neutral-700">{{ g.title }}（{{ g.items.length }}）</p>
+              <ul class="space-y-2.5">
+                <li
+                  v-for="(it, j) in g.items"
+                  :key="`${it.en}-${j}`"
+                  class="text-xs text-neutral-600 leading-relaxed border-t border-black/[0.04] pt-2 first:border-0 first:pt-0"
+                >
+                  <p class="font-medium text-neutral-800">{{ j + 1 }}. {{ it.en }}</p>
+                  <p v-if="it.note" class="mt-0.5"><span class="text-neutral-400">剧中含义：</span>{{ it.note }}</p>
+                  <p v-if="it.example" class="mt-0.5"><span class="text-neutral-400">例句：</span>{{ it.example }}</p>
+                  <p v-if="it.zh" class="mt-0.5"><span class="text-neutral-400">释义：</span>{{ it.zh }}</p>
+                  <p v-if="it.level" class="mt-0.5"><span class="text-neutral-400">难度：</span>{{ it.level }}</p>
+                </li>
+              </ul>
+            </section>
+          </div>
+          <button type="button" class="rounded-lg bg-neutral-900 text-white px-4 py-2 text-sm" :disabled="saving" @click="saveMeta">
+            保存汇总
           </button>
         </div>
 

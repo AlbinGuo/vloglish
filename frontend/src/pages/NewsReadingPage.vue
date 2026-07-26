@@ -15,16 +15,19 @@ import SettingsButton from '@/components/SettingsButton.vue'
 import ReadingSettingsPanel from '@/components/reading/ReadingSettingsPanel.vue'
 import ReadingWordTooltipHost from '@/components/reading/ReadingWordTooltipHost.vue'
 import ReadingArticleVocabSidebar from '@/components/reading/ReadingArticleVocabSidebar.vue'
+import ReadingVocabLinkSidebar from '@/components/reading/ReadingVocabLinkSidebar.vue'
 import { useReadingProgress } from '@/composables/useReadingProgress'
 import ReadingTtsBar from '@/components/reading/ReadingTtsBar.vue'
 import { useReadingTts, READING_TTS_KEY } from '@/composables/useReadingTts'
 import { useReadingSettings } from '@/composables/useReadingSettings'
 import { useIntensiveReadingMode } from '@/composables/useIntensiveReadingMode'
+import { useVocabLinkMode } from '@/composables/useVocabLinkMode'
 import { useCoreVocabulary, type CoreVocabSource } from '@/composables/useCoreVocabulary'
 import { ARTICLE_VOCABULARY_KEY, useArticleVocabulary } from '@/composables/useArticleVocabulary'
 import { useAuthStore } from '@/stores/auth'
 import type { EntryDetail } from '@/types'
 import { resolveReadingContext } from '@/utils/readingContext'
+import { highlightVocabLinkText, parseVocabSummary, type VocabSummaryGroup, type VocabSummaryItem } from '@/utils/vocabSummary'
 
 const route = useRoute()
 const router = useRouter()
@@ -55,6 +58,35 @@ const {
 } = useReadingSettings()
 
 const { intensiveMode, intensivePageClass } = useIntensiveReadingMode()
+const { vocabLinkMode, toggleVocabLinkMode } = useVocabLinkMode()
+
+const vocabSummaryGroups = computed<VocabSummaryGroup[]>(() => {
+  const ep = article.value
+  if (!ep) return []
+  if (Array.isArray(ep.vocab_summary) && ep.vocab_summary.length) return ep.vocab_summary
+  return parseVocabSummary(ep.vocab_summary_text || '')
+})
+
+const showVocabLinkUi = computed(() => vocabLinkMode.value && !intensiveMode.value)
+
+const activeVocabEn = ref('')
+
+function vocabLinkHtmlFor(segment: ArticleSegment): string | undefined {
+  if (!showVocabLinkUi.value || !vocabSummaryGroups.value.length) return undefined
+  return highlightVocabLinkText(segment.english || '', vocabSummaryGroups.value)
+}
+
+function onVocabCardSelect(item: VocabSummaryItem) {
+  activeVocabEn.value = item.en
+  const needle = item.en.trim().toLowerCase()
+  if (!needle || !article.value) return
+  const idx = article.value.segments.findIndex((s) =>
+    (s.english || '').toLowerCase().includes(needle),
+  )
+  if (idx >= 0) {
+    onActivateSegment(article.value.segments[idx].index)
+  }
+}
 
 const coreVocabSources = computed<CoreVocabSource[]>(() =>
   (article.value?.segments ?? []).map((segment) => ({
@@ -153,8 +185,14 @@ async function onWordClick(e: MouseEvent, segment: ArticleSegment) {
 
   if (target) {
     word = target.textContent?.trim().replace(/\s+/g, ' ') ?? ''
-    const isPhrase = Boolean(target.getAttribute('pid')) || target.classList.contains('phrase-token')
+    const isPhrase =
+      Boolean(target.getAttribute('pid')) ||
+      target.classList.contains('phrase-token') ||
+      (target.classList.contains('vocab-link-hl') && /\s/.test(word))
     type = isPhrase ? 2 : 1
+    if (target.classList.contains('vocab-link-hl')) {
+      activeVocabEn.value = word
+    }
   } else if (plainRoot) {
     const selection = window.getSelection()?.toString().trim()
     word = selection || ''
@@ -242,6 +280,20 @@ watch(layoutMode, async () => {
           </span>
         </p>
       </div>
+      <button
+        v-if="article && !intensiveMode"
+        type="button"
+        class="shrink-0 rounded-full px-3 py-1 text-xs font-medium border transition-colors"
+        :class="
+          vocabLinkMode
+            ? 'bg-sky-600 text-white border-sky-600 dark:bg-sky-500 dark:border-sky-500'
+            : 'bg-white text-neutral-600 border-black/10 dark:bg-neutral-800 dark:text-neutral-300 dark:border-white/10'
+        "
+        :aria-pressed="vocabLinkMode"
+        @click="toggleVocabLinkMode"
+      >
+        词文对照
+      </button>
       <IntensiveModeToggle />
       <SettingsButton class="shrink-0" @click="showSettings = true" />
     </header>
@@ -264,6 +316,13 @@ watch(layoutMode, async () => {
       />
 
       <div class="flex flex-1 min-h-0">
+        <ReadingVocabLinkSidebar
+          v-if="showVocabLinkUi"
+          :groups="vocabSummaryGroups"
+          :active-en="activeVocabEn"
+          @select="onVocabCardSelect"
+        />
+
         <ReadingWordTooltipHost
           v-if="!intensiveMode"
           :article-id="articleId"
@@ -277,6 +336,7 @@ watch(layoutMode, async () => {
                 :segment="segment"
                 :article-id="articleId"
                 :active="segment.index === currentIndex"
+                :vocab-link-html="vocabLinkHtmlFor(segment)"
                 @activate="onActivateSegment(segment.index)"
                 @click="onWordClick($event, segment)"
               />
@@ -292,6 +352,7 @@ watch(layoutMode, async () => {
                   :segment="segment"
                   :article-id="articleId"
                   :active="segment.index === currentIndex"
+                  :vocab-link-html="vocabLinkHtmlFor(segment)"
                   @activate="onActivateSegment(segment.index)"
                   @click="onWordClick($event, segment)"
                 />
@@ -323,7 +384,7 @@ watch(layoutMode, async () => {
           </div>
         </div>
 
-        <ReadingArticleVocabSidebar v-if="auth.isLoggedIn && !intensiveMode" />
+        <ReadingArticleVocabSidebar v-if="auth.isLoggedIn && !intensiveMode && !showVocabLinkUi" />
         <IntensiveCoreVocabPanel
           v-if="intensiveMode"
           :items="coreVocabItems"
@@ -359,7 +420,8 @@ watch(layoutMode, async () => {
 </template>
 
 <style scoped>
-:deep(.subtitle-english span.highlight) {
+:deep(.subtitle-english span.highlight),
+:deep(.subtitle-english span.vocab-link-hl) {
   cursor: pointer;
 }
 </style>

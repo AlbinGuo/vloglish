@@ -9,6 +9,8 @@ from ...models import Article, User
 from ...schemas import (
     AdminArticleCreateIn,
     AdminArticleDetailOut,
+    AdminArticleEnrichIn,
+    AdminArticleEnrichOut,
     AdminArticleImportTextIn,
     AdminArticleImportTextOut,
     AdminArticleListOut,
@@ -25,10 +27,12 @@ from ...serializers import article_detail, article_segment_out
 from ...services.article_admin import (
     VALID_STATUSES,
     delete_article_with_dependencies,
+    enrich_article_segments,
     generate_article_id,
     get_article_by_ref,
     import_text_to_segments,
     replace_segments,
+    revive_db_session,
 )
 from ...services.article_cover import normalize_image_url, upload_article_cover_from_url
 from ...services.article_tts import generate_article_tts
@@ -168,6 +172,8 @@ def admin_update_article(
             if field == "status" and value not in VALID_STATUSES:
                 raise HTTPException(status_code=400, detail="无效状态")
             setattr(article, field, value)
+    if body.vocab_summary is not None:
+        article.vocab_summary = body.vocab_summary or ""
     if body.status == "published" and not article.published_at:
         article.published_at = datetime.utcnow()
     db.commit()
@@ -243,6 +249,7 @@ def admin_analyze(
     _admin: User = Depends(get_current_admin),
 ):
     article = _require_article(db, ref)
+    article_id = article.id
     segments = (
         db.query(Article)
         .options(joinedload(Article.segments))
@@ -253,11 +260,49 @@ def admin_analyze(
     if not segments:
         raise HTTPException(status_code=400, detail="无段落可分析")
     payload = [{"english": s.english, "chinese": s.chinese, "english_html": s.english_html} for s in segments]
+    db.commit()
     metrics = analyze_subtitles_with_deepseek(payload)
+    revive_db_session(db)
+    article = _require_article(db, str(article_id))
     replace_segments(db, article, payload)
     article.stars = metrics.get("stars") or article.stars
     db.commit()
     return metrics
+
+
+@router.post("/{ref}/enrich/", response_model=AdminArticleEnrichOut)
+def admin_enrich_article(
+    ref: str,
+    body: AdminArticleEnrichIn | None = None,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """机翻 + 词汇高亮（对已有段落）。导入请先用纯文本 import-text。"""
+    article = _require_article(db, ref)
+    opts = body or AdminArticleEnrichIn()
+    if not opts.translate and not opts.analyze:
+        raise HTTPException(status_code=400, detail="translate / analyze 至少选一项")
+    try:
+        result = enrich_article_segments(
+            db,
+            article,
+            translate=opts.translate,
+            analyze=opts.analyze,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    return AdminArticleEnrichOut(
+        segment_count=result.get("segment_count", 0),
+        word_count=result.get("word_count", 0),
+        stars=result.get("stars", article.stars),
+        translated=bool(result.get("translated")),
+        analyzed=bool(result.get("analyzed")),
+        voca_size=int(result.get("voca_size") or 0),
+        highlight_count=int(result.get("highlight_count") or 0),
+        annotate_failed=int(result.get("annotate_failed") or 0),
+    )
 
 
 @router.post("/{ref}/upload-cover/", response_model=AdminArticleUploadCoverOut)

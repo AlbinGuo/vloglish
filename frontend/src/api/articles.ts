@@ -47,6 +47,9 @@ export interface ArticleDetail {
   cover: string
   published_at: string
   tts_status: string
+  /** 词汇与表达汇总（已解析分组，与剧集汇总同格式） */
+  vocab_summary?: import('@/utils/vocabSummary').VocabSummaryGroup[]
+  vocab_summary_text?: string
   segments: ArticleSegment[]
   progress: ArticleProgress | null
 }

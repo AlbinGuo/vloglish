@@ -399,6 +399,7 @@ class Article(Base):
     status: Mapped[str] = mapped_column(String(16), default="draft")
     is_free_preview: Mapped[bool] = mapped_column(Boolean, default=False)
     tts_status: Mapped[str] = mapped_column(String(16), default="none")
+    vocab_summary: Mapped[str] = mapped_column(Text, default="")
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

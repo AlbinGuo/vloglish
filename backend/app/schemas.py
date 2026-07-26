@@ -1037,6 +1037,7 @@ class AdminArticleUpdateIn(BaseModel):
     stars: int | None = Field(default=None, ge=1, le=5)
     status: str | None = Field(default=None, pattern=ARTICLE_STATUS_PATTERN)
     published_at: datetime | None = None
+    vocab_summary: str | None = None
 
 
 class AdminArticleListItemOut(BaseModel):
@@ -1073,6 +1074,8 @@ class AdminArticleDetailOut(BaseModel):
     published_at: str
     status: str
     tts_status: str = "none"
+    vocab_summary: list[VocabSummaryGroupOut] = []
+    vocab_summary_text: str = ""
     segments: list[AdminArticleSegmentIn]
     progress: ArticleProgressOut | None = None
 
@@ -1087,14 +1090,30 @@ class AdminArticleUploadCoverOut(BaseModel):
 
 class AdminArticleImportTextIn(BaseModel):
     english_text: str
-    auto_translate: bool = True
-    auto_analyze: bool = True
+    auto_translate: bool = False
+    auto_analyze: bool = False
 
 
 class AdminArticleImportTextOut(BaseModel):
     segment_count: int
     word_count: int
     stars: int
+
+
+class AdminArticleEnrichIn(BaseModel):
+    translate: bool = True
+    analyze: bool = True
+
+
+class AdminArticleEnrichOut(BaseModel):
+    segment_count: int
+    word_count: int
+    stars: int
+    translated: bool = False
+    analyzed: bool = False
+    voca_size: int = 0
+    highlight_count: int = 0
+    annotate_failed: int = 0
 
 
 # ——— 用户反馈 ———
