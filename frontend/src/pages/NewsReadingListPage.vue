@@ -4,9 +4,7 @@ import { RouterLink } from 'vue-router'
 import {
   getArticleFilters,
   getArticleList,
-  getContinueReadingArticles,
   type ArticleSummary,
-  type ContinueReadingItem,
 } from '@/api/articles'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -21,7 +19,6 @@ const articles = ref<ArticleSummary[]>([])
 const total = ref(0)
 const page = ref(1)
 const hasMore = ref(false)
-const continueItems = ref<ContinueReadingItem[]>([])
 const quota = ref<{ is_member: boolean; monthly_limit: number | null; remaining: number | null } | null>(null)
 
 const source = ref('')
@@ -84,18 +81,6 @@ async function load(reset = false) {
   }
 }
 
-async function loadContinue() {
-  if (!auth.isLoggedIn) {
-    continueItems.value = []
-    return
-  }
-  try {
-    continueItems.value = await getContinueReadingArticles()
-  } catch {
-    continueItems.value = []
-  }
-}
-
 function applyFilters() {
   load(true)
 }
@@ -112,13 +97,12 @@ onMounted(async () => {
   } catch {
     filterOptions.value = { sources: [], topics: [] }
   }
-  await Promise.all([load(true), loadContinue()])
+  await load(true)
 })
 
 watch(
   () => auth.isLoggedIn,
   () => {
-    loadContinue()
     load(true)
   },
 )
@@ -127,33 +111,6 @@ watch(
 <template>
   <div class="page-container py-6">
     <EnglishNavTabs class="mb-6" />
-
-    <section
-      v-if="auth.isLoggedIn && continueItems.length"
-      class="mb-5 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4"
-    >
-      <h2 class="text-sm font-semibold mb-3">继续阅读</h2>
-      <div class="flex gap-3 overflow-x-auto pb-1">
-        <RouterLink
-          v-for="item in continueItems"
-          :key="item.article_id"
-          :to="articlePath(item.article_id)"
-          class="shrink-0 w-56 rounded-lg border border-black/5 dark:border-white/10 overflow-hidden hover:shadow-sm transition"
-        >
-          <img
-            v-if="item.cover"
-            :src="resolveMediaUrl(item.cover)"
-            :alt="item.title"
-            class="w-full h-28 object-cover bg-neutral-100 dark:bg-neutral-800"
-            loading="lazy"
-          />
-          <div class="p-3">
-            <p class="text-sm font-medium line-clamp-2 leading-snug">{{ item.title }}</p>
-            <p class="text-xs text-neutral-500 mt-2">{{ item.source }} · {{ Math.round(item.completion_percent) }}%</p>
-          </div>
-        </RouterLink>
-      </div>
-    </section>
 
     <div
       v-if="previewBanner"

@@ -902,7 +902,7 @@ watch(
             </span>
           </div>
           <p class="text-xs text-neutral-500 leading-relaxed">
-            分类名单独成行；每条词条可写「剧中含义 / 例句 / 释义」，也可选填「难度：四级」。示例：
+            分类名单独成行；每条词条可写「剧中含义（或文中含义）/ 例句 / 释义」，也可选填「难度：四级」。示例：
             <code class="block mt-1.5 p-2 rounded bg-white border border-black/5 font-mono text-[11px] whitespace-pre-wrap text-neutral-600">医学术语
 
 CPR (cardiopulmonary resuscitation)
@@ -926,7 +926,7 @@ CPR (cardiopulmonary resuscitation)
                   class="text-xs text-neutral-600 leading-relaxed border-t border-black/[0.04] pt-2 first:border-0 first:pt-0"
                 >
                   <p class="font-medium text-neutral-800">{{ j + 1 }}. {{ it.en }}</p>
-                  <p v-if="it.note" class="mt-0.5"><span class="text-neutral-400">剧中含义：</span>{{ it.note }}</p>
+                  <p v-if="it.note" class="mt-0.5"><span class="text-neutral-400">含义：</span>{{ it.note }}</p>
                   <p v-if="it.example" class="mt-0.5"><span class="text-neutral-400">例句：</span>{{ it.example }}</p>
                   <p v-if="it.zh" class="mt-0.5"><span class="text-neutral-400">释义：</span>{{ it.zh }}</p>
                   <p v-if="it.level" class="mt-0.5"><span class="text-neutral-400">难度：</span>{{ it.level }}</p>

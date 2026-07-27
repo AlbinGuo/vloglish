@@ -1,16 +1,17 @@
-"""解析剧集「词汇与表达汇总」粘贴文本。
+"""解析剧集/文章「词汇与表达汇总」粘贴文本。
 
 支持两种格式：
 
 1) 简单两列（兼容）：
    分类名
    english<TAB>中文释义
+   english - 中文释义   （仅当右侧含汉字时才按短横线拆分）
 
 2) 多行词条（管理端常用）：
    分类名
 
    english headword
-   剧中含义：...
+   剧中含义：... / 文中含义：...
    例句：...
    释义：...
 """
@@ -19,10 +20,16 @@ from __future__ import annotations
 
 import re
 
-_SPLIT_RE = re.compile(r"(?:\t+|\|+|／+|/+|[ \u00a0\u3000]{2,}|[ ]*[-–—][ ]*)")
+_STRONG_SPLIT_RE = re.compile(r"(?:\t+|\|+|／+|/+|[ \u00a0\u3000]{2,})")
+_HYPHEN_LINE_RE = re.compile(r"^(.+?)[ ]*[-–—][ ]*(.+)$")
+_CJK_RE = re.compile(r"[\u3400-\u9fff\uf900-\ufaff]")
 _FIELD_PREFIXES = (
     ("剧中含义：", "note"),
     ("剧中含义:", "note"),
+    ("文中含义：", "note"),
+    ("文中含义:", "note"),
+    ("含义：", "note"),
+    ("含义:", "note"),
     ("例句：", "example"),
     ("例句:", "example"),
     ("释义：", "zh"),
@@ -43,16 +50,20 @@ def _match_field(line: str) -> tuple[str, str] | None:
 
 
 def _split_simple_entry(line: str) -> tuple[str, str] | None:
-    parts = _SPLIT_RE.split(line, maxsplit=1)
-    if len(parts) != 2:
-        return None
-    en, zh = parts[0].strip(), parts[1].strip()
-    if not en or not _LATIN_RE.search(en):
-        return None
-    # 避免把「固定搭配 / 惯用表达」一类标题误判为词条
-    if not zh:
-        return None
-    return en, zh
+    parts = _STRONG_SPLIT_RE.split(line, maxsplit=1)
+    if len(parts) == 2:
+        en, zh = parts[0].strip(), parts[1].strip()
+        if en and _LATIN_RE.search(en) and zh:
+            return en, zh
+
+    m = _HYPHEN_LINE_RE.match(line)
+    if m:
+        en, zh = m.group(1).strip(), m.group(2).strip()
+        # 右侧必须有汉字，避免 Asia-Pacific 一类复合英文被拆开
+        if en and _LATIN_RE.search(en) and zh and _CJK_RE.search(zh):
+            return en, zh
+
+    return None
 
 
 def _item_dict(

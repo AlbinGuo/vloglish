@@ -1,28 +1,39 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import { getContinueReadingArticles, type ContinueReadingItem } from '@/api/articles'
 import { getRecentEpisodes, type RecentEpisode } from '@/api/learning'
 import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
 
 const auth = useAuthStore()
 const open = ref(false)
 const loading = ref(false)
-const items = ref<RecentEpisode[]>([])
+const episodes = ref<RecentEpisode[]>([])
+const articles = ref<ContinueReadingItem[]>([])
 let closeTimer: ReturnType<typeof setTimeout> | undefined
 
 const label = computed(() => auth.user?.nickname || auth.user?.email || '账户')
+const hasAny = computed(() => episodes.value.length > 0 || articles.value.length > 0)
 
-async function loadRecent() {
+async function loadContinue() {
   if (!auth.isLoggedIn) {
-    items.value = []
+    episodes.value = []
+    articles.value = []
     return
   }
   loading.value = true
   try {
-    items.value = (await getRecentEpisodes()).filter((e) => !e.is_completed).slice(0, 5)
+    const [epList, artList] = await Promise.all([
+      getRecentEpisodes().catch(() => [] as RecentEpisode[]),
+      getContinueReadingArticles().catch(() => [] as ContinueReadingItem[]),
+    ])
+    episodes.value = epList.filter((e) => !e.is_completed).slice(0, 5)
+    articles.value = artList.slice(0, 5)
   } catch {
-    items.value = []
+    episodes.value = []
+    articles.value = []
   } finally {
     loading.value = false
   }
@@ -34,7 +45,7 @@ function show() {
     closeTimer = undefined
   }
   open.value = true
-  void loadRecent()
+  void loadContinue()
 }
 
 function scheduleHide() {
@@ -45,15 +56,16 @@ function scheduleHide() {
 }
 
 onMounted(() => {
-  if (auth.isLoggedIn) void loadRecent()
+  if (auth.isLoggedIn) void loadContinue()
 })
 
 watch(
   () => auth.isLoggedIn,
   (loggedIn) => {
-    if (loggedIn) void loadRecent()
+    if (loggedIn) void loadContinue()
     else {
-      items.value = []
+      episodes.value = []
+      articles.value = []
       open.value = false
     }
   },
@@ -111,36 +123,90 @@ watch(
           </RouterLink>
         </div>
 
-        <div v-if="loading && !items.length" class="px-3 py-6 text-center text-xs text-neutral-400">
+        <div v-if="loading && !hasAny" class="px-3 py-6 text-center text-xs text-neutral-400">
           加载中...
         </div>
-        <ul v-else-if="items.length" class="max-h-[22rem] overflow-y-auto py-1">
-          <li v-for="item in items" :key="item.video_id">
-            <RouterLink
-              :to="`/english/episode/${item.video_id}`"
-              class="flex items-center gap-2.5 px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/80 transition"
-              @click="requestEpisodeAutoplay(); open = false"
-            >
-              <div class="relative w-[4.5rem] aspect-video rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 shrink-0">
-                <img
-                  v-if="item.cover"
-                  :src="item.cover"
-                  :alt="item.short_title"
-                  class="w-full h-full object-cover"
-                  loading="lazy"
-                />
-                <span class="absolute bottom-0.5 right-0.5 text-[9px] text-white bg-black/65 px-1 rounded">
-                  {{ Math.round(item.completion_percent) }}%
-                </span>
-              </div>
-              <p class="text-xs font-medium leading-snug line-clamp-2 min-w-0">
-                {{ item.short_title }}
-              </p>
-            </RouterLink>
-          </li>
-        </ul>
+
+        <div v-else-if="hasAny" class="max-h-[26rem] overflow-y-auto">
+          <section v-if="episodes.length" class="py-1">
+            <p class="px-3 pt-2 pb-1 text-[11px] font-medium text-neutral-400 tracking-wide">
+              继续观看
+            </p>
+            <ul>
+              <li v-for="item in episodes" :key="item.video_id">
+                <RouterLink
+                  :to="`/english/episode/${item.video_id}`"
+                  class="flex items-center gap-2.5 px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/80 transition"
+                  @click="requestEpisodeAutoplay(); open = false"
+                >
+                  <div class="relative w-[4.5rem] aspect-video rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 shrink-0">
+                    <img
+                      v-if="item.cover"
+                      :src="item.cover"
+                      :alt="item.short_title"
+                      class="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    <span class="absolute bottom-0.5 right-0.5 text-[9px] text-white bg-black/65 px-1 rounded">
+                      {{ Math.round(item.completion_percent) }}%
+                    </span>
+                  </div>
+                  <p class="text-xs font-medium leading-snug line-clamp-2 min-w-0">
+                    {{ item.short_title }}
+                  </p>
+                </RouterLink>
+              </li>
+            </ul>
+          </section>
+
+          <section
+            v-if="articles.length"
+            class="py-1"
+            :class="episodes.length ? 'border-t border-black/5 dark:border-white/10' : ''"
+          >
+            <div class="flex items-center justify-between px-3 pt-2 pb-1">
+              <p class="text-[11px] font-medium text-neutral-400 tracking-wide">继续阅读</p>
+              <RouterLink
+                to="/english/reading"
+                class="text-[11px] text-amber-700 dark:text-amber-400 hover:underline"
+                @click="open = false"
+              >
+                读报
+              </RouterLink>
+            </div>
+            <ul>
+              <li v-for="item in articles" :key="item.article_id">
+                <RouterLink
+                  :to="`/english/reading/${item.article_id}`"
+                  class="flex items-center gap-2.5 px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/80 transition"
+                  @click="open = false"
+                >
+                  <div class="relative w-[4.5rem] aspect-video rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 shrink-0">
+                    <img
+                      v-if="item.cover"
+                      :src="resolveMediaUrl(item.cover)"
+                      :alt="item.title"
+                      class="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    <span class="absolute bottom-0.5 right-0.5 text-[9px] text-white bg-black/65 px-1 rounded">
+                      {{ Math.round(item.completion_percent) }}%
+                    </span>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <p class="text-xs font-medium leading-snug line-clamp-2">{{ item.title }}</p>
+                    <p v-if="item.source" class="text-[10px] text-neutral-400 mt-0.5 truncate">
+                      {{ item.source }}
+                    </p>
+                  </div>
+                </RouterLink>
+              </li>
+            </ul>
+          </section>
+        </div>
+
         <p v-else class="px-3 py-6 text-center text-xs text-neutral-400">
-          暂无未看完的学习记录
+          暂无未完成的学习记录
         </p>
       </div>
     </div>

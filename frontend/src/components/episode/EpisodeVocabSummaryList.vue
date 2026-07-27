@@ -162,7 +162,7 @@ function itemTagClass(item: VocabSummaryItem): string {
                 v-if="item.note"
                 class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-300"
               >
-                <span class="text-neutral-400 dark:text-neutral-500">剧中含义：</span>{{ item.note }}
+                <span class="text-neutral-400 dark:text-neutral-500">含义：</span>{{ item.note }}
               </p>
               <p
                 v-if="item.example"

@@ -920,14 +920,115 @@ html.highlight-style-background .reading-page.reading-highlight-color-only .subt
   text-decoration-line: none !important;
 }
 
-.reading-page .subtitle-english span:hover,
-html.highlight-style-background .reading-page .subtitle-english span:hover,
-.dark.highlight-style-background .reading-page .subtitle-english span:hover {
+/* 阅读页：背景色高亮 */
+.reading-page.reading-highlight-background .subtitle-english span.highlight,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight {
+  text-decoration-line: none !important;
+  border-radius: 0.25rem !important;
+  padding: 0.05em 0.25em !important;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span.highlight-a,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-a {
+  background-color: rgb(254 243 199) !important;
+  color: #b45309 !important;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span.highlight-d,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-d {
+  background-color: rgb(237 233 254) !important;
+  color: #6d28d9 !important;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span.highlight-i,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-i {
+  background-color: rgb(207 250 254) !important;
+  color: #0e7490 !important;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span.highlight-l,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-l {
+  background-color: rgb(252 231 243) !important;
+  color: #be185d !important;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span.highlight-c,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-c {
+  background-color: rgb(209 250 229) !important;
+  color: #047857 !important;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span.highlight-f,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-f {
+  background-color: rgb(254 226 226) !important;
+  color: #b91c1c !important;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span.highlight-p,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-p {
+  background-color: rgb(219 234 254) !important;
+  color: #1d4ed8 !important;
+}
+
+.dark .reading-page.reading-highlight-background .subtitle-english span.highlight-a,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-a {
+  background-color: rgb(251 191 36 / 0.28) !important;
+  color: #fbbf24 !important;
+}
+
+.dark .reading-page.reading-highlight-background .subtitle-english span.highlight-d,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-d {
+  background-color: rgb(167 139 250 / 0.28) !important;
+  color: #c4b5fd !important;
+}
+
+.dark .reading-page.reading-highlight-background .subtitle-english span.highlight-i,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-i {
+  background-color: rgb(34 211 238 / 0.22) !important;
+  color: #67e8f9 !important;
+}
+
+.dark .reading-page.reading-highlight-background .subtitle-english span.highlight-l,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-l {
+  background-color: rgb(244 114 182 / 0.25) !important;
+  color: #f9a8d4 !important;
+}
+
+.dark .reading-page.reading-highlight-background .subtitle-english span.highlight-c,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-c {
+  background-color: rgb(52 211 153 / 0.22) !important;
+  color: #6ee7b7 !important;
+}
+
+.dark .reading-page.reading-highlight-background .subtitle-english span.highlight-f,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-f {
+  background-color: rgb(248 113 113 / 0.25) !important;
+  color: #fca5a5 !important;
+}
+
+.dark .reading-page.reading-highlight-background .subtitle-english span.highlight-p,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-p {
+  background-color: rgb(96 165 250 / 0.25) !important;
+  color: #93c5fd !important;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span:hover,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span:hover,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span:hover {
+  filter: brightness(0.97);
+}
+
+.reading-page:not(.reading-highlight-background) .subtitle-english span:hover,
+html.highlight-style-background .reading-page:not(.reading-highlight-background) .subtitle-english span:hover,
+.dark.highlight-style-background .reading-page:not(.reading-highlight-background) .subtitle-english span:hover {
   background-color: transparent !important;
 }
 
-.reading-page .subtitle-english span.token-clicked,
-html.highlight-style-background .reading-page .subtitle-english span.token-clicked {
+.reading-page:not(.reading-highlight-background) .subtitle-english span.token-clicked,
+html.highlight-style-background .reading-page:not(.reading-highlight-background) .subtitle-english span.token-clicked {
   background-color: transparent !important;
 }
 

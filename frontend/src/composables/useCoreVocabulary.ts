@@ -17,6 +17,11 @@ export interface CoreVocabItem {
   loading: boolean
 }
 
+export interface UseCoreVocabularyOptions {
+  /** 为 false 时不发起查词（默认 true，兼容旧调用） */
+  enabled?: Ref<boolean>
+}
+
 function collectTokens(sources: CoreVocabSource[]) {
   const seen = new Set<string>()
   const tokens: { word: string; type: 1 | 2; context: string; meta?: WordLookupMeta }[] = []
@@ -38,11 +43,24 @@ function collectTokens(sources: CoreVocabSource[]) {
   return tokens
 }
 
-export function useCoreVocabulary(sources: Ref<CoreVocabSource[]>) {
+export function useCoreVocabulary(
+  sources: Ref<CoreVocabSource[]>,
+  options: UseCoreVocabularyOptions = {},
+) {
+  const enabled = options.enabled
   const items = ref<CoreVocabItem[]>([])
   const loading = ref(false)
+  let requestId = 0
 
   async function reload() {
+    const currentRequest = ++requestId
+
+    if (enabled && !enabled.value) {
+      items.value = []
+      loading.value = false
+      return
+    }
+
     const tokens = collectTokens(sources.value)
     if (tokens.length === 0) {
       items.value = []
@@ -61,6 +79,7 @@ export function useCoreVocabulary(sources: Ref<CoreVocabSource[]>) {
     await Promise.all(
       tokens.map(async (token, index) => {
         const entry = await fetchWordLookup(token.word, token.type, token.context, token.meta ?? {})
+        if (currentRequest !== requestId) return
         if (items.value[index]?.word !== token.word) return
         items.value[index] = {
           word: token.word,
@@ -71,10 +90,17 @@ export function useCoreVocabulary(sources: Ref<CoreVocabSource[]>) {
       }),
     )
 
+    if (currentRequest !== requestId) return
     loading.value = false
   }
 
-  watch(sources, reload, { deep: true, immediate: true })
+  watch(
+    enabled ? [sources, enabled] : sources,
+    () => {
+      void reload()
+    },
+    { deep: true, immediate: true },
+  )
 
   const count = computed(() => items.value.length)
   const loadedCount = computed(() => items.value.filter((item) => !item.loading).length)

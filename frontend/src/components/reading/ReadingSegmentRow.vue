@@ -3,6 +3,7 @@ import SubtitleEnglish from '@/components/SubtitleEnglish.vue'
 import ReadingSegmentPlayButton from '@/components/reading/ReadingSegmentPlayButton.vue'
 import ReadingBilingualDivider from '@/components/reading/ReadingBilingualDivider.vue'
 import ReadingSegmentVocabSection from '@/components/reading/ReadingSegmentVocabSection.vue'
+import { useReadingSettings } from '@/composables/useReadingSettings'
 import { preprocessSubtitleHtml, stripSpeakerMarkers } from '@/utils/subtitleHtml'
 import type { ArticleSegment } from '@/api/articles'
 import { computed } from 'vue'
@@ -16,6 +17,8 @@ const props = defineProps<{
 }>()
 
 defineEmits<{ click: [event: MouseEvent]; activate: [] }>()
+
+const { showChinese } = useReadingSettings()
 
 const displayChinese = computed(() => stripSpeakerMarkers(props.segment.chinese))
 const englishHtml = computed(() => {
@@ -55,18 +58,20 @@ const useHtml = computed(() => Boolean(props.vocabLinkHtml || props.segment.engl
       </p>
       </div>
     </div>
-    <div class="px-4">
-      <ReadingBilingualDivider orientation="horizontal" />
-    </div>
-    <div class="px-4 pb-4 pt-2">
-      <p
-        v-if="displayChinese"
-        class="subtitle-chinese text-base leading-relaxed text-neutral-700 dark:text-neutral-300"
-      >
-        {{ displayChinese }}
-      </p>
-      <p v-else class="text-sm leading-relaxed text-neutral-400 dark:text-neutral-500 italic">暂无译文</p>
-    </div>
+    <template v-if="showChinese">
+      <div class="px-4">
+        <ReadingBilingualDivider orientation="horizontal" />
+      </div>
+      <div class="px-4 pb-4 pt-2">
+        <p
+          v-if="displayChinese"
+          class="subtitle-chinese text-base leading-relaxed text-neutral-700 dark:text-neutral-300"
+        >
+          {{ displayChinese }}
+        </p>
+        <p v-else class="text-sm leading-relaxed text-neutral-400 dark:text-neutral-500 italic">暂无译文</p>
+      </div>
+    </template>
     <ReadingSegmentVocabSection :segment="segment" :article-id="articleId" />
   </div>
 </template>

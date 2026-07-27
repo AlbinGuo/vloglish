@@ -3,7 +3,7 @@
 export interface VocabSummaryItem {
   en: string
   zh: string
-  /** 剧中含义 */
+  /** 剧中/文中含义 */
   note?: string
   /** 例句 */
   example?: string
@@ -16,11 +16,18 @@ export interface VocabSummaryGroup {
   items: VocabSummaryItem[]
 }
 
-const SPLIT_RE = /(?:\t+|\|+|／+|\/+|[\u0020\u00a0\u3000]{2,}|[ ]*[-–—][ ]*)/
+const STRONG_SPLIT_RE = /(?:\t+|\|+|／+|\/+|[\u0020\u00a0\u3000]{2,})/
+/** 仅当右侧含汉字时，才把「 - / – / — 」视为中英分隔（避免 Asia-Pacific 被拆开） */
+const HYPHEN_LINE_RE = /^(.+?)[ ]*[-–—][ ]*(.+)$/
 const LATIN_RE = /[A-Za-z]/
+const CJK_RE = /[\u3400-\u9fff\uf900-\ufaff]/
 const FIELD_PREFIXES: [string, 'note' | 'example' | 'zh' | 'level'][] = [
   ['剧中含义：', 'note'],
   ['剧中含义:', 'note'],
+  ['文中含义：', 'note'],
+  ['文中含义:', 'note'],
+  ['含义：', 'note'],
+  ['含义:', 'note'],
   ['例句：', 'example'],
   ['例句:', 'example'],
   ['释义：', 'zh'],
@@ -41,12 +48,26 @@ function matchField(line: string): { key: 'note' | 'example' | 'zh' | 'level'; v
 }
 
 function splitSimpleEntry(line: string): VocabSummaryItem | null {
-  const parts = line.split(SPLIT_RE, 2)
-  if (parts.length !== 2) return null
-  const en = (parts[0] || '').trim()
-  const zh = (parts[1] || '').trim()
-  if (!en || !LATIN_RE.test(en) || !zh) return null
-  return { en, zh, note: '', example: '', level: '' }
+  const strong = line.split(STRONG_SPLIT_RE, 2)
+  if (strong.length === 2) {
+    const en = (strong[0] || '').trim()
+    const zh = (strong[1] || '').trim()
+    if (en && LATIN_RE.test(en) && zh) {
+      return { en, zh, note: '', example: '', level: '' }
+    }
+  }
+
+  const hyphen = line.match(HYPHEN_LINE_RE)
+  if (hyphen) {
+    const en = (hyphen[1] || '').trim()
+    const zh = (hyphen[2] || '').trim()
+    // 右侧必须有汉字，避免把复合英文词（Asia-Pacific）拆成词条
+    if (en && LATIN_RE.test(en) && zh && CJK_RE.test(zh)) {
+      return { en, zh, note: '', example: '', level: '' }
+    }
+  }
+
+  return null
 }
 
 export function parseVocabSummary(text: string): VocabSummaryGroup[] {

@@ -193,7 +193,7 @@ const coreVocabSources = computed<CoreVocabSource[]>(() =>
     meta: { video_id: props.videoId, subtitle_id: sub.id },
   })),
 )
-const coreVocab = useCoreVocabulary(coreVocabSources)
+const coreVocab = useCoreVocabulary(coreVocabSources, { enabled: intensiveMode })
 const { items: coreVocabItems, loading: coreVocabLoading, count: coreVocabCount } = coreVocab
 
 const wordCards = useEpisodeWordCards(

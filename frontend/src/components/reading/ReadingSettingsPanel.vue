@@ -8,7 +8,7 @@ import { useIntensiveReadingMode } from '@/composables/useIntensiveReadingMode'
 
 defineEmits<{ close: [] }>()
 
-const { wordHighlightStyle, layoutMode, ttsRate, autoAdvance, autoScrollOnTts, setWordHighlightStyle, setLayoutMode, setTtsRate } = useReadingSettings()
+const { wordHighlightStyle, layoutMode, ttsRate, autoAdvance, autoScrollOnTts, showChinese, setWordHighlightStyle, setLayoutMode, setTtsRate, setShowChinese } = useReadingSettings()
 const { intensiveMode, setIntensiveMode } = useIntensiveReadingMode()
 
 const rateOptions = [0.75, 1, 1.25] as const
@@ -16,11 +16,12 @@ const rateOptions = [0.75, 1, 1.25] as const
 const highlightOptions: { key: ReadingWordHighlightStyle; label: string; desc: string }[] = [
   { key: 'color', label: '纯文字颜色', desc: '仅改变词汇文字颜色，不加下划线' },
   { key: 'color-underline', label: '颜色 + 下划线', desc: '彩色文字并带下划线标注' },
+  { key: 'background', label: '背景色高亮', desc: '浅色背景块标注重点词汇' },
 ]
 
 const layoutOptions: { key: ReadingLayoutMode; label: string; desc: string }[] = [
-  { key: 'dual', label: '双栏对照', desc: '英文与中文左右分列显示（桌面端）' },
-  { key: 'single', label: '单栏堆叠', desc: '英文在上、中文在下，逐段阅读' },
+  { key: 'dual', label: '全文 + 对照', desc: '左侧全文，中间词文对照，右侧段落（桌面端均可收起）' },
+  { key: 'single', label: '单栏段落', desc: '仅段落卡片上下堆叠阅读' },
 ]
 
 const optionSelectedClass = 'border-neutral-900 bg-neutral-50 dark:border-neutral-400 dark:bg-neutral-800'
@@ -63,6 +64,25 @@ const optionDefaultClass =
           <span>
             <span class="block text-sm font-medium">开启精读</span>
             <span class="block text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">词下直译、段落译文对照、核心词汇侧栏</span>
+          </span>
+        </label>
+      </section>
+
+      <section class="mb-6">
+        <h4 class="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-3">译文</h4>
+        <label
+          class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors"
+          :class="showChinese ? optionSelectedClass : optionDefaultClass"
+        >
+          <input
+            type="checkbox"
+            class="mt-1 shrink-0"
+            :checked="showChinese"
+            @change="setShowChinese(($event.target as HTMLInputElement).checked)"
+          />
+          <span>
+            <span class="block text-sm font-medium">显示中文</span>
+            <span class="block text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">关闭后全文与段落区仅显示英文</span>
           </span>
         </label>
       </section>

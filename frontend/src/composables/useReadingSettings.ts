@@ -1,6 +1,6 @@
 import { computed, ref, watch } from 'vue'
 
-export type ReadingWordHighlightStyle = 'color' | 'color-underline'
+export type ReadingWordHighlightStyle = 'color' | 'color-underline' | 'background'
 export type ReadingLayoutMode = 'dual' | 'single'
 export type ReadingTtsRate = 0.75 | 1 | 1.25
 
@@ -9,11 +9,12 @@ const LAYOUT_MODE_KEY = 'reading-layout-mode'
 const TTS_RATE_KEY = 'reading-tts-rate'
 const TTS_AUTO_ADVANCE_KEY = 'reading-tts-auto-advance'
 const TTS_AUTO_SCROLL_KEY = 'reading-tts-auto-scroll'
+const SHOW_CHINESE_KEY = 'reading-show-chinese'
 
 function loadWordHighlightStyle(): ReadingWordHighlightStyle {
   try {
     const stored = localStorage.getItem(WORD_HIGHLIGHT_KEY)
-    if (stored === 'color' || stored === 'color-underline') return stored
+    if (stored === 'color' || stored === 'color-underline' || stored === 'background') return stored
   } catch {
     /* ignore */
   }
@@ -56,6 +57,7 @@ const layoutMode = ref<ReadingLayoutMode>(loadLayoutMode())
 const ttsRate = ref<ReadingTtsRate>(loadTtsRate())
 const autoAdvance = ref(loadBool(TTS_AUTO_ADVANCE_KEY, true))
 const autoScrollOnTts = ref(loadBool(TTS_AUTO_SCROLL_KEY, true))
+const showChinese = ref(loadBool(SHOW_CHINESE_KEY, true))
 
 watch(wordHighlightStyle, (value) => {
   try {
@@ -97,10 +99,19 @@ watch(autoScrollOnTts, (value) => {
   }
 })
 
+watch(showChinese, (value) => {
+  try {
+    localStorage.setItem(SHOW_CHINESE_KEY, value ? 'true' : 'false')
+  } catch {
+    /* ignore */
+  }
+})
+
 export function useReadingSettings() {
   const readingPageClass = computed(() => ({
     'reading-highlight-color-only': wordHighlightStyle.value === 'color',
     'reading-highlight-underline': wordHighlightStyle.value === 'color-underline',
+    'reading-highlight-background': wordHighlightStyle.value === 'background',
   }))
 
   function setWordHighlightStyle(style: ReadingWordHighlightStyle) {
@@ -115,15 +126,21 @@ export function useReadingSettings() {
     ttsRate.value = rate
   }
 
+  function setShowChinese(value: boolean) {
+    showChinese.value = value
+  }
+
   return {
     wordHighlightStyle,
     layoutMode,
     ttsRate,
     autoAdvance,
     autoScrollOnTts,
+    showChinese,
     readingPageClass,
     setWordHighlightStyle,
     setLayoutMode,
     setTtsRate,
+    setShowChinese,
   }
 }
