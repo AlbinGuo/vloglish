@@ -64,7 +64,7 @@ async function submit() {
     <section class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-5 space-y-4">
       <h1 class="text-lg font-semibold">提交 YouTube / TikTok 链接</h1>
       <p class="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
-        只需粘贴视频链接。管理员审核后将手工上传视频与字幕；通过后仅你可见，进入个人语料库。
+        审核通过后仅你可见，进入你的个人语料库。
       </p>
 
       <label class="block text-sm">
