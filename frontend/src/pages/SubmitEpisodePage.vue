@@ -44,7 +44,7 @@ async function submit() {
     <div class="flex items-center gap-3 text-sm mb-6">
       <RouterLink to="/english" class="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">← 返回目录</RouterLink>
       <span class="text-neutral-300 dark:text-neutral-600">|</span>
-      <span class="font-medium">投稿外链视频</span>
+      <span class="font-medium">上传Youtube视频</span>
       <span class="flex-1" />
       <RouterLink
         to="/english/my-submissions"
@@ -64,7 +64,7 @@ async function submit() {
     <section class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-5 space-y-4">
       <h1 class="text-lg font-semibold">提交 YouTube / TikTok 链接</h1>
       <p class="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
-        审核通过后仅你可见，进入你的个人语料库。
+        管理员审核通过后仅你可见，进入你的个人语料库。
       </p>
 
       <label class="block text-sm">
