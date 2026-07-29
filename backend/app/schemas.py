@@ -453,6 +453,9 @@ class AdminVttImportOut(BaseModel):
     voca_size: int = 0
     highlight_count: int = 0
     warnings: list[str] = []
+    done: bool = True
+    phase: str = "done"
+    remaining: int = 0
 
 
 class AdminSubtitleEnrichIn(BaseModel):
@@ -462,6 +465,12 @@ class AdminSubtitleEnrichIn(BaseModel):
     translate_chinese: bool = Field(
         default=False,
         description="True=AI 翻译/改写中文；False=保留现有中文，仅生成音标与高亮",
+    )
+    max_batches: int = Field(
+        default=3,
+        ge=1,
+        le=20,
+        description="本轮最多处理几批 DeepSeek 请求，便于长字幕分轮续跑",
     )
 
 
@@ -1003,6 +1012,12 @@ class AdminArticleSegmentIn(BaseModel):
 
 class AdminArticleTtsIn(BaseModel):
     voice: str | None = None
+    max_segments: int = Field(default=8, ge=1, le=40)
+    skip_existing: bool = True
+    force: bool = Field(
+        default=False,
+        description="True 时清空已有音频后重生成；仅应在任务首轮传入",
+    )
 
 
 class AdminArticleTtsOut(BaseModel):
@@ -1012,6 +1027,10 @@ class AdminArticleTtsOut(BaseModel):
     tts_status: str
     error_sample: str = ""
     voice: str = ""
+    done: bool = True
+    remaining: int = 0
+    skipped: int = 0
+    processed: int = 0
 
 
 class AdminArticleCreateIn(BaseModel):
@@ -1103,6 +1122,11 @@ class AdminArticleImportTextOut(BaseModel):
 class AdminArticleEnrichIn(BaseModel):
     translate: bool = True
     analyze: bool = True
+    max_batches: int = Field(default=3, ge=1, le=20)
+    force_analyze: bool = Field(
+        default=False,
+        description="True 时清空已有高亮后重跑分析（用于「仅重新分析词汇」）",
+    )
 
 
 class AdminArticleEnrichOut(BaseModel):
@@ -1114,6 +1138,10 @@ class AdminArticleEnrichOut(BaseModel):
     voca_size: int = 0
     highlight_count: int = 0
     annotate_failed: int = 0
+    done: bool = True
+    phase: str = "done"
+    remaining: int = 0
+    translated_count: int = 0
 
 
 # ——— 用户反馈 ———

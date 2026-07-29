@@ -223,6 +223,7 @@ def enrich_subtitles(
         title=body.title or "",
         summary=body.summary or "",
         translate_chinese=body.translate_chinese,
+        max_batches=body.max_batches,
     )
 
 

@@ -403,9 +403,7 @@ METADATA_LOCALIZE_PROMPT = """你是视频内容本地化助手。用户提供�
 JSON 结构：{"title": "...", "summary": "..."}"""
 
 
-def translate_lines_with_deepseek(lines: list[str]) -> list[str]:
-    if not lines:
-        return []
+def _translate_lines_once(lines: list[str]) -> list[str]:
     user_payload = {"lines": lines}
     content = _chat_completion(
         system=TRANSLATE_SYSTEM_PROMPT,
@@ -418,7 +416,37 @@ def translate_lines_with_deepseek(lines: list[str]) -> list[str]:
     translations = raw.get("translations")
     if not isinstance(translations, list):
         raise RuntimeError("DeepSeek 翻译返回格式无效")
+    if len(translations) != len(lines):
+        raise RuntimeError("DeepSeek 翻译返回条数与输入不一致")
     return [str(t) for t in translations]
+
+
+_TRANSLATE_BATCH_SIZE = 10
+
+
+def translate_lines_with_deepseek(lines: list[str]) -> list[str]:
+    """Translate lines in small batches with half-split retry on failure."""
+    if not lines:
+        return []
+
+    def _translate_chunk(chunk: list[str]) -> list[str]:
+        if not chunk:
+            return []
+        if len(chunk) == 1:
+            try:
+                return _translate_lines_once(chunk)
+            except Exception:
+                return [""]
+        try:
+            return _translate_lines_once(chunk)
+        except Exception:
+            mid = len(chunk) // 2
+            return _translate_chunk(chunk[:mid]) + _translate_chunk(chunk[mid:])
+
+    out: list[str] = []
+    for offset in range(0, len(lines), _TRANSLATE_BATCH_SIZE):
+        out.extend(_translate_chunk(lines[offset : offset + _TRANSLATE_BATCH_SIZE]))
+    return out
 
 
 def _sample_lines_for_brief(lines: list[str], *, max_lines: int = 120) -> list[str]:

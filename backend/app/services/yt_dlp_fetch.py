@@ -445,7 +445,7 @@ def upload_fetched_media(
         if subtitles:
             clip_length_est = float(max((s["end"] for s in subtitles), default=fetched.duration or 0))
 
-            def _run_enrich() -> tuple[int, int, dict] | RuntimeError:
+            def _run_enrich() -> tuple[int, int, dict, int, bool, int] | RuntimeError:
                 try:
                     return enrich_subtitles_with_deepseek(
                         subtitles,
@@ -476,7 +476,7 @@ def upload_fetched_media(
                 if isinstance(enrich_result, RuntimeError):
                     warnings.append(f"字幕翻译/音标生成失败：{enrich_result}")
                 else:
-                    translated_count, ipa_count, translation_brief = enrich_result
+                    translated_count, ipa_count, translation_brief, _rem, _done, _batches = enrich_result
 
                 if fut_localize:
                     localize_result = fut_localize.result()

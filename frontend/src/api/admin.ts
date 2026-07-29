@@ -563,7 +563,7 @@ export async function adminImportVtt(
 
 export async function adminEnrichSubtitles(
   subtitles: AdminSubtitle[],
-  options?: { title?: string; summary?: string; translateChinese?: boolean },
+  options?: { title?: string; summary?: string; translateChinese?: boolean; maxBatches?: number },
 ) {
   const { data } = await adminApi.post<{
     subtitles: AdminSubtitle[]
@@ -576,6 +576,9 @@ export async function adminEnrichSubtitles(
     voca_size: number
     highlight_count: number
     warnings?: string[]
+    done?: boolean
+    phase?: string
+    remaining?: number
   }>(
     '/api/admin/episodes/enrich-subtitles/',
     {
@@ -583,8 +586,9 @@ export async function adminEnrichSubtitles(
       title: options?.title || '',
       summary: options?.summary || '',
       translate_chinese: Boolean(options?.translateChinese),
+      max_batches: options?.maxBatches ?? 3,
     },
-    { timeout: 900000 },
+    { timeout: 300000 },
   )
   return data
 }
@@ -922,18 +926,9 @@ export async function adminImportArticleText(
   return data
 }
 
-export async function adminAnalyzeArticle(ref: string | number) {
-  const { data } = await adminApi.post<Record<string, number>>(
-    `/api/admin/articles/${ref}/analyze/`,
-    {},
-    { timeout: 900000 },
-  )
-  return data
-}
-
-export async function adminEnrichArticle(
+export async function adminAnalyzeArticle(
   ref: string | number,
-  payload: { translate?: boolean; analyze?: boolean } = {},
+  payload: { max_batches?: number; force_analyze?: boolean } = {},
 ) {
   const { data } = await adminApi.post<{
     segment_count: number
@@ -944,10 +939,44 @@ export async function adminEnrichArticle(
     voca_size: number
     highlight_count: number
     annotate_failed: number
+    done: boolean
+    phase: string
+    remaining: number
+    translated_count: number
+  }>(
+    `/api/admin/articles/${ref}/analyze/`,
+    { max_batches: 3, force_analyze: true, ...payload },
+    { timeout: 300000 },
+  )
+  return data
+}
+
+export async function adminEnrichArticle(
+  ref: string | number,
+  payload: {
+    translate?: boolean
+    analyze?: boolean
+    max_batches?: number
+    force_analyze?: boolean
+  } = {},
+) {
+  const { data } = await adminApi.post<{
+    segment_count: number
+    word_count: number
+    stars: number
+    translated: boolean
+    analyzed: boolean
+    voca_size: number
+    highlight_count: number
+    annotate_failed: number
+    done: boolean
+    phase: string
+    remaining: number
+    translated_count: number
   }>(
     `/api/admin/articles/${ref}/enrich/`,
-    { translate: true, analyze: true, ...payload },
-    { timeout: 900000 },
+    { translate: true, analyze: true, max_batches: 3, force_analyze: false, ...payload },
+    { timeout: 300000 },
   )
   return data
 }
@@ -959,7 +988,15 @@ export async function adminPublishArticle(ref: string | number) {
   return data
 }
 
-export async function adminGenerateArticleTts(ref: string | number, options: { voice?: string } = {}) {
+export async function adminGenerateArticleTts(
+  ref: string | number,
+  options: {
+    voice?: string
+    max_segments?: number
+    skip_existing?: boolean
+    force?: boolean
+  } = {},
+) {
   const { data } = await adminApi.post<{
     generated: number
     failed: number
@@ -967,9 +1004,20 @@ export async function adminGenerateArticleTts(ref: string | number, options: { v
     tts_status: string
     error_sample?: string
     voice?: string
-  }>(`/api/admin/articles/${ref}/generate-tts/`, options.voice ? { voice: options.voice } : {}, {
-    timeout: 900000,
-  })
+    done: boolean
+    remaining: number
+    skipped: number
+    processed: number
+  }>(
+    `/api/admin/articles/${ref}/generate-tts/`,
+    {
+      voice: options.voice,
+      max_segments: options.max_segments ?? 8,
+      skip_existing: options.skip_existing ?? true,
+      force: Boolean(options.force),
+    },
+    { timeout: 300000 },
+  )
   return data
 }
 

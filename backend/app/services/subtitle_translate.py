@@ -8,7 +8,8 @@ from ..dict.deepseek import build_subtitle_translation_brief, enrich_subtitle_li
 logger = logging.getLogger(__name__)
 
 # 每批翻译行数；前后各带若干句作剧情上下文
-_BATCH_SIZE = 10
+BATCH_SIZE = 10
+_BATCH_SIZE = BATCH_SIZE
 _CONTEXT_WINDOW = 6
 
 
@@ -16,16 +17,18 @@ def enrich_subtitles_with_deepseek(
     subtitles: list[dict],
     *,
     translate_chinese: bool,
-    batch_size: int = _BATCH_SIZE,
+    batch_size: int = BATCH_SIZE,
     episode_title: str = "",
     episode_summary: str = "",
     overwrite_chinese: bool = False,
     translation_brief: dict | None = None,
-) -> tuple[int, int, dict]:
+    max_batches: int | None = None,
+) -> tuple[int, int, dict, int, bool, int]:
     """Fill chinese/ipa fields.
 
-    Returns (translated_count, ipa_count, translation_brief).
+    Returns (translated_count, ipa_count, translation_brief, remaining_pending, done, batches_run).
     若未传入 translation_brief 且需要翻译，会先生成整集剧情简报。
+    max_batches 限制本轮 DeepSeek 批次数（不含 brief），便于分轮续跑。
     """
     pending: list[int] = []
     for i, row in enumerate(subtitles):
@@ -40,7 +43,7 @@ def enrich_subtitles_with_deepseek(
 
     brief = dict(translation_brief or {})
     if not pending:
-        return 0, 0, brief
+        return 0, 0, brief, 0, True, 0
 
     all_english = [(row.get("english") or "").strip() for row in subtitles]
 
@@ -64,7 +67,12 @@ def enrich_subtitles_with_deepseek(
 
     translated = 0
     ipa_filled = 0
+    batches_run = 0
+    processed = 0
+
     for offset in range(0, len(pending), batch_size):
+        if max_batches is not None and batches_run >= max_batches:
+            break
         chunk_idxs = pending[offset : offset + batch_size]
         batch_need_zh = False
         line_items: list[dict[str, str]] = []
@@ -115,4 +123,8 @@ def enrich_subtitles_with_deepseek(
                 if ipa:
                     row["ipa"] = ipa
                     ipa_filled += 1
-    return translated, ipa_filled, brief
+        batches_run += 1
+        processed += len(chunk_idxs)
+
+    remaining = max(0, len(pending) - processed)
+    return translated, ipa_filled, brief, remaining, remaining == 0, batches_run

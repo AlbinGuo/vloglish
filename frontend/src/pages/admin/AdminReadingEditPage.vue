@@ -44,6 +44,7 @@ const form = ref({
 const coverSourceUrl = ref('')
 const uploadingCover = ref(false)
 const ttsVoice = ref('Ryan')
+const ttsForceRegenerate = ref(false)
 const englishText = ref('')
 const article = ref<AdminArticleDetail | null>(null)
 
@@ -170,16 +171,43 @@ async function enrichSegments() {
   message.value = ''
   error.value = ''
   try {
-    const result = await adminEnrichArticle(refId.value, { translate: true, analyze: true })
+    let rounds = 0
+    let last = await adminEnrichArticle(refId.value, {
+      translate: true,
+      analyze: true,
+      max_batches: 3,
+      force_analyze: false,
+    })
+    rounds += 1
+    message.value = `AI 增强进行中（${phaseLabel(last.phase)}，剩余约 ${last.remaining}）…`
+    while (!last.done && rounds < 200) {
+      last = await adminEnrichArticle(refId.value, {
+        translate: true,
+        analyze: true,
+        max_batches: 3,
+        force_analyze: false,
+      })
+      rounds += 1
+      message.value = `AI 增强进行中（第 ${rounds} 轮，${phaseLabel(last.phase)}，剩余约 ${last.remaining}）…`
+    }
     await load()
-    message.value = `AI 增强完成：${result.segment_count} 段，高亮 ${result.highlight_count || 0} 处`
+    if (!last.done) {
+      error.value = `已跑 ${rounds} 轮仍未完成（剩余约 ${last.remaining}）。请再点一次「AI 增强段落」继续`
+    } else {
+      message.value = `AI 增强完成：${last.segment_count} 段，高亮 ${last.highlight_count || 0} 处（共 ${rounds} 轮）`
+    }
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string; response?: { data?: { detail?: string } } }
     const detail = err.response?.data?.detail
     if (err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '')) {
-      error.value = 'AI 增强超时（段落多时可能需数分钟）。请刷新查看是否已部分完成，或重试'
+      error.value = '本轮 AI 增强超时。已完成部分已写入，请再点「AI 增强段落」继续'
+      try {
+        await load()
+      } catch {
+        /* ignore */
+      }
     } else if (/server closed the connection|OperationalError|consuming input failed/i.test(detail || '')) {
-      error.value = '数据库连接在长时间 AI 处理后断开。请刷新后重试「AI 增强段落」（导入文本已改为秒级，一般不受影响）'
+      error.value = '数据库连接在长时间 AI 处理后断开。请刷新后重试「AI 增强段落」'
     } else {
       error.value = detail || 'AI 增强失败'
     }
@@ -188,20 +216,44 @@ async function enrichSegments() {
   }
 }
 
+function phaseLabel(phase: string) {
+  if (phase === 'translate') return '机翻'
+  if (phase === 'analyze' || phase === 'enrich') return '音标/高亮'
+  return phase || '处理'
+}
+
 async function reanalyze() {
   if (!refId.value) return
   importing.value = true
   message.value = ''
   error.value = ''
   try {
-    await adminAnalyzeArticle(refId.value)
+    let force = true
+    let rounds = 0
+    let last = await adminAnalyzeArticle(refId.value, { max_batches: 3, force_analyze: force })
+    force = false
+    rounds += 1
+    while (!last.done && rounds < 200) {
+      last = await adminAnalyzeArticle(refId.value, { max_batches: 3, force_analyze: false })
+      rounds += 1
+      message.value = `词汇分析进行中（第 ${rounds} 轮，剩余约 ${last.remaining}）…`
+    }
     await load()
-    message.value = '词汇分析完成'
+    if (!last.done) {
+      error.value = `分析未完成（剩余约 ${last.remaining}），请再点「仅重新分析词汇」继续`
+    } else {
+      message.value = `词汇分析完成（共 ${rounds} 轮，高亮 ${last.highlight_count || 0} 处）`
+    }
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string; response?: { data?: { detail?: string } } }
     const detail = err.response?.data?.detail
     if (err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '')) {
-      error.value = '分析超时，请刷新后重试'
+      error.value = '本轮分析超时。已完成部分已写入，请再点「仅重新分析词汇」继续'
+      try {
+        await load()
+      } catch {
+        /* ignore */
+      }
     } else {
       error.value = detail || '分析失败'
     }
@@ -215,21 +267,59 @@ async function generateTts() {
   generatingTts.value = true
   message.value = ''
   error.value = ''
+  let totalGenerated = 0
+  let totalFailed = 0
+  let rounds = 0
+  let force = ttsForceRegenerate.value
   try {
-    const result = await adminGenerateArticleTts(refId.value, { voice: ttsVoice.value })
-    await load()
-    if (result.failed > 0) {
-      error.value = result.error_sample
-        ? `TTS 部分失败：${result.generated}/${result.total} 段（${result.voice || ttsVoice.value}）。${result.error_sample}`
-        : `TTS 部分失败：${result.generated}/${result.total} 段（状态：${result.tts_status}）`
-    } else {
-      message.value = `TTS 完成：${result.generated}/${result.total} 段（音色：${result.voice || ttsVoice.value}，状态：${result.tts_status}）`
+    let last = await adminGenerateArticleTts(refId.value, {
+      voice: ttsVoice.value,
+      max_segments: 8,
+      skip_existing: true,
+      force,
+    })
+    force = false
+    rounds += 1
+    totalGenerated += last.generated || 0
+    totalFailed += last.failed || 0
+    message.value = `TTS 生成中（第 ${rounds} 轮，本轮 ${last.processed || 0} 段，剩余约 ${last.remaining}）…`
+
+    while (!last.done && rounds < 200) {
+      last = await adminGenerateArticleTts(refId.value, {
+        voice: ttsVoice.value,
+        max_segments: 8,
+        skip_existing: true,
+        force: false,
+      })
+      rounds += 1
+      totalGenerated += last.generated || 0
+      totalFailed += last.failed || 0
+      message.value = `TTS 生成中（第 ${rounds} 轮，本轮 ${last.processed || 0} 段，剩余约 ${last.remaining}）…`
     }
+
+    await load()
+    if (!last.done) {
+      error.value = `已跑 ${rounds} 轮仍有约 ${last.remaining} 段未完成。请再点「生成段落 TTS」继续补全`
+    } else if (totalFailed > 0) {
+      error.value = last.error_sample
+        ? `TTS 完成但有失败：成功 ${totalGenerated}，失败累计 ${totalFailed}（${last.voice || ttsVoice.value}）。${last.error_sample}`
+        : `TTS 完成但有失败：成功 ${totalGenerated}，失败累计 ${totalFailed}（状态：${last.tts_status}）`
+    } else if (totalGenerated === 0 && (last.skipped || 0) > 0) {
+      message.value = `TTS 已就绪：${last.total} 段均有音频，已跳过。若要换音色请勾选「强制重新生成」`
+    } else {
+      message.value = `TTS 完成：新生成 ${totalGenerated}/${last.total} 段（共 ${rounds} 轮，音色：${last.voice || ttsVoice.value}，状态：${last.tts_status}）`
+    }
+    if (ttsForceRegenerate.value) ttsForceRegenerate.value = false
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string; response?: { data?: { detail?: string } } }
     const detail = err.response?.data?.detail
     if (err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '')) {
-      error.value = 'TTS 生成超时，请刷新页面查看是否已部分完成；若未完成请重试'
+      error.value = '本轮 TTS 超时。已完成部分已保存，请再点「生成段落 TTS」继续补全'
+      try {
+        await load()
+      } catch {
+        /* ignore */
+      }
     } else {
       error.value = detail || 'TTS 生成失败'
     }
@@ -356,9 +446,16 @@ onMounted(load)
               :disabled="generatingTts || !article.segment_count"
               @click="generateTts"
             >
-              {{ generatingTts ? '生成 TTS 中...' : '生成段落 TTS' }}
+              {{ generatingTts ? '生成 TTS 中（自动分轮）...' : '生成段落 TTS' }}
             </button>
+            <label class="flex items-center gap-2 text-sm text-neutral-600 pb-2 cursor-pointer">
+              <input v-model="ttsForceRegenerate" type="checkbox" class="rounded" :disabled="generatingTts" />
+              强制重新生成（覆盖已有）
+            </label>
           </div>
+          <p class="text-xs text-neutral-500 -mt-1">
+            默认跳过已有音频，每轮并行生成约 8 段；长文会自动多轮，中断后可再点继续补全。
+          </p>
           <div class="flex flex-wrap gap-2">
             <button type="button" class="rounded-lg bg-neutral-900 text-white px-4 py-2 text-sm" :disabled="saving" @click="saveMeta">保存</button>
             <button
@@ -367,7 +464,7 @@ onMounted(load)
               :disabled="enriching || importing || !article.segment_count"
               @click="enrichSegments"
             >
-              {{ enriching ? 'AI 增强中（可能较久）...' : 'AI 增强段落' }}
+              {{ enriching ? 'AI 增强中（自动分轮）...' : 'AI 增强段落' }}
             </button>
             <button type="button" class="rounded-lg border px-4 py-2 text-sm" :disabled="importing || enriching || !article.segment_count" @click="reanalyze">
               仅重新分析词汇

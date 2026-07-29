@@ -284,7 +284,7 @@ function formatImportError(e: unknown): string {
           : ''
   if (msg) return msg
   if (err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '')) {
-    return '处理超时：条目较多时 AI 可能需数分钟。可稍后重试，或先保存再增强'
+    return '本轮处理超时。已完成部分仍在表单中，可再点「AI 增强」继续，或先保存'
   }
   if (err.response?.status === 404) return '接口未找到，请重启后端服务后再试'
   if (err.response?.status === 502 || err.response?.status === 504) {
@@ -365,19 +365,67 @@ async function enrichCurrentSubtitles() {
   enriching.value = true
   error.value = ''
   success.value = ''
+  const translateChinese = subtitleEnrichMode.value === 'translate'
+  let totalTranslated = 0
+  let totalIpa = 0
+  let totalHighlight = 0
+  let rounds = 0
   try {
-    const translateChinese = subtitleEnrichMode.value === 'translate'
-    const data = await adminEnrichSubtitles(
+    let data = await adminEnrichSubtitles(
       form.value.subtitles.map((s) => ({ ...s })),
       {
         title: form.value.short_title,
         summary: form.value.summary,
         translateChinese,
+        maxBatches: 3,
       },
     )
-    applyImportResult(data, { kind: 'enrich', translated: translateChinese })
+    form.value.subtitles = data.subtitles.map((s) => ({ ...s }))
+    totalTranslated += data.translated_count || 0
+    totalIpa += data.ipa_count || 0
+    totalHighlight += data.highlight_count || 0
+    rounds += 1
+    success.value = `AI 增强进行中（${data.phase || ''}，剩余约 ${data.remaining ?? '?'}）…`
+
+    while (!data.done && rounds < 200) {
+      data = await adminEnrichSubtitles(
+        form.value.subtitles.map((s) => ({ ...s })),
+        {
+          title: form.value.short_title,
+          summary: form.value.summary,
+          translateChinese,
+          maxBatches: 3,
+        },
+      )
+      form.value.subtitles = data.subtitles.map((s) => ({ ...s }))
+      totalTranslated += data.translated_count || 0
+      totalIpa += data.ipa_count || 0
+      totalHighlight += data.highlight_count || 0
+      rounds += 1
+      success.value = `AI 增强进行中（第 ${rounds} 轮，${data.phase || ''}，剩余约 ${data.remaining ?? '?'}）…`
+    }
+
+    if (!data.done) {
+      error.value = `已跑 ${rounds} 轮仍未完成（剩余约 ${data.remaining}）。请再点「AI 增强」继续；记得保存`
+    } else {
+      applyImportResult(
+        {
+          ...data,
+          translated_count: totalTranslated,
+          ipa_count: totalIpa,
+          highlight_count: totalHighlight,
+        },
+        { kind: 'enrich', translated: translateChinese },
+      )
+      if (success.value) {
+        success.value = `${success.value}（共 ${rounds} 轮）。请记得保存剧集`
+      }
+    }
   } catch (e: unknown) {
     error.value = formatImportError(e)
+    if (form.value.subtitles.length) {
+      success.value = '若本轮已有部分结果，可保存后再次点「AI 增强」继续'
+    }
   } finally {
     enriching.value = false
   }
@@ -866,7 +914,7 @@ watch(
         >
           <p class="text-sm font-medium text-violet-900">AI 增强当前字幕</p>
           <p class="text-xs text-violet-800 leading-relaxed">
-            对上方已加载的 {{ form.subtitles.length }} 条字幕调用 DeepSeek（不必重新上传文件）。条目多时可能需数分钟，完成后请记得保存。
+            对上方已加载的 {{ form.subtitles.length }} 条字幕调用 DeepSeek（不必重新上传文件）。条目多时会自动分轮处理，完成后请记得保存。
           </p>
           <div class="flex flex-col gap-2 text-sm">
             <label class="flex items-start gap-2 cursor-pointer">

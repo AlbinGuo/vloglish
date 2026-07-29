@@ -9,7 +9,7 @@ from .presence import count_online_users
 
 
 def ensure_admin_user(db: Session) -> None:
-    from ..auth_utils import hash_password
+    from ..auth_utils import hash_password, verify_password
 
     email = os.getenv("ADMIN_EMAIL", "admin@vloglish.com").strip().lower()
     password = os.getenv("ADMIN_PASSWORD", "admin123456")
@@ -20,6 +20,9 @@ def ensure_admin_user(db: Session) -> None:
     if user:
         user.is_staff = True
         user.is_active = True
+        # 与环境变量密码对齐，避免库中旧哈希导致默认账号登不上
+        if not verify_password(password, user.password_hash):
+            user.password_hash = hash_password(password)
     else:
         db.add(
             User(

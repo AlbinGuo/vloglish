@@ -147,9 +147,20 @@ def enrich_article_segments(
     *,
     translate: bool = True,
     analyze: bool = True,
+    max_batches: int = 3,
+    force_analyze: bool = False,
 ) -> dict:
-    """Run DeepSeek on existing segments (translate / vocab highlight), then write back."""
+    """Run DeepSeek on existing segments in small rounds; flush after each batch.
+
+    Returns progress fields so the admin UI can loop until done=True.
+    """
     from ..dict.deepseek import translate_lines_with_deepseek
+    from .subtitle_analyze import (
+        analyze_subtitles_with_deepseek,
+        has_vocab_highlight_html,
+        should_skip_annotate,
+    )
+    from .subtitle_translate import BATCH_SIZE as TRANSLATE_BATCH_SIZE
 
     article_id = article.id
     rows = (
@@ -161,51 +172,190 @@ def enrich_article_segments(
     if not rows:
         raise ValueError("无段落可增强")
 
-    parts = [r.english or "" for r in rows]
-    chinese_list = [r.chinese or "" for r in rows]
-    html_list = [r.english_html or "" for r in rows]
+    batches_budget = max(1, int(max_batches or 3))
+    batches_used = 0
+    translated_n = 0
+    metrics: dict = {}
+    metrics_applied = False
 
-    # Release transaction before long AI work
     db.commit()
+
+    def _result(*, done: bool, phase: str, remaining: int, analyzed: bool) -> dict:
+        art = _reload_article(db, article_id)
+        return {
+            "segment_count": art.segment_count,
+            "word_count": art.word_count,
+            "stars": art.stars,
+            "translated": bool(translate),
+            "analyzed": analyzed,
+            "done": done,
+            "phase": phase,
+            "remaining": remaining,
+            "translated_count": translated_n,
+            "highlight_count": int(metrics.get("highlight_count") or 0),
+            "annotate_failed": int(metrics.get("annotate_failed") or 0),
+            "voca_size": int(metrics.get("voca_size") or 0),
+        }
 
     if translate:
-        try:
-            translated = translate_lines_with_deepseek(parts)
-            chinese_list = [
-                (translated[i] if i < len(translated) and translated[i] else chinese_list[i])
-                for i in range(len(parts))
+        while batches_used < batches_budget:
+            rows = (
+                db.query(ArticleSegment)
+                .filter(ArticleSegment.article_id == article_id)
+                .order_by(ArticleSegment.index)
+                .all()
+            )
+            pending_zh = [
+                r for r in rows if (r.english or "").strip() and not (r.chinese or "").strip()
             ]
-        except Exception as e:
-            raise RuntimeError(f"机翻失败：{e}") from e
+            if not pending_zh:
+                break
 
-    segments = [
-        {"english": parts[i], "chinese": chinese_list[i], "english_html": html_list[i]}
-        for i in range(len(parts))
-    ]
+            chunk = pending_zh[:TRANSLATE_BATCH_SIZE]
+            chunk_ids = [r.id for r in chunk]
+            parts = [(r.english or "").strip() for r in chunk]
+            try:
+                translated = translate_lines_with_deepseek(parts)
+            except Exception as e:
+                raise RuntimeError(f"机翻失败：{e}") from e
 
-    stars = article.stars
+            revive_db_session(db)
+            for i, seg_id in enumerate(chunk_ids):
+                seg = db.query(ArticleSegment).filter(ArticleSegment.id == seg_id).first()
+                if not seg:
+                    continue
+                zh = (translated[i] if i < len(translated) else "") or ""
+                if zh.strip():
+                    seg.chinese = zh.strip()
+                    translated_n += 1
+            db.commit()
+            batches_used += 1
+
+        rows = (
+            db.query(ArticleSegment)
+            .filter(ArticleSegment.article_id == article_id)
+            .order_by(ArticleSegment.index)
+            .all()
+        )
+        pending_zh_left = sum(
+            1 for r in rows if (r.english or "").strip() and not (r.chinese or "").strip()
+        )
+        if pending_zh_left:
+            return _result(done=False, phase="translate", remaining=pending_zh_left, analyzed=False)
+
     if analyze:
-        metrics = analyze_article_segments(segments)
-        stars = metrics.get("stars") or article.stars or 3
-        # analyze mutates english_html on segment dicts in place via subtitle_analyze
-    else:
-        metrics = {}
+        annotate_budget = batches_budget - batches_used
+        if annotate_budget <= 0:
+            rows = (
+                db.query(ArticleSegment)
+                .filter(ArticleSegment.article_id == article_id)
+                .order_by(ArticleSegment.index)
+                .all()
+            )
+            if force_analyze:
+                remaining_hl = sum(1 for r in rows if (r.english or "").strip())
+            else:
+                remaining_hl = sum(
+                    1
+                    for r in rows
+                    if (r.english or "").strip()
+                    and not should_skip_annotate(r.english_html or "")
+                )
+            return _result(
+                done=remaining_hl == 0,
+                phase="done" if remaining_hl == 0 else "analyze",
+                remaining=remaining_hl,
+                analyzed=False,
+            )
 
-    revive_db_session(db)
-    article = _reload_article(db, article_id)
-    replace_segments(db, article, segments)
-    article.stars = stars
-    db.commit()
-    db.refresh(article)
+        if force_analyze:
+            revive_db_session(db)
+            rows = (
+                db.query(ArticleSegment)
+                .filter(ArticleSegment.article_id == article_id)
+                .order_by(ArticleSegment.index)
+                .all()
+            )
+            for r in rows:
+                r.english_html = ""
+            db.commit()
+            force_analyze = False  # only clear once per job; subsequent rounds skip_highlighted
+        while batches_used < batches_budget:
+            revive_db_session(db)
+            rows = (
+                db.query(ArticleSegment)
+                .filter(ArticleSegment.article_id == article_id)
+                .order_by(ArticleSegment.index)
+                .all()
+            )
+            segments = [
+                {
+                    "id": r.id,
+                    "english": r.english or "",
+                    "chinese": r.chinese or "",
+                    "english_html": r.english_html or "",
+                }
+                for r in rows
+            ]
+            pending_before = sum(
+                1
+                for s in segments
+                if (s["english"] or "").strip()
+                and not should_skip_annotate(s.get("english_html") or "")
+            )
+            if pending_before == 0:
+                break
 
-    return {
-        "segment_count": article.segment_count,
-        "word_count": article.word_count,
-        "stars": article.stars,
-        "translated": bool(translate),
-        "analyzed": bool(analyze),
-        **({k: v for k, v in metrics.items() if k != "stars"} if isinstance(metrics, dict) else {}),
-    }
+            compute_metrics = not metrics_applied and not any(
+                has_vocab_highlight_html(s.get("english_html") or "") for s in segments
+            )
+            metrics = analyze_subtitles_with_deepseek(
+                segments,
+                max_batches=1,
+                skip_highlighted=True,
+                compute_metrics=compute_metrics,
+            )
+            batches_used += max(1, int(metrics.get("batches_run") or 1))
+
+            revive_db_session(db)
+            for s in segments:
+                seg = db.query(ArticleSegment).filter(ArticleSegment.id == s["id"]).first()
+                if not seg:
+                    continue
+                html = (s.get("english_html") or "").strip()
+                if html:
+                    seg.english_html = html
+            article = _reload_article(db, article_id)
+            if compute_metrics:
+                stars = int(metrics.get("stars") or 0)
+                if 1 <= stars <= 5:
+                    article.stars = stars
+                metrics_applied = True
+            db.commit()
+
+            if int(metrics.get("annotate_remaining") or 0) == 0:
+                break
+
+        rows = (
+            db.query(ArticleSegment)
+            .filter(ArticleSegment.article_id == article_id)
+            .order_by(ArticleSegment.index)
+            .all()
+        )
+        remaining_hl = sum(
+            1
+            for r in rows
+            if (r.english or "").strip()
+            and not should_skip_annotate(r.english_html or "")
+        )
+        return _result(
+            done=remaining_hl == 0,
+            phase="done" if remaining_hl == 0 else "analyze",
+            remaining=remaining_hl,
+            analyzed=True,
+        )
+
+    return _result(done=True, phase="done", remaining=0, analyzed=False)
 
 
 def delete_article_with_dependencies(db: Session, article_id: int) -> None:
