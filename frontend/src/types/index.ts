@@ -28,6 +28,7 @@ export interface AuthorCatalogItem {
 export interface Tag {
   id: number
   name: string
+  visit_count?: number
 }
 
 export interface EpisodeSummary {

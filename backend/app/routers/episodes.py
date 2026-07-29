@@ -13,7 +13,17 @@ from ..favorites import favorite_video_ids
 from ..services.episode_stats import learner_count_map_for_episodes
 from ..services.learning import learned_episode_ids, progress_map_for_episodes
 from ..media import find_episode_audio_file, find_episode_video_file
-from ..models import Author, Episode, EpisodeFavorite, EpisodeSeries, Tag, User, UserEpisodeFavorite
+from ..models import (
+    Author,
+    Episode,
+    EpisodeFavorite,
+    EpisodeSeries,
+    Tag,
+    User,
+    UserEpisodeFavorite,
+    UserEpisodeProgress,
+    episode_tags,
+)
 from ..serializers import episode_detail, episode_summary
 from ..services.episode_series import list_series_episodes, series_nav_for_episode
 from ..services.episode_word_cards import get_or_build_episode_word_cards, load_episode_for_word_cards
@@ -430,9 +440,43 @@ def get_episode_video(
 
 
 @router.get("/episode-tags/")
-def episode_tags(db: Session = Depends(get_db)):
-    tags = db.query(Tag).order_by(Tag.name).all()
-    return [{"id": t.id, "name": t.name} for t in tags]
+def episode_tags_list(
+    sort: str = Query("name", pattern="^(name|popular)$"),
+    limit: int | None = Query(None, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    """标签列表。sort=popular 时按标签下已发布视频的学习人数（去重用户）降序。"""
+    if sort == "popular":
+        visit_subq = (
+            db.query(
+                episode_tags.c.tag_id.label("tag_id"),
+                func.count(func.distinct(UserEpisodeProgress.user_id)).label("visit_count"),
+            )
+            .join(Episode, Episode.id == episode_tags.c.episode_id)
+            .outerjoin(
+                UserEpisodeProgress,
+                UserEpisodeProgress.episode_id == Episode.id,
+            )
+            .filter(Episode.status == "published")
+            .group_by(episode_tags.c.tag_id)
+            .subquery()
+        )
+        rows = (
+            db.query(Tag, func.coalesce(visit_subq.c.visit_count, 0).label("visit_count"))
+            .outerjoin(visit_subq, Tag.id == visit_subq.c.tag_id)
+            .order_by(func.coalesce(visit_subq.c.visit_count, 0).desc(), Tag.name.asc())
+        )
+        if limit is not None:
+            rows = rows.limit(limit)
+        return [
+            {"id": tag.id, "name": tag.name, "visit_count": int(visit_count or 0)}
+            for tag, visit_count in rows.all()
+        ]
+
+    q = db.query(Tag).order_by(Tag.name)
+    if limit is not None:
+        q = q.limit(limit)
+    return [{"id": t.id, "name": t.name} for t in q.all()]
 
 
 @router.get("/author-accents/")

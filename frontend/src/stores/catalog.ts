@@ -131,9 +131,11 @@ export const useCatalogStore = defineStore('catalog', () => {
   }
 
   function toggleTag(id: number) {
-    const idx = filters.tagIds.indexOf(id)
-    if (idx >= 0) filters.tagIds.splice(idx, 1)
-    else filters.tagIds.push(id)
+    if (filters.tagIds.length === 1 && filters.tagIds[0] === id) {
+      filters.tagIds = []
+    } else {
+      filters.tagIds = [id]
+    }
     return loadEpisodes(true)
   }
 

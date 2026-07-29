@@ -45,6 +45,14 @@ export async function getEpisodeTags() {
   return data
 }
 
+/** 访问人数最多的主题标签（默认前 25） */
+export async function getPopularEpisodeTags(limit = 25) {
+  const { data } = await api.get<Tag[]>('/api/episode-tags/', {
+    params: { sort: 'popular', limit },
+  })
+  return data
+}
+
 export async function getAuthorAccents() {
   const { data } = await api.get<{ accent: string }[]>('/api/author-accents/')
   return data.map((a) => a.accent)

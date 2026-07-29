@@ -10,6 +10,7 @@ import { useIsMobile } from '@/composables/useBreakpoint'
 import { useAuthStore } from '@/stores/auth'
 import { CARD_INITIAL_SIZE, LIST_INITIAL_SIZE, useCatalogStore } from '@/stores/catalog'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
+import EnglishHotTagsBar from '@/components/english/EnglishHotTagsBar.vue'
 import AuthorStackCard from '@/components/catalog/AuthorStackCard.vue'
 import CatalogBrowseModeBar from '@/components/catalog/CatalogBrowseModeBar.vue'
 import CatalogFilters from '@/components/catalog/CatalogFilters.vue'
@@ -258,7 +259,8 @@ watch(
       <section class="flex-1 min-w-0">
         <div class="mb-4 flex items-center gap-2 sm:gap-3 min-w-0">
           <EnglishNavTabs class="shrink-0" />
-          <div v-if="browseMode === 'author'" class="flex-1 min-w-0">
+          <EnglishHotTagsBar />
+          <div v-if="browseMode === 'author'" class="flex-1 min-w-0 max-w-xs sm:max-w-sm ml-auto">
             <label class="sr-only" for="author-catalog-search">搜索作者或视频标题</label>
             <input
               id="author-catalog-search"

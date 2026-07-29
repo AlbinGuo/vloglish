@@ -89,24 +89,5 @@ watch(
         </label>
       </div>
     </div>
-    <div>
-      <div class="text-xs text-neutral-500 mb-2">主题标签</div>
-      <div class="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1">
-        <button
-          v-for="t in store.tags"
-          :key="t.id"
-          type="button"
-          class="text-xs px-2 py-1 rounded-full border transition cursor-pointer"
-          :class="
-            store.filters.tagIds.includes(t.id)
-              ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-300 dark:bg-neutral-100 dark:text-neutral-900'
-              : 'border-black/10 bg-neutral-50 hover:border-neutral-300 dark:border-white/10 dark:bg-neutral-800 dark:hover:border-neutral-600'
-          "
-          @click="store.toggleTag(t.id)"
-        >
-          {{ t.name }}
-        </button>
-      </div>
-    </div>
   </div>
 </template>
