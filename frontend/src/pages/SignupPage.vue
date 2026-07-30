@@ -70,11 +70,15 @@ async function submit() {
           请使用邀请链接
         </p>
         <p class="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed mb-6">
-          注册需通过管理员发送的专属链接完成。若你已收到邀请，请打开邮件或消息中的完整链接后再注册。
+          注册需通过管理员发送的专属链接，或先
+          <RouterLink to="/pricing" class="text-neutral-900 dark:text-neutral-100 font-medium underline underline-offset-2">支付宝自助开通</RouterLink>
+          后再注册。若你已收到邀请，请打开邮件或消息中的完整链接。
         </p>
         <p class="text-sm text-neutral-500 dark:text-neutral-400 text-center">
           已有账号？
           <RouterLink to="/login" class="text-neutral-900 dark:text-neutral-100 font-medium hover:underline">登录</RouterLink>
+          <span class="mx-1">·</span>
+          <RouterLink to="/pricing" class="text-neutral-900 dark:text-neutral-100 font-medium hover:underline">开通会员</RouterLink>
           <span class="mx-1">·</span>
           <RouterLink to="/english" class="text-neutral-900 dark:text-neutral-100 font-medium hover:underline">先逛逛</RouterLink>
         </p>

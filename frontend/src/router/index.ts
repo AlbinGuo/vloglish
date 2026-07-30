@@ -41,6 +41,11 @@ const router = createRouter({
           component: () => import('@/pages/admin/AdminActivationCodesPage.vue'),
         },
         {
+          path: 'membership-orders',
+          name: 'AdminMembershipOrders',
+          component: () => import('@/pages/admin/AdminMembershipOrdersPage.vue'),
+        },
+        {
           path: 'users',
           name: 'AdminUsers',
           component: () => import('@/pages/admin/AdminUsersPage.vue'),
@@ -132,6 +137,18 @@ const router = createRouter({
       path: '/signup',
       name: 'Signup',
       component: () => import('@/pages/SignupPage.vue'),
+      meta: { authPage: true },
+    },
+    {
+      path: '/pricing',
+      name: 'Pricing',
+      component: () => import('@/pages/PricingPage.vue'),
+      meta: { authPage: true },
+    },
+    {
+      path: '/pricing/result',
+      name: 'PricingResult',
+      component: () => import('@/pages/PricingResultPage.vue'),
       meta: { authPage: true },
     },
     {

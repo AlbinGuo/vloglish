@@ -225,6 +225,32 @@ export async function adminDeleteCode(code: string) {
   await adminApi.delete(`/api/admin/activation-codes/${encodeURIComponent(code)}/`)
 }
 
+export interface MembershipOrderRow {
+  id: number
+  order_no: string
+  email: string
+  amount_yuan: string
+  amount_cent: number
+  status: string
+  channel: string
+  alipay_trade_no: string
+  activation_code: string | null
+  paid_at: string | null
+  created_at: string
+}
+
+export async function adminListMembershipOrders(params: {
+  status?: string
+  page?: number
+  page_size?: number
+}) {
+  const { data } = await adminApi.get<{ count: number; results: MembershipOrderRow[] }>(
+    '/api/admin/membership-orders/',
+    { params },
+  )
+  return data
+}
+
 export async function adminFetchUserGeoStats() {
   const { data } = await adminApi.get<AdminUserGeoStats>('/api/admin/users/geo-stats/')
   return data

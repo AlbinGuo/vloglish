@@ -1192,3 +1192,52 @@ class AdminFeedbackListOut(BaseModel):
 class AdminFeedbackUpdateIn(BaseModel):
     status: str | None = None
     admin_note: str | None = None
+
+
+class MembershipPricingOut(BaseModel):
+    subject: str
+    amount_yuan: str
+    amount_cent: int
+    currency: str = "CNY"
+    mock: bool = False
+    description: str = "一次性付费，永久会员"
+
+
+class MembershipOrderCreateIn(BaseModel):
+    email: EmailStr
+    channel: str = Field(default="page", pattern="^(page|wap)$")
+
+
+class MembershipOrderOut(BaseModel):
+    order_no: str
+    email: str
+    amount_yuan: str
+    amount_cent: int
+    status: str
+    mock: bool = False
+    pay_url: str | None = None
+    return_url: str = ""
+    signup_url: str | None = None
+    activation_code: str | None = None
+    email_is_member: bool = False
+    paid_at: str | None = None
+    created_at: str = ""
+
+
+class AdminMembershipOrderOut(BaseModel):
+    id: int
+    order_no: str
+    email: str
+    amount_yuan: str
+    amount_cent: int
+    status: str
+    channel: str
+    alipay_trade_no: str = ""
+    activation_code: str | None = None
+    paid_at: str | None = None
+    created_at: str = ""
+
+
+class AdminMembershipOrderListOut(BaseModel):
+    count: int
+    results: list[AdminMembershipOrderOut]

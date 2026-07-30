@@ -12,7 +12,7 @@ from sqlalchemy import inspect, text
 from .database import DATABASE_URL, Base, SessionLocal, engine, is_postgresql
 from .models import ActivationCode
 from .schemas import AuthTokensOut
-from .routers import auth, demo, entries, episode_submit, episodes, feedback, learning, notifications, presence, articles
+from .routers import auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import auth as admin_auth
@@ -23,6 +23,7 @@ from .routers.admin import demo_codes as admin_demo_codes
 from .routers.admin import episode_import as admin_episode_import
 from .routers.admin import episodes as admin_episodes
 from .routers.admin import feedback as admin_feedback
+from .routers.admin import membership_orders as admin_membership_orders
 from .routers.admin import notifications as admin_notifications
 from .routers.admin import presence as admin_presence
 from .routers.admin import tags as admin_tags
@@ -51,9 +52,11 @@ app.include_router(learning.router)
 app.include_router(entries.router)
 app.include_router(articles.router)
 app.include_router(presence.router)
+app.include_router(membership.router)
 app.include_router(admin_auth.router)
 app.include_router(admin_dashboard.router)
 app.include_router(admin_activation_codes.router)
+app.include_router(admin_membership_orders.router)
 app.include_router(admin_users.router)
 app.include_router(admin_teco_import.router)
 app.include_router(admin_episode_import.router)

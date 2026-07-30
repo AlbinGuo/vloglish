@@ -461,3 +461,25 @@ class UserArticleOpen(Base):
     device_id: Mapped[str] = mapped_column(String(64), default="", index=True)
     article_id: Mapped[int] = mapped_column(ForeignKey("articles.id"), index=True)
     opened_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class MembershipOrder(Base):
+    """站内自助购买永久会员订单（支付宝）。"""
+
+    __tablename__ = "membership_orders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    order_no: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    amount_cent: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(8), default="CNY")
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    channel: Mapped[str] = mapped_column(String(16), default="alipay")
+    alipay_trade_no: Mapped[str] = mapped_column(String(64), default="")
+    activation_code_id: Mapped[int | None] = mapped_column(
+        ForeignKey("activation_codes.id"), nullable=True
+    )
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    notify_raw: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
