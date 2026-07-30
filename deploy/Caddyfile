@@ -1,4 +1,11 @@
+# 主站（学习产品）域名，例如 app.example.com 或服务器 IP 对应域名
 {$DOMAIN} {
-    encode gzip
-    reverse_proxy web:80
+	encode gzip
+	reverse_proxy web:80
+}
+
+# 介绍落地页：仅 vloglish.cc（Host 转发后由 nginx 按 server_name 隔离）
+vloglish.cc, www.vloglish.cc {
+	encode gzip
+	reverse_proxy web:80
 }
