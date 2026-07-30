@@ -1,5 +1,5 @@
-# 主站（学习产品）域名，例如 app.example.com 或服务器 IP 对应域名
-{$DOMAIN} {
+# 主站（学习产品）
+{$DOMAIN}, en.yunankexun.com {
 	encode gzip
 	reverse_proxy web:80
 }
