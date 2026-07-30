@@ -226,7 +226,7 @@ def english_nav_counts(
     db: Session = Depends(get_db),
     user: User | None = Depends(get_current_user_optional),
 ):
-    """用户端顶栏：视频 / 合集 / 新闻阅读 可见数量。"""
+    """用户端顶栏：视频 / 合集 / 文章阅读 可见数量。"""
     from ..models import Article
 
     video_q = (

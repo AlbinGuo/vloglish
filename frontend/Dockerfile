@@ -19,6 +19,8 @@ FROM nginx:1.27-alpine
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY landing/ /usr/share/nginx/landing/
+# 支付审核页同步到主站根路径，便于 en.yunankexun.com/product.html 等访问
+COPY landing/product.html landing/pay.html landing/commerce.css landing/styles.css landing/favicon.svg /usr/share/nginx/html/
 
 EXPOSE 80 443
 
