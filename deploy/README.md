@@ -126,8 +126,10 @@ IMAGE_TAG=42 bash deploy/update.sh
 # 回滚
 bash deploy/rollback.sh 41
 
-# 启用 HTTPS（需先设置 SITE_DOMAIN 并解析 DNS）
+# 启用 HTTPS（需先设置 SITE_DOMAIN，并解析主站域名 + vloglish.cc DNS）
 docker compose -f docker-compose.prod.yml --env-file .env.prod --profile https up -d
+
+# 落地页 vloglish.cc：静态介绍页，仅允许访问该页（见 landing/、frontend/nginx.conf）
 ```
 
 ---

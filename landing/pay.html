@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Vloglish 会员服务在线支付页" />
+    <title>确认订单并支付 · Vloglish</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/commerce.css" />
+  </head>
+  <body>
+    <div class="atmosphere" aria-hidden="true">
+      <div class="atmosphere__wash"></div>
+      <div class="atmosphere__orb atmosphere__orb--a"></div>
+      <div class="atmosphere__orb atmosphere__orb--b"></div>
+      <div class="atmosphere__grid"></div>
+    </div>
+
+    <header class="top">
+      <a class="brand" href="/" aria-label="Vloglish 首页">
+        <span class="brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="16" fill="#0b1220" />
+            <path
+              d="M10.2 9.6h3.05l2.55 8.35L18.35 9.6h3.05L16.95 23.1h-1.9L10.2 9.6Z"
+              fill="#f4f7fb"
+            />
+          </svg>
+        </span>
+        <span class="brand__name">Vloglish</span>
+      </a>
+      <nav class="top__nav">
+        <a href="/product.html">商品服务</a>
+        <a href="/pay.html" aria-current="page">支付</a>
+      </nav>
+    </header>
+
+    <main class="commerce commerce--narrow">
+      <section class="commerce-hero">
+        <p class="section__eyebrow">收银台</p>
+        <h1 class="commerce-hero__title">确认订单并支付</h1>
+        <p class="commerce-hero__lead">请核对商品信息与应付金额，选择支付方式后完成付款。</p>
+      </section>
+
+      <section class="pay-panel">
+        <h2 class="pay-panel__title">选择套餐</h2>
+        <div class="sku-list" id="skuList" role="radiogroup" aria-label="会员套餐">
+          <label class="sku">
+            <input type="radio" name="sku" value="season" data-name="Vloglish 季度会员" data-price="99" data-desc="有效期 90 天 · 在线英语学习服务" />
+            <span class="sku__body">
+              <span class="sku__name">季度会员</span>
+              <span class="sku__desc">有效期 90 天</span>
+            </span>
+            <span class="sku__price">¥99</span>
+          </label>
+          <label class="sku">
+            <input type="radio" name="sku" value="year" data-name="Vloglish 年度会员" data-price="199" data-desc="有效期 365 天 · 在线英语学习服务" checked />
+            <span class="sku__body">
+              <span class="sku__name">年度会员 <em>推荐</em></span>
+              <span class="sku__desc">有效期 365 天</span>
+            </span>
+            <span class="sku__price">¥199</span>
+          </label>
+          <label class="sku">
+            <input type="radio" name="sku" value="lifetime" data-name="Vloglish 永久会员" data-price="299" data-desc="一次购买长期有效 · 在线英语学习服务" />
+            <span class="sku__body">
+              <span class="sku__name">永久会员</span>
+              <span class="sku__desc">一次购买，长期有效</span>
+            </span>
+            <span class="sku__price">¥299</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="pay-panel">
+        <h2 class="pay-panel__title">订单信息</h2>
+        <dl class="order-summary">
+          <div>
+            <dt>商品名称</dt>
+            <dd id="orderName">Vloglish 年度会员</dd>
+          </div>
+          <div>
+            <dt>商品说明</dt>
+            <dd id="orderDesc">有效期 365 天 · 在线英语学习服务</dd>
+          </div>
+          <div>
+            <dt>订单编号</dt>
+            <dd id="orderNo">—</dd>
+          </div>
+          <div>
+            <dt>商户名称</dt>
+            <dd>Vloglish 英语学习平台</dd>
+          </div>
+          <div class="order-summary__total">
+            <dt>应付金额</dt>
+            <dd><strong id="orderPrice">¥199.00</strong></dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="pay-panel">
+        <h2 class="pay-panel__title">支付方式</h2>
+        <div class="pay-methods" role="radiogroup" aria-label="支付方式">
+          <label class="pay-method">
+            <input type="radio" name="payMethod" value="wechat" checked />
+            <span class="pay-method__icon pay-method__icon--wechat" aria-hidden="true">微</span>
+            <span>微信支付</span>
+          </label>
+          <label class="pay-method">
+            <input type="radio" name="payMethod" value="alipay" />
+            <span class="pay-method__icon pay-method__icon--alipay" aria-hidden="true">支</span>
+            <span>支付宝</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="pay-panel pay-panel--action">
+        <label class="agree">
+          <input type="checkbox" id="agree" checked />
+          <span>我已阅读并同意 <a href="/product.html#plans">《会员服务说明》</a> 与售后退款规则</span>
+        </label>
+        <button type="button" class="btn btn--primary btn--block" id="payBtn">
+          立即支付 <span id="payBtnAmount">¥199.00</span>
+        </button>
+        <p class="pay-note">支付成功后将发放会员激活码，用于开通平台学习权益。</p>
+        <p class="pay-note">如需了解商品详情，请查看 <a href="/product.html">商品服务页</a>。</p>
+      </section>
+
+      <div class="pay-modal" id="payModal" hidden>
+        <div class="pay-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="payModalTitle">
+          <h2 id="payModalTitle">正在发起支付</h2>
+          <p id="payModalText">请使用所选支付方式完成付款。本页用于展示支付流程界面。</p>
+          <div class="pay-modal__amount" id="payModalAmount">¥199.00</div>
+          <div class="pay-modal__method" id="payModalMethod">微信支付</div>
+          <button type="button" class="btn btn--ghost" id="payModalClose">关闭</button>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer__brand">
+        <span class="brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="16" fill="#0b1220" />
+            <path
+              d="M10.2 9.6h3.05l2.55 8.35L18.35 9.6h3.05L16.95 23.1h-1.9L10.2 9.6Z"
+              fill="#f4f7fb"
+            />
+          </svg>
+        </span>
+        <span>Vloglish</span>
+      </div>
+      <p>支付页 · 在线购买会员服务</p>
+      <p class="footer__copy">© <span id="year"></span> Vloglish</p>
+    </footer>
+
+    <script>
+      (function () {
+        document.getElementById("year").textContent = String(new Date().getFullYear());
+
+        var orderNo = "VL" + Date.now().toString().slice(-12);
+        document.getElementById("orderNo").textContent = orderNo;
+
+        function selectedSku() {
+          return document.querySelector('input[name="sku"]:checked');
+        }
+
+        function syncOrder() {
+          var sku = selectedSku();
+          if (!sku) return;
+          var price = Number(sku.getAttribute("data-price")).toFixed(2);
+          document.getElementById("orderName").textContent = sku.getAttribute("data-name");
+          document.getElementById("orderDesc").textContent = sku.getAttribute("data-desc");
+          document.getElementById("orderPrice").textContent = "¥" + price;
+          document.getElementById("payBtnAmount").textContent = "¥" + price;
+        }
+
+        document.querySelectorAll('input[name="sku"]').forEach(function (el) {
+          el.addEventListener("change", syncOrder);
+        });
+
+        var params = new URLSearchParams(window.location.search);
+        var skuParam = params.get("sku");
+        if (skuParam) {
+          var target = document.querySelector('input[name="sku"][value="' + skuParam + '"]');
+          if (target) target.checked = true;
+        }
+        syncOrder();
+
+        var modal = document.getElementById("payModal");
+        document.getElementById("payBtn").addEventListener("click", function () {
+          if (!document.getElementById("agree").checked) {
+            alert("请先阅读并同意会员服务说明");
+            return;
+          }
+          var sku = selectedSku();
+          var method = document.querySelector('input[name="payMethod"]:checked');
+          var price = Number(sku.getAttribute("data-price")).toFixed(2);
+          document.getElementById("payModalAmount").textContent = "¥" + price;
+          document.getElementById("payModalMethod").textContent =
+            method.value === "alipay" ? "支付宝" : "微信支付";
+          document.getElementById("payModalText").textContent =
+            "订单 " + orderNo + " · " + sku.getAttribute("data-name") + "。请完成付款以获取激活码。";
+          modal.hidden = false;
+        });
+        document.getElementById("payModalClose").addEventListener("click", function () {
+          modal.hidden = true;
+        });
+      })();
+    </script>
+  </body>
+</html>
