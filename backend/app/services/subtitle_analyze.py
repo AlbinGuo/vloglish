@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..dict.deepseek import analyze_episode_metrics_with_deepseek, annotate_subtitle_lines_with_deepseek
 from .vtt_import import words_to_html
 
 VALID_HIGHLIGHTS = frozenset({"a", "d", "i", "c", "l", "f", "p"})
-ANNOTATE_BATCH_SIZE = 8
+ANNOTATE_BATCH_SIZE = 16
+PARALLEL_WORKERS = 2
 
 
 class _HighlightIdGen:
@@ -105,6 +107,13 @@ def _count_token_highlights(tokens: list[dict]) -> int:
     return sum(1 for t in tokens if isinstance(t, dict) and _normalize_highlight(t.get("highlight")))
 
 
+def _fallback_html(english: str) -> str:
+    plain = words_to_html(english).replace(" ", "")
+    if plain.startswith("<span>") and "data-annotate-fallback" not in plain:
+        return plain.replace("<span>", '<span data-annotate-fallback="1">', 1)
+    return plain
+
+
 def analyze_subtitles_with_deepseek(
     subtitles: list[dict],
     *,
@@ -114,6 +123,7 @@ def analyze_subtitles_with_deepseek(
     max_batches: int | None = None,
     skip_highlighted: bool = False,
     compute_metrics: bool | None = None,
+    parallel_workers: int = PARALLEL_WORKERS,
 ) -> dict[str, int]:
     """Fill english_html highlights; return episode stars, voca_size, highlight_count.
 
@@ -159,36 +169,42 @@ def analyze_subtitles_with_deepseek(
     else:
         metrics = {"stars": 3, "voca_size": 0}
 
-    id_gen = _HighlightIdGen()
-    highlight_count = 0
-    annotate_failed = 0
-    batches_run = 0
-    processed = 0
-
+    chunks: list[list[tuple[int, str]]] = []
     for offset in range(0, len(pending), batch_size):
-        if max_batches is not None and batches_run >= max_batches:
+        if max_batches is not None and len(chunks) >= max_batches:
             break
-        chunk = pending[offset : offset + batch_size]
+        chunks.append(pending[offset : offset + batch_size])
+
+    def _run_chunk(
+        chunk: list[tuple[int, str]],
+    ) -> tuple[list[tuple[int, str]], list[dict] | None]:
         chunk_lines = [text for _, text in chunk]
         try:
             items = annotate_subtitle_lines_with_deepseek(
                 chunk_lines,
                 translation_brief=translation_brief,
             )
+            return chunk, items
         except Exception:
+            return chunk, None
+
+    id_gen = _HighlightIdGen()
+    highlight_count = 0
+    annotate_failed = 0
+    batches_run = 0
+    processed = 0
+    workers = max(1, min(int(parallel_workers or 1), len(chunks) or 1))
+
+    def _apply_chunk(chunk: list[tuple[int, str]], items: list[dict] | None) -> None:
+        nonlocal highlight_count, annotate_failed, batches_run, processed
+        if items is None:
             annotate_failed += len(chunk)
             for idx, english in chunk:
-                # Mark fallback so a hard AI failure won't be retried forever
-                plain = words_to_html(english).replace(" ", "")
                 if "data-annotate-fallback" not in (subtitles[idx].get("english_html") or ""):
-                    subtitles[idx]["english_html"] = plain.replace(
-                        "<span>",
-                        '<span data-annotate-fallback="1">',
-                        1,
-                    ) if plain.startswith("<span>") else plain
+                    subtitles[idx]["english_html"] = _fallback_html(english)
             batches_run += 1
             processed += len(chunk)
-            continue
+            return
 
         for (idx, english), item in zip(chunk, items):
             tokens = item.get("tokens") or []
@@ -199,22 +215,27 @@ def analyze_subtitles_with_deepseek(
                 html = tokens_to_english_html(tokens, id_gen)
                 highlight_count += hl_n
             else:
-                # token 对不齐时仍尽量保留已有高亮；完全不可用才回退
                 if hl_n > 0 and _token_texts(tokens):
                     html = tokens_to_english_html(tokens, id_gen)
                     highlight_count += hl_n
                 else:
-                    plain = words_to_html(english).replace(" ", "")
-                    html = (
-                        plain.replace("<span>", '<span data-annotate-fallback="1">', 1)
-                        if plain.startswith("<span>")
-                        else plain
-                    )
+                    html = _fallback_html(english)
                     annotate_failed += 1
             if html:
                 subtitles[idx]["english_html"] = html
         batches_run += 1
         processed += len(chunk)
+
+    if workers == 1:
+        for chunk in chunks:
+            c, items = _run_chunk(chunk)
+            _apply_chunk(c, items)
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(_run_chunk, chunk) for chunk in chunks]
+            for fut in as_completed(futures):
+                c, items = fut.result()
+                _apply_chunk(c, items)
 
     remaining = max(0, len(pending) - processed)
     return {

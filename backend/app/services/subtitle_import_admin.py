@@ -124,7 +124,8 @@ def enrich_subtitle_rows_for_admin(
             remaining=pending_hl,
         )
 
-    if not translation_brief:
+    # 仅翻译模式需要剧情简报；保留中文时跳过，避免多一次 DeepSeek
+    if translate_chinese and not translation_brief:
         try:
             english_lines = [
                 (r.get("english") or "").strip() for r in rows if (r.get("english") or "").strip()

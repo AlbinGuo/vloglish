@@ -13,17 +13,14 @@ const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
-const remoteNotice = ref('')
 
 onMounted(() => {
-  if (route.query.reason === 'remote' || consumeRemoteLoginNotice()) {
-    remoteNotice.value = '登录已失效（同一账号最多 2 台设备同时在线），请重新登录'
-  }
+  // 静默清除异地登录标记，不在页面展示提示文案
+  consumeRemoteLoginNotice()
 })
 
 async function submit() {
   error.value = ''
-  remoteNotice.value = ''
   loading.value = true
   try {
     await auth.login(email.value.trim(), password.value)
@@ -43,13 +40,6 @@ async function submit() {
     <div class="w-full max-w-md rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-6 sm:p-8 shadow-sm">
       <h1 class="text-xl font-semibold mb-1">登录</h1>
       <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">使用注册时的邮箱登录，登录后可学习全部内容</p>
-
-      <p
-        v-if="remoteNotice"
-        class="mb-4 text-sm text-amber-900 dark:text-amber-200 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2.5"
-      >
-        {{ remoteNotice }}
-      </p>
 
       <form class="space-y-4" @submit.prevent="submit">
         <div>

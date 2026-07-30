@@ -90,7 +90,7 @@ watch(
           : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
       "
     >
-      新闻阅读
+      文章阅读
       <span
         v-if="counts"
         class="absolute top-0.5 right-0.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full text-[10px] font-semibold leading-[1.1rem] text-center tabular-nums"

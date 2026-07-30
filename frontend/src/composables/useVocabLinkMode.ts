@@ -24,7 +24,7 @@ watch(enabled, (value) => {
   }
 })
 
-/** 新闻阅读「词文对照 / 词文串学」模式，默认开 */
+/** 文章阅读「词文对照 / 词文串学」模式，默认开 */
 export function useVocabLinkMode() {
   function toggle() {
     enabled.value = !enabled.value

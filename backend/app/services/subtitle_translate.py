@@ -2,15 +2,18 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..dict.deepseek import build_subtitle_translation_brief, enrich_subtitle_lines_with_deepseek
 
 logger = logging.getLogger(__name__)
 
-# 每批翻译行数；前后各带若干句作剧情上下文
-BATCH_SIZE = 10
+# 每批翻译/IPA 行数；前后各带若干句作剧情上下文
+BATCH_SIZE = 20
 _BATCH_SIZE = BATCH_SIZE
 _CONTEXT_WINDOW = 6
+# 同轮内最多并行打几路 DeepSeek
+PARALLEL_WORKERS = 2
 
 
 def enrich_subtitles_with_deepseek(
@@ -23,6 +26,7 @@ def enrich_subtitles_with_deepseek(
     overwrite_chinese: bool = False,
     translation_brief: dict | None = None,
     max_batches: int | None = None,
+    parallel_workers: int = PARALLEL_WORKERS,
 ) -> tuple[int, int, dict, int, bool, int]:
     """Fill chinese/ipa fields.
 
@@ -65,15 +69,13 @@ def enrich_subtitles_with_deepseek(
             logger.warning("subtitle translation brief failed; continue without it", exc_info=True)
             brief = {}
 
-    translated = 0
-    ipa_filled = 0
-    batches_run = 0
-    processed = 0
-
+    chunks: list[list[int]] = []
     for offset in range(0, len(pending), batch_size):
-        if max_batches is not None and batches_run >= max_batches:
+        if max_batches is not None and len(chunks) >= max_batches:
             break
-        chunk_idxs = pending[offset : offset + batch_size]
+        chunks.append(pending[offset : offset + batch_size])
+
+    def _run_chunk(chunk_idxs: list[int]) -> tuple[list[int], list[dict[str, str]], bool]:
         batch_need_zh = False
         line_items: list[dict[str, str]] = []
         for idx in chunk_idxs:
@@ -109,6 +111,16 @@ def enrich_subtitles_with_deepseek(
             episode_summary=episode_summary if batch_need_zh else "",
             translation_brief=brief if batch_need_zh else None,
         )
+        return chunk_idxs, items, batch_need_zh
+
+    translated = 0
+    ipa_filled = 0
+    batches_run = 0
+    processed = 0
+    workers = max(1, min(int(parallel_workers or 1), len(chunks) or 1))
+
+    def _apply_chunk(chunk_idxs: list[int], items: list[dict[str, str]]) -> None:
+        nonlocal translated, ipa_filled, batches_run, processed
         for idx, item in zip(chunk_idxs, items):
             row = subtitles[idx]
             has_zh = bool((row.get("chinese") or "").strip())
@@ -125,6 +137,20 @@ def enrich_subtitles_with_deepseek(
                     ipa_filled += 1
         batches_run += 1
         processed += len(chunk_idxs)
+
+    if not chunks:
+        return 0, 0, brief, 0, True, 0
+
+    if workers == 1:
+        for chunk_idxs in chunks:
+            idxs, items, _ = _run_chunk(chunk_idxs)
+            _apply_chunk(idxs, items)
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(_run_chunk, chunk_idxs) for chunk_idxs in chunks]
+            for fut in as_completed(futures):
+                idxs, items, _ = fut.result()
+                _apply_chunk(idxs, items)
 
     remaining = max(0, len(pending) - processed)
     return translated, ipa_filled, brief, remaining, remaining == 0, batches_run

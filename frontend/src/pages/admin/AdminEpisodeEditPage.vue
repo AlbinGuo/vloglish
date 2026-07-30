@@ -938,7 +938,7 @@ watch(
             :disabled="enriching || importing || !form.subtitles.length"
             @click="enrichCurrentSubtitles"
           >
-            {{ enriching ? 'AI 增强中（可能较久）...' : 'AI 增强当前字幕' }}
+            {{ enriching ? 'AI 增强中（自动分轮，可并行加速）...' : 'AI 增强当前字幕' }}
           </button>
         </div>
 
