@@ -3,10 +3,12 @@ from datetime import datetime
 from .models import Article, ArticleSegment, Author, Episode, Entry, Tag, UserArticleProgress
 from .media import resolve_audio_url, resolve_video_url
 from .services.episode_admin import episode_is_new
+from .services.vocab_summary import parse_vocab_summary
 
 
 def author_dict(author: Author) -> dict:
     return {
+        "id": author.id,
         "name": author.name,
         "gender": author.gender,
         "nationality": author.nationality,
@@ -18,12 +20,23 @@ def tags_list(episode: Episode) -> list[dict]:
     return [{"id": t.id, "name": t.name} for t in episode.tags]
 
 
+def _series_brief(episode: Episode) -> dict:
+    series = getattr(episode, "series", None)
+    return {
+        "series_id": episode.series_id,
+        "series_slug": series.slug if series else "",
+        "series_title": series.title if series else "",
+        "series_index": episode.series_index,
+    }
+
+
 def episode_summary(
     episode: Episode,
     *,
     is_favorite: bool = False,
     is_learned: bool = False,
     progress_percent: float = 0,
+    learner_count: int = 0,
 ) -> dict:
     created_at = episode.created_at.isoformat() + "Z" if episode.created_at else ""
     return {
@@ -44,10 +57,13 @@ def episode_summary(
         "is_favorite": is_favorite,
         "progress_percent": progress_percent,
         "is_new": episode_is_new(episode),
+        "is_pinned": bool(getattr(episode, "is_pinned", False)),
+        "learner_count": int(learner_count or 0),
+        **_series_brief(episode),
     }
 
 
-def episode_detail(episode: Episode, total: int) -> dict:
+def episode_detail(episode: Episode, total: int, *, series_nav: dict | None = None) -> dict:
     return {
         "episode": {
             "index": episode.index,
@@ -81,13 +97,16 @@ def episode_detail(episode: Episode, total: int) -> dict:
                     "index": s.index,
                     "start": s.start,
                     "end": s.end,
-                    "english": s.english,
-                    "chinese": s.chinese,
-                    "ipa": s.ipa,
-                    "english_html": s.english_html,
+                    "english": s.english or "",
+                    "chinese": s.chinese or "",
+                    "ipa": s.ipa or "",
+                    "english_html": s.english_html or "",
                 }
                 for s in sorted(episode.subtitles, key=lambda x: x.index)
             ],
+            "series": series_nav,
+            "vocab_summary": parse_vocab_summary(getattr(episode, "vocab_summary", None) or ""),
+            "vocab_summary_text": getattr(episode, "vocab_summary", None) or "",
         },
         "total_episodes": total,
     }
@@ -174,6 +193,7 @@ def article_detail(
     *,
     progress: UserArticleProgress | None = None,
 ) -> dict:
+    vocab_text = getattr(article, "vocab_summary", None) or ""
     return {
         "article_id": article.article_id,
         "title": article.title,
@@ -187,6 +207,8 @@ def article_detail(
         "cover": article.cover or "",
         "published_at": _article_fmt_dt(article.published_at),
         "tts_status": article.tts_status or "none",
+        "vocab_summary": parse_vocab_summary(vocab_text),
+        "vocab_summary_text": vocab_text,
         "segments": [article_segment_out(s) for s in segments],
         "progress": article_progress_out(progress),
     }

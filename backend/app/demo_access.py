@@ -35,8 +35,9 @@ def get_visible_episode_ids(db: Session, user, ordering: str = "created_at") -> 
     rows = (
         db.query(Episode.id)
         .filter(Episode.status == "published")
+        .filter(Episode.series_id.is_(None))
         .filter(published_visibility_filter(user))
-        .order_by(episode_order(ordering))
+        .order_by(Episode.is_pinned.desc(), episode_order(ordering))
         .limit(limit)
         .all()
     )
@@ -83,5 +84,8 @@ def can_access_episode(db: Session, episode: Episode, user, ordering: str = "cre
     ):
         return True
     if user_is_member(user):
+        return True
+    # 合集内视频不占用「视频」列表的访客限额，可从合集入口访问
+    if episode.series_id is not None:
         return True
     return episode.id in get_visible_episode_ids(db, user, ordering)

@@ -50,7 +50,7 @@ select:disabled {
 
 .page-container {
   width: 100%;
-  max-width: 1600px;
+  max-width: 2300px;
   margin-inline: auto;
   padding-inline: 1rem;
 }
@@ -80,6 +80,8 @@ select:disabled {
   text-decoration-line: underline;
   text-underline-offset: 3px;
   text-decoration-thickness: 2px;
+  /* 避免 g/y/p 等字母处下划线被“挖空”断开 */
+  text-decoration-skip-ink: none;
 }
 
 .subtitle-english span.highlight-a {
@@ -107,11 +109,23 @@ select:disabled {
   color: #047857;
 }
 
+.subtitle-english span.highlight-f {
+  text-decoration-color: #84cc16;
+  color: #4d7c0f;
+}
+
+.subtitle-english span.highlight-p {
+  text-decoration-color: #3b82f6;
+  color: #1d4ed8;
+}
+
 .subtitle-english--active span.highlight-a,
 .subtitle-english--active span.highlight-d,
 .subtitle-english--active span.highlight-i,
 .subtitle-english--active span.highlight-l,
-.subtitle-english--active span.highlight-c {
+.subtitle-english--active span.highlight-c,
+.subtitle-english--active span.highlight-f,
+.subtitle-english--active span.highlight-p {
   color: #fde68a;
   text-decoration-color: #fbbf24;
 }
@@ -126,19 +140,24 @@ select:disabled {
 
 .subtitle-english span.text-transparent {
   color: transparent !important;
-  text-decoration-color: rgb(0 0 0 / 0.2);
+  /* 挖空：用连续底边代替 text-decoration，避免短语/多词中间断开 */
+  text-decoration-line: none !important;
+  border-bottom: 2px solid rgb(0 0 0 / 0.22);
+  border-radius: 0;
+  padding-bottom: 0.05em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .subtitle-english--active span.text-transparent {
-  text-decoration-color: rgb(255 255 255 / 0.35);
+  border-bottom-color: rgb(255 255 255 / 0.4);
 }
 
-/* 短语 token：整段不换行（pid） */
+/* 短语 token：整段不换行（pid）；勿用 flex，否则下划线易断 */
 .subtitle-english span.phrase-token,
 .subtitle-english span[pid] {
   white-space: nowrap;
-  display: inline-flex;
-  align-items: baseline;
+  display: inline;
 }
 
 /* IPA 音标行 */
@@ -268,6 +287,11 @@ html.highlight-style-background .subtitle-english span.highlight-f {
   color: #b91c1c;
 }
 
+html.highlight-style-background .subtitle-english span.highlight-p {
+  background-color: rgb(219 234 254);
+  color: #1d4ed8;
+}
+
 html.highlight-style-background .subtitle-english--active span.highlight-a {
   background-color: rgb(251 191 36 / 0.45);
   color: #fde68a;
@@ -298,8 +322,14 @@ html.highlight-style-background .subtitle-english--active span.highlight-f {
   color: #fecaca;
 }
 
+html.highlight-style-background .subtitle-english--active span.highlight-p {
+  background-color: rgb(96 165 250 / 0.4);
+  color: #bfdbfe;
+}
+
 html.highlight-style-background .subtitle-english span.text-transparent {
   text-decoration-line: none;
+  border-bottom: none;
   background-color: rgb(0 0 0 / 0.06);
   border-radius: 0.25rem;
   padding: 0.05em 0.25em;
@@ -346,12 +376,18 @@ html.highlight-style-background .subtitle-english--active span.text-transparent 
   text-decoration-color: #dc2626;
 }
 
+.subtitle-panel .subtitle-english span.highlight-p {
+  color: #1e40af;
+  text-decoration-color: #3b82f6;
+}
+
 .subtitle-panel .subtitle-english--active span.highlight-a,
 .subtitle-panel .subtitle-english--active span.highlight-d,
 .subtitle-panel .subtitle-english--active span.highlight-i,
 .subtitle-panel .subtitle-english--active span.highlight-l,
 .subtitle-panel .subtitle-english--active span.highlight-c,
-.subtitle-panel .subtitle-english--active span.highlight-f {
+.subtitle-panel .subtitle-english--active span.highlight-f,
+.subtitle-panel .subtitle-english--active span.highlight-p {
   font-weight: 600;
 }
 
@@ -385,6 +421,11 @@ html.highlight-style-background .subtitle-english--active span.text-transparent 
   text-decoration-color: #f87171;
 }
 
+.subtitle-panel .subtitle-english--active span.highlight-p {
+  color: #93c5fd;
+  text-decoration-color: #60a5fa;
+}
+
 html.highlight-style-background .subtitle-panel .subtitle-english span.highlight-a {
   color: #92400e;
 }
@@ -409,6 +450,10 @@ html.highlight-style-background .subtitle-panel .subtitle-english span.highlight
   color: #991b1b;
 }
 
+html.highlight-style-background .subtitle-panel .subtitle-english span.highlight-p {
+  color: #1e40af;
+}
+
 html.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-a {
   color: #fcd34d;
 }
@@ -431,6 +476,10 @@ html.highlight-style-background .subtitle-panel .subtitle-english--active span.h
 
 html.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-f {
   color: #fca5a5;
+}
+
+html.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-p {
+  color: #93c5fd;
 }
 
 /* 浅色聚焦区（视频下方当前句 + 右侧动态模式）：统一高亮，覆盖 subtitle-panel / --active */
@@ -468,6 +517,11 @@ html.highlight-style-background .subtitle-panel .subtitle-english--active span.h
   text-decoration-color: #ef4444;
 }
 
+.subtitle-focus-light .subtitle-english span.highlight-p {
+  color: #1d4ed8;
+  text-decoration-color: #3b82f6;
+}
+
 html.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-a {
   background-color: rgb(254 243 199);
   color: #b45309;
@@ -498,8 +552,14 @@ html.highlight-style-background .subtitle-focus-light .subtitle-english span.hig
   color: #b91c1c;
 }
 
+html.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-p {
+  background-color: rgb(219 234 254);
+  color: #1d4ed8;
+}
+
 html.highlight-style-background .subtitle-focus-light .subtitle-english span.text-transparent {
   text-decoration-line: none;
+  border-bottom: none;
   background-color: rgb(0 0 0 / 0.06);
 }
 
@@ -539,6 +599,12 @@ html.highlight-style-background .subtitle-focus-light .subtitle-english span.tex
   text-decoration-color: #ef4444;
 }
 
+.subtitle-panel .subtitle-focus-light .subtitle-english span.highlight-p,
+.subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-p {
+  color: #1d4ed8;
+  text-decoration-color: #3b82f6;
+}
+
 html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english span.highlight-a,
 html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-a {
   background-color: rgb(254 243 199);
@@ -575,13 +641,19 @@ html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-
   color: #b91c1c;
 }
 
+html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english span.highlight-p,
+html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-english--active span.highlight-p {
+  background-color: rgb(219 234 254);
+  color: #1d4ed8;
+}
+
 /* 深色主题：字幕区基础交互 */
 .dark .subtitle-english span:hover {
   background-color: rgb(255 255 255 / 0.08);
 }
 
 .dark .subtitle-english span.text-transparent {
-  text-decoration-color: rgb(255 255 255 / 0.25);
+  border-bottom-color: rgb(255 255 255 / 0.3);
 }
 
 .dark html.highlight-style-background .subtitle-english span.text-transparent,
@@ -625,6 +697,11 @@ html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-
   text-decoration-color: #f87171;
 }
 
+.dark .subtitle-focus-light .subtitle-english span.highlight-p {
+  color: #93c5fd;
+  text-decoration-color: #60a5fa;
+}
+
 .dark.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-a {
   background-color: rgb(245 158 11 / 0.2);
   color: #fbbf24;
@@ -653,6 +730,11 @@ html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-
 .dark.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-f {
   background-color: rgb(239 68 68 / 0.2);
   color: #fca5a5;
+}
+
+.dark.highlight-style-background .subtitle-focus-light .subtitle-english span.highlight-p {
+  background-color: rgb(59 130 246 / 0.2);
+  color: #93c5fd;
 }
 
 /* 深色主题：右侧字幕列表面板 */
@@ -686,6 +768,11 @@ html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-
   text-decoration-color: #f87171;
 }
 
+.dark .subtitle-panel .subtitle-english span.highlight-p {
+  color: #93c5fd;
+  text-decoration-color: #60a5fa;
+}
+
 /* 深色主题：当前句为浅底（neutral-100），高亮词用加深色以保证对比度 */
 .dark .subtitle-panel .subtitle-english--active span.highlight-a {
   color: #92400e;
@@ -717,6 +804,11 @@ html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-
   text-decoration-color: #dc2626;
 }
 
+.dark .subtitle-panel .subtitle-english--active span.highlight-p {
+  color: #1e40af;
+  text-decoration-color: #3b82f6;
+}
+
 .dark .subtitle-panel .subtitle-english--active span:hover {
   background-color: rgb(0 0 0 / 0.06);
 }
@@ -726,7 +818,7 @@ html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-
 }
 
 .dark .subtitle-panel .subtitle-english--active span.text-transparent {
-  text-decoration-color: rgb(0 0 0 / 0.2);
+  border-bottom-color: rgb(0 0 0 / 0.22);
 }
 
 .dark.highlight-style-background .subtitle-panel .subtitle-english span.highlight-a {
@@ -759,6 +851,11 @@ html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-
   color: #fca5a5;
 }
 
+.dark.highlight-style-background .subtitle-panel .subtitle-english span.highlight-p {
+  background-color: rgb(59 130 246 / 0.18);
+  color: #93c5fd;
+}
+
 .dark.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-a {
   background-color: rgb(254 243 199);
   color: #b45309;
@@ -787,6 +884,11 @@ html.highlight-style-background .subtitle-panel .subtitle-focus-light .subtitle-
 .dark.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-f {
   background-color: rgb(254 226 226);
   color: #b91c1c;
+}
+
+.dark.highlight-style-background .subtitle-panel .subtitle-english--active span.highlight-p {
+  background-color: rgb(219 234 254);
+  color: #1d4ed8;
 }
 
 .dark.highlight-style-background .subtitle-panel .subtitle-english--active span.text-transparent {
@@ -818,14 +920,115 @@ html.highlight-style-background .reading-page.reading-highlight-color-only .subt
   text-decoration-line: none !important;
 }
 
-.reading-page .subtitle-english span:hover,
-html.highlight-style-background .reading-page .subtitle-english span:hover,
-.dark.highlight-style-background .reading-page .subtitle-english span:hover {
+/* 阅读页：背景色高亮 */
+.reading-page.reading-highlight-background .subtitle-english span.highlight,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight {
+  text-decoration-line: none !important;
+  border-radius: 0.25rem !important;
+  padding: 0.05em 0.25em !important;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span.highlight-a,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-a {
+  background-color: rgb(254 243 199) !important;
+  color: #b45309 !important;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span.highlight-d,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-d {
+  background-color: rgb(237 233 254) !important;
+  color: #6d28d9 !important;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span.highlight-i,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-i {
+  background-color: rgb(207 250 254) !important;
+  color: #0e7490 !important;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span.highlight-l,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-l {
+  background-color: rgb(252 231 243) !important;
+  color: #be185d !important;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span.highlight-c,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-c {
+  background-color: rgb(209 250 229) !important;
+  color: #047857 !important;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span.highlight-f,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-f {
+  background-color: rgb(254 226 226) !important;
+  color: #b91c1c !important;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span.highlight-p,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-p {
+  background-color: rgb(219 234 254) !important;
+  color: #1d4ed8 !important;
+}
+
+.dark .reading-page.reading-highlight-background .subtitle-english span.highlight-a,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-a {
+  background-color: rgb(251 191 36 / 0.28) !important;
+  color: #fbbf24 !important;
+}
+
+.dark .reading-page.reading-highlight-background .subtitle-english span.highlight-d,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-d {
+  background-color: rgb(167 139 250 / 0.28) !important;
+  color: #c4b5fd !important;
+}
+
+.dark .reading-page.reading-highlight-background .subtitle-english span.highlight-i,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-i {
+  background-color: rgb(34 211 238 / 0.22) !important;
+  color: #67e8f9 !important;
+}
+
+.dark .reading-page.reading-highlight-background .subtitle-english span.highlight-l,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-l {
+  background-color: rgb(244 114 182 / 0.25) !important;
+  color: #f9a8d4 !important;
+}
+
+.dark .reading-page.reading-highlight-background .subtitle-english span.highlight-c,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-c {
+  background-color: rgb(52 211 153 / 0.22) !important;
+  color: #6ee7b7 !important;
+}
+
+.dark .reading-page.reading-highlight-background .subtitle-english span.highlight-f,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-f {
+  background-color: rgb(248 113 113 / 0.25) !important;
+  color: #fca5a5 !important;
+}
+
+.dark .reading-page.reading-highlight-background .subtitle-english span.highlight-p,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span.highlight-p {
+  background-color: rgb(96 165 250 / 0.25) !important;
+  color: #93c5fd !important;
+}
+
+.reading-page.reading-highlight-background .subtitle-english span:hover,
+html.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span:hover,
+.dark.highlight-style-background .reading-page.reading-highlight-background .subtitle-english span:hover {
+  filter: brightness(0.97);
+}
+
+.reading-page:not(.reading-highlight-background) .subtitle-english span:hover,
+html.highlight-style-background .reading-page:not(.reading-highlight-background) .subtitle-english span:hover,
+.dark.highlight-style-background .reading-page:not(.reading-highlight-background) .subtitle-english span:hover {
   background-color: transparent !important;
 }
 
-.reading-page .subtitle-english span.token-clicked,
-html.highlight-style-background .reading-page .subtitle-english span.token-clicked {
+.reading-page:not(.reading-highlight-background) .subtitle-english span.token-clicked,
+html.highlight-style-background .reading-page:not(.reading-highlight-background) .subtitle-english span.token-clicked {
   background-color: transparent !important;
 }
 
@@ -871,6 +1074,13 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight-f
   background-color: transparent !important;
 }
 
+.reading-page .subtitle-english span.highlight-p,
+html.highlight-style-background .reading-page .subtitle-english span.highlight-p {
+  color: #1d4ed8 !important;
+  text-decoration-color: #3b82f6 !important;
+  background-color: transparent !important;
+}
+
 .dark .reading-page .subtitle-english span.highlight-a,
 .dark.highlight-style-background .reading-page .subtitle-english span.highlight-a {
   color: #fbbf24 !important;
@@ -907,6 +1117,12 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight-f
   text-decoration-color: #f87171 !important;
 }
 
+.dark .reading-page .subtitle-english span.highlight-p,
+.dark.highlight-style-background .reading-page .subtitle-english span.highlight-p {
+  color: #93c5fd !important;
+  text-decoration-color: #60a5fa !important;
+}
+
 /* 本篇生词本：已收藏词汇下划线高亮 */
 .reading-page .subtitle-english span.highlight.reading-vocab-saved,
 html.highlight-style-background .reading-page .subtitle-english span.highlight.reading-vocab-saved,
@@ -925,4 +1141,473 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
 
 .reading-scroll-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* ── 精读模式 ── */
+.intensive-reading-mode {
+  --intensive-red: #c41e1e;
+  --intensive-red-light: #fef2f2;
+  --intensive-red-muted: #991b1b;
+}
+
+.intensive-reading-mode .intensive-stats-bar {
+  background: linear-gradient(135deg, var(--intensive-red) 0%, #a01818 100%);
+  border-color: rgb(255 255 255 / 0.12);
+  color: #fff;
+}
+
+.intensive-reading-mode .intensive-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.18);
+  font-weight: 500;
+}
+
+.intensive-reading-mode .intensive-chinese-block {
+  background: rgb(254 242 242 / 0.85);
+  color: rgb(55 65 81);
+  border-left: 3px solid var(--intensive-red);
+}
+
+/* 精读英文：同行基线对齐，词下中文在第二行且撑开单元格宽度避免重叠 */
+.intensive-english {
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.625;
+}
+
+.intensive-english--left {
+  text-align: left;
+}
+
+.intensive-english--center {
+  text-align: center;
+}
+
+.intensive-plain-token {
+  display: inline;
+  vertical-align: baseline;
+}
+
+.intensive-token-space {
+  display: inline;
+  white-space: pre;
+  vertical-align: baseline;
+}
+
+.intensive-gloss-unit {
+  display: inline-grid;
+  grid-template-rows: auto auto;
+  justify-items: center;
+  align-content: start;
+  vertical-align: baseline;
+  max-width: 9rem;
+  min-width: min-content;
+  margin-inline: 0.12em;
+  row-gap: 0.125rem;
+}
+
+.intensive-gloss-word {
+  display: inline;
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+.intensive-gloss-word span.highlight {
+  white-space: nowrap;
+}
+
+.intensive-gloss-cn {
+  display: block;
+  width: 100%;
+  max-width: 10rem;
+  font-size: 12px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  pointer-events: none;
+}
+
+.dark .intensive-reading-mode .intensive-chinese-block {
+  background: rgb(127 29 29 / 0.15);
+  color: rgb(229 231 235);
+  border-left-color: rgb(248 113 113 / 0.6);
+}
+
+.intensive-reading-mode .intensive-gloss-cn {
+  color: var(--intensive-red);
+  font-weight: 500;
+}
+
+.dark .intensive-reading-mode .intensive-gloss-cn {
+  color: rgb(252 165 165);
+}
+
+.intensive-reading-mode .intensive-english span.highlight,
+.intensive-reading-mode .intensive-gloss-word span.highlight {
+  text-decoration-line: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--intensive-red) !important;
+  color: var(--intensive-red-muted) !important;
+  background: rgb(254 226 226 / 0.5);
+  border-radius: 0.125rem;
+  padding-inline: 0.125rem;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.dark .intensive-reading-mode .intensive-english span.highlight,
+.dark .intensive-reading-mode .intensive-gloss-word span.highlight {
+  color: rgb(252 165 165) !important;
+  text-decoration-color: rgb(248 113 113) !important;
+  background: rgb(127 29 29 / 0.25);
+}
+
+.intensive-reading-mode .intensive-vocab-card {
+  background: linear-gradient(135deg, var(--intensive-red) 0%, #9b1c1c 100%);
+  color: #fff;
+}
+
+.intensive-reading-mode .intensive-vocab-card .font-mono,
+.intensive-reading-mode .intensive-vocab-card .text-neutral-500 {
+  color: rgb(255 255 255 / 0.75) !important;
+}
+
+.intensive-reading-mode .intensive-mobile-fab {
+  background: #fff;
+  border-color: rgb(196 30 30 / 0.35);
+  color: var(--intensive-red);
+}
+
+.intensive-reading-mode .intensive-mobile-fab--open {
+  background: var(--intensive-red);
+  border-color: var(--intensive-red);
+  color: #fff;
+}
+
+.intensive-reading-mode .intensive-mobile-sheet {
+  background: #fff;
+  border-color: rgb(254 202 202);
+}
+
+.dark .intensive-reading-mode .intensive-mobile-sheet {
+  background: rgb(23 23 23);
+  border-color: rgb(127 29 29 / 0.5);
+}
+
+.intensive-reading-mode.reading-page {
+  background: #faf7f7;
+}
+
+.dark .intensive-reading-mode.reading-page {
+  background: rgb(12 10 10);
+}
+
+.intensive-reading-mode .subtitle-panel {
+  background: #faf7f7;
+}
+
+.dark .intensive-reading-mode .subtitle-panel {
+  background: rgb(15 12 12);
+}
+
+.intensive-reading-mode .intensive-segment-card {
+  box-shadow: 0 1px 3px rgb(196 30 30 / 0.06);
+}
+
+.intensive-reading-mode .intensive-subtitle-card {
+  box-shadow: 0 1px 3px rgb(196 30 30 / 0.06);
+}
+
+.intensive-reading-mode .current-subtitle-bar {
+  border-color: rgb(254 202 202 / 0.8);
+}
+
+.dark .intensive-reading-mode .current-subtitle-bar {
+  border-color: rgb(127 29 29 / 0.4);
+}
+
+/* 视频面板全屏：视频占满剩余空间，实时字幕固定在下方 */
+.video-panel:fullscreen,
+.video-panel.video-panel--fullscreen {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  box-sizing: border-box;
+  padding: 1rem 1.25rem !important;
+  gap: 0.75rem !important;
+  background: #0a0a0a !important;
+  border: none !important;
+}
+
+.video-panel:fullscreen .video-panel__player,
+.video-panel.video-panel--fullscreen .video-panel__player {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: 100%;
+  aspect-ratio: auto !important;
+  height: auto !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.video-panel:fullscreen .video-panel__subtitle,
+.video-panel.video-panel--fullscreen .video-panel__subtitle {
+  flex: 0 0 auto !important;
+  width: 100%;
+  min-height: 6.75rem;
+  max-height: min(32vh, 15rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.video-panel:fullscreen .video-panel__subtitle .current-subtitle-bar,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .current-subtitle-bar {
+  flex: 1 1 auto;
+  min-height: 6.75rem;
+  max-height: min(32vh, 15rem);
+  background: rgb(23 23 23);
+  border-color: rgb(255 255 255 / 0.12);
+  color: #f5f5f5;
+}
+
+.video-panel:fullscreen .video-panel__subtitle .subtitle-english,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .subtitle-english,
+.video-panel:fullscreen .video-panel__subtitle .intensive-english,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .intensive-english {
+  color: #f5f5f5;
+}
+
+.video-panel:fullscreen .video-panel__subtitle .subtitle-chinese,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .subtitle-chinese,
+.video-panel:fullscreen .video-panel__subtitle .intensive-chinese-block,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .intensive-chinese-block {
+  color: rgb(212 212 212);
+}
+
+.video-panel:fullscreen .video-panel__subtitle .subtitle-english span:hover,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .subtitle-english span:hover {
+  background-color: rgb(255 255 255 / 0.12);
+}
+
+.video-panel:fullscreen .subtitle-word-tooltip,
+.video-panel.video-panel--fullscreen .subtitle-word-tooltip {
+  z-index: 2147483646;
+}
+
+/* 隐藏字幕后的观影布局：尽量放大画面，同时保留底部呼吸空间 */
+.video-panel.video-panel--cinema:not(.video-panel--fullscreen):not(:fullscreen) {
+  padding-bottom: max(1.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+.video-panel.video-panel--cinema:not(.video-panel--fullscreen):not(:fullscreen) .video-panel__player {
+  width: min(100%, 90rem);
+  max-height: min(78vh, calc(100dvh - 11rem));
+  margin-inline: auto;
+  aspect-ratio: 16 / 9;
+  height: auto;
+}
+
+.video-panel.video-panel--cinema:not(.video-panel--fullscreen):not(:fullscreen) .video-panel__controls {
+  width: min(100%, 90rem);
+  margin-inline: auto;
+}
+
+@media (max-width: 1023px) {
+  .video-panel.video-panel--cinema:not(.video-panel--fullscreen):not(:fullscreen) {
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .video-panel.video-panel--cinema:not(.video-panel--fullscreen):not(:fullscreen) .video-panel__player {
+    max-height: min(62vh, calc(100dvh - 10rem));
+  }
+}
+
+/* ── 打印（挖空 / 词卡） ── */
+.app-print-document {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 14mm 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .no-print,
+  body > *:not(.app-print-document) {
+    display: none !important;
+  }
+
+  .app-print-document {
+    display: block !important;
+    color: #111;
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 12pt;
+    line-height: 1.55;
+  }
+
+  .blank-print-header,
+  .wordcard-print-header {
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .blank-print-title,
+  .wordcard-print-title {
+    margin: 0;
+    font-size: 16pt;
+    font-weight: 700;
+  }
+
+  .blank-print-meta,
+  .blank-print-hint,
+  .wordcard-print-meta,
+  .wordcard-print-hint {
+    margin: 0.35rem 0 0;
+    font-size: 10pt;
+    color: #555;
+  }
+
+  .blank-print-section-title,
+  .wordcard-print-section-title {
+    margin: 0 0 0.75rem;
+    font-size: 12pt;
+    font-weight: 700;
+  }
+
+  .blank-print-answers,
+  .wordcard-print-answers {
+    break-before: page;
+    page-break-before: always;
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .blank-print-list,
+  .wordcard-print-list {
+    margin: 0;
+    padding-left: 1.5rem;
+  }
+
+  .blank-print-item,
+  .wordcard-print-item {
+    margin-bottom: 0.85rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .blank-print-english {
+    margin: 0;
+    font-size: 12pt;
+    line-height: 1.65;
+  }
+
+  .blank-print-english--blank {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25em 0.4em;
+    align-items: baseline;
+    letter-spacing: 0.01em;
+  }
+
+  .blank-print-english--blank > span {
+    display: inline;
+  }
+
+  /* 挖空词：打印时用实线底边，避免透明字打印失败 */
+  .blank-print-document .text-transparent,
+  .blank-print-document span.highlight.text-transparent {
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    background: none !important;
+    text-decoration: none !important;
+    border-bottom: 1.5pt solid #222 !important;
+    border-radius: 0 !important;
+    padding: 0 0.08em 0.05em !important;
+    box-shadow: none !important;
+  }
+
+  .blank-print-document .blank-print-english--blank span {
+    cursor: default;
+  }
+
+  .blank-print-chinese {
+    margin: 0.2rem 0 0;
+    font-size: 10pt;
+    color: #444;
+  }
+
+  /* 词卡打印 */
+  .wordcard-print-list {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .wordcard-print-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .wordcard-print-index {
+    flex-shrink: 0;
+    width: 1.75rem;
+    font-size: 11pt;
+    color: #666;
+    text-align: right;
+  }
+
+  .wordcard-print-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .wordcard-print-word {
+    margin: 0;
+    font-size: 13pt;
+    font-weight: 600;
+  }
+
+  .wordcard-print-ipa {
+    margin-left: 0.5em;
+    font-family: "Times New Roman", Times, serif;
+    font-weight: 400;
+    font-size: 11pt;
+    color: #555;
+  }
+
+  .wordcard-print-meaning {
+    margin: 0.25rem 0 0;
+    font-size: 11pt;
+    color: #222;
+  }
+
+  .wordcard-print-blank-line {
+    margin: 0.55rem 0 0;
+    height: 0;
+    border-bottom: 1.25pt solid #333;
+    width: 100%;
+    max-width: 28rem;
+  }
+
+  .wordcard-print-tags {
+    margin: 0.2rem 0 0;
+    font-size: 9.5pt;
+    color: #666;
+  }
 }

@@ -1,19 +1,25 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, RouterLink } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
 import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
 import { getEpisodeList, setEpisodeFavorite } from '@/api/episodes'
 import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
+import EpisodeWordCardList from '@/components/episode/EpisodeWordCardList.vue'
+import EpisodeVocabSummaryList from '@/components/episode/EpisodeVocabSummaryList.vue'
+import BlankPrintDocument from '@/components/episode/BlankPrintDocument.vue'
+import BlankPrintSheet from '@/components/episode/BlankPrintSheet.vue'
+import SentenceDictationSheet from '@/components/episode/SentenceDictationSheet.vue'
+import WordCardPrintDocument from '@/components/episode/WordCardPrintDocument.vue'
+import WordCardPrintSheet from '@/components/episode/WordCardPrintSheet.vue'
 import SubtitleModeSheet from '@/components/episode/SubtitleModeSheet.vue'
 import { useIsPad, useIsPhone } from '@/composables/useBreakpoint'
 import { useMobilePlayerChrome } from '@/composables/useMobilePlayerChrome'
 import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import { useLearningProgress } from '@/composables/useLearningProgress'
-import { useSubtitleReadProgress } from '@/composables/useSubtitleReadProgress'
 import { consumeEpisodeAutoplay, requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
-import type { EntryDetail, EpisodeDetail, EpisodeSummary } from '@/types'
+import type { EntryDetail, EpisodeDetail, EpisodeSummary, Subtitle } from '@/types'
 import EntryCard from '@/components/EntryCard.vue'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import PlayerControls from '@/components/PlayerControls.vue'
@@ -24,7 +30,22 @@ import SettingsButton from '@/components/SettingsButton.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import CurrentSubtitleBar from '@/components/CurrentSubtitleBar.vue'
 import SubtitleBlock from '@/components/SubtitleBlock.vue'
+import SubtitleWordTooltipHost from '@/components/SubtitleWordTooltipHost.vue'
+import IntensiveReadingBlock from '@/components/intensive/IntensiveReadingBlock.vue'
+import IntensiveReadingStatsBar from '@/components/intensive/IntensiveReadingStatsBar.vue'
+import IntensiveCoreVocabPanel from '@/components/intensive/IntensiveCoreVocabPanel.vue'
+import IntensiveCoreVocabMobile from '@/components/intensive/IntensiveCoreVocabMobile.vue'
+import IntensiveModeToggle from '@/components/intensive/IntensiveModeToggle.vue'
+import { useIntensiveReadingMode } from '@/composables/useIntensiveReadingMode'
+import { useCoreVocabulary, type CoreVocabSource } from '@/composables/useCoreVocabulary'
+import {
+  useEpisodeWordCards,
+  type WordCardItem,
+} from '@/composables/useEpisodeWordCards'
 import { usePlayerControls } from '@/composables/usePlayerControls'
+import type { BlankPrintOptions } from '@/utils/blankPrint'
+import type { WordCardPrintOptions } from '@/utils/wordCardPrint'
+import { parseVocabSummary } from '@/utils/vocabSummary'
 import {
   modeIsDynamicFocus,
   modeIsChineseOnly,
@@ -46,16 +67,93 @@ const episode = ref<EpisodeDetail | null>(null)
 const loading = ref(true)
 const error = ref('')
 const subtitleMode = ref<SubtitleDisplayMode>('both')
+const contentView = ref<'subtitles' | 'wordcards' | 'summary'>('subtitles')
+const showWordCards = computed(() => contentView.value === 'wordcards')
+const vocabSummaryGroups = computed(() => {
+  const ep = episode.value
+  if (!ep) return []
+
+  const fromText = (text: string) => {
+    const parsed = parseVocabSummary(text)
+    return parsed.filter((g) => g.items.length > 0)
+  }
+
+  const text = typeof ep.vocab_summary_text === 'string' ? ep.vocab_summary_text : ''
+  if (text.trim()) {
+    const parsed = fromText(text)
+    if (parsed.length) return parsed
+  }
+
+  const raw = ep.vocab_summary
+  if (typeof raw === 'string' && raw.trim()) return fromText(raw)
+  if (Array.isArray(raw) && raw.length) {
+    return raw
+      .map((g) => ({
+        title: (g?.title || '汇总').trim() || '汇总',
+        items: (g?.items || [])
+          .map((it) => {
+            const row = it as {
+              en?: string
+              zh?: string
+              note?: string
+              example?: string
+              level?: string
+            }
+            return {
+              en: String(row.en || '').trim(),
+              zh: String(row.zh || '').trim(),
+              note: String(row.note || '').trim(),
+              example: String(row.example || '').trim(),
+              level: String(row.level || '').trim(),
+            }
+          })
+          .filter((it) => it.en),
+      }))
+      .filter((g) => g.items.length > 0)
+  }
+  return []
+})
+const blankPrintSheetOpen = ref(false)
+const blankPrintOptions = ref<BlankPrintOptions | null>(null)
+const wordCardPrintSheetOpen = ref(false)
+const wordCardPrintOptions = ref<WordCardPrintOptions | null>(null)
 const subtitleAlign = ref<SubtitleAlign>('left')
 const showIpa = ref(true)
 const selectedEntry = ref<EntryDetail | null>(null)
 const showEntryPanel = ref(false)
 const entryLoading = ref(false)
 const entryError = ref('')
+/** 打开词条弹窗前是否在播放；关闭后据此决定是否恢复 */
+const resumeAfterEntryClose = ref(false)
 const currentIndex = ref(0)
 const videoRef = ref<HTMLVideoElement | null>(null)
 const videoPanelRef = ref<HTMLElement | null>(null)
+const isVideoPanelFullscreen = ref(false)
+
+function onVideoPanelFullscreenChange() {
+  isVideoPanelFullscreen.value = document.fullscreenElement === videoPanelRef.value
+}
+
+const subtitleTooltipTeleport = computed(() =>
+  isVideoPanelFullscreen.value && videoPanelRef.value ? videoPanelRef.value : 'body',
+)
 const videoHidden = ref(false)
+const SUBTITLES_HIDDEN_KEY = 'teco-subtitles-hidden'
+function loadSubtitlesHidden(): boolean {
+  try {
+    return localStorage.getItem(SUBTITLES_HIDDEN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+const subtitlesHidden = ref(loadSubtitlesHidden())
+watch(subtitlesHidden, (hidden) => {
+  try {
+    localStorage.setItem(SUBTITLES_HIDDEN_KEY, hidden ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+})
 const listRef = ref<HTMLElement | null>(null)
 const showSettings = ref(false)
 const isPhone = useIsPhone()
@@ -85,6 +183,25 @@ const sortedSubs = computed(() =>
   [...(episode.value?.subtitles ?? [])].sort((a, b) => a.index - b.index),
 )
 
+const { intensiveMode, intensivePageClass } = useIntensiveReadingMode()
+
+const coreVocabSources = computed<CoreVocabSource[]>(() =>
+  sortedSubs.value.map((sub) => ({
+    id: sub.id,
+    englishHtml: sub.english_html,
+    context: sub.english,
+    meta: { video_id: props.videoId, subtitle_id: sub.id },
+  })),
+)
+const coreVocab = useCoreVocabulary(coreVocabSources, { enabled: intensiveMode })
+const { items: coreVocabItems, loading: coreVocabLoading, count: coreVocabCount } = coreVocab
+
+const wordCards = useEpisodeWordCards(
+  computed(() => props.videoId),
+  showWordCards,
+)
+const { items: wordCardItems, groups: wordCardGroups, loading: wordCardsLoading } = wordCards
+
 const currentSub = computed(() => sortedSubs.value[currentIndex.value] ?? null)
 
 const learningBridge = {
@@ -102,8 +219,87 @@ const player = usePlayerControls({
   onWatchTick: (delta) => {
     if (!props.adminPreview && auth.isLoggedIn) learningBridge.tickWatchTime(delta)
   },
+  onSentenceLoopComplete: (sub) => {
+    openDictationFor(sub)
+  },
 })
 
+const dictationOpen = ref(false)
+const dictationSubtitle = ref<Subtitle | null>(null)
+/** 听写弹窗打开时，对该句施加毛玻璃遮罩 */
+const dictationTargetId = ref<number | null>(null)
+/** 暂时隐藏「标记已掌握」入口，改为每句「听写」 */
+const showSubtitleLearnedMark = false
+
+function pauseForDictationSheet() {
+  const v = videoRef.value
+  if (!v || v.paused) return
+  v.pause()
+  player.isPlaying.value = false
+}
+
+function openDictationFor(sub: Subtitle) {
+  dictationSubtitle.value = sub
+  dictationTargetId.value = sub.id
+  dictationOpen.value = true
+}
+
+function closeDictation() {
+  dictationOpen.value = false
+  dictationTargetId.value = null
+}
+
+function startSubtitleDictation(sub: Subtitle, e?: Event) {
+  e?.stopPropagation()
+  pauseForDictationSheet()
+  // 立刻弹填空；需要播放时再点弹窗里的「播放」
+  openDictationFor(sub)
+}
+
+function replayDictationSentence() {
+  const sub = dictationSubtitle.value
+  if (!sub) return
+  // 按设定循环次数播放，弹窗保持打开
+  player.startDictationLoop(sub)
+}
+
+function nextAfterDictation() {
+  const subs = sortedSubs.value
+  const idx = subs.findIndex((s) => s.id === dictationSubtitle.value?.id)
+  const next = idx >= 0 ? subs[idx + 1] : null
+  if (!next) {
+    closeDictation()
+    return
+  }
+  pauseForDictationSheet()
+  openDictationFor(next)
+}
+
+function onDictationLoopCountChange(count: number) {
+  player.setSentenceLoopCount(count > 0 ? count : 1)
+}
+
+function isDictationFrost(subId: number) {
+  return dictationOpen.value && dictationTargetId.value === subId
+}
+
+const dictationFrostClass =
+  'absolute inset-0 z-[5] rounded-[inherit] pointer-events-none bg-white/50 dark:bg-neutral-950/55 backdrop-blur-[7px] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.28)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]'
+
+/** 悬停查词时若正在播放则暂停，移开后恢复 */
+let resumePlaybackAfterWordHover = false
+
+function onSubtitleWordHoverStart() {
+  if (!player.isPlaying.value) return
+  resumePlaybackAfterWordHover = true
+  player.togglePlay()
+}
+
+function onSubtitleWordHoverEnd() {
+  if (!resumePlaybackAfterWordHover) return
+  resumePlaybackAfterWordHover = false
+  if (!player.isPlaying.value) player.togglePlay()
+}
 const learning = useLearningProgress({
   videoId: toRef(props, 'videoId'),
   currentIndex,
@@ -140,11 +336,6 @@ const playbackSrc = computed(() => {
 
 const isChineseOnly = computed(() => modeIsChineseOnly(subtitleMode.value))
 
-const alignButtons: { key: SubtitleAlign; label: string }[] = [
-  { key: 'left', label: '左对齐' },
-  { key: 'center', label: '居中' },
-]
-
 const modeButtons: { key: SubtitleDisplayMode; label: string }[] = [
   { key: 'both', label: '双语' },
   { key: 'en', label: '英语' },
@@ -154,9 +345,96 @@ const modeButtons: { key: SubtitleDisplayMode; label: string }[] = [
   { key: 'ipa', label: 'IPA' },
 ]
 
-const currentModeLabel = computed(
-  () => modeButtons.find((m) => m.key === subtitleMode.value)?.label ?? '字幕',
-)
+const currentModeLabel = computed(() => {
+  if (contentView.value === 'wordcards') return '词卡'
+  if (contentView.value === 'summary') return '汇总'
+  return modeButtons.find((m) => m.key === subtitleMode.value)?.label ?? '字幕'
+})
+
+function selectSubtitleMode(mode: SubtitleDisplayMode) {
+  subtitleMode.value = mode
+  contentView.value = 'subtitles'
+}
+
+function openWordCardsView() {
+  contentView.value = 'wordcards'
+}
+
+function openVocabSummaryView() {
+  contentView.value = 'summary'
+}
+
+function openBlankPrintSheet() {
+  blankPrintSheetOpen.value = true
+}
+
+function openWordCardPrintSheet() {
+  wordCardPrintSheetOpen.value = true
+}
+
+async function confirmBlankPrint(options: BlankPrintOptions) {
+  blankPrintSheetOpen.value = false
+  wordCardPrintOptions.value = null
+  blankPrintOptions.value = options
+  await nextTick()
+  await nextTick()
+  window.print()
+}
+
+async function confirmWordCardPrint(options: WordCardPrintOptions) {
+  wordCardPrintSheetOpen.value = false
+  blankPrintOptions.value = null
+  wordCardPrintOptions.value = options
+  await nextTick()
+  await nextTick()
+  window.print()
+}
+
+function onAfterPrint() {
+  blankPrintOptions.value = null
+  wordCardPrintOptions.value = null
+}
+
+function pausePlaybackForEntry() {
+  const v = videoRef.value
+  if (!v || v.paused || v.ended) return
+  resumeAfterEntryClose.value = true
+  v.pause()
+  player.isPlaying.value = false
+}
+
+function resumePlaybackAfterEntry() {
+  if (!resumeAfterEntryClose.value) return
+  resumeAfterEntryClose.value = false
+  const v = videoRef.value
+  if (!v || v.ended) return
+  void v
+    .play()
+    .then(() => {
+      player.isPlaying.value = true
+    })
+    .catch(() => {
+      /* 自动播放被拦截时保持暂停 */
+    })
+}
+
+async function openWordCard(item: WordCardItem) {
+  pausePlaybackForEntry()
+  showEntryPanel.value = true
+  entryLoading.value = true
+  entryError.value = ''
+  selectedEntry.value = item.entry
+  try {
+    selectedEntry.value = await lookupWord(item.word, item.type, item.context, {
+      video_id: props.videoId,
+      subtitle_id: item.meta?.subtitle_id,
+    })
+  } catch {
+    entryError.value = '词条加载失败'
+  } finally {
+    entryLoading.value = false
+  }
+}
 
 watch(
   [isPhone, isPad],
@@ -189,12 +467,13 @@ useSwipeNavigation(dynamicFocusRef, {
 const displaySub = computed(() => resolveDisplaySub(sortedSubs.value, player.currentTime.value))
 
 const showCurrentSubtitleBar = computed(
-  () => Boolean(displaySub.value) && !isPhone.value,
+  () =>
+    !subtitlesHidden.value &&
+    Boolean(displaySub.value) &&
+    (!isPhone.value || isVideoPanelFullscreen.value),
 )
 
 const playbackTime = computed(() => player.currentTime.value)
-
-const { wordHighlightFor } = useSubtitleReadProgress(playbackTime)
 
 const mobileChromeEnabled = computed(
   () => isPhone.value && Boolean(episode.value) && !props.adminPreview,
@@ -206,7 +485,8 @@ const mobileChromeBlocked = computed(
     mobileDrawerOpen.value ||
     showEntryPanel.value ||
     subtitleModeSheetOpen.value ||
-    showSettings.value,
+    showSettings.value ||
+    dictationOpen.value,
 )
 
 const {
@@ -257,14 +537,21 @@ function onEntryKeydown(e: KeyboardEvent) {
 onMounted(() => {
   load()
   window.addEventListener('keydown', onEntryKeydown)
+  window.addEventListener('afterprint', onAfterPrint)
+  document.addEventListener('fullscreenchange', onVideoPanelFullscreenChange)
 })
 
 onUnmounted(() => {
   if (listScrollAnim) cancelAnimationFrame(listScrollAnim)
   document.body.style.overflow = ''
   window.removeEventListener('keydown', onEntryKeydown)
+  window.removeEventListener('afterprint', onAfterPrint)
+  document.removeEventListener('fullscreenchange', onVideoPanelFullscreenChange)
 })
-watch(() => props.videoId, load)
+watch(() => props.videoId, () => {
+  contentView.value = 'subtitles'
+  void load()
+})
 watch(currentIndex, (idx, prevIdx) => {
   if (prevIdx !== undefined && idx !== prevIdx) {
     subtitleSlideDir.value = idx > prevIdx ? 'next' : 'prev'
@@ -349,14 +636,28 @@ function startPlayback() {
   }
 }
 
+const relatedPanelLabel = computed(() => (episode.value?.series ? '同合集' : '相似视频'))
+
 async function loadRelatedEpisodes() {
-  const tags = episode.value?.tags ?? []
-  if (!tags.length) {
-    relatedEpisodes.value = []
-    return
-  }
   relatedLoading.value = true
   try {
+    const series = episode.value?.series
+    if (series?.id) {
+      const data = await getEpisodeList({
+        series_id: series.id,
+        ordering: 'series_index',
+        page_size: 50,
+      })
+      // 合集侧栏保留当前集，便于定位与高亮
+      relatedEpisodes.value = data.results
+      return
+    }
+
+    const tags = episode.value?.tags ?? []
+    if (!tags.length) {
+      relatedEpisodes.value = []
+      return
+    }
     const seen = new Set<string>()
     const merged: EpisodeSummary[] = []
     for (const tag of tags) {
@@ -373,6 +674,12 @@ async function loadRelatedEpisodes() {
   } finally {
     relatedLoading.value = false
   }
+}
+
+function goSeriesEpisode(videoId: string | null | undefined) {
+  if (!videoId) return
+  requestEpisodeAutoplay()
+  router.push(episodePath(videoId))
 }
 
 async function loadLookupHistory() {
@@ -536,6 +843,7 @@ async function toggleVocabulary(entry: EntryDetail) {
 }
 
 async function reopenLookup(record: WordLookupRecord) {
+  pausePlaybackForEntry()
   showEntryPanel.value = true
   entryLoading.value = true
   entryError.value = ''
@@ -634,6 +942,7 @@ async function onSubtitleClick(e: MouseEvent) {
   const isPhrase = Boolean(pid) || target.classList.contains('phrase-token')
   const type = isPhrase ? 2 : 1
 
+  pausePlaybackForEntry()
   showEntryPanel.value = true
   entryLoading.value = true
   entryError.value = ''
@@ -660,6 +969,7 @@ function closeEntryPanel() {
   showEntryPanel.value = false
   selectedEntry.value = null
   entryError.value = ''
+  resumePlaybackAfterEntry()
 }
 
 async function toggleSubtitleLearned(sub: { id: number }, e: Event) {
@@ -706,8 +1016,8 @@ function subtitleRowClass(index: number) {
 <template>
   <!-- h-dvh + overflow-hidden：整页不滚动，仅字幕列表区域滚动 -->
   <div
-    class="flex flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-950"
-    :class="adminPreview ? 'h-dvh' : 'h-full'"
+    class="no-print flex flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-950"
+    :class="[adminPreview ? 'h-dvh' : 'h-full', intensivePageClass]"
   >
     <header
       class="flex items-center gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 z-30 transition-transform duration-300 ease-out"
@@ -731,7 +1041,39 @@ function subtitleRowClass(index: number) {
             已学完
           </span>
         </p>
-        <p class="text-xs text-neutral-500 dark:text-neutral-400 max-lg:hidden">{{ episode.author.name }} · 第 {{ episode.index }} 期</p>
+        <p class="text-xs text-neutral-500 dark:text-neutral-400 max-lg:hidden truncate">
+          <template v-if="episode.series">
+            <RouterLink
+              :to="`/english/series/${episode.series.slug}`"
+              class="hover:text-amber-700 dark:hover:text-amber-400"
+            >
+              {{ episode.series.title }}
+            </RouterLink>
+            · 第 {{ episode.series.series_index }} / {{ episode.series.episode_count }} 集
+          </template>
+          <template v-else>{{ episode.author.name }} · 第 {{ episode.index }} 期</template>
+        </p>
+      </div>
+      <div
+        v-if="episode?.series && !adminPreview"
+        class="hidden sm:flex items-center gap-1 shrink-0"
+      >
+        <button
+          type="button"
+          class="text-xs px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40 disabled:pointer-events-none"
+          :disabled="!episode.series.prev_video_id"
+          @click="goSeriesEpisode(episode.series.prev_video_id)"
+        >
+          上一集
+        </button>
+        <button
+          type="button"
+          class="text-xs px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40 disabled:pointer-events-none"
+          :disabled="!episode.series.next_video_id"
+          @click="goSeriesEpisode(episode.series.next_video_id)"
+        >
+          下一集
+        </button>
       </div>
       <div class="flex items-center gap-1 shrink-0">
         <button
@@ -763,6 +1105,7 @@ function subtitleRowClass(index: number) {
             <circle cx="19" cy="12" r="1.75" />
           </svg>
         </button>
+        <IntensiveModeToggle />
         <SettingsButton v-if="!isPhone" @click="showSettings = true" />
         <button class="hidden sm:inline text-xs text-neutral-400 hover:text-black dark:hover:text-white px-2 py-1" @click="player.showHelp.value = true">
           ? 快捷键
@@ -798,56 +1141,92 @@ function subtitleRowClass(index: number) {
     <div v-if="loading && !episode" class="flex-1 flex items-center justify-center text-neutral-500">加载中...</div>
     <div v-else-if="error && !episode" class="flex-1 flex items-center justify-center text-red-500">{{ error }}</div>
 
-    <div v-else-if="episode" class="flex-1 min-h-0 flex flex-col lg:flex-row max-lg:landscape:flex-row overflow-hidden">
+    <div
+      v-else-if="episode"
+      class="flex-1 min-h-0 flex flex-col lg:flex-row max-lg:landscape:flex-row overflow-hidden"
+      :class="subtitlesHidden && isPhone ? 'pb-[calc(1.25rem+env(safe-area-inset-bottom))]' : ''"
+    >
       <!-- 视频区 -->
       <aside
         ref="videoPanelRef"
-        class="shrink-0 lg:w-[46%] xl:w-[44%] min-h-0 lg:h-full flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4 max-lg:h-auto max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:shrink-0 max-lg:landscape:static max-lg:landscape:w-[42%] max-lg:landscape:shrink-0 max-lg:landscape:h-auto"
-        :class="mobileVideoImmersive ? 'max-lg:!p-0 max-lg:!gap-0 max-lg:!rounded-none' : ''"
+        class="video-panel shrink-0 min-h-0 lg:h-full flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4 max-lg:h-auto max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:shrink-0 max-lg:landscape:static max-lg:landscape:h-auto"
+        :class="[
+          mobileVideoImmersive ? 'max-lg:!p-0 max-lg:!gap-0 max-lg:!rounded-none' : '',
+          isVideoPanelFullscreen ? 'video-panel--fullscreen' : '',
+          subtitlesHidden
+            ? 'video-panel--cinema flex-1 min-w-0 max-lg:landscape:flex-1 max-lg:landscape:min-w-0 lg:justify-center'
+            : 'lg:w-[46%] xl:w-[44%] max-lg:landscape:w-[42%] max-lg:landscape:shrink-0',
+        ]"
       >
         <VideoPlayer
-          class="shrink-0"
+          class="shrink-0 video-panel__player"
           :src="playbackSrc"
           :poster="episode.media.thumbnail_url"
           :hidden="videoHidden"
           :autoplay="videoAutoplay"
           :register-video="registerVideoEl"
           :player="player"
-          :show-progress-bar="!isPhone"
-          :auto-hide-progress="!isPhone"
-          :flush="mobileVideoImmersive"
+          :show-progress-bar="!isPhone || isVideoPanelFullscreen"
+          :auto-hide-progress="!isPhone || isVideoPanelFullscreen"
+          :flush="mobileVideoImmersive || isVideoPanelFullscreen"
         />
         <PlayerControls
-          v-if="!isPhone"
-          class="shrink-0"
+          v-if="!isPhone || isVideoPanelFullscreen"
+          class="shrink-0 video-panel__controls"
           :player="player"
           :show-ipa="showIpa"
           :video-hidden="videoHidden"
+          :subtitles-hidden="subtitlesHidden"
           :video-panel-ref="videoPanelRef"
           :compact="isPhone"
           @update:show-ipa="showIpa = $event"
           @update:video-hidden="videoHidden = $event"
+          @update:subtitles-hidden="subtitlesHidden = $event"
         />
-        <CurrentSubtitleBar
-          v-if="showCurrentSubtitleBar"
-          class="w-full"
-          :class="isPhone ? '' : 'min-h-0 flex-1'"
-          :compact="isPhone"
-          :top-align="isPad"
-          :sub="displaySub"
-          :current-time="playbackTime"
-          :subtitle-mode="subtitleMode"
-          :show-ipa="showIpa"
-          :english-html="renderHtml(displaySub.english_html)"
-          @seek="player.seekTo(displaySub)"
-          @click="onSubtitleClick"
-        />
+        <button
+          v-if="subtitlesHidden && !isVideoPanelFullscreen"
+          type="button"
+          class="shrink-0 self-start lg:self-center text-xs px-2.5 py-1 rounded-full border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-white/80 dark:hover:bg-neutral-800 transition-colors"
+          @click="subtitlesHidden = false"
+        >
+          字幕已隐藏 · 点击显示
+        </button>
+        <SubtitleWordTooltipHost
+          v-if="showCurrentSubtitleBar && displaySub"
+          class="min-h-0 flex flex-col"
+          :class="isVideoPanelFullscreen ? 'video-panel__subtitle shrink-0' : 'flex-1 min-h-0'"
+          :context="displaySub.english"
+          :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
+          :teleport-to="subtitleTooltipTeleport"
+          @word-hover-start="onSubtitleWordHoverStart"
+          @word-hover-end="onSubtitleWordHoverEnd"
+        >
+          <CurrentSubtitleBar
+            class="w-full"
+            :class="isPhone && !isVideoPanelFullscreen ? '' : 'min-h-0 flex-1'"
+            :compact="isPhone && !isVideoPanelFullscreen"
+            :top-align="isPad && !isVideoPanelFullscreen"
+            :intensive="intensiveMode"
+            :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
+            :sub="displaySub"
+            :current-time="playbackTime"
+            :subtitle-mode="isVideoPanelFullscreen ? 'both' : subtitleMode"
+            :show-ipa="showIpa && !isVideoPanelFullscreen"
+            :english-html="renderHtml(displaySub.english_html)"
+            :dictation-frost="isDictationFrost(displaySub.id)"
+            :data-subtitle-context="displaySub.english"
+            @seek="player.seekTo(displaySub)"
+            @click="onSubtitleClick"
+          />
+        </SubtitleWordTooltipHost>
       </aside>
 
       <!-- 字幕区 -->
       <section
-        class="subtitle-panel flex-1 min-h-0 flex flex-col overflow-hidden bg-neutral-50 dark:bg-neutral-900 border-t lg:border-t-0 border-black/5 dark:border-white/10 max-lg:min-h-0"
+        v-show="!subtitlesHidden"
+        class="subtitle-panel flex-1 min-h-0 flex overflow-hidden bg-neutral-50 dark:bg-neutral-900 border-t lg:border-t-0 border-black/5 dark:border-white/10 max-lg:min-h-0"
       >
+        <div class="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden">
         <!-- 桌面 / Pad：完整工具栏 -->
         <div
           v-if="!isPhone"
@@ -857,25 +1236,61 @@ function subtitleRowClass(index: number) {
             v-for="m in modeButtons"
             :key="m.key"
             class="px-3 py-1 rounded-full whitespace-nowrap"
-            :class="subtitleMode === m.key ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900' : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'"
-            @click="subtitleMode = m.key"
+            :class="
+              contentView === 'subtitles' && subtitleMode === m.key
+                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
+                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+            "
+            @click="selectSubtitleMode(m.key)"
           >
             {{ m.label }}
           </button>
-          <div class="flex items-center gap-0.5 ml-1 pl-2 border-l border-black/10 dark:border-white/10 flex-1 min-w-0">
+          <button
+            type="button"
+            class="px-3 py-1 rounded-full whitespace-nowrap"
+            :class="
+              contentView === 'wordcards'
+                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
+                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+            "
+            @click="openWordCardsView"
+          >
+            词卡
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1 rounded-full whitespace-nowrap"
+            :class="
+              contentView === 'summary'
+                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
+                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+            "
+            @click="openVocabSummaryView"
+          >
+            汇总
+          </button>
+          <div class="flex items-center gap-1.5 ml-auto shrink-0">
             <button
-              v-for="a in alignButtons"
-              :key="a.key"
-              class="px-2.5 py-1 rounded-full whitespace-nowrap text-xs"
-              :class="subtitleAlign === a.key ? 'bg-neutral-800 text-white dark:bg-neutral-200 dark:text-neutral-900' : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'"
-              @click="subtitleAlign = a.key"
+              v-if="contentView === 'subtitles' && subtitleMode === 'blank'"
+              type="button"
+              class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+              @click="openBlankPrintSheet"
             >
-              {{ a.label }}
+              打印挖空
+            </button>
+            <button
+              v-if="contentView === 'wordcards'"
+              type="button"
+              class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-40"
+              :disabled="wordCardsLoading"
+              @click="openWordCardPrintSheet"
+            >
+              打印词卡
             </button>
             <button
               v-if="!adminPreview && !showSidePanel"
               type="button"
-              class="ml-auto text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+              class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
               @click="toggleSidePanel"
             >
               显示侧栏
@@ -883,40 +1298,89 @@ function subtitleRowClass(index: number) {
           </div>
         </div>
 
+        <IntensiveReadingStatsBar
+          v-if="intensiveMode && contentView === 'subtitles'"
+          :title="episode.short_title"
+          :subtitle="
+            episode.series
+              ? `${episode.series.title} · 第 ${episode.series.series_index}/${episode.series.episode_count} 集`
+              : `${episode.author.name} · 第 ${episode.index} 期`
+          "
+          :word-count="episode.voca_size"
+          :highlight-count="coreVocabCount"
+          :segment-count="episode.subtitle_count"
+        />
+
+        <EpisodeWordCardList
+          v-if="contentView === 'wordcards'"
+          :items="wordCardItems"
+          :groups="wordCardGroups"
+          :loading="wordCardsLoading"
+          @select="openWordCard"
+        />
+
+        <EpisodeVocabSummaryList
+          v-else-if="contentView === 'summary'"
+          :groups="vocabSummaryGroups"
+        />
+
         <!-- 动态模式 -->
         <div
-          v-if="modeIsDynamicFocus(subtitleMode) && currentSub && !isPhone"
+          v-else-if="modeIsDynamicFocus(subtitleMode) && currentSub && !isPhone"
           ref="dynamicFocusRef"
           class="subtitle-focus-light subtitle-scroll-hide flex-1 min-h-0 overflow-hidden overscroll-contain flex flex-col justify-start pt-2 px-3 pb-4 lg:justify-center lg:p-6 xl:p-10 cursor-pointer touch-pan-y"
           :class="subtitleAlign === 'left' ? 'items-start text-left' : 'items-center text-center'"
           @click="currentSub && player.seekTo(currentSub)"
         >
-          <Transition
-            :name="
-              isPhone
-                ? subtitleSlideDir === 'next'
-                  ? 'subtitle-slide-next'
-                  : 'subtitle-slide-prev'
-                : 'subtitle-fade'
-            "
-            mode="out-in"
-          >
-            <SubtitleBlock
-              :key="currentSub.id"
-              :english-html="renderHtml(currentSub.english_html)"
-              :chinese="currentSub.chinese"
-              :ipa="currentSub.ipa"
-              :active="false"
-              :large="true"
-              :align="subtitleAlign"
-              :chinese-focus="isChineseOnly"
-              :show-english="modeShowsEnglish(subtitleMode)"
-              :show-chinese="modeShowsChinese(subtitleMode)"
-              :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
-              :word-highlight="wordHighlightFor(currentSub)"
-              @click="onSubtitleClick"
+          <div class="relative w-full max-w-3xl">
+            <Transition
+              :name="
+                isPhone
+                  ? subtitleSlideDir === 'next'
+                    ? 'subtitle-slide-next'
+                    : 'subtitle-slide-prev'
+                  : 'subtitle-fade'
+              "
+              mode="out-in"
+            >
+              <IntensiveReadingBlock
+                v-if="intensiveMode"
+                :key="currentSub.id"
+                :english-html="renderHtml(currentSub.english_html)"
+                :english="currentSub.english"
+                :chinese="currentSub.chinese"
+                :ipa="currentSub.ipa"
+                :large="true"
+                :align="subtitleAlign"
+                :show-english="modeShowsEnglish(subtitleMode)"
+                :show-chinese="modeShowsChinese(subtitleMode)"
+                :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+                :lookup-meta="{ video_id: videoId, subtitle_id: currentSub.id }"
+                @click="onSubtitleClick"
+              />
+              <SubtitleBlock
+                v-else
+                :key="currentSub.id"
+                :english-html="renderHtml(currentSub.english_html)"
+                :chinese="currentSub.chinese"
+                :ipa="currentSub.ipa"
+                :active="false"
+                :large="true"
+                :align="subtitleAlign"
+                :chinese-focus="isChineseOnly"
+                :show-english="modeShowsEnglish(subtitleMode)"
+                :show-chinese="modeShowsChinese(subtitleMode)"
+                :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+                @click="onSubtitleClick"
+              />
+            </Transition>
+            <div
+              v-if="isDictationFrost(currentSub.id)"
+              :class="dictationFrostClass"
+              class="rounded-xl"
+              aria-hidden="true"
             />
-          </Transition>
+          </div>
         </div>
 
         <!-- 列表模式 -->
@@ -935,11 +1399,20 @@ function subtitleRowClass(index: number) {
             @click="player.seekTo(sub)"
           >
             <div
-              class="w-full relative transition-all duration-300 ease-out"
-              :class="[subtitleRowClass(i), i === currentIndex && 'subtitle-row--active']"
+              class="w-full relative transition-all duration-300 ease-out pr-14"
+              :class="
+                intensiveMode
+                  ? [
+                      'intensive-subtitle-card rounded-xl border p-3 sm:p-4',
+                      i === currentIndex
+                        ? 'border-red-300/80 dark:border-red-700/50 ring-1 ring-red-200/60 dark:ring-red-900/30'
+                        : 'border-red-100/80 dark:border-red-950/40',
+                    ]
+                  : [subtitleRowClass(i), i === currentIndex && 'subtitle-row--active']
+              "
             >
               <button
-                v-if="auth.isLoggedIn && !adminPreview"
+                v-if="showSubtitleLearnedMark && auth.isLoggedIn && !adminPreview"
                 type="button"
                 class="absolute top-2 right-2 z-10 w-7 h-7 rounded-full text-sm flex items-center justify-center border transition"
                 :class="
@@ -952,7 +1425,32 @@ function subtitleRowClass(index: number) {
               >
                 ✓
               </button>
+              <button
+                v-else-if="!adminPreview"
+                type="button"
+                class="absolute top-2 right-2 z-10 px-2 h-7 rounded-full text-[11px] font-medium flex items-center justify-center border transition bg-white/90 border-black/10 text-neutral-600 hover:border-amber-400 hover:text-amber-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300 dark:hover:border-amber-500 dark:hover:text-amber-300"
+                :class="dictationTargetId === sub.id ? 'border-amber-400 text-amber-700 dark:border-amber-500 dark:text-amber-300' : ''"
+                title="听写本句"
+                @click="startSubtitleDictation(sub, $event)"
+              >
+                听写
+              </button>
+              <IntensiveReadingBlock
+                v-if="intensiveMode"
+                :english-html="renderHtml(sub.english_html)"
+                :english="sub.english"
+                :chinese="sub.chinese"
+                :ipa="sub.ipa"
+                :active="false"
+                :align="subtitleAlign"
+                :show-english="modeShowsEnglish(subtitleMode)"
+                :show-chinese="modeShowsChinese(subtitleMode)"
+                :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+                :lookup-meta="{ video_id: videoId, subtitle_id: sub.id }"
+                @click.stop="onSubtitleClick"
+              />
               <SubtitleBlock
+                v-else
                 :english-html="renderHtml(sub.english_html)"
                 :chinese="sub.chinese"
                 :ipa="sub.ipa"
@@ -962,19 +1460,40 @@ function subtitleRowClass(index: number) {
                 :show-english="modeShowsEnglish(subtitleMode)"
                 :show-chinese="modeShowsChinese(subtitleMode)"
                 :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
-                :word-highlight="wordHighlightFor(sub)"
                 @click.stop="onSubtitleClick"
+              />
+              <!-- 听写中：单词区毛玻璃遮罩，关闭弹窗后消失 -->
+              <div
+                v-if="isDictationFrost(sub.id)"
+                :class="dictationFrostClass"
+                aria-hidden="true"
               />
             </div>
           </div>
         </div>
+
+        </div>
+
+        <IntensiveCoreVocabPanel
+          v-if="intensiveMode && contentView === 'subtitles'"
+          :items="coreVocabItems"
+          :loading="coreVocabLoading"
+        />
       </section>
+
+      <IntensiveCoreVocabMobile
+        v-if="intensiveMode && contentView === 'subtitles' && !subtitlesHidden"
+        :items="coreVocabItems"
+        :loading="coreVocabLoading"
+      />
 
       <EpisodeSidePanel
         v-if="!adminPreview && showSidePanel && !isPhone"
         :tab="sidePanelTab"
+        :related-label="relatedPanelLabel"
         :related-episodes="relatedEpisodes"
         :related-loading="relatedLoading"
+        :current-video-id="videoId"
         :lookup-history="lookupHistory"
         :lookup-loading="lookupLoading"
         :show-lookup-tab="auth.isLoggedIn"
@@ -1012,6 +1531,7 @@ function subtitleRowClass(index: number) {
             :player="player"
             :show-ipa="showIpa"
             :video-hidden="videoHidden"
+            :subtitles-hidden="subtitlesHidden"
             :video-panel-ref="videoPanelRef"
             compact
             docked
@@ -1019,6 +1539,7 @@ function subtitleRowClass(index: number) {
             :chrome-visible="mobileChromeVisible"
             @update:show-ipa="showIpa = $event"
             @update:video-hidden="videoHidden = $event"
+            @update:subtitles-hidden="subtitlesHidden = $event"
             @toggle-chrome="toggleMobileChrome"
           />
         </div>
@@ -1045,15 +1566,64 @@ function subtitleRowClass(index: number) {
               class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
               @click="openSubtitleModeFromMore"
             >
-              字幕模式
+              字幕 / 词卡 / 汇总
               <span class="float-right text-neutral-400">{{ currentModeLabel }}</span>
             </button>
             <button
               type="button"
               class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              @click="closeMobileMore(); subtitlesHidden = !subtitlesHidden"
+            >
+              {{ subtitlesHidden ? '显示字幕' : '隐藏字幕' }}
+            </button>
+            <button
+              v-if="contentView === 'subtitles' && subtitleMode === 'blank'"
+              type="button"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              @click="closeMobileMore(); openBlankPrintSheet()"
+            >
+              打印挖空
+            </button>
+            <button
+              v-if="contentView === 'wordcards'"
+              type="button"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40"
+              :disabled="wordCardsLoading"
+              @click="closeMobileMore(); openWordCardPrintSheet()"
+            >
+              打印词卡
+            </button>
+            <template v-if="episode?.series">
+              <button
+                type="button"
+                class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40"
+                :disabled="!episode.series.prev_video_id"
+                @click="closeMobileMore(); goSeriesEpisode(episode.series.prev_video_id)"
+              >
+                上一集
+              </button>
+              <button
+                type="button"
+                class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40"
+                :disabled="!episode.series.next_video_id"
+                @click="closeMobileMore(); goSeriesEpisode(episode.series.next_video_id)"
+              >
+                下一集
+              </button>
+              <RouterLink
+                :to="`/english/series/${episode.series.slug}`"
+                class="block w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                @click="closeMobileMore"
+              >
+                查看合集
+              </RouterLink>
+            </template>
+            <button
+              type="button"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
               @click="openMobileDrawerFromMore('related')"
             >
-              相似视频
+              {{ relatedPanelLabel }}
             </button>
             <button
               v-if="auth.isLoggedIn"
@@ -1089,8 +1659,10 @@ function subtitleRowClass(index: number) {
           <EpisodeSidePanel
             drawer
             :tab="sidePanelTab"
+            :related-label="relatedPanelLabel"
             :related-episodes="relatedEpisodes"
             :related-loading="relatedLoading"
+            :current-video-id="videoId"
             :lookup-history="lookupHistory"
             :lookup-loading="lookupLoading"
             :show-lookup-tab="auth.isLoggedIn"
@@ -1107,12 +1679,57 @@ function subtitleRowClass(index: number) {
       v-if="isPhone"
       :open="subtitleModeSheetOpen"
       :subtitle-mode="subtitleMode"
-      :subtitle-align="subtitleAlign"
+      :content-view="contentView"
       :mode-buttons="modeButtons"
-      :align-buttons="alignButtons"
+      :show-vocab-summary="true"
       @close="subtitleModeSheetOpen = false"
-      @update:subtitle-mode="subtitleMode = $event"
-      @update:subtitle-align="subtitleAlign = $event"
+      @update:subtitle-mode="(m) => { selectSubtitleMode(m); subtitleModeSheetOpen = false }"
+      @select-word-cards="openWordCardsView(); subtitleModeSheetOpen = false"
+      @select-vocab-summary="openVocabSummaryView(); subtitleModeSheetOpen = false"
+    />
+
+    <BlankPrintSheet
+      :open="blankPrintSheetOpen"
+      @close="blankPrintSheetOpen = false"
+      @confirm="confirmBlankPrint"
+    />
+    <SentenceDictationSheet
+      :open="dictationOpen"
+      :subtitle="dictationSubtitle"
+      :loop-count="player.sentenceLoopCount.value"
+      @close="closeDictation"
+      @replay="replayDictationSentence"
+      @next="nextAfterDictation"
+      @update:loop-count="onDictationLoopCountChange"
+    />
+    <BlankPrintDocument
+      v-if="episode"
+      :title="episode.short_title"
+      :author-name="episode.author.name"
+      :episode-index="episode.index"
+      :subtitles="sortedSubs"
+      :options="blankPrintOptions"
+    />
+    <WordCardPrintSheet
+      :open="wordCardPrintSheetOpen"
+      :disabled="wordCardsLoading || wordCardItems.length === 0"
+      :disabled-reason="
+        wordCardsLoading
+          ? '词卡加载中，请稍候再打印'
+          : wordCardItems.length === 0
+            ? '本集暂无可打印的词卡'
+            : undefined
+      "
+      @close="wordCardPrintSheetOpen = false"
+      @confirm="confirmWordCardPrint"
+    />
+    <WordCardPrintDocument
+      v-if="episode"
+      :title="episode.short_title"
+      :author-name="episode.author.name"
+      :episode-index="episode.index"
+      :items="wordCardItems"
+      :options="wordCardPrintOptions"
     />
 
     <EntryCard
@@ -1125,7 +1742,12 @@ function subtitleRowClass(index: number) {
       @toggle-vocabulary="toggleVocabulary"
     />
     <KeyboardHelp v-if="player.showHelp.value" @close="player.showHelp.value = false" />
-    <SettingsPanel v-if="showSettings" @close="showSettings = false" />
+    <SettingsPanel
+      v-if="showSettings"
+      :subtitle-align="subtitleAlign"
+      @close="showSettings = false"
+      @update:subtitle-align="subtitleAlign = $event"
+    />
   </div>
 </template>
 

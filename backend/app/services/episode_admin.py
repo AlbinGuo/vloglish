@@ -104,10 +104,13 @@ def _detach_subtitle_refs(db: Session, subtitle_ids: list[int]) -> None:
 
 
 def replace_subtitles(db: Session, episode_id: int, rows: list[dict]) -> None:
+    from .episode_word_cards import invalidate_episode_word_cards
+
     subtitle_ids = [
         sid for (sid,) in db.query(Subtitle.id).filter(Subtitle.episode_id == episode_id).all()
     ]
     _detach_subtitle_refs(db, subtitle_ids)
+    invalidate_episode_word_cards(db, episode_id)
     db.query(Subtitle).filter(Subtitle.episode_id == episode_id).delete()
     db.flush()
     if not rows:
@@ -146,6 +149,8 @@ def apply_episode_fields(ep: Episode, data: dict, *, author: Author, tags: list[
         ep.summary = data.get("summary", "")
     if "remark" in data:
         ep.remark = data.get("remark", "")
+    if "vocab_summary" in data:
+        ep.vocab_summary = data.get("vocab_summary") or ""
     if "stars" in data:
         ep.stars = data.get("stars", 3)
     if "voca_size" in data:
@@ -162,6 +167,8 @@ def apply_episode_fields(ep: Episode, data: dict, *, author: Author, tags: list[
         ep.original_video_url = data.get("original_video_url", "")
     if "is_demo" in data:
         ep.is_demo = data.get("is_demo", False)
+    if "is_pinned" in data:
+        ep.is_pinned = bool(data.get("is_pinned", False))
     if "status" in data and data.get("status") in VALID_STATUSES:
         new_status = data["status"]
         if new_status == "published" and (ep.status != "published" or ep.published_at is None):
@@ -174,6 +181,16 @@ def apply_episode_fields(ep: Episode, data: dict, *, author: Author, tags: list[
         ep.rejection_reason = reason or None
     if "index" in data:
         ep.index = data.get("index", ep.index)
+    if data.get("clear_series"):
+        ep.series_id = None
+        ep.series_index = None
+    else:
+        if "series_id" in data:
+            ep.series_id = data.get("series_id")
+            if ep.series_id is None:
+                ep.series_index = None
+        if "series_index" in data and ep.series_id is not None:
+            ep.series_index = data.get("series_index")
     ep.author_id = author.id
     ep.tags = tags
     subtitles = data.get("subtitles")
@@ -196,6 +213,9 @@ def delete_episode_with_dependencies(db: Session, episode: Episode) -> None:
     db.query(UserWordLookup).filter(UserWordLookup.episode_id == episode_id).delete(
         synchronize_session=False
     )
+    from .episode_word_cards import invalidate_episode_word_cards
+
+    invalidate_episode_word_cards(db, episode_id)
     db.query(UserVocabularyItem).filter(UserVocabularyItem.source_episode_id == episode_id).update(
         {
             UserVocabularyItem.source_episode_id: None,

@@ -131,9 +131,11 @@ export const useCatalogStore = defineStore('catalog', () => {
   }
 
   function toggleTag(id: number) {
-    const idx = filters.tagIds.indexOf(id)
-    if (idx >= 0) filters.tagIds.splice(idx, 1)
-    else filters.tagIds.push(id)
+    if (filters.tagIds.length === 1 && filters.tagIds[0] === id) {
+      filters.tagIds = []
+    } else {
+      filters.tagIds = [id]
+    }
     return loadEpisodes(true)
   }
 
@@ -152,6 +154,24 @@ export const useCatalogStore = defineStore('catalog', () => {
     return loadEpisodes(true)
   }
 
+  const hasActiveFilters = computed(
+    () =>
+      Boolean(filters.stars) ||
+      filters.accents.length > 0 ||
+      filters.tagIds.length > 0 ||
+      Boolean(filters.date) ||
+      Boolean(filters.learningStatus),
+  )
+
+  function clearFilters() {
+    filters.stars = undefined
+    filters.accents = []
+    filters.tagIds = []
+    filters.date = undefined
+    filters.learningStatus = ''
+    return loadEpisodes(true)
+  }
+
   return {
     episodes,
     total,
@@ -162,6 +182,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     accents,
     filters,
     listViewMode,
+    hasActiveFilters,
     loadFilters,
     setListViewMode,
     loadEpisodes,
@@ -173,5 +194,6 @@ export const useCatalogStore = defineStore('catalog', () => {
     toggleOrdering,
     setSearch,
     setLearningStatus,
+    clearFilters,
   }
 })

@@ -52,6 +52,8 @@ def admin_episode_list_query(
     search: str | None = None,
     status: str | None = None,
     stars: int | None = None,
+    series_id: int | None = None,
+    user_submitted: bool | None = None,
     sort_by: str = "index",
     sort_dir: str = "desc",
 ) -> Query:
@@ -77,7 +79,7 @@ def admin_episode_list_query(
             plays_7d_col,
             plays_30d_col,
         )
-        .options(joinedload(Episode.author), joinedload(Episode.tags))
+        .options(joinedload(Episode.author), joinedload(Episode.tags), joinedload(Episode.series))
         .join(Author)
         .outerjoin(session_sq, Episode.id == session_sq.c.episode_id)
         .outerjoin(progress_sq, Episode.id == progress_sq.c.episode_id)
@@ -94,6 +96,15 @@ def admin_episode_list_query(
         q = q.filter(Episode.status == status)
     if stars is not None:
         q = q.filter(Episode.stars == stars)
+    if series_id is not None:
+        if series_id <= 0:
+            q = q.filter(Episode.series_id.is_(None))
+        else:
+            q = q.filter(Episode.series_id == series_id)
+    if user_submitted is True:
+        q = q.filter(Episode.submitted_by_user_id.isnot(None))
+    elif user_submitted is False:
+        q = q.filter(Episode.submitted_by_user_id.is_(None))
 
     sort_key = sort_by if sort_by in EPISODE_LIST_SORT_FIELDS else "id"
     direction = sort_dir if sort_dir in {"asc", "desc"} else "desc"
@@ -126,3 +137,19 @@ def row_stats_from_query(row) -> dict:
         "plays_7d": int(plays_7d or 0),
         "plays_30d": int(plays_30d or 0),
     }
+
+
+def learner_count_map_for_episodes(db: Session, episode_ids: list[int]) -> dict[int, int]:
+    """批量查询每集独立学习人数（有 UserEpisodeProgress 记录的用户数）。"""
+    if not episode_ids:
+        return {}
+    rows = (
+        db.query(
+            UserEpisodeProgress.episode_id,
+            func.count(UserEpisodeProgress.id),
+        )
+        .filter(UserEpisodeProgress.episode_id.in_(episode_ids))
+        .group_by(UserEpisodeProgress.episode_id)
+        .all()
+    )
+    return {int(eid): int(cnt or 0) for eid, cnt in rows}

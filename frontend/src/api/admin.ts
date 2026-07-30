@@ -1,6 +1,11 @@
 import axios from 'axios'
-import { clearAdminTokens, getAdminAccessToken, getAdminRefreshToken, setAdminTokens } from '@/api/adminTokens'
-import { getDeviceId } from '@/api/client'
+import {
+  clearAdminTokens,
+  getAdminAccessToken,
+  getAdminDeviceId,
+  getAdminRefreshToken,
+  setAdminTokens,
+} from '@/api/adminTokens'
 import type { EpisodeDetail } from '@/types'
 
 const adminApi = axios.create({
@@ -11,9 +16,16 @@ const adminApi = axios.create({
 
 adminApi.interceptors.request.use((config) => {
   config.headers = config.headers ?? {}
-  config.headers['X-Device-Id'] = getDeviceId()
+  config.headers['X-Device-Id'] = getAdminDeviceId()
   const token = getAdminAccessToken()
   if (token) config.headers.Authorization = `Bearer ${token}`
+  // FormData 需由浏览器自动带 multipart boundary，不能沿用默认 application/json
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    const headers = config.headers as { delete?: (key: string) => void; set?: (key: string, value: unknown) => void }
+    if (typeof headers.delete === 'function') headers.delete('Content-Type')
+    else if (typeof headers.set === 'function') headers.set('Content-Type', false)
+    else delete (config.headers as Record<string, unknown>)['Content-Type']
+  }
   return config
 })
 
@@ -26,11 +38,8 @@ adminApi.interceptors.response.use(
     if (!original || error.response?.status !== 401 || original._adminAuthRetry) {
       return Promise.reject(error)
     }
-    if (String(original.url ?? '').includes('/api/admin/auth/login')) {
-      return Promise.reject(error)
-    }
-    if (String(original.url ?? '').includes('/api/admin/auth/me')) {
-      clearAdminTokens()
+    const url = String(original.url ?? '')
+    if (url.includes('/api/admin/auth/login') || url.includes('/api/token/refresh')) {
       return Promise.reject(error)
     }
 
@@ -127,6 +136,7 @@ export interface UserRow {
   is_member: boolean
   is_active: boolean
   is_staff: boolean
+  is_online?: boolean
   member_activated_at: string | null
   created_at: string
   last_active_at: string | null
@@ -142,7 +152,12 @@ export interface AdminUserGeoStats {
   total_users: number
   known_users: number
   unknown_users: number
+  china_users?: number
+  overseas_users?: number
   by_region: { region: string; count: number }[]
+  by_country?: { name: string; map_name: string; count: number }[]
+  by_province?: { name: string; map_name: string; count: number }[]
+  by_city?: { name: string; province: string; count: number }[]
 }
 
 export type AdminUserSegmentKey =
@@ -279,8 +294,13 @@ export interface AdminEpisodeListItem {
   author_name: string
   cover: string
   is_demo: boolean
+  is_pinned?: boolean
   is_user_submitted: boolean
+  is_catalog_public?: boolean
   tag_names: string[]
+  series_id?: number | null
+  series_title?: string
+  series_index?: number | null
   created_at: string
   play_count: number
   unique_learners: number
@@ -307,6 +327,7 @@ export interface AdminEpisodeDetail {
   short_title: string
   summary: string
   remark: string
+  vocab_summary?: string
   stars: number
   voca_size: number
   subtitle_count: number
@@ -317,9 +338,17 @@ export interface AdminEpisodeDetail {
   thumbnail_url: string
   original_video_url: string
   is_demo: boolean
+  is_pinned?: boolean
   status: string
   rejection_reason?: string
   is_user_submitted?: boolean
+  is_catalog_public?: boolean
+  submitted_by_user_id?: number | null
+  submitted_by_email?: string
+  submitted_by_nickname?: string
+  series_id?: number | null
+  series_index?: number | null
+  series_title?: string
   author: AdminAuthorInput
   tag_names: string[]
   subtitles: AdminSubtitle[]
@@ -332,6 +361,7 @@ export type AdminEpisodePayload = {
   short_title: string
   summary: string
   remark: string
+  vocab_summary?: string
   stars: number
   voca_size: number
   cover: string
@@ -340,16 +370,65 @@ export type AdminEpisodePayload = {
   thumbnail_url: string
   original_video_url: string
   is_demo: boolean
+  is_pinned?: boolean
   status: string
   rejection_reason?: string
+  series_id?: number | null
+  series_index?: number | null
+  clear_series?: boolean
   author: AdminAuthorInput
   tag_names: string[]
   subtitles: AdminSubtitle[]
+  /** 用户投稿：true=全站可见；false=仅投稿者可见 */
+  is_catalog_public?: boolean
+}
+
+export interface AdminSeries {
+  id: number
+  slug: string
+  title: string
+  summary: string
+  cover: string
+  status: string
+  sort_order: number
+  episode_count: number
+  created_at: string
+  published_at: string
+}
+
+export type AdminSeriesPayload = {
+  slug: string
+  title: string
+  summary: string
+  cover: string
+  status: string
+  sort_order: number
 }
 
 export async function adminListTags() {
   const { data } = await adminApi.get<AdminTag[]>('/api/admin/tags/')
   return data
+}
+
+export async function adminListSeries(params?: { status?: string; search?: string }) {
+  const { data } = await adminApi.get<{ count: number; results: AdminSeries[] }>('/api/admin/series/', {
+    params,
+  })
+  return data
+}
+
+export async function adminCreateSeries(payload: AdminSeriesPayload) {
+  const { data } = await adminApi.post<AdminSeries>('/api/admin/series/', payload)
+  return data
+}
+
+export async function adminUpdateSeries(id: number, payload: Partial<AdminSeriesPayload>) {
+  const { data } = await adminApi.patch<AdminSeries>(`/api/admin/series/${id}/`, payload)
+  return data
+}
+
+export async function adminDeleteSeries(id: number) {
+  await adminApi.delete(`/api/admin/series/${id}/`)
 }
 
 export async function adminListAuthors() {
@@ -401,6 +480,8 @@ export async function adminListEpisodes(params: {
   search?: string
   status?: string
   stars?: number
+  series_id?: number
+  user_submitted?: boolean
   sort_by?: AdminEpisodeSortField
   sort_dir?: 'asc' | 'desc'
 }) {
@@ -446,7 +527,15 @@ export async function adminDeleteEpisode(id: number) {
   await adminApi.delete(`/api/admin/episodes/${id}/`)
 }
 
-export async function adminImportVtt(vttText: string) {
+export async function adminImportVtt(
+  vttText: string,
+  options?: {
+    title?: string
+    summary?: string
+    translateChinese?: boolean
+    enrichAi?: boolean
+  },
+) {
   const { data } = await adminApi.post<{
     subtitles: AdminSubtitle[]
     subtitle_count: number
@@ -454,7 +543,53 @@ export async function adminImportVtt(vttText: string) {
     had_chinese: boolean
     translated_count: number
     ipa_count: number
-  }>('/api/admin/episodes/import-subtitles/', { vtt_text: vttText }, { timeout: 900000 })
+    stars: number
+    voca_size: number
+    highlight_count: number
+    warnings?: string[]
+  }>(
+    '/api/admin/episodes/import-subtitles/',
+    {
+      vtt_text: vttText,
+      title: options?.title || '',
+      summary: options?.summary || '',
+      translate_chinese: Boolean(options?.translateChinese),
+      enrich_ai: Boolean(options?.enrichAi),
+    },
+    { timeout: 900000 },
+  )
+  return data
+}
+
+export async function adminEnrichSubtitles(
+  subtitles: AdminSubtitle[],
+  options?: { title?: string; summary?: string; translateChinese?: boolean; maxBatches?: number },
+) {
+  const { data } = await adminApi.post<{
+    subtitles: AdminSubtitle[]
+    subtitle_count: number
+    clip_length: number
+    had_chinese: boolean
+    translated_count: number
+    ipa_count: number
+    stars: number
+    voca_size: number
+    highlight_count: number
+    warnings?: string[]
+    done?: boolean
+    phase?: string
+    remaining?: number
+  }>(
+    '/api/admin/episodes/enrich-subtitles/',
+    {
+      subtitles,
+      title: options?.title || '',
+      summary: options?.summary || '',
+      translate_chinese: Boolean(options?.translateChinese),
+      max_batches: options?.maxBatches ?? 3,
+    },
+    { timeout: 300000 },
+  )
   return data
 }
 
@@ -658,6 +793,7 @@ export interface AdminBroadcast {
   id: number
   title: string
   body: string
+  image_url: string
   recipient_count: number
   created_by_email: string
   created_at: string
@@ -671,7 +807,22 @@ export async function adminListBroadcasts(page = 1, pageSize = 20) {
   return data
 }
 
-export async function adminCreateBroadcast(payload: { title: string; body: string }) {
+export async function adminUploadNotificationImage(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await adminApi.post<{ image_url: string }>(
+    '/api/admin/notifications/upload-image/',
+    form,
+    { timeout: 120000 },
+  )
+  return data
+}
+
+export async function adminCreateBroadcast(payload: {
+  title: string
+  body: string
+  image_url?: string
+}) {
   const { data } = await adminApi.post<AdminBroadcast>('/api/admin/notifications/broadcasts/', payload)
   return data
 }
@@ -713,6 +864,8 @@ export interface AdminArticleDetail {
   published_at: string
   status: string
   tts_status: string
+  vocab_summary?: import('@/utils/vocabSummary').VocabSummaryGroup[]
+  vocab_summary_text?: string
   segments: AdminArticleSegment[]
 }
 
@@ -763,14 +916,68 @@ export async function adminImportArticleText(
 ) {
   const { data } = await adminApi.post<{ segment_count: number; word_count: number; stars: number }>(
     `/api/admin/articles/${ref}/import-text/`,
-    payload,
-    { timeout: 600000 },
+    {
+      auto_translate: false,
+      auto_analyze: false,
+      ...payload,
+    },
+    { timeout: 120000 },
   )
   return data
 }
 
-export async function adminAnalyzeArticle(ref: string | number) {
-  const { data } = await adminApi.post<Record<string, number>>(`/api/admin/articles/${ref}/analyze/`)
+export async function adminAnalyzeArticle(
+  ref: string | number,
+  payload: { max_batches?: number; force_analyze?: boolean } = {},
+) {
+  const { data } = await adminApi.post<{
+    segment_count: number
+    word_count: number
+    stars: number
+    translated: boolean
+    analyzed: boolean
+    voca_size: number
+    highlight_count: number
+    annotate_failed: number
+    done: boolean
+    phase: string
+    remaining: number
+    translated_count: number
+  }>(
+    `/api/admin/articles/${ref}/analyze/`,
+    { max_batches: 3, force_analyze: true, ...payload },
+    { timeout: 300000 },
+  )
+  return data
+}
+
+export async function adminEnrichArticle(
+  ref: string | number,
+  payload: {
+    translate?: boolean
+    analyze?: boolean
+    max_batches?: number
+    force_analyze?: boolean
+  } = {},
+) {
+  const { data } = await adminApi.post<{
+    segment_count: number
+    word_count: number
+    stars: number
+    translated: boolean
+    analyzed: boolean
+    voca_size: number
+    highlight_count: number
+    annotate_failed: number
+    done: boolean
+    phase: string
+    remaining: number
+    translated_count: number
+  }>(
+    `/api/admin/articles/${ref}/enrich/`,
+    { translate: true, analyze: true, max_batches: 3, force_analyze: false, ...payload },
+    { timeout: 300000 },
+  )
   return data
 }
 
@@ -781,15 +988,65 @@ export async function adminPublishArticle(ref: string | number) {
   return data
 }
 
-export async function adminGenerateArticleTts(ref: string | number) {
+export async function adminGenerateArticleTts(
+  ref: string | number,
+  options: {
+    voice?: string
+    max_segments?: number
+    skip_existing?: boolean
+    force?: boolean
+  } = {},
+) {
   const { data } = await adminApi.post<{
     generated: number
     failed: number
     total: number
     tts_status: string
     error_sample?: string
-  }>(`/api/admin/articles/${ref}/generate-tts/`, undefined, {
-    timeout: 900000,
-  })
+    voice?: string
+    done: boolean
+    remaining: number
+    skipped: number
+    processed: number
+  }>(
+    `/api/admin/articles/${ref}/generate-tts/`,
+    {
+      voice: options.voice,
+      max_segments: options.max_segments ?? 8,
+      skip_existing: options.skip_existing ?? true,
+      force: Boolean(options.force),
+    },
+    { timeout: 300000 },
+  )
+  return data
+}
+
+export interface AdminFeedback {
+  id: number
+  user_id: number
+  user_email: string
+  user_nickname: string
+  title: string
+  body: string
+  image_urls: string[]
+  status: string
+  admin_note: string
+  created_at: string
+  updated_at: string
+}
+
+export async function adminListFeedback(params: { page?: number; page_size?: number; status?: string } = {}) {
+  const { data } = await adminApi.get<{ count: number; results: AdminFeedback[] }>(
+    '/api/admin/feedback/',
+    { params },
+  )
+  return data
+}
+
+export async function adminUpdateFeedback(
+  id: number,
+  payload: { status?: string; admin_note?: string },
+) {
+  const { data } = await adminApi.patch<AdminFeedback>(`/api/admin/feedback/${id}/`, payload)
   return data
 }

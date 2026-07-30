@@ -12,7 +12,7 @@ from sqlalchemy import inspect, text
 from .database import DATABASE_URL, Base, SessionLocal, engine, is_postgresql
 from .models import ActivationCode
 from .schemas import AuthTokensOut
-from .routers import auth, demo, entries, episode_submit, episodes, learning, notifications, presence, articles
+from .routers import auth, demo, entries, episode_submit, episodes, feedback, learning, notifications, presence, articles
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import auth as admin_auth
@@ -22,9 +22,11 @@ from .routers.admin import dashboard as admin_dashboard
 from .routers.admin import demo_codes as admin_demo_codes
 from .routers.admin import episode_import as admin_episode_import
 from .routers.admin import episodes as admin_episodes
+from .routers.admin import feedback as admin_feedback
 from .routers.admin import notifications as admin_notifications
 from .routers.admin import presence as admin_presence
 from .routers.admin import tags as admin_tags
+from .routers.admin import series as admin_series
 from .routers.admin import teco_import as admin_teco_import
 from .routers.admin import users as admin_users
 from .services.admin_bootstrap import ensure_admin_user
@@ -44,6 +46,7 @@ app.include_router(demo.router)
 app.include_router(episodes.router)
 app.include_router(episode_submit.router)
 app.include_router(notifications.router)
+app.include_router(feedback.router)
 app.include_router(learning.router)
 app.include_router(entries.router)
 app.include_router(articles.router)
@@ -59,7 +62,9 @@ app.include_router(admin_articles.router)
 app.include_router(admin_demo_codes.router)
 app.include_router(admin_authors.router)
 app.include_router(admin_tags.router)
+app.include_router(admin_series.router)
 app.include_router(admin_notifications.router)
+app.include_router(admin_feedback.router)
 app.include_router(admin_learning.router)
 app.include_router(admin_presence.router)
 app.add_api_route(
@@ -81,12 +86,28 @@ async def unhandled_exception(_request: Request, exc: Exception):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    from .redis_client import REDIS_URL, redis_ping
+
+    redis_ok = redis_ping() if REDIS_URL else None
+    return {
+        "status": "ok",
+        "redis": "ok" if redis_ok else ("disabled" if not REDIS_URL else "down"),
+    }
 
 
 @app.on_event("startup")
 def startup():
+    from .redis_client import REDIS_URL, get_redis, redis_url_label
+
     print(f"[vloglish] database → {database_host_label(DATABASE_URL)}")
+    if REDIS_URL:
+        client = get_redis()
+        print(
+            f"[vloglish] redis → {redis_url_label()} "
+            f"({'ok' if client else 'unavailable, falling back to DB'})"
+        )
+    else:
+        print("[vloglish] redis → disabled (set REDIS_URL to enable word-card hot cache)")
     Base.metadata.create_all(bind=engine)
     _migrate_schema()
     db = SessionLocal()
@@ -118,6 +139,18 @@ def _migrate_schema():
             conn.execute(
                 text("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 1")
             )
+    if "refresh_tokens" in insp.get_table_names():
+        rt_cols = {c["name"] for c in insp.get_columns("refresh_tokens")}
+        if "session_key" not in rt_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE refresh_tokens ADD COLUMN session_key VARCHAR(64) NOT NULL DEFAULT ''"
+                    )
+                )
+        if "device_id" in rt_cols:
+            # device_id 已有；确保可用索引便于按设备替换会话（无则跳过）
+            pass
     if "last_seen_at" not in cols:
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE users ADD COLUMN last_seen_at {datetime_type}"))
@@ -139,6 +172,13 @@ def _migrate_schema():
         if "submitted_by_user_id" not in ep_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE episodes ADD COLUMN submitted_by_user_id INTEGER"))
+        if "is_catalog_public" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        f"ALTER TABLE episodes ADD COLUMN is_catalog_public BOOLEAN NOT NULL DEFAULT {bool_default}"
+                    )
+                )
         if "rejection_reason" not in ep_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE episodes ADD COLUMN rejection_reason TEXT"))
@@ -153,11 +193,33 @@ def _migrate_schema():
                         "WHERE status = 'published' AND published_at IS NULL"
                     )
                 )
+        if "series_id" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE episodes ADD COLUMN series_id INTEGER"))
+        if "series_index" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE episodes ADD COLUMN series_index INTEGER"))
+        if "is_pinned" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(f"ALTER TABLE episodes ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT {bool_default}")
+                )
+        if "vocab_summary" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE episodes ADD COLUMN vocab_summary TEXT NOT NULL DEFAULT ''"))
     if "user_notifications" in insp.get_table_names():
         notif_cols = {c["name"] for c in insp.get_columns("user_notifications")}
         if "broadcast_id" not in notif_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE user_notifications ADD COLUMN broadcast_id INTEGER"))
+        if "image_url" not in notif_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE user_notifications ADD COLUMN image_url TEXT NOT NULL DEFAULT ''"))
+    if "admin_broadcasts" in insp.get_table_names():
+        bc_cols = {c["name"] for c in insp.get_columns("admin_broadcasts")}
+        if "image_url" not in bc_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE admin_broadcasts ADD COLUMN image_url TEXT NOT NULL DEFAULT ''"))
     if "user_word_lookups" in insp.get_table_names():
         lookup_cols = {c["name"] for c in insp.get_columns("user_word_lookups")}
         if "article_id" not in lookup_cols:
@@ -185,6 +247,11 @@ def _migrate_schema():
             with engine.begin() as conn:
                 conn.execute(
                     text("ALTER TABLE articles ADD COLUMN tts_status VARCHAR(16) NOT NULL DEFAULT 'none'")
+                )
+        if "vocab_summary" not in art_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE articles ADD COLUMN vocab_summary TEXT NOT NULL DEFAULT ''")
                 )
     if "article_segments" in insp.get_table_names():
         seg_cols = {c["name"] for c in insp.get_columns("article_segments")}

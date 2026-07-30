@@ -1,6 +1,15 @@
 import api from './client'
 import { fetchWordLookup, type WordLookupMeta } from '@/composables/useWordLookupCache'
-import type { EntryDetail, EpisodeDetail, EpisodeSummary, Tag } from '@/types'
+import type {
+  AuthorCatalogItem,
+  EntryDetail,
+  EpisodeDetail,
+  EpisodeSummary,
+  SeriesDetail,
+  SeriesSummary,
+  Tag,
+} from '@/types'
+
 
 export interface EpisodeListParams {
   page?: number
@@ -12,6 +21,9 @@ export interface EpisodeListParams {
   gender?: string
   tag?: number
   tags?: string
+  series_id?: number
+  series_slug?: string
+  author_id?: number
   date?: string
   status?: 'all' | 'learned' | 'unlearned' | 'favorite'
   ordering?: string
@@ -33,14 +45,87 @@ export async function getEpisodeTags() {
   return data
 }
 
+/** 访问人数最多的主题标签（默认前 25） */
+export async function getPopularEpisodeTags(limit = 25) {
+  const { data } = await api.get<Tag[]>('/api/episode-tags/', {
+    params: { sort: 'popular', limit },
+  })
+  return data
+}
+
 export async function getAuthorAccents() {
   const { data } = await api.get<{ accent: string }[]>('/api/author-accents/')
   return data.map((a) => a.accent)
 }
 
+export interface AuthorCatalogParams {
+  accents?: string
+  gender?: string
+  stars?: number
+  tags?: string
+  date?: string
+  status?: 'all' | 'learned' | 'unlearned' | 'favorite'
+  search?: string
+}
+
+export async function getAuthorsCatalog(params: AuthorCatalogParams = {}) {
+  const { data } = await api.get<{ count: number; results: AuthorCatalogItem[] }>('/api/authors/', {
+    params,
+  })
+  return data
+}
+
+export async function getAuthorDetail(authorId: number) {
+  const { data } = await api.get<AuthorCatalogItem>(`/api/authors/${authorId}/`)
+  return data
+}
+
 export async function getEpisodeDetail(videoId: string) {
   const { data } = await api.get<{ episode: EpisodeDetail; total_episodes: number }>(
     `/api/episode/${videoId}/detail/`,
+  )
+  return data
+}
+
+export interface EpisodeWordCardDto {
+  word: string
+  type: 1 | 2
+  context: string
+  highlight: string | null
+  subtitle_id?: number | null
+  type_label: string
+  exam_tags: string[]
+  ipa: string
+  meaning: string
+  entry: EntryDetail
+}
+
+export interface EpisodeWordCardsResponse {
+  video_id: string
+  from_cache: boolean
+  count: number
+  cards: EpisodeWordCardDto[]
+}
+
+/** 整集词卡（服务端共享缓存，首次生成后其他用户直接读缓存） */
+export async function getEpisodeWordCards(videoId: string) {
+  const { data } = await api.get<EpisodeWordCardsResponse>(`/api/episode/${videoId}/word-cards/`)
+  return data
+}
+
+export async function getSeriesList() {
+  const { data } = await api.get<{ count: number; results: SeriesSummary[] }>('/api/series/')
+  return data
+}
+
+export async function getSeriesDetail(slug: string) {
+  const { data } = await api.get<SeriesDetail>(`/api/series/${slug}/`)
+  return data
+}
+
+export async function getEnglishNavCounts() {
+  const { data } = await api.get<{ videos: number; series: number; articles: number }>(
+    '/api/english/nav-counts/',
   )
   return data
 }
@@ -76,58 +161,10 @@ export async function lookupWord(
   return entry
 }
 
-export interface FetchMediaResult {
-  title: string
-  summary: string
-  author_name: string
-  original_video_url: string
-  cover: string
-  thumbnail_url: string
-  video_url: string
-  audio_url: string
-  subtitles: {
-    index: number
-    start: number
-    end: number
-    english: string
-    chinese: string
-    ipa: string
-    english_html: string
-  }[]
-  subtitle_count: number
-  clip_length: number
-  had_chinese: boolean
-  translated_count: number
-  ipa_count: number
-  stars: number
-  voca_size: number
-  highlight_count: number
-  source_id: string
-  warnings: string[]
-}
-
-export async function fetchSubmitMediaFromUrl(payload: { url: string }) {
-  const { data } = await api.post<FetchMediaResult>(
-    '/api/episodes/submit/fetch-media/',
-    { url: payload.url, enrich_subtitles: true },
-    { timeout: 900000 },
-  )
-  return data
-}
-
 export interface SubmitEpisodePayload {
-  accent: string
-  title: string
-  summary: string
-  author_name: string
-  stars: number
-  voca_size: number
   original_video_url: string
-  cover: string
-  thumbnail_url: string
-  video_url: string
-  audio_url: string
-  subtitles: FetchMediaResult['subtitles']
+  accent?: string
+  note?: string
 }
 
 export interface SubmitEpisodeResult {
@@ -137,8 +174,27 @@ export interface SubmitEpisodeResult {
   message: string
 }
 
+export interface UserSubmissionItem {
+  video_id: string
+  short_title: string
+  original_video_url: string
+  status: string
+  rejection_reason: string
+  created_at: string
+  has_media: boolean
+  accent: string
+  cover: string
+}
+
 export async function submitUserEpisode(payload: SubmitEpisodePayload) {
   const { data } = await api.post<SubmitEpisodeResult>('/api/episodes/submit/', payload)
+  return data
+}
+
+export async function listMySubmissions() {
+  const { data } = await api.get<{ count: number; results: UserSubmissionItem[] }>(
+    '/api/episodes/submit/',
+  )
   return data
 }
 

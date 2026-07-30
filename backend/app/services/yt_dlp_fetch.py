@@ -200,12 +200,38 @@ def _yt_dlp_cli_extras() -> list[str]:
 
 def _format_ytdlp_error(detail: str, url: str) -> str:
     lower = detail.lower()
+    platform = "YouTube / TikTok"
+    if "tiktok.com" in url.lower():
+        platform = "TikTok"
+    elif "youtube.com" in url.lower() or "youtu.be" in url.lower():
+        platform = "YouTube"
+
+    if (
+        "eof occurred in violation of protocol" in lower
+        or "ssleoferror" in lower
+        or "unexpected_eof_while_reading" in lower
+        or "ssl: unexpected_eof" in lower
+        or "connection aborted" in lower
+        or "connectionreseterror" in lower
+        or "connection reset" in lower
+        or "10054" in detail
+        or "forcibly closed" in lower
+    ):
+        proxy = os.getenv("YT_DLP_PROXY", "").strip()
+        proxy_hint = (
+            f"当前已配置 YT_DLP_PROXY={proxy}，请确认：① 代理软件已开启；② 端口一致；"
+            f"③ 系统代理/TUN 不要和 yt-dlp 双重劫持（可先关 Clash 系统代理，只留 YT_DLP_PROXY）；④ 换可用节点后重试。"
+            if proxy
+            else "当前未配置 YT_DLP_PROXY。本地请在 backend/.env 增加例如：YT_DLP_PROXY=http://127.0.0.1:7890（端口以 Clash/V2Ray 的 HTTP 代理为准），保存后重启后端再试。"
+        )
+        return (
+            f"连接 {platform} 被中断（Connection reset / 10054，常见于国内直连 YouTube 失败或代理未生效）。\n"
+            f"{proxy_hint}\n"
+            "也可执行 yt-dlp -U 更新，或在本地成功下载后再上传七牛。\n\n"
+            f"原始错误：{detail[-800:]}"
+        )
+
     if "network is unreachable" in lower or "failed to establish" in lower or "timed out" in lower:
-        platform = "YouTube / TikTok"
-        if "tiktok.com" in url.lower():
-            platform = "TikTok"
-        elif "youtube.com" in url.lower() or "youtu.be" in url.lower():
-            platform = "YouTube"
         return (
             f"无法直连 {platform}（国内网络或 ECS 常见）。"
             "本地开发请在 backend/.env 配置 YT_DLP_PROXY；生产环境请在 .env.prod 配置可访问的代理，"
@@ -215,7 +241,7 @@ def _format_ytdlp_error(detail: str, url: str) -> str:
     return detail[-2000:] if detail else "yt-dlp 执行失败"
 
 
-def _run_yt_dlp(tools: YtDlpTools, url: str, work_dir: Path) -> None:
+def _run_yt_dlp(tools: YtDlpTools, url: str, work_dir: Path, *, write_subtitles: bool = True) -> None:
     out_template = str(work_dir / "media.%(ext)s")
     cmd = [
         str(tools.yt_dlp),
@@ -231,14 +257,19 @@ def _run_yt_dlp(tools: YtDlpTools, url: str, work_dir: Path) -> None:
         "--write-thumbnail",
         "--convert-thumbnails",
         "webp",
-        "--write-subs",
-        "--write-auto-subs",
-        "--sub-langs",
-        "en.*,en",
-        "--sub-format",
-        "vtt",
         "--write-info-json",
     ]
+    if write_subtitles:
+        cmd.extend(
+            [
+                "--write-subs",
+                "--write-auto-subs",
+                "--sub-langs",
+                "en.*,en",
+                "--sub-format",
+                "vtt",
+            ]
+        )
     if tools.cookies:
         cmd.extend(["--cookies", str(tools.cookies)])
     cmd.extend(_yt_dlp_cli_extras())
@@ -259,12 +290,16 @@ def _run_yt_dlp(tools: YtDlpTools, url: str, work_dir: Path) -> None:
 
 def _load_info_json(work_dir: Path) -> dict:
     info_path = work_dir / "media.info.json"
-    if info_path.is_file():
-        return json.loads(info_path.read_text(encoding="utf-8"))
-    return {}
+    if not info_path.is_file():
+        return {}
+    try:
+        data = json.loads(info_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"yt-dlp 元数据 JSON 解析失败：{exc}") from exc
+    return data if isinstance(data, dict) else {}
 
 
-def download_source_media(url: str) -> FetchedMedia:
+def download_source_media(url: str, *, write_subtitles: bool = True) -> FetchedMedia:
     url = url.strip()
     if not is_supported_source_url(url):
         raise RuntimeError("仅支持 YouTube 或 TikTok 链接")
@@ -272,7 +307,7 @@ def download_source_media(url: str) -> FetchedMedia:
     tools = YtDlpTools.from_env()
     work_dir = Path(tempfile.mkdtemp(prefix="vloglish-ytdlp-", dir=DATA_DIR))
     try:
-        _run_yt_dlp(tools, url, work_dir)
+        _run_yt_dlp(tools, url, work_dir, write_subtitles=write_subtitles)
     except Exception:
         shutil.rmtree(work_dir, ignore_errors=True)
         raise
@@ -286,7 +321,7 @@ def download_source_media(url: str) -> FetchedMedia:
 
     audio_path = _find_media_file(work_dir, "media", (".mp3", ".m4a", ".opus", ".wav"))
     thumbnail_path = _find_media_file(work_dir, "media", (".webp", ".jpg", ".jpeg", ".png"))
-    vtt_path = _pick_english_vtt(work_dir)
+    vtt_path = _pick_english_vtt(work_dir) if write_subtitles else None
 
     title = meta["title"]
     duration = float(info.get("duration") or 0)
@@ -365,38 +400,72 @@ def upload_fetched_media(
     display_title = fetched.title
     display_summary = fetched.summary
 
+    # 管理端「仅抓媒体」：不解析/翻译/高亮字幕，留给后续手动导入 SRT
+    if not enrich_subtitles:
+        warnings.append("已跳过字幕抓取与分析，请稍后手动导入 SRT/VTT")
+        if display_title or display_summary:
+            try:
+                localized = localize_video_metadata_with_deepseek(display_title, display_summary)
+                if localized.get("title"):
+                    display_title = localized["title"]
+                if localized.get("summary") is not None:
+                    display_summary = localized["summary"]
+            except Exception as exc:
+                warnings.append(f"标题/摘要翻译失败：{exc}")
+        clip_length = float(fetched.duration or 0)
+        if len(display_summary) > 2000:
+            display_summary = display_summary[:1997].rstrip() + "..."
+        return {
+            "title": display_title,
+            "summary": display_summary,
+            "author_name": fetched.author_name,
+            "original_video_url": fetched.webpage_url,
+            "cover": uploads.get("cover", ""),
+            "thumbnail_url": uploads.get("thumbnail_url", ""),
+            "video_url": uploads.get("video_url", ""),
+            "audio_url": uploads.get("audio_url", ""),
+            "subtitles": [],
+            "subtitle_count": 0,
+            "clip_length": clip_length,
+            "had_chinese": False,
+            "translated_count": 0,
+            "ipa_count": 0,
+            "stars": 3,
+            "voca_size": 0,
+            "highlight_count": 0,
+            "source_id": fetched.source_id,
+            "warnings": warnings,
+        }
+
     if fetched.vtt_path and fetched.vtt_path.is_file():
         vtt_text = fetched.vtt_path.read_text(encoding="utf-8", errors="replace")
         subtitles = vtt_to_subtitle_dicts(vtt_text)
         had_chinese = subtitles_have_chinese(subtitles)
 
-        if enrich_subtitles and subtitles:
+        if subtitles:
             clip_length_est = float(max((s["end"] for s in subtitles), default=fetched.duration or 0))
 
-            def _run_enrich() -> tuple[int, int] | RuntimeError:
+            def _run_enrich() -> tuple[int, int, dict, int, bool, int] | RuntimeError:
                 try:
                     return enrich_subtitles_with_deepseek(
                         subtitles,
                         translate_chinese=not had_chinese,
+                        episode_title=display_title or "",
+                        episode_summary=display_summary or "",
                     )
-                except RuntimeError as exc:
-                    return exc
-
-            def _run_analyze() -> dict[str, int] | RuntimeError:
-                try:
-                    return analyze_subtitles_with_deepseek(subtitles, clip_length=clip_length_est)
-                except RuntimeError as exc:
-                    return exc
+                except Exception as exc:
+                    return RuntimeError(str(exc))
 
             def _run_localize() -> dict[str, str] | RuntimeError:
                 try:
                     return localize_video_metadata_with_deepseek(display_title, display_summary)
-                except RuntimeError as exc:
-                    return exc
+                except Exception as exc:
+                    return RuntimeError(str(exc))
 
-            with ThreadPoolExecutor(max_workers=3) as pool:
+            # 翻译与标题本地化并行；高亮分析等 brief 就绪后串行，便于标出专业词汇
+            translation_brief: dict = {}
+            with ThreadPoolExecutor(max_workers=2) as pool:
                 fut_enrich = pool.submit(_run_enrich)
-                fut_analyze = pool.submit(_run_analyze)
                 fut_localize = (
                     pool.submit(_run_localize)
                     if display_title or display_summary
@@ -407,15 +476,7 @@ def upload_fetched_media(
                 if isinstance(enrich_result, RuntimeError):
                     warnings.append(f"字幕翻译/音标生成失败：{enrich_result}")
                 else:
-                    translated_count, ipa_count = enrich_result
-
-                analyze_result = fut_analyze.result()
-                if isinstance(analyze_result, RuntimeError):
-                    warnings.append(f"字幕难度/词汇分析失败：{analyze_result}")
-                else:
-                    stars = analyze_result["stars"]
-                    voca_size = analyze_result["voca_size"]
-                    highlight_count = analyze_result["highlight_count"]
+                    translated_count, ipa_count, translation_brief, _rem, _done, _batches = enrich_result
 
                 if fut_localize:
                     localize_result = fut_localize.result()
@@ -426,6 +487,18 @@ def upload_fetched_media(
                             display_title = localize_result["title"]
                         if localize_result.get("summary") is not None:
                             display_summary = localize_result["summary"]
+
+            try:
+                analyze_result = analyze_subtitles_with_deepseek(
+                    subtitles,
+                    clip_length=clip_length_est,
+                    translation_brief=translation_brief or None,
+                )
+                stars = analyze_result["stars"]
+                voca_size = analyze_result["voca_size"]
+                highlight_count = analyze_result["highlight_count"]
+            except Exception as exc:
+                warnings.append(f"字幕难度/词汇分析失败：{exc}")
     else:
         warnings.append("未找到英文字幕 VTT，请稍后手动导入")
 
@@ -463,7 +536,7 @@ def fetch_and_upload_from_url(
     slug: str = "",
     enrich_subtitles: bool = True,
 ) -> dict:
-    fetched = download_source_media(url)
+    fetched = download_source_media(url, write_subtitles=enrich_subtitles)
     try:
         folder = slug.strip() or fetched.source_id or sanitize_slug(fetched.title)
         folder = sanitize_slug(folder)

@@ -1,10 +1,12 @@
+from datetime import datetime
+
 from fastapi import Depends, Header, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from .auth_utils import REMOTE_LOGIN_DETAIL, decode_access_claims
 from .database import get_db
-from .models import User
+from .models import RefreshToken, User
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -48,6 +50,18 @@ def get_current_user_optional(
     if not user:
         return None
     if user.session_version != claims["session_version"]:
+        raise HTTPException(status_code=401, detail=REMOTE_LOGIN_DETAIL)
+
+    session = (
+        db.query(RefreshToken)
+        .filter(
+            RefreshToken.user_id == user.id,
+            RefreshToken.session_key == claims["session_key"],
+            RefreshToken.expires_at > datetime.utcnow(),
+        )
+        .first()
+    )
+    if not session:
         raise HTTPException(status_code=401, detail=REMOTE_LOGIN_DETAIL)
     return user
 

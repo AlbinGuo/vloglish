@@ -46,9 +46,19 @@ const router = createRouter({
           component: () => import('@/pages/admin/AdminUsersPage.vue'),
         },
         {
+          path: 'geo',
+          name: 'AdminGeo',
+          component: () => import('@/pages/admin/AdminGeoPage.vue'),
+        },
+        {
           path: 'notifications',
           name: 'AdminNotifications',
           component: () => import('@/pages/admin/AdminNotificationsPage.vue'),
+        },
+        {
+          path: 'feedback',
+          name: 'AdminFeedback',
+          component: () => import('@/pages/admin/AdminFeedbackPage.vue'),
         },
         {
           path: 'learning',
@@ -69,6 +79,11 @@ const router = createRouter({
           path: 'episodes/:id',
           name: 'AdminEpisodeEdit',
           component: () => import('@/pages/admin/AdminEpisodeEditPage.vue'),
+        },
+        {
+          path: 'series',
+          name: 'AdminSeries',
+          component: () => import('@/pages/admin/AdminSeriesPage.vue'),
         },
         {
           path: 'reading',
@@ -142,6 +157,21 @@ const router = createRouter({
           component: () => import('@/pages/HomePage.vue'),
         },
         {
+          path: 'english/series',
+          name: 'SeriesList',
+          component: () => import('@/pages/SeriesListPage.vue'),
+        },
+        {
+          path: 'english/series/:slug',
+          name: 'SeriesDetail',
+          component: () => import('@/pages/SeriesDetailPage.vue'),
+        },
+        {
+          path: 'english/authors/:authorId',
+          name: 'AuthorDetail',
+          component: () => import('@/pages/AuthorDetailPage.vue'),
+        },
+        {
           path: 'english/reading',
           name: 'NewsReadingList',
           component: () => import('@/pages/NewsReadingListPage.vue'),
@@ -174,6 +204,12 @@ const router = createRouter({
           path: 'english/submit',
           name: 'SubmitEpisode',
           component: () => import('@/pages/SubmitEpisodePage.vue'),
+          meta: { requiresAuth: true, requiresMember: true },
+        },
+        {
+          path: 'english/my-submissions',
+          name: 'MySubmissions',
+          component: () => import('@/pages/MySubmissionsPage.vue'),
           meta: { requiresAuth: true, requiresMember: true },
         },
         {

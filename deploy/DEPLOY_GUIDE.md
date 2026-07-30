@@ -451,6 +451,8 @@ docker compose --env-file .env.prod up -d
 | `DATABASE_URL` 报错 | 使用 **URL 编码**密码，不要用明文 `#$!` |
 | docker.io 超时 | `sudo DOCKER_MIRROR_URL=https://docker.1ms.run bash deploy/configure-docker-mirror.sh` |
 | postgres 拉取失败 | `.env.prod` 设 `POSTGRES_IMAGE=docker.1ms.run/library/postgres:16-alpine` |
+| redis 拉取失败 | `.env.prod` 设 `REDIS_IMAGE=docker.1ms.run/library/redis:7-alpine`，并确认 `REDIS_URL=redis://redis:6379/0` |
+| 词卡二次仍慢 / health 显示 redis:down | 检查 redis 容器 `docker compose --env-file .env.prod ps redis`；backend 日志是否有 Redis connected |
 | `npm ci` / `pip install` 超时 | `git pull` 拉最新 Dockerfile（已配 npmmirror / 阿里云 pip）后重跑 `deploy.sh` |
 | `update.sh` 镜像 not found | 首次用 `deploy.sh`；或先跑通 Gitee 流水线 |
 | backend unhealthy / 依赖启动失败 | `docker compose --env-file .env.prod logs backend`；确认 `DATABASE_URL` 主机为 `@db:`；`git pull` 后重建 backend |

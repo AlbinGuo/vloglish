@@ -2,19 +2,25 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import DifficultyStarsInput from '@/components/admin/DifficultyStarsInput.vue'
+import SubtitleHighlightEditor from '@/components/admin/SubtitleHighlightEditor.vue'
 import {
   adminCreateEpisode,
+  adminEnrichSubtitles,
   adminFetchMediaFromUrl,
   adminGetEpisode,
   adminGetNextEpisodeIndex,
   adminImportVtt,
+  adminListSeries,
   adminListTags,
   adminUpdateEpisode,
   type AdminEpisodePayload,
+  type AdminSeries,
   type AdminSubtitle,
 } from '@/api/admin'
 import { accentOptions } from '@/constants/accentOptions'
 import { nationalityOptions } from '@/constants/nationalityOptions'
+import { countHighlights, parseEnglishHtmlTokens } from '@/utils/subtitleHighlightEdit'
+import { countVocabSummaryItems, parseVocabSummary } from '@/utils/vocabSummary'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,13 +31,20 @@ const episodeId = computed(() => (isNew.value ? null : Number(route.params.id)))
 const loading = ref(!isNew.value)
 const saving = ref(false)
 const importing = ref(false)
+const enriching = ref(false)
 const fetching = ref(false)
 const error = ref('')
 const success = ref('')
 const tagSuggestions = ref<string[]>([])
 const subtitleImportText = ref('')
+/** 对当前字幕 AI 增强：keep=不翻译；translate=翻译中文 */
+const subtitleEnrichMode = ref<'keep' | 'translate'>('keep')
 const sourceUrl = ref('')
 const mediaSlug = ref('')
+const isUserSubmitted = ref(false)
+/** 用户投稿：勾选=全站可见；不勾选=仅投稿者可见 */
+const isCatalogPublic = ref(false)
+const submitterLabel = ref('')
 
 const form = ref<AdminEpisodePayload>({
   video_id: '',
@@ -47,14 +60,32 @@ const form = ref<AdminEpisodePayload>({
   thumbnail_url: '',
   original_video_url: '',
   is_demo: false,
+  is_pinned: false,
   status: 'draft',
   rejection_reason: '',
+  series_id: null,
+  series_index: null,
   author: { name: '', gender: 'm', nationality: '', accent: '美国' },
   tag_names: [],
   subtitles: [],
+  vocab_summary: '',
 })
 
 const tagsInput = ref('')
+const seriesOptions = ref<AdminSeries[]>([])
+/** 展开高亮编辑的字幕行下标 */
+const highlightEditIndex = ref<number | null>(null)
+
+const vocabSummaryPreview = computed(() => parseVocabSummary(form.value.vocab_summary || ''))
+const vocabSummaryCount = computed(() => countVocabSummaryItems(vocabSummaryPreview.value))
+
+function subtitleHighlightCount(sub: AdminSubtitle): number {
+  return countHighlights(parseEnglishHtmlTokens(sub.english_html || '', sub.english || ''))
+}
+
+function toggleHighlightEdit(index: number) {
+  highlightEditIndex.value = highlightEditIndex.value === index ? null : index
+}
 
 function syncTagsFromInput() {
   form.value.tag_names = tagsInput.value
@@ -89,6 +120,9 @@ function addSubtitle() {
 function removeSubtitle(index: number) {
   form.value.subtitles.splice(index, 1)
   reindexSubtitles()
+  if (highlightEditIndex.value == null) return
+  if (highlightEditIndex.value === index) highlightEditIndex.value = null
+  else if (highlightEditIndex.value > index) highlightEditIndex.value -= 1
 }
 
 async function loadEpisode() {
@@ -97,6 +131,11 @@ async function loadEpisode() {
   error.value = ''
   try {
     const data = await adminGetEpisode(episodeId.value)
+    isUserSubmitted.value = Boolean(data.is_user_submitted)
+    isCatalogPublic.value = Boolean(data.is_catalog_public)
+    const nick = (data.submitted_by_nickname || '').trim()
+    const email = (data.submitted_by_email || '').trim()
+    submitterLabel.value = nick && email ? `${nick}（${email}）` : nick || email || (data.submitted_by_user_id ? `#${data.submitted_by_user_id}` : '')
     form.value = {
       video_id: data.video_id,
       index: data.index,
@@ -111,11 +150,18 @@ async function loadEpisode() {
       thumbnail_url: data.thumbnail_url,
       original_video_url: data.original_video_url,
       is_demo: data.is_demo,
+      is_pinned: Boolean(data.is_pinned),
       status: data.status,
       rejection_reason: data.rejection_reason || '',
+      series_id: data.series_id ?? null,
+      series_index: data.series_index ?? null,
       author: { ...data.author },
       tag_names: [...data.tag_names],
       subtitles: data.subtitles.map((s) => ({ ...s })),
+      vocab_summary: data.vocab_summary || '',
+    }
+    if (data.original_video_url) {
+      sourceUrl.value = data.original_video_url
     }
     syncTagsToInput()
   } catch (e: unknown) {
@@ -135,6 +181,15 @@ async function loadTags() {
   }
 }
 
+async function loadSeriesOptions() {
+  try {
+    const data = await adminListSeries()
+    seriesOptions.value = data.results
+  } catch {
+    seriesOptions.value = []
+  }
+}
+
 async function save() {
   syncTagsFromInput()
   if (!form.value.short_title.trim()) {
@@ -149,20 +204,58 @@ async function save() {
     error.value = '驳回时需填写原因'
     return
   }
+  if (
+    isUserSubmitted.value &&
+    form.value.status === 'published' &&
+    (!form.value.video_url?.trim() || !form.value.subtitles.length)
+  ) {
+    error.value = '用户投稿发布前须手工上传视频直链与字幕'
+    return
+  }
+  if (isCatalogPublic.value && isUserSubmitted.value && form.value.status !== 'published') {
+    error.value = '请先将状态设为「已发布」再设为全站可见'
+    return
+  }
+  if (form.value.series_id != null && !form.value.series_index) {
+    error.value = '加入合集时请填写合集内集序号'
+    return
+  }
 
   saving.value = true
   error.value = ''
   success.value = ''
   try {
-    const payload = { ...form.value, subtitles: form.value.subtitles.map((s) => ({ ...s })) }
+    const payload: AdminEpisodePayload = {
+      ...form.value,
+      subtitles: form.value.subtitles.map((s) => ({ ...s })),
+      clear_series: form.value.series_id == null,
+      series_id: form.value.series_id,
+      series_index: form.value.series_id != null ? form.value.series_index : null,
+    }
     if (isNew.value) {
       if (!payload.video_id?.trim()) delete payload.video_id
       await adminCreateEpisode(payload)
       success.value = '创建成功'
       await router.replace('/gnadmin/episodes')
     } else if (episodeId.value) {
+      if (isUserSubmitted.value) {
+        payload.is_catalog_public = isCatalogPublic.value
+      }
       await adminUpdateEpisode(episodeId.value, payload)
-      success.value = '已保存'
+      const parsed = parseVocabSummary(payload.vocab_summary || '')
+      const n = countVocabSummaryItems(parsed)
+      if (isUserSubmitted.value) {
+        success.value = isCatalogPublic.value
+          ? '已保存（全站可见）'
+          : '已保存（仅投稿者可见）'
+      } else if ((payload.vocab_summary || '').trim() && n === 0) {
+        success.value =
+          '已保存，但汇总文本未识别到词条：请用 Tab 分隔英文与中文，或「英文 + 空格 + 中文」；分类名请单独成行'
+      } else if (n > 0) {
+        success.value = `已保存（汇总 ${n} 条 / ${parsed.length} 组）`
+      } else {
+        success.value = '已保存'
+      }
       await loadEpisode()
     }
   } catch (e: unknown) {
@@ -171,6 +264,74 @@ async function save() {
   } finally {
     saving.value = false
   }
+}
+
+function formatImportError(e: unknown): string {
+  const err = e as {
+    code?: string
+    message?: string
+    response?: { status?: number; data?: { detail?: string | { msg?: string }[]; message?: string } }
+  }
+  const detail = err.response?.data?.detail
+  const altMessage = err.response?.data?.message
+  let msg =
+    typeof detail === 'string'
+      ? detail
+      : Array.isArray(detail)
+        ? detail.map((item) => item.msg).filter(Boolean).join('；')
+        : typeof altMessage === 'string'
+          ? altMessage
+          : ''
+  if (msg) return msg
+  if (err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '')) {
+    return '本轮处理超时。已完成部分仍在表单中，可再点「AI 增强」继续，或先保存'
+  }
+  if (err.response?.status === 404) return '接口未找到，请重启后端服务后再试'
+  if (err.response?.status === 502 || err.response?.status === 504) {
+    return '网关超时或后端中断，请确认服务仍在运行后重试'
+  }
+  if (!err.response) return '无法连接后端或请求被中断，请确认服务已启动后重试'
+  return `请求失败（HTTP ${err.response.status}）`
+}
+
+function applyImportResult(
+  data: {
+    subtitles: AdminSubtitle[]
+    stars: number
+    voca_size: number
+    subtitle_count: number
+    had_chinese: boolean
+    translated_count: number
+    ipa_count: number
+    highlight_count: number
+    warnings?: string[]
+  },
+  opts: { kind: 'import' | 'enrich'; translated: boolean },
+) {
+  const { kind, translated } = opts
+  form.value.subtitles = data.subtitles.map((s) => ({ ...s }))
+  if (kind === 'enrich') {
+    if (data.stars >= 1 && data.stars <= 5) form.value.stars = data.stars
+    if (data.voca_size > 0) form.value.voca_size = data.voca_size
+  }
+  const parts =
+    kind === 'import'
+      ? [`已导入 ${data.subtitle_count} 条字幕`, data.had_chinese ? '已保留文件中文' : '未含中文']
+      : [`已 AI 增强 ${data.subtitle_count} 条字幕`]
+  if (kind === 'enrich') {
+    if (translated && data.translated_count > 0) {
+      parts.push(`翻译/改写 ${data.translated_count} 条中文`)
+    } else if (!translated) {
+      parts.push(data.had_chinese ? '已保留现有中文' : '未翻译中文')
+    }
+    if (data.ipa_count > 0) parts.push(`音标 ${data.ipa_count} 条`)
+    if (data.highlight_count > 0) parts.push(`高亮 ${data.highlight_count} 处`)
+    if (data.voca_size > 0) parts.push(`词汇量 ${data.voca_size}`)
+    if (data.stars >= 1) parts.push(`难度 ${data.stars} 星`)
+  }
+  success.value = parts.join('，')
+  const warnList = (data.warnings || []).filter(Boolean)
+  error.value = warnList.length ? warnList.join('；') : ''
 }
 
 async function importSubtitles() {
@@ -182,43 +343,141 @@ async function importSubtitles() {
   error.value = ''
   success.value = ''
   try {
-    const data = await adminImportVtt(subtitleImportText.value)
-    form.value.subtitles = data.subtitles.map((s: AdminSubtitle) => ({ ...s }))
-    const parts = [`已导入 ${data.subtitle_count} 条字幕`]
-    if (data.had_chinese) {
-      parts.push('字幕含中文，未自动翻译')
-    } else if (data.translated_count > 0) {
-      parts.push(`翻译 ${data.translated_count} 条中文`)
-    }
-    if (data.ipa_count > 0) {
-      parts.push(`生成 ${data.ipa_count} 条音标`)
-    }
-    success.value = parts.join('，')
+    const data = await adminImportVtt(subtitleImportText.value, {
+      title: form.value.short_title,
+      summary: form.value.summary,
+      enrichAi: false,
+    })
+    applyImportResult(data, { kind: 'import', translated: false })
     subtitleImportText.value = ''
   } catch (e: unknown) {
-    const err = e as { response?: { status?: number; data?: { detail?: string | { msg?: string }[] } } }
-    const detail = err.response?.data?.detail
-    const msg =
-      typeof detail === 'string'
-        ? detail
-        : Array.isArray(detail)
-          ? detail.map((item) => item.msg).filter(Boolean).join('；')
-          : err.response?.status === 404
-            ? '字幕导入接口未找到，请重启后端服务后再试'
-            : ''
-    error.value = msg || '字幕解析失败'
+    error.value = formatImportError(e)
   } finally {
     importing.value = false
   }
 }
 
+async function enrichCurrentSubtitles() {
+  if (!form.value.subtitles.length) {
+    error.value = '请先导入或添加字幕'
+    return
+  }
+  enriching.value = true
+  error.value = ''
+  success.value = ''
+  const translateChinese = subtitleEnrichMode.value === 'translate'
+  let totalTranslated = 0
+  let totalIpa = 0
+  let totalHighlight = 0
+  let rounds = 0
+  try {
+    let data = await adminEnrichSubtitles(
+      form.value.subtitles.map((s) => ({ ...s })),
+      {
+        title: form.value.short_title,
+        summary: form.value.summary,
+        translateChinese,
+        maxBatches: 3,
+      },
+    )
+    form.value.subtitles = data.subtitles.map((s) => ({ ...s }))
+    totalTranslated += data.translated_count || 0
+    totalIpa += data.ipa_count || 0
+    totalHighlight += data.highlight_count || 0
+    rounds += 1
+    success.value = `AI 增强进行中（${data.phase || ''}，剩余约 ${data.remaining ?? '?'}）…`
+
+    while (!data.done && rounds < 200) {
+      data = await adminEnrichSubtitles(
+        form.value.subtitles.map((s) => ({ ...s })),
+        {
+          title: form.value.short_title,
+          summary: form.value.summary,
+          translateChinese,
+          maxBatches: 3,
+        },
+      )
+      form.value.subtitles = data.subtitles.map((s) => ({ ...s }))
+      totalTranslated += data.translated_count || 0
+      totalIpa += data.ipa_count || 0
+      totalHighlight += data.highlight_count || 0
+      rounds += 1
+      success.value = `AI 增强进行中（第 ${rounds} 轮，${data.phase || ''}，剩余约 ${data.remaining ?? '?'}）…`
+    }
+
+    if (!data.done) {
+      error.value = `已跑 ${rounds} 轮仍未完成（剩余约 ${data.remaining}）。请再点「AI 增强」继续；记得保存`
+    } else {
+      applyImportResult(
+        {
+          ...data,
+          translated_count: totalTranslated,
+          ipa_count: totalIpa,
+          highlight_count: totalHighlight,
+        },
+        { kind: 'enrich', translated: translateChinese },
+      )
+      if (success.value) {
+        success.value = `${success.value}（共 ${rounds} 轮）。请记得保存剧集`
+      }
+    }
+  } catch (e: unknown) {
+    error.value = formatImportError(e)
+    if (form.value.subtitles.length) {
+      success.value = '若本轮已有部分结果，可保存后再次点「AI 增强」继续'
+    }
+  } finally {
+    enriching.value = false
+  }
+}
+
+function looksLikeSubtitleText(text: string): boolean {
+  return /-->/.test(text) || /^WEBVTT/i.test(text.trim())
+}
+
 async function readSubtitleFile(file: File): Promise<string> {
   const buffer = await file.arrayBuffer()
   const bytes = new Uint8Array(buffer)
+
+  // UTF-8 BOM
   if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
     return new TextDecoder('utf-8').decode(bytes.slice(3))
   }
-  return new TextDecoder('utf-8').decode(bytes)
+  // UTF-16 LE BOM
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder('utf-16le').decode(bytes.slice(2))
+  }
+  // UTF-16 BE BOM
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder('utf-16be').decode(bytes.slice(2))
+  }
+
+  const utf8 = new TextDecoder('utf-8').decode(bytes)
+  if (looksLikeSubtitleText(utf8) && !utf8.includes('\uFFFD')) {
+    return utf8
+  }
+
+  // 常见中文 Windows 导出：GBK / GB18030
+  try {
+    const gbk = new TextDecoder('gbk').decode(bytes)
+    if (looksLikeSubtitleText(gbk)) return gbk
+  } catch {
+    // browser may not support gbk label
+  }
+  try {
+    const gb18030 = new TextDecoder('gb18030').decode(bytes)
+    if (looksLikeSubtitleText(gb18030)) return gb18030
+  } catch {
+    // ignore
+  }
+
+  // UTF-16 LE without BOM（大量偶数位 NUL）
+  if (bytes.length >= 4 && bytes[1] === 0 && bytes[3] === 0) {
+    const utf16 = new TextDecoder('utf-16le').decode(bytes)
+    if (looksLikeSubtitleText(utf16)) return utf16
+  }
+
+  return utf8
 }
 
 async function onSubtitleFileChange(event: Event) {
@@ -249,7 +508,7 @@ async function fetchFromSourceUrl() {
     const data = await adminFetchMediaFromUrl({
       url,
       slug: mediaSlug.value.trim() || form.value.video_id.trim() || undefined,
-      enrich_subtitles: true,
+      enrich_subtitles: false,
     })
     form.value.short_title = data.title || form.value.short_title
     if (data.summary) {
@@ -263,12 +522,9 @@ async function fetchFromSourceUrl() {
     form.value.thumbnail_url = data.thumbnail_url
     form.value.video_url = data.video_url
     form.value.audio_url = data.audio_url
-    form.value.subtitles = data.subtitles.map((s: AdminSubtitle) => ({ ...s }))
-    if (data.stars >= 1 && data.stars <= 5) {
-      form.value.stars = data.stars
-    }
-    if (data.voca_size > 0) {
-      form.value.voca_size = data.voca_size
+    // 抓取时不带字幕；保留已有字幕，避免空数组覆盖
+    if (data.subtitles.length) {
+      form.value.subtitles = data.subtitles.map((s: AdminSubtitle) => ({ ...s }))
     }
     if (isNew.value) {
       form.value.index = await adminGetNextEpisodeIndex()
@@ -276,15 +532,9 @@ async function fetchFromSourceUrl() {
     const parts = [
       `已抓取「${data.title}」`,
       data.author_name ? `作者 ${data.author_name}` : null,
-      '已翻译标题/摘要',
-      `上传视频/音频/封面`,
-      `${data.subtitle_count} 条字幕`,
+      '已上传视频/音频/封面',
+      '未抓取字幕（请下方手动导入 SRT）',
     ].filter(Boolean) as string[]
-    if (data.translated_count > 0) parts.push(`翻译 ${data.translated_count} 条`)
-    if (data.ipa_count > 0) parts.push(`音标 ${data.ipa_count} 条`)
-    if (data.highlight_count > 0) parts.push(`高亮 ${data.highlight_count} 处`)
-    if (data.voca_size > 0) parts.push(`词汇量 ${data.voca_size}`)
-    if (data.stars >= 1) parts.push(`难度 ${data.stars} 星`)
     if (data.warnings.length) parts.push(data.warnings.join('；'))
     success.value = parts.join('，')
     sourceUrl.value = ''
@@ -297,7 +547,7 @@ async function fetchFromSourceUrl() {
 }
 
 onMounted(async () => {
-  await loadTags()
+  await Promise.all([loadTags(), loadSeriesOptions()])
   await loadEpisode()
 })
 
@@ -345,6 +595,38 @@ watch(
     <div v-if="loading" class="text-neutral-500">加载中...</div>
 
     <template v-else>
+      <section
+        v-if="isUserSubmitted"
+        class="rounded-xl border border-violet-200 bg-violet-50 px-5 py-4 space-y-3 text-sm"
+      >
+        <div class="space-y-2">
+          <p class="font-medium text-violet-900">用户投稿 · 请纯手工上传媒体</p>
+          <p class="text-violet-800">
+            投稿者：{{ submitterLabel || '未知' }}。勾选「全站可见」后所有用户可在目录看到；不勾选则仅投稿者可见。无论是否勾选，都会保留在投稿者的「我的语料库」。
+          </p>
+          <p v-if="form.original_video_url" class="break-all">
+            原链接：
+            <a
+              :href="form.original_video_url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="underline text-violet-900"
+            >
+              {{ form.original_video_url }}
+            </a>
+          </p>
+        </div>
+        <label class="flex items-start gap-2.5 cursor-pointer rounded-lg border border-violet-200 bg-white/70 px-3 py-2.5">
+          <input v-model="isCatalogPublic" type="checkbox" class="mt-0.5 rounded" />
+          <span>
+            <span class="font-medium text-violet-900">全站可见</span>
+            <span class="block text-violet-700 text-xs mt-0.5 leading-relaxed">
+              勾选：所有用户可在公共目录看到。不勾选：仅投稿者可见。设为全站可见前请先将状态设为「已发布」。
+            </span>
+          </span>
+        </label>
+      </section>
+
       <section class="rounded-xl border border-black/5 bg-white p-5 space-y-4">
         <h2 class="font-medium">基本信息</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -395,6 +677,10 @@ watch(
             <input v-model="form.is_demo" type="checkbox" class="rounded" />
             <span>Demo 体验内容</span>
           </label>
+          <label class="block text-sm flex items-end gap-2 pb-2 md:col-span-2">
+            <input v-model="form.is_pinned" type="checkbox" class="rounded" />
+            <span>置顶（用户端视频列表固定靠前，并显示置顶角标）</span>
+          </label>
           <label class="block text-sm md:col-span-2">
             <span class="text-neutral-500">摘要</span>
             <textarea v-model="form.summary" rows="2" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2" />
@@ -402,6 +688,35 @@ watch(
           <label class="block text-sm md:col-span-2">
             <span class="text-neutral-500">备注（内部）</span>
             <textarea v-model="form.remark" rows="2" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2" />
+          </label>
+          <label class="block text-sm">
+            <span class="text-neutral-500">所属合集</span>
+            <select
+              :value="form.series_id ?? ''"
+              class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2"
+              @change="
+                form.series_id = ($event.target as HTMLSelectElement).value
+                  ? Number(($event.target as HTMLSelectElement).value)
+                  : null;
+                if (!form.series_id) form.series_index = null
+              "
+            >
+              <option value="">无（独立单集）</option>
+              <option v-for="s in seriesOptions" :key="s.id" :value="s.id">
+                {{ s.title }}（{{ s.status }}）
+              </option>
+            </select>
+          </label>
+          <label class="block text-sm">
+            <span class="text-neutral-500">合集内集序号</span>
+            <input
+              v-model.number="form.series_index"
+              type="number"
+              min="1"
+              :disabled="!form.series_id"
+              placeholder="如 1、2、3"
+              class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 disabled:bg-neutral-50"
+            />
           </label>
           <label class="block text-sm md:col-span-2">
             <span class="text-neutral-500">标签（逗号分隔）</span>
@@ -480,7 +795,7 @@ watch(
       <section class="rounded-xl border border-black/5 bg-white p-5 space-y-4">
         <h2 class="font-medium">从 YouTube / TikTok 抓取</h2>
         <p class="text-sm text-neutral-600">
-          使用本机 yt-dlp 下载视频、封面、音频、英文字幕，上传七牛后自动回填标题、摘要、作者及字幕分析字段。
+          使用本机 yt-dlp 下载视频、封面、音频并上传七牛，回填标题、摘要、作者。不抓取字幕；字幕请在下方手动导入 SRT/VTT（可选是否 AI 翻译，并生成音标与难词高亮）。
         </p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label class="block text-sm md:col-span-2">
@@ -569,7 +884,7 @@ watch(
 
         <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">
           <p class="text-sm text-neutral-600">
-            从 VTT / SRT 导入（粘贴内容或选择文件）。纯英文将自动翻译中文；所有字幕将自动生成美式 IPA 音标。导入后将替换当前字幕列表。
+            从 VTT / SRT 导入文本（秒级，不调 AI）。导入后可点下方「AI 增强当前字幕」生成翻译/音标/高亮，无需再选文件。
           </p>
           <textarea
             v-model="subtitleImportText"
@@ -585,17 +900,93 @@ watch(
             <button
               type="button"
               class="text-sm px-3 py-1.5 rounded-lg bg-neutral-900 text-white disabled:opacity-50"
-              :disabled="importing"
+              :disabled="importing || enriching"
               @click="importSubtitles"
             >
-              {{ importing ? '解析/生成中...' : '解析并替换字幕' }}
+              {{ importing ? '解析中...' : '解析并替换字幕' }}
             </button>
           </div>
         </div>
 
-        <div class="overflow-auto max-h-[480px] border border-black/5 rounded-lg">
+        <div
+          v-if="form.subtitles.length"
+          class="rounded-lg border border-violet-200 bg-violet-50/60 p-4 space-y-3"
+        >
+          <p class="text-sm font-medium text-violet-900">AI 增强当前字幕</p>
+          <p class="text-xs text-violet-800 leading-relaxed">
+            对上方已加载的 {{ form.subtitles.length }} 条字幕调用 DeepSeek（不必重新上传文件）。条目多时会自动分轮处理，完成后请记得保存。
+          </p>
+          <div class="flex flex-col gap-2 text-sm">
+            <label class="flex items-start gap-2 cursor-pointer">
+              <input v-model="subtitleEnrichMode" type="radio" value="keep" class="mt-1" />
+              <span>
+                <span class="font-medium text-neutral-800">保留现有中文</span>
+                <span class="block text-neutral-500 text-xs mt-0.5">不翻译；生成音标与难词高亮</span>
+              </span>
+            </label>
+            <label class="flex items-start gap-2 cursor-pointer">
+              <input v-model="subtitleEnrichMode" type="radio" value="translate" class="mt-1" />
+              <span>
+                <span class="font-medium text-neutral-800">AI 翻译中文</span>
+                <span class="block text-neutral-500 text-xs mt-0.5">按剧情翻译/改写中文，并生成音标与高亮</span>
+              </span>
+            </label>
+          </div>
+          <button
+            type="button"
+            class="text-sm px-4 py-2 rounded-lg bg-violet-700 text-white hover:bg-violet-800 disabled:opacity-50"
+            :disabled="enriching || importing || !form.subtitles.length"
+            @click="enrichCurrentSubtitles"
+          >
+            {{ enriching ? 'AI 增强中（可能较久）...' : 'AI 增强当前字幕' }}
+          </button>
+        </div>
+
+        <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 class="text-sm font-medium text-neutral-800">词汇与表达汇总</h3>
+            <span class="text-xs text-neutral-400">
+              {{ vocabSummaryCount > 0 ? `已解析 ${vocabSummaryCount} 条 / ${vocabSummaryPreview.length} 组` : '用户端「汇总」Tab 展示' }}
+            </span>
+          </div>
+          <p class="text-xs text-neutral-500 leading-relaxed">
+            分类名单独成行；每条词条可写「剧中含义（或文中含义）/ 例句 / 释义」，也可选填「难度：四级」。示例：
+            <code class="block mt-1.5 p-2 rounded bg-white border border-black/5 font-mono text-[11px] whitespace-pre-wrap text-neutral-600">医学术语
+
+CPR (cardiopulmonary resuscitation)
+剧中含义：剧中多次出现，指心肺复苏急救操作。
+例句："Who knows CPR?"（谁知道心肺复苏怎么做？）
+释义：心肺复苏</code>
+          </p>
+          <textarea
+            v-model="form.vocab_summary"
+            rows="10"
+            placeholder="粘贴汇总内容…"
+            class="w-full rounded-lg border border-black/10 px-3 py-2 text-sm font-mono"
+          />
+          <div v-if="vocabSummaryPreview.length" class="rounded-lg border border-black/5 bg-white p-3 space-y-4 max-h-80 overflow-y-auto">
+            <section v-for="(g, i) in vocabSummaryPreview" :key="`${g.title}-${i}`" class="space-y-2">
+              <p class="text-xs font-medium text-neutral-700">{{ g.title }}（{{ g.items.length }}）</p>
+              <ul class="space-y-2.5">
+                <li
+                  v-for="(it, j) in g.items"
+                  :key="`${it.en}-${j}`"
+                  class="text-xs text-neutral-600 leading-relaxed border-t border-black/[0.04] pt-2 first:border-0 first:pt-0"
+                >
+                  <p class="font-medium text-neutral-800">{{ j + 1 }}. {{ it.en }}</p>
+                  <p v-if="it.note" class="mt-0.5"><span class="text-neutral-400">含义：</span>{{ it.note }}</p>
+                  <p v-if="it.example" class="mt-0.5"><span class="text-neutral-400">例句：</span>{{ it.example }}</p>
+                  <p v-if="it.zh" class="mt-0.5"><span class="text-neutral-400">释义：</span>{{ it.zh }}</p>
+                  <p v-if="it.level" class="mt-0.5"><span class="text-neutral-400">难度：</span>{{ it.level }}</p>
+                </li>
+              </ul>
+            </section>
+          </div>
+        </div>
+
+        <div class="overflow-auto max-h-[640px] border border-black/5 rounded-lg">
           <table class="w-full text-sm min-w-[960px]">
-            <thead class="bg-neutral-50 text-neutral-500 sticky top-0">
+            <thead class="bg-neutral-50 text-neutral-500 sticky top-0 z-[1]">
               <tr>
                 <th class="px-2 py-2 text-left w-10">#</th>
                 <th class="px-2 py-2 text-left w-20">开始</th>
@@ -603,36 +994,64 @@ watch(
                 <th class="px-2 py-2 text-left">英文</th>
                 <th class="px-2 py-2 text-left">中文</th>
                 <th class="px-2 py-2 text-left w-48">音标 (IPA)</th>
-                <th class="px-2 py-2 w-12"></th>
+                <th class="px-2 py-2 w-16"></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(sub, i) in form.subtitles" :key="i" class="border-t border-black/5 align-top">
-                <td class="px-2 py-2 text-neutral-400">{{ i + 1 }}</td>
-                <td class="px-2 py-2">
-                  <input v-model.number="sub.start" type="number" step="0.001" class="w-full rounded border border-black/10 px-2 py-1" />
-                </td>
-                <td class="px-2 py-2">
-                  <input v-model.number="sub.end" type="number" step="0.001" class="w-full rounded border border-black/10 px-2 py-1" />
-                </td>
-                <td class="px-2 py-2">
-                  <textarea v-model="sub.english" rows="2" class="w-full rounded border border-black/10 px-2 py-1" />
-                </td>
-                <td class="px-2 py-2">
-                  <textarea v-model="sub.chinese" rows="2" class="w-full rounded border border-black/10 px-2 py-1" />
-                </td>
-                <td class="px-2 py-2">
-                  <textarea
-                    v-model="sub.ipa"
-                    rows="2"
-                    class="w-full rounded border border-black/10 px-2 py-1 font-serif text-xs"
-                    placeholder="/音标/"
-                  />
-                </td>
-                <td class="px-2 py-2">
-                  <button type="button" class="text-red-600 text-xs hover:underline" @click="removeSubtitle(i)">删</button>
-                </td>
-              </tr>
+              <template v-for="(sub, i) in form.subtitles" :key="i">
+                <tr class="border-t border-black/5 align-top">
+                  <td class="px-2 py-2 text-neutral-400">{{ i + 1 }}</td>
+                  <td class="px-2 py-2">
+                    <input v-model.number="sub.start" type="number" step="0.001" class="w-full rounded border border-black/10 px-2 py-1" />
+                  </td>
+                  <td class="px-2 py-2">
+                    <input v-model.number="sub.end" type="number" step="0.001" class="w-full rounded border border-black/10 px-2 py-1" />
+                  </td>
+                  <td class="px-2 py-2">
+                    <textarea v-model="sub.english" rows="2" class="w-full rounded border border-black/10 px-2 py-1" />
+                    <div
+                      v-if="sub.english_html"
+                      class="subtitle-english mt-1.5 text-[13px] leading-relaxed text-neutral-800 flex flex-wrap gap-x-1 gap-y-0.5"
+                      v-html="sub.english_html"
+                    />
+                    <button
+                      type="button"
+                      class="mt-1 text-[11px] hover:underline"
+                      :class="
+                        highlightEditIndex === i || subtitleHighlightCount(sub)
+                          ? 'text-amber-700'
+                          : 'text-neutral-500'
+                      "
+                      @click="toggleHighlightEdit(i)"
+                    >
+                      {{ highlightEditIndex === i ? '收起高亮' : '编辑高亮' }}
+                      <span v-if="subtitleHighlightCount(sub)">({{ subtitleHighlightCount(sub) }})</span>
+                    </button>
+                  </td>
+                  <td class="px-2 py-2">
+                    <textarea v-model="sub.chinese" rows="2" class="w-full rounded border border-black/10 px-2 py-1" />
+                  </td>
+                  <td class="px-2 py-2">
+                    <textarea
+                      v-model="sub.ipa"
+                      rows="2"
+                      class="w-full rounded border border-black/10 px-2 py-1 font-serif text-xs"
+                      placeholder="/音标/"
+                    />
+                  </td>
+                  <td class="px-2 py-2">
+                    <button type="button" class="text-red-600 text-xs hover:underline" @click="removeSubtitle(i)">删</button>
+                  </td>
+                </tr>
+                <tr v-if="highlightEditIndex === i" class="bg-amber-50/20">
+                  <td colspan="7" class="px-2 pb-3 pt-0">
+                    <SubtitleHighlightEditor
+                      :english="sub.english"
+                      v-model="sub.english_html"
+                    />
+                  </td>
+                </tr>
+              </template>
               <tr v-if="!form.subtitles.length">
                 <td colspan="7" class="px-4 py-6 text-center text-neutral-400">暂无字幕，可导入 VTT/SRT 或手动添加</td>
               </tr>

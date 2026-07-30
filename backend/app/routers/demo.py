@@ -7,6 +7,7 @@ from ..deps import get_current_user_optional, get_device_id
 from ..favorites import favorite_video_ids
 from ..models import DemoCode, User
 from ..schemas import DemoVerifyIn, DemoVerifyOut
+from ..services.episode_stats import learner_count_map_for_episodes
 from ..serializers import episode_summary
 from sqlalchemy.orm import joinedload
 
@@ -39,7 +40,12 @@ def get_demo_episodes_route(
     user_id = user.id if user else None
     fav_ids = favorite_video_ids(db, device_id, user_id)
     episodes = get_visible_demo_episodes(db, user)
+    learner_map = learner_count_map_for_episodes(db, [ep.id for ep in episodes])
     return [
-        episode_summary(ep, is_favorite=ep.video_id in fav_ids if user_is_member(user) else False)
+        episode_summary(
+            ep,
+            is_favorite=ep.video_id in fav_ids if user_is_member(user) else False,
+            learner_count=learner_map.get(ep.id, 0),
+        )
         for ep in episodes
     ]

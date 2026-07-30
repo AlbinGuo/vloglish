@@ -23,6 +23,7 @@ def _notification_out(row: UserNotification, video_id: str | None) -> Notificati
         type=row.type,
         title=row.title,
         body=row.body,
+        image_url=getattr(row, "image_url", None) or "",
         episode_id=row.episode_id,
         video_id=video_id,
         is_read=row.is_read,

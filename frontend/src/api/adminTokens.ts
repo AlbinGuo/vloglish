@@ -1,5 +1,18 @@
+import { randomUUID } from '@/utils/randomId'
+
 const ACCESS_KEY = 'admin_access_token'
 const REFRESH_KEY = 'admin_refresh_token'
+const DEVICE_KEY = 'admin_device_id'
+
+/** 管理端独立设备 ID，避免与用户端同 device 互踢会话 */
+export function getAdminDeviceId(): string {
+  let id = localStorage.getItem(DEVICE_KEY)
+  if (!id) {
+    id = `admin-${randomUUID()}`
+    localStorage.setItem(DEVICE_KEY, id)
+  }
+  return id
+}
 
 function migrateLegacyTokens() {
   const access = sessionStorage.getItem(ACCESS_KEY)

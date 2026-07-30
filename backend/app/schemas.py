@@ -172,6 +172,7 @@ class AdminUserListItemOut(BaseModel):
     is_member: bool
     is_active: bool
     is_staff: bool
+    is_online: bool = False
     member_activated_at: str | None = None
     created_at: str
     last_active_at: str | None = None
@@ -188,11 +189,28 @@ class AdminUserGeoStatItemOut(BaseModel):
     count: int
 
 
+class AdminUserGeoNamedItemOut(BaseModel):
+    name: str
+    map_name: str = ""
+    count: int
+
+
+class AdminUserGeoCityItemOut(BaseModel):
+    name: str
+    province: str
+    count: int
+
+
 class AdminUserGeoStatsOut(BaseModel):
     total_users: int
     known_users: int
     unknown_users: int
+    china_users: int = 0
+    overseas_users: int = 0
     by_region: list[AdminUserGeoStatItemOut]
+    by_country: list[AdminUserGeoNamedItemOut] = []
+    by_province: list[AdminUserGeoNamedItemOut] = []
+    by_city: list[AdminUserGeoCityItemOut] = []
 
 
 class AdminUserSegmentOut(BaseModel):
@@ -240,6 +258,7 @@ class AdminEpisodeCreateIn(BaseModel):
     short_title: str = Field(min_length=1, max_length=256)
     summary: str = ""
     remark: str = ""
+    vocab_summary: str = ""
     stars: int = Field(default=3, ge=1, le=5)
     voca_size: int = Field(default=0, ge=0)
     cover: str = ""
@@ -248,8 +267,11 @@ class AdminEpisodeCreateIn(BaseModel):
     thumbnail_url: str = ""
     original_video_url: str = ""
     is_demo: bool = False
+    is_pinned: bool = False
     status: str = Field(default="draft", pattern=EPISODE_STATUS_PATTERN)
     rejection_reason: str = ""
+    series_id: int | None = None
+    series_index: int | None = Field(default=None, ge=1)
     author: AdminAuthorIn
     tag_names: list[str] = []
     subtitles: list[AdminSubtitleIn] = []
@@ -260,6 +282,7 @@ class AdminEpisodeUpdateIn(BaseModel):
     short_title: str | None = Field(default=None, min_length=1, max_length=256)
     summary: str | None = None
     remark: str | None = None
+    vocab_summary: str | None = None
     stars: int | None = Field(default=None, ge=1, le=5)
     voca_size: int | None = Field(default=None, ge=0)
     cover: str | None = None
@@ -268,11 +291,17 @@ class AdminEpisodeUpdateIn(BaseModel):
     thumbnail_url: str | None = None
     original_video_url: str | None = None
     is_demo: bool | None = None
+    is_pinned: bool | None = None
     status: str | None = Field(default=None, pattern=EPISODE_STATUS_PATTERN)
     rejection_reason: str | None = None
+    series_id: int | None = None
+    series_index: int | None = Field(default=None, ge=1)
+    clear_series: bool = False
     author: AdminAuthorIn | None = None
     tag_names: list[str] | None = None
     subtitles: list[AdminSubtitleIn] | None = None
+    # 用户投稿：True=全站可见；False=仅投稿者可见（仍在「我的语料库」）
+    is_catalog_public: bool | None = None
 
 
 class AdminEpisodeListItemOut(BaseModel):
@@ -287,8 +316,13 @@ class AdminEpisodeListItemOut(BaseModel):
     author_name: str
     cover: str
     is_demo: bool
+    is_pinned: bool = False
     is_user_submitted: bool = False
+    is_catalog_public: bool = False
     tag_names: list[str] = []
+    series_id: int | None = None
+    series_title: str = ""
+    series_index: int | None = None
     created_at: str
     play_count: int = 0
     unique_learners: int = 0
@@ -314,6 +348,7 @@ class AdminEpisodeDetailOut(BaseModel):
     short_title: str
     summary: str
     remark: str
+    vocab_summary: str = ""
     stars: int
     voca_size: int
     subtitle_count: int
@@ -324,17 +359,87 @@ class AdminEpisodeDetailOut(BaseModel):
     thumbnail_url: str
     original_video_url: str
     is_demo: bool
+    is_pinned: bool = False
     status: str
     rejection_reason: str = ""
     is_user_submitted: bool = False
+    is_catalog_public: bool = False
+    submitted_by_user_id: int | None = None
+    submitted_by_email: str = ""
+    submitted_by_nickname: str = ""
+    series_id: int | None = None
+    series_index: int | None = None
+    series_title: str = ""
     author: AdminAuthorIn
     tag_names: list[str]
     subtitles: list[AdminSubtitleIn]
     created_at: str
 
 
+class VocabSummaryItemOut(BaseModel):
+    en: str
+    zh: str = ""
+    note: str = ""
+    example: str = ""
+    level: str = ""
+
+
+class VocabSummaryGroupOut(BaseModel):
+    title: str
+    items: list[VocabSummaryItemOut] = []
+
+
+SERIES_STATUS_PATTERN = "^(draft|published|archived)$"
+
+
+class AdminSeriesCreateIn(BaseModel):
+    slug: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=256)
+    summary: str = ""
+    cover: str = ""
+    status: str = Field(default="draft", pattern=SERIES_STATUS_PATTERN)
+    sort_order: int = 0
+
+
+class AdminSeriesUpdateIn(BaseModel):
+    slug: str | None = Field(default=None, min_length=1, max_length=64)
+    title: str | None = Field(default=None, min_length=1, max_length=256)
+    summary: str | None = None
+    cover: str | None = None
+    status: str | None = Field(default=None, pattern=SERIES_STATUS_PATTERN)
+    sort_order: int | None = None
+
+
+class AdminSeriesOut(BaseModel):
+    id: int
+    slug: str
+    title: str
+    summary: str
+    cover: str
+    status: str
+    sort_order: int
+    episode_count: int = 0
+    created_at: str
+    published_at: str = ""
+
+
+class AdminSeriesListOut(BaseModel):
+    count: int
+    results: list[AdminSeriesOut]
+
+
 class AdminVttImportIn(BaseModel):
     vtt_text: str = Field(min_length=1)
+    title: str = Field(default="", description="剧集标题，帮助按剧情翻译")
+    summary: str = Field(default="", description="剧集摘要，帮助按剧情翻译")
+    translate_chinese: bool = Field(
+        default=False,
+        description="是否用 AI 翻译/改写中文；需 enrich_ai=True 才生效",
+    )
+    enrich_ai: bool = Field(
+        default=False,
+        description="是否调用 DeepSeek（翻译/音标/高亮）。False 时仅解析导入，秒级返回",
+    )
 
 
 class AdminVttImportOut(BaseModel):
@@ -344,12 +449,35 @@ class AdminVttImportOut(BaseModel):
     had_chinese: bool = False
     translated_count: int = 0
     ipa_count: int = 0
+    stars: int = 3
+    voca_size: int = 0
+    highlight_count: int = 0
+    warnings: list[str] = []
+    done: bool = True
+    phase: str = "done"
+    remaining: int = 0
+
+
+class AdminSubtitleEnrichIn(BaseModel):
+    subtitles: list[AdminSubtitleIn] = Field(min_length=1)
+    title: str = Field(default="", description="剧集标题，帮助按剧情翻译")
+    summary: str = Field(default="", description="剧集摘要，帮助按剧情翻译")
+    translate_chinese: bool = Field(
+        default=False,
+        description="True=AI 翻译/改写中文；False=保留现有中文，仅生成音标与高亮",
+    )
+    max_batches: int = Field(
+        default=3,
+        ge=1,
+        le=20,
+        description="本轮最多处理几批 DeepSeek 请求，便于长字幕分轮续跑",
+    )
 
 
 class AdminFetchMediaIn(BaseModel):
     url: str = Field(min_length=8)
     slug: str = Field(default="", max_length=64)
-    enrich_subtitles: bool = True
+    enrich_subtitles: bool = False
 
 
 class AdminFetchMediaOut(BaseModel):
@@ -375,25 +503,35 @@ class AdminFetchMediaOut(BaseModel):
 
 
 class UserEpisodeSubmitIn(BaseModel):
-    accent: str = Field(min_length=1, max_length=32)
-    title: str = Field(min_length=1, max_length=256)
-    summary: str = ""
-    author_name: str = ""
-    stars: int = Field(default=3, ge=1, le=5)
-    voca_size: int = Field(default=0, ge=0)
+    """用户仅提交外链；媒体与字幕由管理员手工上传。"""
+
     original_video_url: str = Field(min_length=8)
-    cover: str = ""
-    thumbnail_url: str = ""
-    video_url: str = Field(min_length=1)
-    audio_url: str = ""
-    subtitles: list[AdminSubtitleIn] = []
+    accent: str = Field(default="美国", max_length=32)
+    note: str = Field(default="", max_length=500)
 
 
 class UserEpisodeSubmitOut(BaseModel):
     video_id: str
     short_title: str
     status: str
-    message: str = "提交成功，审核通过后将出现在目录中"
+    message: str = "提交成功，视频将在管理员审核通过后上传语料，预计1-2个小时出审核结果~"
+
+
+class UserSubmissionItemOut(BaseModel):
+    video_id: str
+    short_title: str
+    original_video_url: str
+    status: str
+    rejection_reason: str = ""
+    created_at: str
+    has_media: bool = False
+    accent: str = ""
+    cover: str = ""
+
+
+class UserSubmissionListOut(BaseModel):
+    count: int
+    results: list[UserSubmissionItemOut]
 
 
 class AdminTagOut(BaseModel):
@@ -442,10 +580,21 @@ class AdminAuthorMergeIn(BaseModel):
 
 
 class AuthorOut(BaseModel):
+    id: int = 0
     name: str
     gender: str
     nationality: str
     accent: str
+
+
+class AuthorCatalogOut(BaseModel):
+    id: int
+    name: str
+    gender: str
+    nationality: str
+    accent: str
+    episode_count: int
+    covers: list[str] = []
 
 
 class TagOut(BaseModel):
@@ -470,7 +619,13 @@ class EpisodeSummaryOut(BaseModel):
     is_favorite: bool = False
     progress_percent: float = 0
     is_new: bool = False
+    is_pinned: bool = False
+    learner_count: int = 0
     remark: str = ""
+    series_id: int | None = None
+    series_slug: str = ""
+    series_title: str = ""
+    series_index: int | None = None
 
 
 class SubtitleOut(BaseModel):
@@ -482,6 +637,16 @@ class SubtitleOut(BaseModel):
     chinese: str
     ipa: str
     english_html: str
+
+
+class EpisodeSeriesNavOut(BaseModel):
+    id: int
+    slug: str
+    title: str
+    series_index: int
+    episode_count: int
+    prev_video_id: str | None = None
+    next_video_id: str | None = None
 
 
 class EpisodeDetailOut(BaseModel):
@@ -498,11 +663,34 @@ class EpisodeDetailOut(BaseModel):
     tags: list[TagOut]
     media: dict
     subtitles: list[SubtitleOut]
+    series: EpisodeSeriesNavOut | None = None
+    vocab_summary: list[VocabSummaryGroupOut] = []
+    vocab_summary_text: str = ""
 
 
 class EpisodeDetailResponse(BaseModel):
     episode: EpisodeDetailOut
     total_episodes: int
+
+
+class SeriesSummaryOut(BaseModel):
+    id: int
+    slug: str
+    title: str
+    summary: str
+    cover: str
+    episode_count: int = 0
+    sort_order: int = 0
+
+
+class SeriesDetailOut(BaseModel):
+    id: int
+    slug: str
+    title: str
+    summary: str
+    cover: str
+    episode_count: int
+    episodes: list[EpisodeSummaryOut]
 
 
 class DemoVerifyIn(BaseModel):
@@ -538,6 +726,7 @@ class NotificationOut(BaseModel):
     type: str
     title: str
     body: str
+    image_url: str = ""
     episode_id: int | None = None
     video_id: str | None = None
     is_read: bool
@@ -557,12 +746,14 @@ class UnreadCountOut(BaseModel):
 class AdminBroadcastCreateIn(BaseModel):
     title: str = Field(min_length=1, max_length=256)
     body: str = Field(min_length=1)
+    image_url: str = ""
 
 
 class AdminBroadcastOut(BaseModel):
     id: int
     title: str
     body: str
+    image_url: str = ""
     recipient_count: int
     created_by_email: str = ""
     created_at: str
@@ -571,6 +762,10 @@ class AdminBroadcastOut(BaseModel):
 class AdminBroadcastListOut(BaseModel):
     count: int
     results: list[AdminBroadcastOut]
+
+
+class AdminNotificationImageOut(BaseModel):
+    image_url: str
 
 
 class EpisodeProgressOut(BaseModel):
@@ -815,12 +1010,27 @@ class AdminArticleSegmentIn(BaseModel):
     duration_ms: int = 0
 
 
+class AdminArticleTtsIn(BaseModel):
+    voice: str | None = None
+    max_segments: int = Field(default=8, ge=1, le=40)
+    skip_existing: bool = True
+    force: bool = Field(
+        default=False,
+        description="True 时清空已有音频后重生成；仅应在任务首轮传入",
+    )
+
+
 class AdminArticleTtsOut(BaseModel):
     generated: int
     failed: int
     total: int
     tts_status: str
     error_sample: str = ""
+    voice: str = ""
+    done: bool = True
+    remaining: int = 0
+    skipped: int = 0
+    processed: int = 0
 
 
 class AdminArticleCreateIn(BaseModel):
@@ -846,6 +1056,7 @@ class AdminArticleUpdateIn(BaseModel):
     stars: int | None = Field(default=None, ge=1, le=5)
     status: str | None = Field(default=None, pattern=ARTICLE_STATUS_PATTERN)
     published_at: datetime | None = None
+    vocab_summary: str | None = None
 
 
 class AdminArticleListItemOut(BaseModel):
@@ -882,6 +1093,8 @@ class AdminArticleDetailOut(BaseModel):
     published_at: str
     status: str
     tts_status: str = "none"
+    vocab_summary: list[VocabSummaryGroupOut] = []
+    vocab_summary_text: str = ""
     segments: list[AdminArticleSegmentIn]
     progress: ArticleProgressOut | None = None
 
@@ -896,11 +1109,86 @@ class AdminArticleUploadCoverOut(BaseModel):
 
 class AdminArticleImportTextIn(BaseModel):
     english_text: str
-    auto_translate: bool = True
-    auto_analyze: bool = True
+    auto_translate: bool = False
+    auto_analyze: bool = False
 
 
 class AdminArticleImportTextOut(BaseModel):
     segment_count: int
     word_count: int
     stars: int
+
+
+class AdminArticleEnrichIn(BaseModel):
+    translate: bool = True
+    analyze: bool = True
+    max_batches: int = Field(default=3, ge=1, le=20)
+    force_analyze: bool = Field(
+        default=False,
+        description="True 时清空已有高亮后重跑分析（用于「仅重新分析词汇」）",
+    )
+
+
+class AdminArticleEnrichOut(BaseModel):
+    segment_count: int
+    word_count: int
+    stars: int
+    translated: bool = False
+    analyzed: bool = False
+    voca_size: int = 0
+    highlight_count: int = 0
+    annotate_failed: int = 0
+    done: bool = True
+    phase: str = "done"
+    remaining: int = 0
+    translated_count: int = 0
+
+
+# ——— 用户反馈 ———
+
+class FeedbackImageOut(BaseModel):
+    image_url: str
+
+
+class FeedbackCreateIn(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    body: str = Field(min_length=1, max_length=4000)
+    image_urls: list[str] = Field(default_factory=list, max_length=3)
+
+
+class FeedbackOut(BaseModel):
+    id: int
+    title: str
+    body: str
+    image_urls: list[str] = []
+    status: str
+    created_at: str
+
+
+class FeedbackCreateOut(BaseModel):
+    id: int
+    message: str = "感谢反馈，我们会尽快查看"
+
+
+class AdminFeedbackOut(BaseModel):
+    id: int
+    user_id: int
+    user_email: str = ""
+    user_nickname: str = ""
+    title: str
+    body: str
+    image_urls: list[str] = []
+    status: str
+    admin_note: str = ""
+    created_at: str
+    updated_at: str = ""
+
+
+class AdminFeedbackListOut(BaseModel):
+    count: int
+    results: list[AdminFeedbackOut]
+
+
+class AdminFeedbackUpdateIn(BaseModel):
+    status: str | None = None
+    admin_note: str | None = None

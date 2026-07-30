@@ -9,6 +9,7 @@ defineProps<{
   segment: ArticleSegment
   articleId: string
   active?: boolean
+  vocabLinkHtml?: string
 }>()
 
 defineEmits<{ click: [event: MouseEvent]; activate: [] }>()
@@ -35,6 +36,7 @@ defineEmits<{ click: [event: MouseEvent]; activate: [] }>()
           :segment="segment"
           side="english"
           :active="active"
+          :vocab-link-html="vocabLinkHtml"
           class="min-w-0 flex-1"
           @click="$emit('click', $event)"
         />

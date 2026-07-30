@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, ref, watch } from 'vue'
 import { ARTICLE_VOCABULARY_KEY } from '@/composables/useArticleVocabulary'
-import { formatExamTags, asExamTagList } from '@/utils/examTags'
+import { formatExamTags, asExamTagList, examTagClass } from '@/utils/examTags'
 import { playWordPronunciation } from '@/utils/speakWord'
 import type { ArticleVocabularyItem } from '@/api/learning'
 
@@ -115,7 +115,8 @@ function speakItem(item: ArticleVocabularyItem) {
                   <span
                     v-for="tag in formatExamTags(item.exam_tags)"
                     :key="tag.key"
-                    class="text-[10px] leading-none px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                    class="text-[10px] leading-none px-1.5 py-0.5 rounded font-medium"
+                    :class="examTagClass(tag.key)"
                   >
                     {{ tag.label }}
                   </span>

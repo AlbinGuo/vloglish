@@ -17,7 +17,9 @@ DATABASE_URL = resolve_database_url(DEFAULT_SQLITE_URL)
 def _engine_kwargs(url: str) -> dict:
     if url.startswith("sqlite"):
         return {"connect_args": {"check_same_thread": False}}
-    return {"pool_pre_ping": True}
+    # pool_pre_ping: detect dead connections on checkout
+    # pool_recycle: avoid holding connections past common cloud idle timeouts
+    return {"pool_pre_ping": True, "pool_recycle": 280}
 
 
 engine = create_engine(DATABASE_URL, **_engine_kwargs(DATABASE_URL))

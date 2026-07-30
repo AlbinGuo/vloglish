@@ -1,38 +1,43 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { getRecentEpisodes, type RecentEpisode } from '@/api/learning'
+import { getAuthorsCatalog } from '@/api/episodes'
+import { useCatalogBrowseMode } from '@/composables/useCatalogBrowseMode'
 import { useCatalogScrollMemory } from '@/composables/useCatalogScrollMemory'
 import { useCatalogViewMode } from '@/composables/useCatalogViewMode'
 import { useIsMobile } from '@/composables/useBreakpoint'
-import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
 import { CARD_INITIAL_SIZE, LIST_INITIAL_SIZE, useCatalogStore } from '@/stores/catalog'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
-import CatalogCalendar from '@/components/catalog/CatalogCalendar.vue'
-import CatalogFilters from '@/components/catalog/CatalogFilters.vue'
+import EnglishHotTagsBar from '@/components/english/EnglishHotTagsBar.vue'
+import AuthorStackCard from '@/components/catalog/AuthorStackCard.vue'
+import CatalogContentToolbar from '@/components/catalog/CatalogContentToolbar.vue'
 import CatalogListToolbar from '@/components/catalog/CatalogListToolbar.vue'
-import CatalogViewSettings from '@/components/catalog/CatalogViewSettings.vue'
 import CatalogEpisodeSkeletons from '@/components/skeleton/CatalogEpisodeSkeletons.vue'
 import EpisodeCard from '@/components/EpisodeCard.vue'
 import EpisodeListRow from '@/components/EpisodeListRow.vue'
+import type { AuthorCatalogItem } from '@/types'
 
 defineOptions({ name: 'HomePage' })
 
 const store = useCatalogStore()
 const auth = useAuthStore()
 const { viewMode } = useCatalogViewMode()
+const { browseMode } = useCatalogBrowseMode()
 const isMobile = useIsMobile()
 
 /** 未登录与手机端固定卡片视图 */
 const displayViewMode = computed(() => (isMobile.value || !auth.isLoggedIn ? 'card' : viewMode.value))
 
 /** 用户端「添加外链视频」入口（暂隐藏，改 true 即可重新开放） */
-const showSubmitEpisodeEntry = false
+const showSubmitEpisodeEntry = true
 
 const loadMoreSentinel = ref<HTMLElement | null>(null)
-const recentLearning = ref<RecentEpisode[]>([])
+const authors = ref<AuthorCatalogItem[]>([])
+const authorsLoading = ref(false)
+const authorSearchQuery = ref(store.filters.search)
 let loadMoreObserver: IntersectionObserver | null = null
+let authorSearchTimer: ReturnType<typeof setTimeout> | undefined
 
 const { restore: restoreCatalogScroll } = useCatalogScrollMemory()
 
@@ -49,8 +54,22 @@ const previewBanner = computed(() => {
   }
 })
 
+const filterKey = computed(() =>
+  [
+    store.filters.stars ?? '',
+    store.filters.accents.join(','),
+    store.filters.tagIds.join(','),
+    store.filters.date ?? '',
+    store.filters.search,
+    store.filters.learningStatus,
+    store.filters.ordering,
+  ].join('|'),
+)
+
 function setupLoadMoreObserver() {
   loadMoreObserver?.disconnect()
+
+  if (browseMode.value === 'author') return
 
   loadMoreObserver = new IntersectionObserver(
     (entries) => {
@@ -67,18 +86,41 @@ function setupLoadMoreObserver() {
   }
 }
 
+async function loadAuthors() {
+  authorsLoading.value = true
+  try {
+    const params: Parameters<typeof getAuthorsCatalog>[0] = {}
+    if (store.filters.stars) params.stars = store.filters.stars
+    if (store.filters.accents.length) params.accents = store.filters.accents.join(',')
+    if (store.filters.tagIds.length) params.tags = store.filters.tagIds.join(',')
+    if (store.filters.date) params.date = store.filters.date
+    if (store.filters.search) params.search = store.filters.search
+    if (store.filters.learningStatus) params.status = store.filters.learningStatus
+    const data = await getAuthorsCatalog(params)
+    authors.value = data.results
+  } catch {
+    authors.value = []
+  } finally {
+    authorsLoading.value = false
+  }
+}
+
+async function loadCatalogContent() {
+  if (browseMode.value === 'author') {
+    await loadAuthors()
+  } else {
+    await store.loadEpisodes(true)
+  }
+  setupLoadMoreObserver()
+}
+
 onMounted(async () => {
   await store.loadFilters()
   store.setListViewMode(displayViewMode.value)
-  if (!store.episodes.length) {
+  if (browseMode.value === 'author') {
+    await loadAuthors()
+  } else if (!store.episodes.length) {
     await store.loadEpisodes()
-  }
-  if (auth.isLoggedIn) {
-    try {
-      recentLearning.value = (await getRecentEpisodes()).filter((e) => !e.is_completed).slice(0, 5)
-    } catch {
-      recentLearning.value = []
-    }
   }
   setupLoadMoreObserver()
   await restoreCatalogScroll()
@@ -93,10 +135,41 @@ watch(loadMoreSentinel, () => {
 })
 
 watch(displayViewMode, async (mode) => {
+  if (browseMode.value === 'author') return
   store.setListViewMode(mode)
   await store.loadEpisodes(true)
   setupLoadMoreObserver()
 })
+
+watch(browseMode, () => {
+  authorSearchQuery.value = store.filters.search
+  loadCatalogContent()
+})
+
+watch(filterKey, () => {
+  if (browseMode.value === 'author') {
+    loadAuthors()
+  }
+})
+
+watch(authorSearchQuery, (value) => {
+  if (browseMode.value !== 'author') return
+  clearTimeout(authorSearchTimer)
+  authorSearchTimer = setTimeout(() => {
+    const trimmed = value.trim()
+    if (trimmed === store.filters.search) return
+    store.setSearch(trimmed)
+  }, 300)
+})
+
+watch(
+  () => store.filters.search,
+  (value) => {
+    if (browseMode.value === 'author' && value !== authorSearchQuery.value.trim()) {
+      authorSearchQuery.value = value
+    }
+  },
+)
 
 function episodePath(videoId: string) {
   if (!auth.isLoggedIn) {
@@ -108,106 +181,89 @@ function episodePath(videoId: string) {
 watch(
   () => [auth.isMember, auth.isLoggedIn],
   () => {
-    store.loadEpisodes(true)
+    loadCatalogContent()
   },
 )
 </script>
 
 <template>
   <div class="page-container py-6">
-    <div class="flex flex-col lg:flex-row gap-6 lg:gap-8">
-      <aside v-if="auth.isLoggedIn" class="hidden lg:block w-full lg:w-72 xl:w-80 shrink-0 space-y-4">
-        <RouterLink
-          v-if="showSubmitEpisodeEntry && auth.isMember"
-          to="/english/submit"
-          class="flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold text-sm px-4 py-3.5 shadow-md shadow-amber-500/25 hover:from-amber-600 hover:to-orange-600 hover:shadow-lg hover:shadow-amber-500/30 transition-all"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 shrink-0">
-            <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
-          </svg>
-          添加外链视频
-        </RouterLink>
-        <CatalogCalendar class="hidden lg:block" />
-        <CatalogFilters class="hidden lg:block" />
-        <CatalogViewSettings />
-      </aside>
+    <div class="mb-3 flex items-center gap-2 sm:gap-3 min-w-0">
+      <EnglishNavTabs class="shrink-0" />
+      <EnglishHotTagsBar />
+      <div v-if="browseMode === 'author'" class="flex-1 min-w-0 max-w-xs sm:max-w-sm ml-auto">
+        <label class="sr-only" for="author-catalog-search">搜索作者或视频标题</label>
+        <input
+          id="author-catalog-search"
+          v-model="authorSearchQuery"
+          type="search"
+          placeholder="搜索作者或标题"
+          class="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 dark:text-white px-3 sm:px-4 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
+        />
+      </div>
+    </div>
 
-      <section class="flex-1 min-w-0">
-        <EnglishNavTabs class="mb-4" />
+    <CatalogContentToolbar class="mb-4" :show-submit-entry="showSubmitEpisodeEntry" />
 
-        <section
-          v-if="auth.isLoggedIn && recentLearning.length"
-          class="mb-5 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4"
-        >
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="text-sm font-semibold">继续学习</h2>
-            <RouterLink to="/english/learning" class="text-xs text-amber-700 dark:text-amber-400 hover:underline">全部统计</RouterLink>
-          </div>
-          <div class="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
-            <RouterLink
-              v-for="item in recentLearning"
-              :key="item.video_id"
-              :to="episodePath(item.video_id)"
-              class="shrink-0 w-40 rounded-lg border border-black/5 dark:border-white/10 overflow-hidden hover:shadow-sm transition cursor-pointer"
-              @click="requestEpisodeAutoplay"
-            >
-              <div class="relative aspect-video bg-neutral-200 dark:bg-neutral-800">
-                <img :src="item.cover" :alt="item.short_title" class="w-full h-full object-cover" loading="lazy" />
-                <span class="absolute bottom-1 right-1 text-[10px] text-white bg-black/60 px-1 rounded">
-                  {{ Math.round(item.completion_percent) }}%
-                </span>
-              </div>
-              <p class="p-2 text-xs font-medium line-clamp-2 leading-snug">{{ item.short_title }}</p>
-            </RouterLink>
-          </div>
-        </section>
+    <div
+      v-if="previewBanner"
+      class="mb-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-900 dark:text-amber-200 flex flex-wrap items-center gap-x-2 gap-y-1"
+    >
+      <span>{{ previewBanner.text }}</span>
+      <RouterLink v-if="previewBanner.showLogin" to="/login" class="font-medium underline">登录</RouterLink>
+      <RouterLink v-if="previewBanner.showSignup" to="/signup" class="font-medium underline">注册</RouterLink>
+    </div>
 
-        <div
-          v-if="previewBanner"
-          class="mb-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-900 dark:text-amber-200 flex flex-wrap items-center gap-x-2 gap-y-1"
-        >
-          <span>{{ previewBanner.text }}</span>
-          <RouterLink v-if="previewBanner.showLogin" to="/login" class="font-medium underline">登录</RouterLink>
-          <RouterLink v-if="previewBanner.showSignup" to="/signup" class="font-medium underline">注册</RouterLink>
-        </div>
+    <!-- 按作者分类 -->
+    <template v-if="browseMode === 'author'">
+      <div v-if="authorsLoading && !authors.length" class="py-24 text-center text-neutral-500">加载中...</div>
+      <div v-else-if="!authors.length" class="text-center py-24 text-neutral-500">没有匹配的作者</div>
+      <div v-else class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+        <AuthorStackCard v-for="item in authors" :key="item.id" :author="item" />
+      </div>
+      <div v-if="authors.length" class="py-8 text-center text-sm text-neutral-400">
+        共 {{ authors.length }} 位作者
+      </div>
+    </template>
 
-        <CatalogEpisodeSkeletons v-if="store.loading && !store.episodes.length" :count="skeletonCount" />
+    <!-- 全部视频 -->
+    <template v-else>
+      <CatalogEpisodeSkeletons v-if="store.loading && !store.episodes.length" :count="skeletonCount" />
 
-        <template v-else>
-          <div v-if="displayViewMode === 'card'">
-            <div v-if="!store.episodes.length" class="text-center py-24 text-neutral-500">没有匹配的内容</div>
-            <div v-else class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-              <EpisodeCard
-                v-for="ep in store.episodes"
-                :key="ep.video_id"
-                :episode="ep"
-                :to="episodePath(ep.video_id)"
-              />
-            </div>
-          </div>
-
-          <div v-else class="rounded-xl border border-black/5 dark:border-white/10 overflow-hidden bg-white dark:bg-neutral-900">
-            <CatalogListToolbar />
-            <div v-if="!store.episodes.length" class="text-center py-16 text-neutral-500">没有匹配的内容</div>
-            <EpisodeListRow
-              v-for="(ep, i) in store.episodes"
+      <template v-else>
+        <div v-if="displayViewMode === 'card'">
+          <div v-if="!store.episodes.length" class="text-center py-24 text-neutral-500">没有匹配的内容</div>
+          <div v-else class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+            <EpisodeCard
+              v-for="ep in store.episodes"
               :key="ep.video_id"
               :episode="ep"
-              :row-index="i + 1"
               :to="episodePath(ep.video_id)"
             />
           </div>
+        </div>
 
-          <div ref="loadMoreSentinel" class="h-1" aria-hidden="true" />
-          <div v-if="store.loadingMore" class="py-8 text-center text-sm text-neutral-500">加载中...</div>
-          <div
-            v-else-if="store.episodes.length && !store.hasMore"
-            class="py-8 text-center text-sm text-neutral-400"
-          >
-            已加载全部 {{ store.total }} 期
-          </div>
-        </template>
-      </section>
-    </div>
+        <div v-else class="rounded-xl border border-black/5 dark:border-white/10 overflow-hidden bg-white dark:bg-neutral-900">
+          <CatalogListToolbar />
+          <div v-if="!store.episodes.length" class="text-center py-16 text-neutral-500">没有匹配的内容</div>
+          <EpisodeListRow
+            v-for="(ep, i) in store.episodes"
+            :key="ep.video_id"
+            :episode="ep"
+            :row-index="i + 1"
+            :to="episodePath(ep.video_id)"
+          />
+        </div>
+
+        <div ref="loadMoreSentinel" class="h-1" aria-hidden="true" />
+        <div v-if="store.loadingMore" class="py-8 text-center text-sm text-neutral-500">加载中...</div>
+        <div
+          v-else-if="store.episodes.length && !store.hasMore"
+          class="py-8 text-center text-sm text-neutral-400"
+        >
+          已加载全部 {{ store.total }} 期
+        </div>
+      </template>
+    </template>
   </div>
 </template>

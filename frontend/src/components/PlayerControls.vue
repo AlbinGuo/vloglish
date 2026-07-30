@@ -6,6 +6,7 @@ defineProps<{
   player: ReturnType<typeof usePlayerControls>
   showIpa: boolean
   videoHidden: boolean
+  subtitlesHidden?: boolean
   videoPanelRef: HTMLElement | null | undefined
   compact?: boolean
   docked?: boolean
@@ -16,6 +17,7 @@ defineProps<{
 defineEmits<{
   'update:showIpa': [value: boolean]
   'update:videoHidden': [value: boolean]
+  'update:subtitlesHidden': [value: boolean]
   toggleChrome: []
 }>()
 </script>
@@ -25,6 +27,7 @@ defineEmits<{
     :player="player"
     :show-ipa="showIpa"
     :video-hidden="videoHidden"
+    :subtitles-hidden="subtitlesHidden"
     :video-panel-ref="videoPanelRef"
     :compact="compact"
     :docked="docked"
@@ -32,6 +35,7 @@ defineEmits<{
     :chrome-visible="chromeVisible"
     @update:show-ipa="$emit('update:showIpa', $event)"
     @update:video-hidden="$emit('update:videoHidden', $event)"
+    @update:subtitles-hidden="$emit('update:subtitlesHidden', $event)"
     @toggle-chrome="$emit('toggleChrome')"
   />
 </template>

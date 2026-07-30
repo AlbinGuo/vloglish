@@ -1,13 +1,20 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from ...database import get_db
 from ...deps import get_current_admin
 from ...models import AdminBroadcast, User
-from ...schemas import AdminBroadcastCreateIn, AdminBroadcastListOut, AdminBroadcastOut
+from ...qiniu_storage import QiniuConfig
+from ...schemas import (
+    AdminBroadcastCreateIn,
+    AdminBroadcastListOut,
+    AdminBroadcastOut,
+    AdminNotificationImageOut,
+)
 from ...services.admin_broadcast import broadcast_notification_to_all_users
+from ...services.notification_image import upload_notification_image
 
 router = APIRouter(prefix="/api/admin/notifications", tags=["admin-notifications"])
 
@@ -23,6 +30,7 @@ def _broadcast_out(row: AdminBroadcast, admin_email: str = "") -> AdminBroadcast
         id=row.id,
         title=row.title,
         body=row.body,
+        image_url=row.image_url or "",
         recipient_count=row.recipient_count,
         created_by_email=admin_email,
         created_at=_fmt_dt(row.created_at),
@@ -58,6 +66,24 @@ def list_broadcasts(
     )
 
 
+@router.post("/upload-image/", response_model=AdminNotificationImageOut)
+async def upload_broadcast_image(
+    file: UploadFile = File(...),
+    _admin: User = Depends(get_current_admin),
+):
+    data = await file.read()
+    try:
+        cfg = QiniuConfig.from_env()
+        image_url = upload_notification_image(cfg, data, file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"图片上传失败: {e}") from e
+    return AdminNotificationImageOut(image_url=image_url)
+
+
 @router.post("/broadcasts/", response_model=AdminBroadcastOut)
 def create_broadcast(
     body: AdminBroadcastCreateIn,
@@ -69,5 +95,6 @@ def create_broadcast(
         admin=admin,
         title=body.title,
         body=body.body,
+        image_url=body.image_url,
     )
     return _broadcast_out(broadcast, admin.email)

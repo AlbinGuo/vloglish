@@ -1,15 +1,24 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { adminCreateBroadcast, adminListBroadcasts, type AdminBroadcast } from '@/api/admin'
+import {
+  adminCreateBroadcast,
+  adminListBroadcasts,
+  adminUploadNotificationImage,
+  type AdminBroadcast,
+} from '@/api/admin'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
 
 const loading = ref(true)
 const publishing = ref(false)
+const uploadingImage = ref(false)
 const error = ref('')
 const success = ref('')
 const title = ref('')
 const body = ref('')
+const imageUrl = ref('')
 const rows = ref<AdminBroadcast[]>([])
 const total = ref(0)
+const fileInput = ref<HTMLInputElement | null>(null)
 
 async function load() {
   loading.value = true
@@ -24,6 +33,32 @@ async function load() {
   } finally {
     loading.value = false
   }
+}
+
+async function onImageChange(ev: Event) {
+  const input = ev.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    error.value = '请选择图片文件'
+    return
+  }
+  uploadingImage.value = true
+  error.value = ''
+  try {
+    const data = await adminUploadNotificationImage(file)
+    imageUrl.value = data.image_url
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+    error.value = msg || '图片上传失败'
+  } finally {
+    uploadingImage.value = false
+  }
+}
+
+function clearImage() {
+  imageUrl.value = ''
 }
 
 async function publish() {
@@ -43,10 +78,15 @@ async function publish() {
   error.value = ''
   success.value = ''
   try {
-    const data = await adminCreateBroadcast({ title: t, body: b })
+    const data = await adminCreateBroadcast({
+      title: t,
+      body: b,
+      image_url: imageUrl.value.trim(),
+    })
     success.value = `已发布，共 ${data.recipient_count} 位用户将收到通知`
     title.value = ''
     body.value = ''
+    imageUrl.value = ''
     await load()
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -86,10 +126,46 @@ onMounted(load)
           :disabled="publishing"
         />
       </label>
+      <div class="space-y-2">
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="text-sm text-neutral-500">配图（可选）</span>
+          <button
+            type="button"
+            class="rounded-lg border border-black/10 px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:opacity-50"
+            :disabled="publishing || uploadingImage"
+            @click="fileInput?.click()"
+          >
+            {{ uploadingImage ? '上传中...' : imageUrl ? '更换图片' : '选择图片' }}
+          </button>
+          <button
+            v-if="imageUrl"
+            type="button"
+            class="text-sm text-neutral-500 hover:text-neutral-800"
+            :disabled="publishing || uploadingImage"
+            @click="clearImage"
+          >
+            清除
+          </button>
+          <input
+            ref="fileInput"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            class="hidden"
+            @change="onImageChange"
+          />
+        </div>
+        <p class="text-xs text-neutral-400">支持 JPG / PNG / WEBP / GIF，最大 8MB</p>
+        <img
+          v-if="imageUrl"
+          :src="resolveMediaUrl(imageUrl)"
+          alt="通知配图预览"
+          class="max-h-56 rounded-lg border border-black/5 object-contain bg-neutral-50"
+        />
+      </div>
       <button
         type="button"
         class="rounded-lg bg-neutral-900 text-white px-5 py-2 text-sm hover:bg-neutral-800 disabled:opacity-50"
-        :disabled="publishing"
+        :disabled="publishing || uploadingImage"
         @click="publish"
       >
         {{ publishing ? '发布中...' : '发布通知' }}
@@ -111,6 +187,12 @@ onMounted(load)
             <time class="text-xs text-neutral-400 shrink-0">{{ row.created_at }}</time>
           </div>
           <p class="text-sm text-neutral-600 whitespace-pre-line leading-relaxed">{{ row.body }}</p>
+          <img
+            v-if="row.image_url"
+            :src="resolveMediaUrl(row.image_url)"
+            alt=""
+            class="max-h-48 rounded-lg border border-black/5 object-contain bg-neutral-50"
+          />
           <p class="text-xs text-neutral-400">
             送达 {{ row.recipient_count }} 人
             <span v-if="row.created_by_email"> · {{ row.created_by_email }}</span>

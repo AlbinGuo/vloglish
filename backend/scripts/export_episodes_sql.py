@@ -69,6 +69,7 @@ def export_sql(
                 joinedload(Episode.author),
                 joinedload(Episode.tags),
                 joinedload(Episode.subtitles),
+                joinedload(Episode.series),
             )
             .order_by(Episode.index.asc(), Episode.id.asc())
         )
@@ -87,6 +88,7 @@ def export_sql(
         f"-- generated: {datetime.utcnow().isoformat()}Z",
         f"-- episodes: {len(episodes)} (index {episodes[0].index}..{episodes[-1].index})",
         "-- Run on production PostgreSQL inside transaction.",
+        "-- Prerequisite: episode_series table + episodes.series_id/series_index columns exist.",
         "",
         "BEGIN;",
         "",
@@ -110,6 +112,34 @@ def export_sql(
             ");"
         )
     lines.append("")
+
+    # --- series (by slug; ids may differ between local and server) ---
+    seen_series: set[str] = set()
+    for ep in episodes:
+        series = ep.series
+        if not series or not series.slug or series.slug in seen_series:
+            continue
+        seen_series.add(series.slug)
+        pub = series.published_at or series.created_at
+        lines.append(
+            "INSERT INTO episode_series (\n"
+            "  slug, title, summary, cover, status, sort_order, created_at, published_at\n"
+            ") VALUES (\n"
+            f"  {sql_literal(series.slug)}, {sql_literal(series.title)},\n"
+            f"  {sql_literal(series.summary or '')}, {sql_literal(series.cover or '')},\n"
+            f"  {sql_literal(series.status or 'draft')}, {int(series.sort_order or 0)},\n"
+            f"  {sql_literal(series.created_at or datetime.utcnow())}, {sql_literal(pub)}\n"
+            ")\n"
+            "ON CONFLICT (slug) DO UPDATE SET\n"
+            "  title = EXCLUDED.title,\n"
+            "  summary = EXCLUDED.summary,\n"
+            "  cover = EXCLUDED.cover,\n"
+            "  status = EXCLUDED.status,\n"
+            "  sort_order = EXCLUDED.sort_order,\n"
+            "  published_at = EXCLUDED.published_at;"
+        )
+    if seen_series:
+        lines.append("")
 
     # --- tags (id 无自增序列时须用 MAX(id)+1，避免 tags_pkey 冲突) ---
     seen_tags: set[str] = set()
@@ -135,6 +165,14 @@ def export_sql(
         author = ep.author
         pub = ep.published_at or ep.created_at
         ep_status = status if status is not None else (ep.status or "published")
+        series_slug = ep.series.slug if ep.series else None
+        series_index_sql = sql_literal(ep.series_index) if ep.series_id is not None else "NULL"
+        if series_slug:
+            series_id_sql = (
+                f"(SELECT id FROM episode_series WHERE slug = {sql_literal(series_slug)} LIMIT 1)"
+            )
+        else:
+            series_id_sql = "NULL"
 
         lines.extend(
             [
@@ -147,7 +185,8 @@ def export_sql(
                 "INSERT INTO episodes (",
                 "  index, video_id, short_title, summary, remark, stars, voca_size,",
                 "  subtitle_count, clip_length, cover, video_url, audio_url, thumbnail_url,",
-                "  original_video_url, author_id, submitted_by_user_id, rejection_reason,",
+                "  original_video_url, author_id, series_id, series_index,",
+                "  submitted_by_user_id, rejection_reason,",
                 "  created_at, is_demo, status, published_at",
                 ") VALUES (",
                 f"  {ep.index}, {sql_literal(vid)}, {sql_literal(ep.short_title)},",
@@ -158,6 +197,7 @@ def export_sql(
                 f"  {sql_literal(ep.thumbnail_url or '')}, {sql_literal(ep.original_video_url or '')},",
                 "  (SELECT id FROM authors WHERE name = "
                 f"{sql_literal(author.name)} AND accent = {sql_literal(author.accent or '')} LIMIT 1),",
+                f"  {series_id_sql}, {series_index_sql},",
                 f"  {sql_literal(ep.submitted_by_user_id)}, {sql_literal(ep.rejection_reason)},",
                 f"  {sql_literal(ep.created_at or datetime.utcnow())},",
                 f"  {sql_literal(bool(ep.is_demo))}, {sql_literal(ep_status)},",
@@ -178,6 +218,8 @@ def export_sql(
                 "  thumbnail_url = EXCLUDED.thumbnail_url,",
                 "  original_video_url = EXCLUDED.original_video_url,",
                 "  author_id = EXCLUDED.author_id,",
+                "  series_id = EXCLUDED.series_id,",
+                "  series_index = EXCLUDED.series_index,",
                 "  submitted_by_user_id = EXCLUDED.submitted_by_user_id,",
                 "  rejection_reason = EXCLUDED.rejection_reason,",
                 "  is_demo = EXCLUDED.is_demo,",
@@ -221,6 +263,14 @@ def export_sql(
             "  pg_get_serial_sequence('subtitles', 'id'),",
             "  GREATEST(COALESCE((SELECT MAX(id) FROM subtitles), 1), 1)",
             ") WHERE pg_get_serial_sequence('subtitles', 'id') IS NOT NULL;",
+            "SELECT setval(",
+            "  pg_get_serial_sequence('episode_series', 'id'),",
+            "  GREATEST(COALESCE((SELECT MAX(id) FROM episode_series), 1), 1)",
+            ") WHERE pg_get_serial_sequence('episode_series', 'id') IS NOT NULL;",
+            "SELECT setval(",
+            "  pg_get_serial_sequence('episodes', 'id'),",
+            "  GREATEST(COALESCE((SELECT MAX(id) FROM episodes), 1), 1)",
+            ") WHERE pg_get_serial_sequence('episodes', 'id') IS NOT NULL;",
             "",
             "COMMIT;",
             "",

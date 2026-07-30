@@ -20,8 +20,23 @@ async function submit() {
     const next = typeof route.query.next === 'string' ? route.query.next : '/gnadmin/dashboard'
     await router.replace(next)
   } catch (e: unknown) {
-    const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-    error.value = msg || '登录失败'
+    const err = e as {
+      code?: string
+      message?: string
+      response?: { status?: number; data?: { detail?: string | { msg?: string }[] } }
+    }
+    const detail = err.response?.data?.detail
+    if (typeof detail === 'string' && detail.trim()) {
+      error.value = detail
+    } else if (Array.isArray(detail) && detail.length) {
+      error.value = detail.map((item) => item.msg).filter(Boolean).join('；') || '登录失败'
+    } else if (err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '')) {
+      error.value = '登录超时：后端忙或数据库连接异常，请稍后重试；若刚跑过 AI/TTS，可先重启后端'
+    } else if (!err.response) {
+      error.value = '无法连接后端，请确认 Vite 代理的 8000 端口 uvicorn 正在运行'
+    } else {
+      error.value = `登录失败（HTTP ${err.response.status || '?'}）`
+    }
   } finally {
     loading.value = false
   }

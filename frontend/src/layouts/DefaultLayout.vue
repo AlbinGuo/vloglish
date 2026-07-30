@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { sendPresenceHeartbeat } from '@/api/presence'
+import BrandLogo from '@/components/BrandLogo.vue'
+import ContinueLearningDropdown from '@/components/ContinueLearningDropdown.vue'
+import FeedbackModal from '@/components/FeedbackModal.vue'
 import { useCatalogMobileHeaderHide } from '@/composables/useCatalogMobileHeaderHide'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notifications'
@@ -11,6 +14,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const notifications = useNotificationStore()
+const feedbackOpen = ref(false)
 
 const immersive = computed(() => Boolean(route.meta.immersive))
 const { headerVisible: catalogHeaderVisible, catalogHeaderAutoHide } = useCatalogMobileHeaderHide()
@@ -91,9 +95,17 @@ watch(
       ]"
     >
       <div class="page-container py-3 flex items-center justify-between gap-4">
-        <RouterLink to="/english" class="flex flex-col shrink-0">
-          <span class="text-lg font-semibold">Vloglish</span>
-          <span class="text-xs text-neutral-500 dark:text-neutral-400">Real vlogs · Real English</span>
+        <RouterLink to="/english" class="group flex items-center gap-3 shrink-0 min-w-0">
+          <BrandLogo
+            class="transition-transform duration-200 group-hover:scale-[1.04]"
+            :size="34"
+          />
+          <span class="flex flex-col min-w-0">
+            <span class="text-[1.05rem] font-semibold tracking-[-0.02em] leading-tight">Vloglish</span>
+            <span class="text-[11px] text-neutral-500 dark:text-neutral-400 tracking-[0.01em] leading-tight mt-0.5">
+              Real vlogs · Real English
+            </span>
+          </span>
         </RouterLink>
 
         <div class="flex items-center gap-3 text-sm shrink-0">
@@ -137,12 +149,27 @@ watch(
                 {{ notifications.unreadCount > 99 ? '99+' : notifications.unreadCount }}
               </span>
             </RouterLink>
+            <button
+              type="button"
+              class="hidden sm:inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition"
+              @click="feedbackOpen = true"
+            >
+              反馈
+            </button>
+            <button
+              type="button"
+              class="sm:hidden p-2 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition"
+              aria-label="意见反馈"
+              @click="feedbackOpen = true"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 9.75h7.5m-7.5 3h4.5M4.5 19.5l2.25-2.25H18a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 18 4.5H6A2.25 2.25 0 0 0 3.75 6.75v10.5c0 .621.504 1.125 1.125 1.125H4.5Z" />
+              </svg>
+            </button>
             <span v-if="auth.isMember" class="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
               会员
             </span>
-            <span class="hidden sm:inline text-neutral-500 dark:text-neutral-400 max-w-[10rem] truncate">
-              {{ auth.user?.nickname || auth.user?.email }}
-            </span>
+            <ContinueLearningDropdown />
             <button type="button" class="text-neutral-600 hover:text-black dark:text-neutral-400 dark:hover:text-white" @click="handleLogout">退出</button>
           </template>
           <template v-else>
@@ -173,5 +200,6 @@ watch(
         </KeepAlive>
       </RouterView>
     </main>
+    <FeedbackModal v-model:open="feedbackOpen" />
   </div>
 </template>

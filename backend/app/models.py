@@ -38,6 +38,24 @@ class Author(Base):
     accent: Mapped[str] = mapped_column(String(32), default="")
 
 
+class EpisodeSeries(Base):
+    """强顺序合集：一集最多属于一个合集。"""
+
+    __tablename__ = "episode_series"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(256))
+    summary: Mapped[str] = mapped_column(Text, default="")
+    cover: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(16), default="draft")
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    episodes: Mapped[list["Episode"]] = relationship(back_populates="series")
+
+
 class Episode(Base):
     __tablename__ = "episodes"
 
@@ -47,6 +65,7 @@ class Episode(Base):
     short_title: Mapped[str] = mapped_column(String(256))
     summary: Mapped[str] = mapped_column(Text, default="")
     remark: Mapped[str] = mapped_column(Text, default="")
+    vocab_summary: Mapped[str] = mapped_column(Text, default="")
     stars: Mapped[int] = mapped_column(Integer, default=3)
     voca_size: Mapped[int] = mapped_column(Integer, default=0)
     subtitle_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -57,14 +76,20 @@ class Episode(Base):
     thumbnail_url: Mapped[str] = mapped_column(Text, default="")
     original_video_url: Mapped[str] = mapped_column(Text, default="")
     author_id: Mapped[int] = mapped_column(ForeignKey("authors.id"))
+    series_id: Mapped[int | None] = mapped_column(ForeignKey("episode_series.id"), nullable=True, index=True)
+    series_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     submitted_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    # 用户投稿默认 False（仅投稿者可见）；管理员「转为全站可见」后为 True（公共目录 + 仍留在我的语料库）
+    is_catalog_public: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     status: Mapped[str] = mapped_column(String(16), default="published")
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     author: Mapped["Author"] = relationship()
+    series: Mapped["EpisodeSeries | None"] = relationship(back_populates="episodes")
     tags: Mapped[list["Tag"]] = relationship(secondary=episode_tags)
     subtitles: Mapped[list["Subtitle"]] = relationship(back_populates="episode", cascade="all, delete-orphan")
 
@@ -129,6 +154,17 @@ class LookupCache(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class EpisodeWordCardCache(Base):
+    """整集词卡结果缓存（跨用户共享，避免重复调用 DeepSeek）。"""
+
+    __tablename__ = "episode_word_card_cache"
+
+    episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"), primary_key=True)
+    content_hash: Mapped[str] = mapped_column(String(64), default="")
+    cards_json: Mapped[str] = mapped_column(Text, default="[]")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class EpisodeFavorite(Base):
     __tablename__ = "episode_favorites"
 
@@ -172,7 +208,8 @@ class RefreshToken(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     token_hash: Mapped[str] = mapped_column(String(255))
-    device_id: Mapped[str] = mapped_column(String(64), default="")
+    device_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+    session_key: Mapped[str] = mapped_column(String(64), default="", index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -214,6 +251,7 @@ class AdminBroadcast(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(256))
     body: Mapped[str] = mapped_column(Text, default="")
+    image_url: Mapped[str] = mapped_column(Text, default="")
     created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     recipient_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -227,10 +265,38 @@ class UserNotification(Base):
     type: Mapped[str] = mapped_column(String(32))
     title: Mapped[str] = mapped_column(String(256))
     body: Mapped[str] = mapped_column(Text, default="")
+    image_url: Mapped[str] = mapped_column(Text, default="")
     episode_id: Mapped[int | None] = mapped_column(ForeignKey("episodes.id"), nullable=True)
     broadcast_id: Mapped[int | None] = mapped_column(ForeignKey("admin_broadcasts.id"), nullable=True)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class UserFeedback(Base):
+    """用户意见反馈。"""
+
+    __tablename__ = "user_feedbacks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(120))
+    body: Mapped[str] = mapped_column(Text, default="")
+    image_urls_json: Mapped[str] = mapped_column(Text, default="[]")
+    # pending / reviewing / done / closed
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    admin_note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def image_urls(self) -> list[str]:
+        try:
+            raw = json.loads(self.image_urls_json or "[]")
+        except json.JSONDecodeError:
+            return []
+        if not isinstance(raw, list):
+            return []
+        return [str(u).strip() for u in raw if str(u).strip()]
 
 
 class UserEpisodeProgress(Base):
@@ -333,6 +399,7 @@ class Article(Base):
     status: Mapped[str] = mapped_column(String(16), default="draft")
     is_free_preview: Mapped[bool] = mapped_column(Boolean, default=False)
     tts_status: Mapped[str] = mapped_column(String(16), default="none")
+    vocab_summary: Mapped[str] = mapped_column(Text, default="")
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

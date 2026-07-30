@@ -9,14 +9,17 @@ const props = defineProps<{
   active?: boolean
   side: 'english' | 'chinese'
   embedded?: boolean
+  vocabLinkHtml?: string
 }>()
 
 defineEmits<{ click: [event: MouseEvent]; activate: [] }>()
 
 const displayChinese = computed(() => stripSpeakerMarkers(props.segment.chinese))
-const englishHtml = computed(() =>
-  preprocessSubtitleHtml(props.segment.english_html || props.segment.english),
-)
+const englishHtml = computed(() => {
+  if (props.vocabLinkHtml) return props.vocabLinkHtml
+  return preprocessSubtitleHtml(props.segment.english_html || props.segment.english)
+})
+const useHtml = computed(() => Boolean(props.vocabLinkHtml || props.segment.english_html))
 
 const cellClass = computed(() => {
   if (props.embedded) {
@@ -40,7 +43,7 @@ const cellClass = computed(() => {
   >
     <template v-if="side === 'english'">
       <SubtitleEnglish
-        v-if="segment.english_html"
+        v-if="useHtml"
         :html="englishHtml"
         align="left"
         @click="$emit('click', $event)"

@@ -14,6 +14,20 @@ def qwen_tts_configured() -> bool:
     return bool(os.getenv("DASHSCOPE_API_KEY", "").strip())
 
 
+QWEN_ARTICLE_VOICES = ("Ryan", "Katerina")
+
+
+def resolve_qwen_voice(voice: str | None = None) -> str:
+    default = os.getenv("QWEN_TTS_VOICE", "Ryan").strip() or "Ryan"
+    if not voice or not voice.strip():
+        return default if default in QWEN_ARTICLE_VOICES else QWEN_ARTICLE_VOICES[0]
+    cleaned = voice.strip()
+    if cleaned not in QWEN_ARTICLE_VOICES:
+        allowed = ", ".join(QWEN_ARTICLE_VOICES)
+        raise ValueError(f"不支持音色: {cleaned}，可选: {allowed}")
+    return cleaned
+
+
 def _api_url() -> str:
     custom = os.getenv("DASHSCOPE_TTS_URL", "").strip()
     if custom:
@@ -22,16 +36,16 @@ def _api_url() -> str:
     return f"{base}/services/aigc/multimodal-generation/generation"
 
 
-def _build_payload(text: str) -> dict:
+def _build_payload(text: str, *, voice: str | None = None) -> dict:
     model = os.getenv("QWEN_TTS_MODEL", "qwen3-tts-flash").strip() or "qwen3-tts-flash"
-    voice = os.getenv("QWEN_TTS_VOICE", "Ryan").strip() or "Ryan"
+    voice_name = resolve_qwen_voice(voice)
     language = os.getenv("QWEN_TTS_LANGUAGE", "English").strip() or "English"
 
     payload: dict = {
         "model": model,
         "input": {
             "text": text,
-            "voice": voice,
+            "voice": voice_name,
             "language_type": language,
         },
     }
@@ -59,13 +73,13 @@ def _parse_response(body: dict) -> str:
     return url
 
 
-def synthesize_speech(text: str) -> bytes:
+def synthesize_speech(text: str, *, voice: str | None = None) -> bytes:
     api_key = os.getenv("DASHSCOPE_API_KEY", "").strip()
     if not api_key:
         raise RuntimeError("未配置 DASHSCOPE_API_KEY")
 
     cleaned = normalize_tts_text(text)
-    payload = _build_payload(cleaned)
+    payload = _build_payload(cleaned, voice=voice)
 
     req = urllib.request.Request(
         _api_url(),

@@ -13,7 +13,7 @@ def notify_episode_published(db: Session, ep: Episode, user_id: int) -> None:
             user_id=user_id,
             type="episode_published",
             title="投稿已通过审核",
-            body=f"您投稿的视频「{_episode_title(ep)}」已通过审核并发布，现在可以在目录中观看。",
+            body=f"您投稿的视频「{_episode_title(ep)}」已通过审核并发布，现在可在个人语料库中观看（仅你可见）。",
             episode_id=ep.id,
         )
     )

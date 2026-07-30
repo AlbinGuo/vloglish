@@ -15,6 +15,13 @@ def touch_presence(db: Session, user: User) -> None:
     db.commit()
 
 
+def is_user_online(user: User, *, now: datetime | None = None) -> bool:
+    if not user.last_seen_at or user.is_staff or not user.is_active:
+        return False
+    current = now or datetime.utcnow()
+    return user.last_seen_at >= current - timedelta(seconds=ONLINE_WINDOW_SEC)
+
+
 def count_online_users(db: Session) -> int:
     since = datetime.utcnow() - timedelta(seconds=ONLINE_WINDOW_SEC)
     return (
