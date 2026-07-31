@@ -11,7 +11,7 @@ function loadHighlightStyle(): HighlightStyle {
   } catch {
     /* ignore */
   }
-  return 'underline'
+  return 'background'
 }
 
 function applyHighlightStyle(style: HighlightStyle) {
