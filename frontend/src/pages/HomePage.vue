@@ -46,11 +46,12 @@ const skeletonCount = computed(() =>
 )
 
 const previewBanner = computed(() => {
-  if (auth.isLoggedIn) return null
+  if (!auth.isLoggedIn || auth.isMember) return null
   return {
-    text: '当前仅展示 8 期视频，登录后可看全部视频。',
-    showLogin: true,
-    showSignup: true,
+    text: '当前为普通用户，首页仅展示部分视频；开通会员后可学习全部内容与合集。',
+    showLogin: false,
+    showSignup: false,
+    showPricing: true,
   }
 })
 
@@ -119,8 +120,9 @@ onMounted(async () => {
   store.setListViewMode(displayViewMode.value)
   if (browseMode.value === 'author') {
     await loadAuthors()
-  } else if (!store.episodes.length) {
-    await store.loadEpisodes()
+  } else {
+    // 始终重拉：支付页在 Layout 外会卸载首页，但 Pinia 仍可能缓存免费限额列表
+    await store.loadEpisodes(true)
   }
   setupLoadMoreObserver()
   await restoreCatalogScroll()
@@ -212,6 +214,7 @@ watch(
       <span>{{ previewBanner.text }}</span>
       <RouterLink v-if="previewBanner.showLogin" to="/login" class="font-medium underline">登录</RouterLink>
       <RouterLink v-if="previewBanner.showSignup" to="/signup" class="font-medium underline">注册</RouterLink>
+      <RouterLink v-if="previewBanner.showPricing" to="/pricing" class="font-medium underline">开通会员</RouterLink>
     </div>
 
     <!-- 按作者分类 -->
@@ -261,7 +264,11 @@ watch(
           v-else-if="store.episodes.length && !store.hasMore"
           class="py-8 text-center text-sm text-neutral-400"
         >
-          已加载全部 {{ store.total }} 期
+          {{
+            auth.isLoggedIn && !auth.isMember
+              ? `普通会员只展示 ${store.total} 期`
+              : `已加载全部 ${store.total} 期`
+          }}
         </div>
       </template>
     </template>

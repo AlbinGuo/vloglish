@@ -39,7 +39,7 @@ async function submit() {
   <div class="min-h-dvh flex items-center justify-center px-4 py-12 bg-neutral-50 dark:bg-neutral-950">
     <div class="w-full max-w-md rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-6 sm:p-8 shadow-sm">
       <h1 class="text-xl font-semibold mb-1">登录</h1>
-      <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">使用注册时的邮箱登录，登录后可学习全部内容</p>
+      <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">使用注册邮箱登录。普通用户可学习部分内容，开通会员后解锁全部。</p>
 
       <form class="space-y-4" @submit.prevent="submit">
         <div>
@@ -79,9 +79,7 @@ async function submit() {
 
       <p class="text-sm text-neutral-500 dark:text-neutral-400 text-center mt-6">
         还没有账号？
-        <RouterLink to="/pricing" class="text-neutral-900 dark:text-neutral-100 font-medium hover:underline">开通会员</RouterLink>
-        <span class="mx-1">·</span>
-        <RouterLink to="/signup" class="text-neutral-900 dark:text-neutral-100 font-medium hover:underline">邀请注册</RouterLink>
+        <RouterLink to="/signup" class="text-neutral-900 dark:text-neutral-100 font-medium hover:underline">免费注册</RouterLink>
       </p>
     </div>
   </div>

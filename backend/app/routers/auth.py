@@ -24,6 +24,7 @@ from ..favorites import merge_device_favorites
 from ..models import ActivationCode, PasswordResetToken, RefreshToken, User
 from ..database import get_db
 from ..schemas import (
+    ActivateMembershipIn,
     AuthTokensOut,
     ForgotPasswordIn,
     ForgotPasswordOut,
@@ -47,11 +48,6 @@ def user_out(user: User) -> UserOut:
         phone=user.phone,
         is_member=user.is_member,
     )
-
-
-def user_can_refresh_session(user: User) -> bool:
-    """会员可刷新；管理员（is_staff）共用 refresh 接口，也需允许刷新。"""
-    return user_is_member(user) or bool(user.is_staff)
 
 
 def issue_tokens(db: Session, user: User, device_id: str) -> AuthTokensOut:
@@ -125,12 +121,17 @@ def register(
     if exists:
         raise HTTPException(status_code=400, detail="该邮箱已注册")
 
-    code_value = body.activation_code.strip()
-    user = User(email=email, password_hash=hash_password(body.password))
+    code_value = (body.activation_code or "").strip()
+    user = User(
+        email=email,
+        password_hash=hash_password(body.password),
+        is_member=False,
+    )
     apply_signup_geo(user, get_client_ip(request))
     db.add(user)
     db.flush()
-    apply_activation_code(db, user, code_value)
+    if code_value:
+        apply_activation_code(db, user, code_value)
     db.commit()
     db.refresh(user)
     merge_device_favorites(db, user.id, device_id)
@@ -150,8 +151,6 @@ def login(
         raise HTTPException(status_code=401, detail="邮箱或密码错误")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="账号已停用")
-    if not user_is_member(user):
-        raise HTTPException(status_code=403, detail="账号未开通会员，请使用激活码注册")
 
     backfill_signup_geo(user, get_client_ip(request))
     db.commit()
@@ -171,12 +170,25 @@ def refresh_token(body: RefreshIn, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == matched.user_id, User.is_active.is_(True)).first()
     if not user:
         raise HTTPException(status_code=401, detail="用户不存在")
-    if not user_can_refresh_session(user):
-        raise HTTPException(status_code=403, detail="账号未开通会员，请使用激活码注册")
 
     db.delete(matched)
     db.commit()
     return issue_tokens(db, user, matched.device_id)
+
+
+@router.post("/activate/", response_model=UserOut)
+def activate_membership(
+    body: ActivateMembershipIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """已登录普通用户绑定运营激活码，升级为会员。"""
+    if user_is_member(user):
+        return user_out(user)
+    apply_activation_code(db, user, body.activation_code.strip())
+    db.commit()
+    db.refresh(user)
+    return user_out(user)
 
 
 @router.get("/me/", response_model=UserOut)

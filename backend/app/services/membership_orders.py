@@ -1,4 +1,4 @@
-"""Membership order create / pay success / activate code binding."""
+"""Membership order create / pay success / activate current account."""
 from __future__ import annotations
 
 import json
@@ -39,18 +39,18 @@ def _fmt_dt(value: datetime | None) -> str | None:
 def create_order(
     db: Session,
     *,
-    email: str,
+    user: User,
     channel: str = "page",
     notify_base: str = "",
 ) -> dict:
-    email_norm = email.strip().lower()
-    if not email_norm or "@" not in email_norm:
-        raise HTTPException(status_code=400, detail="请填写有效邮箱")
+    if not user or not user.id:
+        raise HTTPException(status_code=401, detail="请先登录后再开通会员")
+    if user.is_member:
+        raise HTTPException(status_code=400, detail="你已是会员，无需重复购买")
 
-    existing = db.query(User).filter(User.email == email_norm).first()
-    email_is_member = bool(existing and existing.is_member)
-    if email_is_member:
-        raise HTTPException(status_code=400, detail="该邮箱已是会员，请直接登录")
+    email_norm = (user.email or "").strip().lower()
+    if not email_norm or "@" not in email_norm:
+        raise HTTPException(status_code=400, detail="账号邮箱无效，请联系客服")
 
     amount_cent = membership_price_cent()
     amount_yuan = membership_price_yuan()
@@ -60,6 +60,7 @@ def create_order(
 
     order = MembershipOrder(
         order_no=order_no,
+        user_id=user.id,
         email=email_norm,
         amount_cent=amount_cent,
         currency="CNY",
@@ -109,6 +110,7 @@ def create_order(
         "signup_url": None,
         "activation_code": None,
         "email_is_member": False,
+        "membership_activated": False,
         "paid_at": None,
         "created_at": _fmt_dt(order.created_at) or "",
     }
@@ -132,6 +134,26 @@ def _issue_activation_code(db: Session, order: MembershipOrder) -> ActivationCod
     raise RuntimeError("无法生成唯一激活码")
 
 
+def _activate_order_user(db: Session, order: MembershipOrder, code: ActivationCode) -> bool:
+    """支付成功后开通当前下单账号；激活码记为已使用。返回是否已开通会员。"""
+    user: User | None = None
+    if order.user_id:
+        user = db.query(User).filter(User.id == order.user_id).first()
+    if user is None and order.email:
+        user = db.query(User).filter(User.email == order.email.strip().lower()).first()
+    if user is None:
+        return False
+
+    now = datetime.utcnow()
+    if not user.is_member:
+        user.is_member = True
+        user.member_activated_at = now
+    if code.used_by_user_id is None:
+        code.used_by_user_id = user.id
+        code.used_at = now
+    return True
+
+
 def mark_order_paid(
     db: Session,
     order: MembershipOrder,
@@ -148,7 +170,8 @@ def mark_order_paid(
     if order.status not in {"pending"}:
         raise HTTPException(status_code=400, detail=f"订单状态不可支付：{order.status}")
 
-    _issue_activation_code(db, order)
+    code = _issue_activation_code(db, order)
+    _activate_order_user(db, order, code)
     order.status = "paid"
     order.paid_at = datetime.utcnow()
     if alipay_trade_no:
@@ -212,12 +235,17 @@ def handle_alipay_notify(db: Session, params: dict[str, str]) -> str:
 
 def order_public_out(db: Session, order: MembershipOrder) -> dict:
     code_value = None
-    signup_url = None
+    membership_activated = False
     if order.activation_code_id:
         row = db.query(ActivationCode).filter(ActivationCode.id == order.activation_code_id).first()
         if row:
             code_value = row.code
-            signup_url = f"{frontend_url()}/signup?code={row.code}"
+            membership_activated = row.used_by_user_id is not None
+
+    if order.status == "paid" and order.user_id:
+        user = db.query(User).filter(User.id == order.user_id).first()
+        if user and user.is_member:
+            membership_activated = True
 
     amount_yuan = (Decimal(order.amount_cent) / Decimal(100)).quantize(Decimal("0.01"))
     return {
@@ -229,9 +257,10 @@ def order_public_out(db: Session, order: MembershipOrder) -> dict:
         "mock": alipay_mock_enabled(),
         "pay_url": None,
         "return_url": f"{frontend_url()}/pricing/result?order={order.order_no}",
-        "signup_url": signup_url,
+        "signup_url": None,
         "activation_code": code_value if order.status == "paid" else None,
-        "email_is_member": False,
+        "email_is_member": membership_activated,
+        "membership_activated": membership_activated,
         "paid_at": _fmt_dt(order.paid_at),
         "created_at": _fmt_dt(order.created_at) or "",
     }

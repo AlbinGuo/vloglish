@@ -266,3 +266,8 @@ def _migrate_schema():
                 conn.execute(
                     text("ALTER TABLE article_segments ADD COLUMN duration_ms INTEGER NOT NULL DEFAULT 0")
                 )
+    if "membership_orders" in insp.get_table_names():
+        mo_cols = {c["name"] for c in insp.get_columns("membership_orders")}
+        if "user_id" not in mo_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE membership_orders ADD COLUMN user_id INTEGER"))

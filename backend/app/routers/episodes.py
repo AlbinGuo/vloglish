@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ..episode_visibility import published_visibility_filter
 from ..database import get_db
-from ..demo_access import can_access_episode, get_episode_limit, user_is_member
-from ..deps import get_current_user_optional, get_device_id
+from ..demo_access import can_access_episode, can_access_series_content, get_episode_limit, user_is_member
+from ..deps import get_current_user, get_current_user_optional, get_device_id
 from ..favorites import favorite_video_ids
 from ..services.episode_stats import learner_count_map_for_episodes
 from ..services.learning import learned_episode_ids, progress_map_for_episodes
@@ -54,9 +54,10 @@ def episode_list(
     search: str | None = None,
     db: Session = Depends(get_db),
     device_id: str = Depends(get_device_id),
-    user: User | None = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
 ):
-    user_id = user.id if user else None
+    """视频目录：须登录；普通用户仅返回 FREE_EPISODE_LIMIT 条独立单集。"""
+    user_id = user.id
     fav_ids = favorite_video_ids(db, device_id, user_id)
     q = db.query(Episode).options(
         joinedload(Episode.author),
@@ -100,10 +101,13 @@ def episode_list(
         q = q.filter(Episode.tags.any(Tag.id == tag_id))
     if author_id is not None:
         q = q.filter(Episode.author_id == author_id)
-    if series_id is not None:
-        q = q.filter(Episode.series_id == series_id)
-    elif series_slug and series_slug.strip():
-        q = q.join(EpisodeSeries).filter(EpisodeSeries.slug == series_slug.strip())
+    if series_id is not None or (series_slug and series_slug.strip()):
+        if not can_access_series_content(user):
+            raise HTTPException(status_code=403, detail="需要开通会员才能查看合集内容")
+        if series_id is not None:
+            q = q.filter(Episode.series_id == series_id)
+        else:
+            q = q.join(EpisodeSeries).filter(EpisodeSeries.slug == series_slug.strip())
     else:
         # 视频列表只展示独立单集；合集内视频走 /series
         q = q.filter(Episode.series_id.is_(None))
@@ -229,19 +233,16 @@ def english_nav_counts(
     """用户端顶栏：视频 / 合集 / 文章阅读 可见数量。"""
     from ..models import Article
 
-    video_q = (
+    # 顶栏数量展示全站可见总量（不受普通用户列表限额影响）
+    videos = (
         db.query(Episode)
         .filter(Episode.status == "published")
         .filter(Episode.series_id.is_(None))
         .filter(published_visibility_filter(user))
-        .order_by(Episode.created_at.desc())
+        .count()
     )
-    limit = get_episode_limit(user)
-    if limit is not None:
-        videos = len(video_q.limit(limit).all())
-    else:
-        videos = video_q.count()
 
+    # 合集入口对普通用户可见，数量按已发布合集统计（不因内容需会员而显示为 0）
     series_rows = (
         db.query(EpisodeSeries)
         .filter(EpisodeSeries.status == "published")
@@ -251,10 +252,8 @@ def english_nav_counts(
     series_count = 0
     for series in series_rows:
         episodes = list_series_episodes(db, series.id, published_only=True)
-        visible = [ep for ep in episodes if can_access_episode(db, ep, user)]
-        if not visible and episodes:
-            continue
-        series_count += 1
+        if episodes:
+            series_count += 1
 
     articles = db.query(Article).filter(Article.status == "published").count()
 
@@ -264,8 +263,10 @@ def english_nav_counts(
 @router.get("/series/")
 def series_list(
     db: Session = Depends(get_db),
-    user: User | None = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
 ):
+    """合集列表：登录用户可见；内容仍须会员才能进入详情。"""
+    _ = user
     rows = (
         db.query(EpisodeSeries)
         .filter(EpisodeSeries.status == "published")
@@ -275,10 +276,9 @@ def series_list(
     results = []
     for series in rows:
         episodes = list_series_episodes(db, series.id, published_only=True)
-        visible = [ep for ep in episodes if can_access_episode(db, ep, user)]
-        if not visible and episodes:
+        if not episodes:
             continue
-        covers = [ep.cover for ep in visible if ep.cover][:3]
+        covers = [ep.cover for ep in episodes if ep.cover][:3]
         if not covers and series.cover:
             covers = [series.cover]
         results.append(
@@ -289,8 +289,9 @@ def series_list(
                 "summary": series.summary or "",
                 "cover": covers[0] if covers else (series.cover or ""),
                 "covers": covers,
-                "episode_count": len(visible),
+                "episode_count": len(episodes),
                 "sort_order": series.sort_order or 0,
+                "requires_membership": not can_access_series_content(user),
             }
         )
     return {"count": len(results), "results": results}
@@ -301,7 +302,7 @@ def series_detail(
     slug: str,
     db: Session = Depends(get_db),
     device_id: str = Depends(get_device_id),
-    user: User | None = Depends(get_current_user_optional),
+    user: User = Depends(get_current_user),
 ):
     series = (
         db.query(EpisodeSeries)
@@ -312,19 +313,20 @@ def series_detail(
         raise HTTPException(status_code=404, detail="合集不存在")
 
     episodes = list_series_episodes(db, series.id, published_only=True)
-    visible = [ep for ep in episodes if can_access_episode(db, ep, user)]
-    user_id = user.id if user else None
-    fav_ids = favorite_video_ids(db, device_id, user_id)
-    prog_map = progress_map_for_episodes(db, user.id, [ep.id for ep in visible]) if user else {}
-    learner_map = learner_count_map_for_episodes(db, [ep.id for ep in visible])
+    if not can_access_series_content(user):
+        raise HTTPException(status_code=403, detail="需要开通会员才能查看合集内容")
+
+    fav_ids = favorite_video_ids(db, device_id, user.id)
+    prog_map = progress_map_for_episodes(db, user.id, [ep.id for ep in episodes])
+    learner_map = learner_count_map_for_episodes(db, [ep.id for ep in episodes])
 
     return {
         "id": series.id,
         "slug": series.slug,
         "title": series.title,
         "summary": series.summary or "",
-        "cover": series.cover or (visible[0].cover if visible else ""),
-        "episode_count": len(visible),
+        "cover": series.cover or (episodes[0].cover if episodes else ""),
+        "episode_count": len(episodes),
         "episodes": [
             episode_summary(
                 ep,
@@ -333,7 +335,7 @@ def series_detail(
                 progress_percent=prog_map.get(ep.id).completion_percent if prog_map.get(ep.id) else 0,
                 learner_count=learner_map.get(ep.id, 0),
             )
-            for ep in visible
+            for ep in episodes
         ],
     }
 
@@ -359,7 +361,11 @@ def get_episode_detail(
     if not episode:
         raise HTTPException(status_code=404, detail="Episode not found")
     if not can_access_episode(db, episode, user):
-        raise HTTPException(status_code=403, detail="无权访问该内容")
+        if episode.series_id is not None and user is not None and not user_is_member(user):
+            raise HTTPException(status_code=403, detail="需要开通会员才能查看合集内容")
+        if user is None:
+            raise HTTPException(status_code=401, detail="请先登录")
+        raise HTTPException(status_code=403, detail="无权访问该内容，请开通会员查看更多视频")
 
     total_q = db.query(Episode).filter(
         Episode.status == "published",

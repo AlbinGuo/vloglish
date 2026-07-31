@@ -15,14 +15,12 @@ const auth = useAuthStore()
 
 const loading = ref(true)
 const error = ref('')
+const needsMembership = ref(false)
 const series = ref<SeriesDetail | null>(null)
 
 const slug = computed(() => String(route.params.slug || ''))
 
 function episodePath(videoId: string) {
-  if (!auth.isLoggedIn) {
-    return `/login?next=${encodeURIComponent(`/english/episode/${videoId}`)}`
-  }
   return `/english/episode/${videoId}`
 }
 
@@ -36,11 +34,19 @@ async function load() {
   if (!slug.value) return
   loading.value = true
   error.value = ''
+  needsMembership.value = false
   try {
     series.value = await getSeriesDetail(slug.value)
-  } catch {
+  } catch (e: unknown) {
     series.value = null
-    error.value = '合集不存在或加载失败'
+    const status = (e as { response?: { status?: number; data?: { detail?: string } } })?.response?.status
+    const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+    if (status === 403) {
+      needsMembership.value = true
+      error.value = typeof detail === 'string' ? detail : '需要开通会员才能查看合集内容'
+    } else {
+      error.value = '合集不存在或加载失败'
+    }
   } finally {
     loading.value = false
   }
@@ -55,6 +61,31 @@ watch(slug, load)
     <EnglishNavTabs class="mb-6" />
 
     <p v-if="loading" class="py-24 text-center text-neutral-500">加载中...</p>
+
+    <div
+      v-else-if="needsMembership"
+      class="max-w-lg mx-auto py-16 text-center space-y-4"
+    >
+      <h1 class="text-xl font-semibold">合集内容仅会员可看</h1>
+      <p class="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
+        {{ error || '开通会员后即可观看全部合集课程。' }}
+      </p>
+      <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+        <RouterLink
+          to="/pricing"
+          class="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700"
+        >
+          开通会员
+        </RouterLink>
+        <RouterLink
+          to="/english/series"
+          class="px-4 py-2 rounded-lg border border-black/10 dark:border-white/15 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800"
+        >
+          返回合集列表
+        </RouterLink>
+      </div>
+    </div>
+
     <p v-else-if="error" class="py-24 text-center text-red-600">{{ error }}</p>
 
     <template v-else-if="series">

@@ -470,6 +470,7 @@ class MembershipOrder(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     order_no: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     email: Mapped[str] = mapped_column(String(255), index=True)
     amount_cent: Mapped[int] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String(8), default="CNY")

@@ -6,6 +6,8 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
 from ..database import get_db
+from ..deps import get_current_user
+from ..models import User
 from ..schemas import MembershipOrderCreateIn, MembershipOrderOut, MembershipPricingOut
 from ..services.membership_config import (
     alipay_mock_enabled,
@@ -33,6 +35,7 @@ def get_pricing():
         amount_yuan=f"{yuan:.2f}",
         amount_cent=membership_price_cent(),
         mock=alipay_mock_enabled(),
+        description="登录账号付款成功后立即开通永久会员",
     )
 
 
@@ -41,11 +44,12 @@ def create_membership_order(
     body: MembershipOrderCreateIn,
     request: Request,
     db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     notify_base = backend_public_url() or str(request.base_url).rstrip("/")
     data = create_order(
         db,
-        email=str(body.email),
+        user=user,
         channel=body.channel,
         notify_base=notify_base,
     )
@@ -59,10 +63,16 @@ def get_membership_order(order_no: str, db: Session = Depends(get_db)):
 
 
 @router.post("/orders/{order_no}/mock-pay/", response_model=MembershipOrderOut)
-def mock_pay_order(order_no: str, db: Session = Depends(get_db)):
+def mock_pay_order(
+    order_no: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     if not alipay_mock_enabled():
         raise HTTPException(status_code=403, detail="未开启模拟支付")
     order = get_order_by_no(db, order_no)
+    if order.user_id and order.user_id != user.id and not user.is_staff:
+        raise HTTPException(status_code=403, detail="无权操作该订单")
     if order.status == "paid":
         return MembershipOrderOut(**order_public_out(db, order))
     mark_order_paid(db, order, alipay_trade_no="MOCK", notify_raw='{"mock":true}')

@@ -125,6 +125,8 @@ export interface SeriesSummary {
   covers?: string[]
   episode_count: number
   sort_order: number
+  /** 普通用户可见合集入口，但内容需会员 */
+  requires_membership?: boolean
 }
 
 export interface SeriesDetail {

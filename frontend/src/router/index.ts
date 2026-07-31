@@ -143,13 +143,17 @@ const router = createRouter({
       path: '/pricing',
       name: 'Pricing',
       component: () => import('@/pages/PricingPage.vue'),
-      meta: { authPage: true },
+      meta: { authPage: true, requiresAuth: true },
     },
     {
       path: '/pricing/result',
       name: 'PricingResult',
       component: () => import('@/pages/PricingResultPage.vue'),
-      meta: { authPage: true },
+      meta: { authPage: true, requiresAuth: true },
+    },
+    {
+      path: '/price',
+      redirect: '/pricing',
     },
     {
       path: '/forgot-password',
@@ -172,32 +176,37 @@ const router = createRouter({
           path: 'english',
           name: 'HomePage',
           component: () => import('@/pages/HomePage.vue'),
+          meta: { requiresAuth: true },
         },
         {
           path: 'english/series',
           name: 'SeriesList',
           component: () => import('@/pages/SeriesListPage.vue'),
+          meta: { requiresAuth: true },
         },
         {
           path: 'english/series/:slug',
           name: 'SeriesDetail',
           component: () => import('@/pages/SeriesDetailPage.vue'),
+          meta: { requiresAuth: true },
         },
         {
           path: 'english/authors/:authorId',
           name: 'AuthorDetail',
           component: () => import('@/pages/AuthorDetailPage.vue'),
+          meta: { requiresAuth: true },
         },
         {
           path: 'english/reading',
           name: 'NewsReadingList',
           component: () => import('@/pages/NewsReadingListPage.vue'),
+          meta: { requiresAuth: true },
         },
         {
           path: 'english/reading/:articleId',
           name: 'NewsReading',
           component: () => import('@/pages/NewsReadingPage.vue'),
-          meta: { immersive: true },
+          meta: { immersive: true, requiresAuth: true },
         },
         {
           path: 'english/episode/:videoId',
@@ -287,7 +296,7 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.requiresMember && auth.isLoggedIn && !auth.isMember) {
-    return '/english'
+    return { path: '/pricing', query: { next: to.fullPath } }
   }
 })
 

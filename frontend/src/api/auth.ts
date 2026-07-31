@@ -7,12 +7,14 @@ export interface AuthTokensResponse {
   user: User
 }
 
-export async function register(email: string, password: string, activationCode: string) {
-  const { data } = await api.post<AuthTokensResponse>('/api/auth/register/', {
+export async function register(email: string, password: string, activationCode?: string) {
+  const payload: { email: string; password: string; activation_code?: string } = {
     email,
     password,
-    activation_code: activationCode.trim(),
-  })
+  }
+  const code = activationCode?.trim()
+  if (code) payload.activation_code = code
+  const { data } = await api.post<AuthTokensResponse>('/api/auth/register/', payload)
   return data
 }
 
@@ -28,6 +30,13 @@ export async function refreshAuthToken(refresh: string) {
 
 export async function fetchCurrentUser() {
   const { data } = await api.get<User>('/api/auth/me/')
+  return data
+}
+
+export async function activateMembership(activationCode: string) {
+  const { data } = await api.post<User>('/api/auth/activate/', {
+    activation_code: activationCode.trim(),
+  })
   return data
 }
 

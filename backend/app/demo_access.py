@@ -1,9 +1,21 @@
 from sqlalchemy.orm import Session, joinedload
+import os
 
 from .models import DemoCode, Episode
 from .episode_visibility import can_view_published_episode, published_visibility_filter
 
-GUEST_EPISODE_LIMIT = 8
+# 普通用户（含未登录按「无会员」处理时）首页单集列表可见数量；会员为不限
+DEFAULT_FREE_EPISODE_LIMIT = 4
+
+
+def free_episode_limit() -> int:
+    raw = (os.getenv("FREE_EPISODE_LIMIT") or "").strip()
+    if not raw:
+        return DEFAULT_FREE_EPISODE_LIMIT
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return DEFAULT_FREE_EPISODE_LIMIT
 
 
 def user_is_member(user) -> bool:
@@ -11,9 +23,10 @@ def user_is_member(user) -> bool:
 
 
 def get_episode_limit(user) -> int | None:
+    """会员不限；非会员（含游客）返回免费额度。"""
     if user_is_member(user):
         return None
-    return GUEST_EPISODE_LIMIT
+    return free_episode_limit()
 
 
 def episode_order(ordering: str):
@@ -85,7 +98,15 @@ def can_access_episode(db: Session, episode: Episode, user, ordering: str = "cre
         return True
     if user_is_member(user):
         return True
-    # 合集内视频不占用「视频」列表的访客限额，可从合集入口访问
+    # 合集内容仅会员可看
     if episode.series_id is not None:
-        return True
+        return False
+    # 未登录不可看
+    if user is None:
+        return False
+    # 普通用户：仅免费列表内的独立单集可进详情/播放
     return episode.id in get_visible_episode_ids(db, user, ordering)
+
+
+def can_access_series_content(user) -> bool:
+    return user_is_member(user)

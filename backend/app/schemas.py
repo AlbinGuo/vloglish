@@ -21,6 +21,11 @@ class AuthTokensOut(BaseModel):
 class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    # 可选：运营/抖音激活码；不填则为普通用户
+    activation_code: str | None = Field(default=None, max_length=64)
+
+
+class ActivateMembershipIn(BaseModel):
     activation_code: str = Field(min_length=1, max_length=64)
 
 
@@ -1204,7 +1209,7 @@ class MembershipPricingOut(BaseModel):
 
 
 class MembershipOrderCreateIn(BaseModel):
-    email: EmailStr
+    """须登录后下单；邮箱取当前账号，无需再传。"""
     channel: str = Field(default="page", pattern="^(page|wap)$")
 
 
@@ -1220,6 +1225,7 @@ class MembershipOrderOut(BaseModel):
     signup_url: str | None = None
     activation_code: str | None = None
     email_is_member: bool = False
+    membership_activated: bool = False
     paid_at: str | None = None
     created_at: str = ""
 

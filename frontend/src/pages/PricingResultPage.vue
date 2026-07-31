@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
   getMembershipOrder,
   mockPayMembershipOrder,
   type MembershipOrder,
 } from '@/api/membership'
-import { copyText } from '@/utils/clipboard'
+import { useAuthStore } from '@/stores/auth'
+import { useCatalogStore } from '@/stores/catalog'
 
 const route = useRoute()
+const router = useRouter()
+const auth = useAuthStore()
+const catalog = useCatalogStore()
 const order = ref<MembershipOrder | null>(null)
 const error = ref('')
 const loading = ref(true)
 const paying = ref(false)
-const copied = ref(false)
+const goingHome = ref(false)
 let timer: ReturnType<typeof setInterval> | undefined
 
 const orderNo = () => {
@@ -31,9 +35,15 @@ async function refresh() {
   try {
     order.value = await getMembershipOrder(no)
     error.value = ''
-    if (order.value.status === 'paid' && timer) {
-      clearInterval(timer)
-      timer = undefined
+    if (order.value.status === 'paid') {
+      if (auth.isLoggedIn) {
+        await auth.fetchMe()
+        await catalog.loadEpisodes(true)
+      }
+      if (timer) {
+        clearInterval(timer)
+        timer = undefined
+      }
     }
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -50,6 +60,10 @@ async function doMockPay() {
   error.value = ''
   try {
     order.value = await mockPayMembershipOrder(no)
+    if (auth.isLoggedIn) {
+      await auth.fetchMe()
+      await catalog.loadEpisodes(true)
+    }
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
     error.value = typeof msg === 'string' ? msg : '模拟支付失败'
@@ -58,10 +72,17 @@ async function doMockPay() {
   }
 }
 
-async function copySignup() {
-  const url = order.value?.signup_url
-  if (!url) return
-  copied.value = await copyText(url)
+async function goLearn() {
+  goingHome.value = true
+  try {
+    if (auth.isLoggedIn) {
+      await auth.fetchMe()
+      await catalog.loadEpisodes(true)
+    }
+    await router.replace('/english')
+  } finally {
+    goingHome.value = false
+  }
 }
 
 onMounted(async () => {
@@ -98,10 +119,7 @@ onUnmounted(() => {
         >
           <p class="text-sm font-medium text-green-800 dark:text-green-200">支付成功</p>
           <p class="text-sm text-green-800/90 dark:text-green-200/90 leading-relaxed">
-            已为邮箱 <span class="font-medium">{{ order.email }}</span> 生成注册邀请。请使用下方链接完成注册（建议与付款邮箱一致）。
-          </p>
-          <p v-if="order.activation_code" class="text-xs text-neutral-600 dark:text-neutral-300">
-            激活码：<span class="font-mono">{{ order.activation_code }}</span>
+            账号 <span class="font-medium">{{ order.email }}</span> 已开通永久会员，可学习全部内容。
           </p>
         </div>
 
@@ -111,7 +129,7 @@ onUnmounted(() => {
         >
           <p class="text-sm font-medium text-amber-900 dark:text-amber-200">等待支付确认</p>
           <p class="text-sm text-amber-900/90 dark:text-amber-200/90 leading-relaxed">
-            若你已在支付宝完成付款，请稍候，本页会自动刷新。也可稍后用同一订单号再打开此页。
+            若你已在支付宝完成付款，请稍候，本页会自动刷新。
           </p>
           <button
             v-if="order.mock"
@@ -125,22 +143,17 @@ onUnmounted(() => {
         </div>
 
         <div class="space-y-3">
-          <RouterLink
-            v-if="order.activation_code"
-            :to="`/signup?code=${encodeURIComponent(order.activation_code)}`"
-            class="block w-full text-center rounded-lg bg-neutral-900 text-white py-2.5 text-sm font-medium hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900"
-          >
-            立即注册开通会员
-          </RouterLink>
           <button
-            v-if="order.signup_url"
+            v-if="order.status === 'paid'"
             type="button"
-            class="w-full text-sm text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
-            @click="copySignup"
+            class="block w-full text-center rounded-lg bg-neutral-900 text-white py-2.5 text-sm font-medium hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 disabled:opacity-60"
+            :disabled="goingHome"
+            @click="goLearn"
           >
-            {{ copied ? '已复制注册链接' : '复制注册链接' }}
+            {{ goingHome ? '跳转中...' : '开始学习' }}
           </button>
           <RouterLink
+            v-else
             to="/pricing"
             class="block w-full text-center text-sm text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
           >

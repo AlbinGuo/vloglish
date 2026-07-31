@@ -21,6 +21,7 @@ export interface MembershipOrder {
   signup_url: string | null
   activation_code: string | null
   email_is_member: boolean
+  membership_activated: boolean
   paid_at: string | null
   created_at: string
 }
@@ -30,8 +31,8 @@ export async function getMembershipPricing() {
   return data
 }
 
-export async function createMembershipOrder(email: string, channel: 'page' | 'wap' = 'page') {
-  const { data } = await api.post<MembershipOrder>('/api/membership/orders/', { email, channel })
+export async function createMembershipOrder(channel: 'page' | 'wap' = 'page') {
+  const { data } = await api.post<MembershipOrder>('/api/membership/orders/', { channel })
   return data
 }
 
