@@ -107,17 +107,17 @@ async function submit() {
           />
         </div>
         <div v-if="!hasInvite">
-          <label class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1.5">
-            激活码 <span class="text-neutral-400 font-normal">（可选，抖音/运营渠道）</span>
-          </label>
-          <input
-            v-model="activationCode"
-            type="text"
-            autocomplete="off"
-            placeholder="有激活码可填写，注册后直接成为会员"
-            class="w-full rounded-lg border border-black/10 dark:border-white/10 dark:bg-neutral-800 dark:text-white px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
-            @input="activationCode = activationCode.toUpperCase()"
-          />
+<!--          <label class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1.5">-->
+<!--            激活码 <span class="text-neutral-400 font-normal">（可选，抖音/运营渠道）</span>-->
+<!--          </label>-->
+<!--          <input-->
+<!--            v-model="activationCode"-->
+<!--            type="text"-->
+<!--            autocomplete="off"-->
+<!--            placeholder="有激活码可填写，注册后直接成为会员"-->
+<!--            class="w-full rounded-lg border border-black/10 dark:border-white/10 dark:bg-neutral-800 dark:text-white px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"-->
+<!--            @input="activationCode = activationCode.toUpperCase()"-->
+<!--          />-->
         </div>
         <div
           v-else
