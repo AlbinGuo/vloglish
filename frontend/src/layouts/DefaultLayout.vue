@@ -193,11 +193,16 @@ watch(
           </template>
         </div>
       </div>
+      <p
+        class="page-container pb-2.5 text-xs sm:text-sm text-amber-800 dark:text-amber-200/90 leading-snug"
+      >
+        如果视频封面和视频打不开，请把地址中的 https 换成 http
+      </p>
     </header>
     <div
       v-if="!immersive && catalogHeaderAutoHide"
       class="shrink-0 pointer-events-none overflow-hidden transition-[height] duration-300 ease-out"
-      :class="catalogHeaderVisible ? 'h-[4.25rem]' : 'h-0'"
+      :class="catalogHeaderVisible ? 'h-[6.5rem]' : 'h-0'"
       aria-hidden="true"
     />
     <main class="flex-1" :class="immersive ? 'min-h-0 overflow-hidden' : ''">

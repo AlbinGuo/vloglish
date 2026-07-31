@@ -68,13 +68,19 @@ async function submit() {
   <div class="min-h-dvh flex items-center justify-center px-4 py-12 bg-neutral-50 dark:bg-neutral-950">
     <div class="w-full max-w-md rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-6 sm:p-8 shadow-sm">
       <h1 class="text-xl font-semibold mb-1">注册</h1>
-      <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6 leading-relaxed">
+      <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-4 leading-relaxed">
         <template v-if="hasInvite">
           检测到邀请激活码，注册后将直接开通会员。
         </template>
         <template v-else>
           免费注册即可登录学习；未开通会员时首页仅展示部分视频，可随时在站内开通会员。
         </template>
+      </p>
+
+      <p
+        class="mb-6 rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-900 dark:text-amber-200 leading-relaxed"
+      >
+        如果视频封面和视频打不开，请把地址中的 https 换成 http
       </p>
 
       <form class="space-y-4" @submit.prevent="submit">
