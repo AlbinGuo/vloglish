@@ -48,7 +48,7 @@ const skeletonCount = computed(() =>
 const previewBanner = computed(() => {
   if (!auth.isLoggedIn || auth.isMember) return null
   return {
-    text: '当前为普通用户，首页仅展示部分视频；开通会员后可学习全部内容与合集。',
+    text: '当前为普通用户，带「会员」标识的视频需开通后观看；合集内容仅会员可学。',
     showLogin: false,
     showSignup: false,
     showPricing: true,
@@ -58,7 +58,7 @@ const previewBanner = computed(() => {
 const filterKey = computed(() =>
   [
     store.filters.stars ?? '',
-    store.filters.accents.join(','),
+    store.filters.duration,
     store.filters.tagIds.join(','),
     store.filters.date ?? '',
     store.filters.search,
@@ -92,7 +92,7 @@ async function loadAuthors() {
   try {
     const params: Parameters<typeof getAuthorsCatalog>[0] = {}
     if (store.filters.stars) params.stars = store.filters.stars
-    if (store.filters.accents.length) params.accents = store.filters.accents.join(',')
+    if (store.filters.duration) params.duration = store.filters.duration
     if (store.filters.tagIds.length) params.tags = store.filters.tagIds.join(',')
     if (store.filters.date) params.date = store.filters.date
     if (store.filters.search) params.search = store.filters.search
@@ -173,11 +173,12 @@ watch(
   },
 )
 
-function episodePath(videoId: string) {
+function episodePath(ep: { video_id: string; requires_membership?: boolean }) {
   if (!auth.isLoggedIn) {
-    return `/login?next=${encodeURIComponent(`/english/episode/${videoId}`)}`
+    return `/login?next=${encodeURIComponent(`/english/episode/${ep.video_id}`)}`
   }
-  return `/english/episode/${videoId}`
+  if (ep.requires_membership) return '/pricing'
+  return `/english/episode/${ep.video_id}`
 }
 
 watch(
@@ -241,7 +242,7 @@ watch(
               v-for="ep in store.episodes"
               :key="ep.video_id"
               :episode="ep"
-              :to="episodePath(ep.video_id)"
+              :to="episodePath(ep)"
             />
           </div>
         </div>
@@ -254,7 +255,7 @@ watch(
             :key="ep.video_id"
             :episode="ep"
             :row-index="i + 1"
-            :to="episodePath(ep.video_id)"
+            :to="episodePath(ep)"
           />
         </div>
 
@@ -264,11 +265,7 @@ watch(
           v-else-if="store.episodes.length && !store.hasMore"
           class="py-8 text-center text-sm text-neutral-400"
         >
-          {{
-            auth.isLoggedIn && !auth.isMember
-              ? `普通用户只展示 ${store.total} 期，会员可看全部视频`
-              : `已加载全部 ${store.total} 期`
-          }}
+          已加载全部 {{ store.total }} 期
         </div>
       </template>
     </template>

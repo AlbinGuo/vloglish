@@ -46,6 +46,12 @@ function learnerLabel() {
           class="w-full h-full object-cover"
           loading="lazy"
         />
+        <span
+          v-if="episode.requires_membership"
+          class="absolute top-1.5 left-1.5 text-xs px-2 py-1 rounded-md bg-black/75 text-amber-200 font-semibold tracking-wide shadow-md backdrop-blur-[2px] leading-none"
+        >
+          会员
+        </span>
         <span class="absolute bottom-1 right-1 text-white text-[10px] bg-black/60 px-1 py-0.5 rounded">
           {{ formatDuration(episode.clip_length) }}
         </span>

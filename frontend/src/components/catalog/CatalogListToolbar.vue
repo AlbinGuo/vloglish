@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { accentOptions } from '@/constants/accentOptions'
-import { useCatalogStore } from '@/stores/catalog'
+import { useCatalogStore, type CatalogDurationFilter } from '@/stores/catalog'
 
 const store = useCatalogStore()
 const query = ref(store.filters.search)
+
+const durationOptions: { value: Exclude<CatalogDurationFilter, ''>; label: string }[] = [
+  { value: 'lt3', label: '<3分钟' },
+  { value: 'lt8', label: '3–8分钟' },
+  { value: 'gt8', label: '>8分钟' },
+]
 
 let debounceTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -38,21 +43,20 @@ watch(
       />
     </div>
 
-    <div class="flex items-center gap-1.5 shrink-0">
+    <div class="flex flex-wrap items-center gap-1.5 shrink-0" role="group" aria-label="时长">
       <button
-        v-for="opt in accentOptions"
+        v-for="opt in durationOptions"
         :key="opt.value"
         type="button"
-        class="p-1.5 rounded-lg transition cursor-pointer"
+        class="text-xs px-2.5 py-1.5 rounded-full border transition cursor-pointer"
         :class="
-          store.filters.accents.includes(opt.value)
-            ? 'bg-neutral-900/10 ring-1 ring-neutral-900/15 dark:bg-white/10 dark:ring-white/20'
-            : 'opacity-50 hover:opacity-100 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+          store.filters.duration === opt.value
+            ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-100 dark:text-neutral-900'
+            : 'border-black/10 bg-white text-neutral-700 hover:border-neutral-300 dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:border-neutral-600'
         "
-        :title="opt.label"
-        @click="store.toggleAccent(opt.value)"
+        @click="store.setDuration(opt.value)"
       >
-        <img :src="opt.icon" :alt="opt.label" class="w-6 h-6 object-contain" />
+        {{ opt.label }}
       </button>
     </div>
   </div>

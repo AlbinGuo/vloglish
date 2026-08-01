@@ -54,6 +54,12 @@ function learnerLabel() {
         </span>
         <div class="absolute top-2 left-2 flex flex-row items-center gap-1.5 z-10">
           <span
+            v-if="episode.requires_membership"
+            class="text-sm px-2.5 py-1 rounded-md bg-black/75 text-amber-200 font-semibold tracking-wide shadow-md backdrop-blur-[2px] leading-none"
+          >
+            会员
+          </span>
+          <span
             v-if="episode.is_pinned"
             class="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500 text-white font-bold shadow-md leading-none"
           >

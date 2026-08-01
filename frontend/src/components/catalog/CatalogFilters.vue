@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
-import { accentOptions } from '@/constants/accentOptions'
 import DifficultyStarsFilter from '@/components/catalog/DifficultyStarsFilter.vue'
 import { useAuthStore } from '@/stores/auth'
-import { useCatalogStore } from '@/stores/catalog'
+import { useCatalogStore, type CatalogDurationFilter } from '@/stores/catalog'
 
 const store = useCatalogStore()
 const auth = useAuthStore()
@@ -18,6 +17,12 @@ const learningFilters = computed(() => {
   }
   return items
 })
+
+const durationOptions: { value: Exclude<CatalogDurationFilter, ''>; label: string }[] = [
+  { value: 'lt3', label: '小于3分钟' },
+  { value: 'lt8', label: '3–8分钟' },
+  { value: 'gt8', label: '大于8分钟' },
+]
 
 const pillIdle =
   'border-black/10 bg-neutral-50 text-neutral-700 hover:border-neutral-300 dark:border-white/10 dark:bg-neutral-800/80 dark:text-neutral-300 dark:hover:border-neutral-600'
@@ -84,18 +89,17 @@ watch(
     </div>
 
     <div class="space-y-2">
-      <div class="text-xs text-neutral-500">口音</div>
+      <div class="text-xs text-neutral-500">时长</div>
       <div class="flex flex-wrap gap-1.5">
         <button
-          v-for="opt in accentOptions"
+          v-for="opt in durationOptions"
           :key="opt.value"
           type="button"
-          class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full border transition cursor-pointer"
-          :class="store.filters.accents.includes(opt.value) ? pillActive : pillIdle"
-          @click="store.toggleAccent(opt.value)"
+          class="text-xs px-2.5 py-1.5 rounded-full border transition cursor-pointer"
+          :class="store.filters.duration === opt.value ? pillActive : pillIdle"
+          @click="store.setDuration(opt.value)"
         >
-          <img :src="opt.icon" :alt="opt.label" class="w-4 h-4 shrink-0 object-contain" />
-          <span>{{ opt.label }}</span>
+          {{ opt.label }}
         </button>
       </div>
     </div>

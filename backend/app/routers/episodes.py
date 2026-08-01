@@ -7,7 +7,13 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ..episode_visibility import published_visibility_filter
 from ..database import get_db
-from ..demo_access import can_access_episode, can_access_series_content, get_episode_limit, user_is_member
+from ..demo_access import (
+    can_access_episode,
+    can_access_series_content,
+    get_episode_limit,
+    get_visible_episode_ids,
+    user_is_member,
+)
 from ..deps import get_current_user, get_current_user_optional, get_device_id
 from ..favorites import favorite_video_ids
 from ..services.episode_stats import learner_count_map_for_episodes
@@ -46,6 +52,7 @@ def episode_list(
     series_slug: str | None = None,
     author_id: int | None = None,
     date: str | None = None,
+    duration: str | None = Query(None, pattern="^(lt3|lt8|gt8)$"),
     status: str | None = Query(None, pattern="^(all|learned|unlearned|favorite)$"),
     ordering: str = Query(
         "created_at",
@@ -56,7 +63,7 @@ def episode_list(
     device_id: str = Depends(get_device_id),
     user: User = Depends(get_current_user),
 ):
-    """视频目录：须登录；普通用户仅返回 FREE_EPISODE_LIMIT 条独立单集。"""
+    """视频目录：须登录；普通用户返回完整列表，会员专属项标记 requires_membership。"""
     user_id = user.id
     fav_ids = favorite_video_ids(db, device_id, user_id)
     q = db.query(Episode).options(
@@ -85,6 +92,13 @@ def episode_list(
     if accent_values:
         ensure_author_join()
         q = q.filter(Author.accent.in_(accent_values))
+    # clip_length 单位：秒；lt8 = 大于3分钟且小于8分钟
+    if duration == "lt3":
+        q = q.filter(Episode.clip_length < 180)
+    elif duration == "lt8":
+        q = q.filter(Episode.clip_length > 180, Episode.clip_length < 480)
+    elif duration == "gt8":
+        q = q.filter(Episode.clip_length > 480)
     if gender:
         ensure_author_join()
         q = q.filter(Author.gender == gender)
@@ -152,17 +166,25 @@ def episode_list(
     # 置顶视频始终排在最前（同置顶再按所选排序）
     q = q.order_by(Episode.is_pinned.desc(), order_map.get(ordering, Episode.created_at.desc()))
 
-    limit = get_episode_limit(user)
+    # 普通用户也返回完整目录；不可播放项与 can_access_episode 对齐，标记 requires_membership
+    free_ids = None if user_is_member(user) else get_visible_episode_ids(db, user)
     start = offset if offset is not None else (page - 1) * page_size
-    if limit is not None:
-        matched = q.limit(limit).all()
-        total = len(matched)
-        items = matched[start : start + page_size]
-    else:
-        total = q.count()
-        items = q.offset(start).limit(page_size).all()
+    total = q.count()
+    items = q.offset(start).limit(page_size).all()
     prog_map = progress_map_for_episodes(db, user.id, [ep.id for ep in items]) if user else {}
     learner_map = learner_count_map_for_episodes(db, [ep.id for ep in items])
+
+    def _requires_membership(ep: Episode) -> bool:
+        if free_ids is None:
+            return False
+        if (
+            ep.submitted_by_user_id is not None
+            and user is not None
+            and ep.submitted_by_user_id == user.id
+        ):
+            return False
+        return ep.id not in free_ids
+
     return {
         "count": total,
         "results": [
@@ -172,6 +194,7 @@ def episode_list(
                 is_learned=prog_map.get(ep.id).is_completed if prog_map.get(ep.id) else False,
                 progress_percent=prog_map.get(ep.id).completion_percent if prog_map.get(ep.id) else 0,
                 learner_count=learner_map.get(ep.id, 0),
+                requires_membership=_requires_membership(ep),
             )
             for ep in items
         ],
@@ -500,10 +523,10 @@ def get_episode_video(
 @router.get("/episode-tags/")
 def episode_tags_list(
     sort: str = Query("name", pattern="^(name|popular)$"),
-    limit: int | None = Query(None, ge=1, le=100),
+    limit: int | None = Query(None, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
-    """标签列表。sort=popular 时按标签下已发布视频的学习人数（去重用户）降序。"""
+    """标签列表。sort=popular 时按标签下已发布视频的学习人数（去重用户）降序；limit 为空则返回全部。"""
     if sort == "popular":
         visit_subq = (
             db.query(
@@ -552,6 +575,7 @@ def authors_catalog(
     stars: int | None = None,
     tags: str | None = None,
     date: str | None = None,
+    duration: str | None = Query(None, pattern="^(lt3|lt8|gt8)$"),
     status: str | None = Query(None, pattern="^(all|learned|unlearned|favorite)$"),
     search: str | None = None,
     db: Session = Depends(get_db),
@@ -580,6 +604,12 @@ def authors_catalog(
     if accent_values:
         ensure_author_join()
         q = q.filter(Author.accent.in_(accent_values))
+    if duration == "lt3":
+        q = q.filter(Episode.clip_length < 180)
+    elif duration == "lt8":
+        q = q.filter(Episode.clip_length > 180, Episode.clip_length < 480)
+    elif duration == "gt8":
+        q = q.filter(Episode.clip_length > 480)
     if gender:
         ensure_author_join()
         q = q.filter(Author.gender == gender)
@@ -613,8 +643,7 @@ def authors_catalog(
         q = q.filter(Episode.video_id.in_(fav_ids) if fav_ids else Episode.id < 0)
 
     q = q.order_by(Episode.is_pinned.desc(), Episode.created_at.desc())
-    limit = get_episode_limit(user)
-    episodes = q.limit(limit).all() if limit is not None else q.all()
+    episodes = q.all()
 
     grouped: dict[int, dict] = {}
     order: list[int] = []
@@ -661,8 +690,7 @@ def author_detail(
         .filter(published_visibility_filter(user))
         .order_by(Episode.is_pinned.desc(), Episode.created_at.desc())
     )
-    limit = get_episode_limit(user)
-    episodes = q.limit(limit).all() if limit is not None else q.all()
+    episodes = q.all()
     covers = [ep.cover for ep in episodes if ep.cover][:3]
 
     return {

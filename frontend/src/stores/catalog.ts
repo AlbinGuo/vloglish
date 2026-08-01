@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
 import { computed, reactive, ref } from 'vue'
-import { getAuthorAccents, getEpisodeList, getEpisodeTags } from '@/api/episodes'
+import { getEpisodeList, getEpisodeTags } from '@/api/episodes'
 import type { EpisodeSummary, Tag } from '@/types'
 
 export type CatalogListViewMode = 'card' | 'list'
+export type CatalogDurationFilter = '' | 'lt3' | 'lt8' | 'gt8'
 
 export const CARD_INITIAL_SIZE = 12
 export const LIST_INITIAL_SIZE = 8
@@ -11,7 +12,7 @@ export const LOAD_MORE_SIZE = 8
 
 export interface CatalogFilters {
   stars: number | undefined
-  accents: string[]
+  duration: CatalogDurationFilter
   tagIds: number[]
   ordering: string
   date: string | undefined
@@ -22,7 +23,7 @@ export interface CatalogFilters {
 function defaultFilters(): CatalogFilters {
   return {
     stars: undefined,
-    accents: [],
+    duration: '',
     tagIds: [],
     ordering: 'created_at',
     date: undefined,
@@ -41,7 +42,6 @@ export const useCatalogStore = defineStore('catalog', () => {
   const loading = ref(false)
   const loadingMore = ref(false)
   const tags = ref<Tag[]>([])
-  const accents = ref<string[]>([])
   const listViewMode = ref<CatalogListViewMode>('card')
 
   const filters = reactive(defaultFilters())
@@ -49,9 +49,7 @@ export const useCatalogStore = defineStore('catalog', () => {
   const hasMore = computed(() => episodes.value.length < total.value)
 
   async function loadFilters() {
-    const [t, a] = await Promise.all([getEpisodeTags(), getAuthorAccents()])
-    tags.value = t
-    accents.value = a
+    tags.value = await getEpisodeTags()
   }
 
   function buildParams(
@@ -65,7 +63,7 @@ export const useCatalogStore = defineStore('catalog', () => {
       ordering: f.ordering,
     }
     if (f.stars) params.stars = f.stars
-    if (f.accents.length) params.accents = f.accents.join(',')
+    if (f.duration) params.duration = f.duration
     if (f.tagIds.length) params.tags = f.tagIds.join(',')
     if (f.date) params.date = f.date
     if (f.search) params.search = f.search
@@ -123,10 +121,8 @@ export const useCatalogStore = defineStore('catalog', () => {
     return loadEpisodes(true)
   }
 
-  function toggleAccent(accent: string) {
-    const idx = filters.accents.indexOf(accent)
-    if (idx >= 0) filters.accents.splice(idx, 1)
-    else filters.accents.push(accent)
+  function setDuration(duration: CatalogDurationFilter) {
+    filters.duration = filters.duration === duration ? '' : duration
     return loadEpisodes(true)
   }
 
@@ -157,7 +153,7 @@ export const useCatalogStore = defineStore('catalog', () => {
   const hasActiveFilters = computed(
     () =>
       Boolean(filters.stars) ||
-      filters.accents.length > 0 ||
+      Boolean(filters.duration) ||
       filters.tagIds.length > 0 ||
       Boolean(filters.date) ||
       Boolean(filters.learningStatus),
@@ -165,7 +161,7 @@ export const useCatalogStore = defineStore('catalog', () => {
 
   function clearFilters() {
     filters.stars = undefined
-    filters.accents = []
+    filters.duration = ''
     filters.tagIds = []
     filters.date = undefined
     filters.learningStatus = ''
@@ -179,7 +175,6 @@ export const useCatalogStore = defineStore('catalog', () => {
     loadingMore,
     hasMore,
     tags,
-    accents,
     filters,
     listViewMode,
     hasActiveFilters,
@@ -189,7 +184,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     loadMoreEpisodes,
     setDateFilter,
     toggleStars,
-    toggleAccent,
+    setDuration,
     toggleTag,
     toggleOrdering,
     setSearch,

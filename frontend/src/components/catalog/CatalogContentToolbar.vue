@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { accentOptions } from '@/constants/accentOptions'
 import DifficultyStarsFilter from '@/components/catalog/DifficultyStarsFilter.vue'
 import { useCatalogBrowseMode, type CatalogBrowseMode } from '@/composables/useCatalogBrowseMode'
 import { useCatalogViewMode, type CatalogViewMode } from '@/composables/useCatalogViewMode'
 import { useIsMobile } from '@/composables/useBreakpoint'
 import { useAuthStore } from '@/stores/auth'
-import { useCatalogStore } from '@/stores/catalog'
+import { useCatalogStore, type CatalogDurationFilter } from '@/stores/catalog'
 
 const props = withDefaults(
   defineProps<{
@@ -32,6 +31,12 @@ const viewOptions: { value: CatalogViewMode; label: string }[] = [
   { value: 'list', label: '列表' },
 ]
 
+const durationOptions: { value: Exclude<CatalogDurationFilter, ''>; label: string }[] = [
+  { value: 'lt3', label: '小于3分钟' },
+  { value: 'lt8', label: '3–8分钟' },
+  { value: 'gt8', label: '大于8分钟' },
+]
+
 const learningFilters = computed(() => {
   const items = [
     { key: 'learned' as const, label: '已看' },
@@ -47,7 +52,9 @@ const showViewToggle = computed(
   () => auth.isLoggedIn && !isMobile.value && browseMode.value === 'all',
 )
 
-const showMemberActions = computed(() => auth.isMember && props.showSubmitEntry)
+const showSubmitActions = computed(() => auth.isLoggedIn && props.showSubmitEntry)
+const submitLink = computed(() => (auth.isMember ? '/english/submit' : '/pricing'))
+const mySubmissionsLink = computed(() => (auth.isMember ? '/english/my-submissions' : '/pricing'))
 
 const segmentIdle =
   'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
@@ -131,17 +138,16 @@ watch(
       />
     </div>
 
-    <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="口音">
+    <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="时长">
       <button
-        v-for="opt in accentOptions"
+        v-for="opt in durationOptions"
         :key="opt.value"
         type="button"
-        class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full border transition cursor-pointer"
-        :class="store.filters.accents.includes(opt.value) ? pillActive : pillIdle"
-        @click="store.toggleAccent(opt.value)"
+        class="text-xs px-2.5 py-1.5 rounded-full border transition cursor-pointer"
+        :class="store.filters.duration === opt.value ? pillActive : pillIdle"
+        @click="store.setDuration(opt.value)"
       >
-        <img :src="opt.icon" :alt="opt.label" class="w-4 h-4 shrink-0 object-contain" />
-        <span>{{ opt.label }}</span>
+        {{ opt.label }}
       </button>
     </div>
 
@@ -165,11 +171,11 @@ watch(
     </button>
 
     <div
-      v-if="showMemberActions"
+      v-if="showSubmitActions"
       class="flex items-center gap-2 ml-auto shrink-0"
     >
       <RouterLink
-        to="/english/submit"
+        :to="submitLink"
         class="inline-flex items-center gap-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium px-2.5 py-1.5 transition"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 shrink-0" aria-hidden="true">
@@ -178,7 +184,7 @@ watch(
         上传视频
       </RouterLink>
       <RouterLink
-        to="/english/my-submissions"
+        :to="mySubmissionsLink"
         class="text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 transition whitespace-nowrap"
       >
         我的语料库

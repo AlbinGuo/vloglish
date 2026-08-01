@@ -55,6 +55,8 @@ export interface EpisodeSummary {
   series_slug?: string
   series_title?: string
   series_index?: number | null
+  /** 普通用户不可看，需开通会员 */
+  requires_membership?: boolean
 }
 
 export interface EpisodeSeriesNav {

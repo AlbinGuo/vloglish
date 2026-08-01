@@ -610,6 +610,11 @@ function episodePath(videoId: string) {
 
 function onSelectRelatedEpisode(videoId: string) {
   if (videoId === props.videoId) return
+  const ep = relatedEpisodes.value.find((e) => e.video_id === videoId)
+  if (ep?.requires_membership) {
+    void router.push('/pricing')
+    return
+  }
   requestEpisodeAutoplay()
   router.push(episodePath(videoId))
 }
@@ -736,7 +741,15 @@ async function load() {
       }
     }
     nextTick(scrollCurrentIntoView)
-  } catch {
+  } catch (e: unknown) {
+    const status = (e as { response?: { status?: number } })?.response?.status
+    if (!props.adminPreview && status === 403) {
+      await router.replace({
+        path: '/pricing',
+        query: { next: `/english/episode/${props.videoId}` },
+      })
+      return
+    }
     if (!isSwitch) error.value = '加载失败'
   } finally {
     loading.value = false

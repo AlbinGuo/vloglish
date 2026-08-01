@@ -25,6 +25,8 @@ export interface EpisodeListParams {
   series_slug?: string
   author_id?: number
   date?: string
+  /** lt3: <3分钟；lt8: >3分钟且<8分钟；gt8: >8分钟 */
+  duration?: 'lt3' | 'lt8' | 'gt8'
   status?: 'all' | 'learned' | 'unlearned' | 'favorite'
   ordering?: string
   search?: string
@@ -45,10 +47,13 @@ export async function getEpisodeTags() {
   return data
 }
 
-/** 访问人数最多的主题标签（默认前 25） */
-export async function getPopularEpisodeTags(limit = 25) {
+/** 主题标签（按访问热度排序；不传 limit 则返回全部） */
+export async function getPopularEpisodeTags(limit?: number) {
   const { data } = await api.get<Tag[]>('/api/episode-tags/', {
-    params: { sort: 'popular', limit },
+    params: {
+      sort: 'popular',
+      ...(limit != null ? { limit } : {}),
+    },
   })
   return data
 }
@@ -64,6 +69,7 @@ export interface AuthorCatalogParams {
   stars?: number
   tags?: string
   date?: string
+  duration?: 'lt3' | 'lt8' | 'gt8'
   status?: 'all' | 'learned' | 'unlearned' | 'favorite'
   search?: string
 }

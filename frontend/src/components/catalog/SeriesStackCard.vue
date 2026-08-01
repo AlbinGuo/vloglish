@@ -2,15 +2,23 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import CoverStack from '@/components/catalog/CoverStack.vue'
+import { useAuthStore } from '@/stores/auth'
 import type { SeriesSummary } from '@/types'
 
 const props = defineProps<{
   series: SeriesSummary
 }>()
 
+const auth = useAuthStore()
+
 const covers = computed(() => {
   if (props.series.covers?.length) return props.series.covers
   return props.series.cover ? [props.series.cover] : []
+})
+
+const linkTo = computed(() => {
+  if (props.series.requires_membership && !auth.isMember) return '/pricing'
+  return `/english/series/${props.series.slug}`
 })
 
 const stackActive = ref(false)
@@ -18,7 +26,7 @@ const stackActive = ref(false)
 
 <template>
   <RouterLink
-    :to="`/english/series/${series.slug}`"
+    :to="linkTo"
     class="group relative block rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-2 sm:p-2.5 transition-[box-shadow,border-color,z-index] duration-300 hover:shadow-lg hover:border-black/10 dark:hover:border-white/20 hover:z-20"
     @pointerenter="stackActive = true"
     @pointerleave="stackActive = false"

@@ -135,6 +135,12 @@ watch(
               播放中
             </span>
             <span
+              v-else-if="ep.requires_membership"
+              class="absolute top-0.5 left-0.5 text-[10px] px-1.5 py-0.5 rounded bg-black/75 text-amber-200 font-semibold leading-none"
+            >
+              会员
+            </span>
+            <span
               v-else-if="ep.is_new"
               class="absolute top-0.5 left-0.5 text-[9px] px-1 py-0.5 rounded bg-red-500 text-white font-bold leading-none"
             >

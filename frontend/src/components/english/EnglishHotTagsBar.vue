@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getPopularEpisodeTags } from '@/api/episodes'
 import { useCatalogStore } from '@/stores/catalog'
 import type { Tag } from '@/types'
@@ -10,10 +10,11 @@ const tags = ref<Tag[]>([])
 const scrollerRef = ref<HTMLElement | null>(null)
 const canScrollLeft = ref(false)
 const canScrollRight = ref(false)
+const allSelected = computed(() => store.filters.tagIds.length === 0)
 
 async function loadTags() {
   try {
-    tags.value = await getPopularEpisodeTags(25)
+    tags.value = await getPopularEpisodeTags()
   } catch {
     tags.value = []
   }
@@ -40,8 +41,31 @@ function scrollByDir(dir: -1 | 1) {
   el.scrollBy({ left: delta, behavior: 'smooth' })
 }
 
-function onTagClick(id: number) {
+/** 将标签滚到可视区域水平居中 */
+function scrollTagIntoCenter(btn: HTMLElement) {
+  const scroller = scrollerRef.value
+  if (!scroller) return
+  const scrollerRect = scroller.getBoundingClientRect()
+  const btnRect = btn.getBoundingClientRect()
+  const delta =
+    btnRect.left + btnRect.width / 2 - (scrollerRect.left + scroller.clientWidth / 2)
+  if (Math.abs(delta) < 4) return
+  scroller.scrollBy({ left: delta, behavior: 'smooth' })
+}
+
+function onTagClick(id: number, e: MouseEvent) {
   void store.toggleTag(id)
+  const btn = e.currentTarget as HTMLElement
+  void nextTick(() => scrollTagIntoCenter(btn))
+}
+
+function onAllClick(e: MouseEvent) {
+  if (!allSelected.value) {
+    store.filters.tagIds = []
+    void store.loadEpisodes(true)
+  }
+  const btn = e.currentTarget as HTMLElement
+  void nextTick(() => scrollTagIntoCenter(btn))
 }
 
 let resizeObserver: ResizeObserver | null = null
@@ -71,7 +95,7 @@ watch(tags, async () => {
   <div
     v-if="tags.length"
     class="flex items-center gap-1 min-w-0 flex-1"
-    aria-label="热门主题标签"
+    aria-label="主题标签"
   >
     <button
       type="button"
@@ -85,26 +109,51 @@ watch(tags, async () => {
       </svg>
     </button>
 
-    <div
-      ref="scrollerRef"
-      class="flex-1 min-w-0 overflow-x-auto overscroll-x-contain reading-scroll-hide scroll-smooth"
-      @scroll.passive="updateScrollState"
-    >
-      <div class="flex items-center gap-1.5 w-max py-0.5 pr-1">
-        <button
-          v-for="t in tags"
-          :key="t.id"
-          type="button"
-          class="shrink-0 text-xs px-2.5 py-1.5 rounded-full border transition cursor-pointer whitespace-nowrap"
-          :class="
-            store.filters.tagIds.includes(t.id)
-              ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-300 dark:bg-neutral-100 dark:text-neutral-900'
-              : 'border-black/10 bg-neutral-50 text-neutral-700 hover:border-neutral-300 dark:border-white/10 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-neutral-600'
-          "
-          @click="onTagClick(t.id)"
-        >
-          {{ t.name }}
-        </button>
+    <div class="relative flex-1 min-w-0">
+      <div
+        class="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 sm:w-12 bg-gradient-to-r from-neutral-50 via-neutral-50/85 to-transparent dark:from-neutral-950 dark:via-neutral-950/85 transition-opacity duration-200"
+        :class="canScrollLeft ? 'opacity-100' : 'opacity-0'"
+        aria-hidden="true"
+      />
+      <div
+        class="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 sm:w-12 bg-gradient-to-l from-neutral-50 via-neutral-50/85 to-transparent dark:from-neutral-950 dark:via-neutral-950/85 transition-opacity duration-200"
+        :class="canScrollRight ? 'opacity-100' : 'opacity-0'"
+        aria-hidden="true"
+      />
+
+      <div
+        ref="scrollerRef"
+        class="overflow-x-auto overscroll-x-contain reading-scroll-hide scroll-smooth"
+        @scroll.passive="updateScrollState"
+      >
+        <div class="flex items-center gap-1.5 w-max py-0.5 px-1">
+          <button
+            type="button"
+            class="shrink-0 text-xs px-2.5 py-1.5 rounded-full border transition cursor-pointer whitespace-nowrap"
+            :class="
+              allSelected
+                ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-300 dark:bg-neutral-100 dark:text-neutral-900'
+                : 'border-black/10 bg-neutral-50 text-neutral-700 hover:border-neutral-300 dark:border-white/10 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-neutral-600'
+            "
+            @click="onAllClick"
+          >
+            全部
+          </button>
+          <button
+            v-for="t in tags"
+            :key="t.id"
+            type="button"
+            class="shrink-0 text-xs px-2.5 py-1.5 rounded-full border transition cursor-pointer whitespace-nowrap"
+            :class="
+              store.filters.tagIds.includes(t.id)
+                ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-300 dark:bg-neutral-100 dark:text-neutral-900'
+                : 'border-black/10 bg-neutral-50 text-neutral-700 hover:border-neutral-300 dark:border-white/10 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-neutral-600'
+            "
+            @click="onTagClick(t.id, $event)"
+          >
+            {{ t.name }}
+          </button>
+        </div>
       </div>
     </div>
 

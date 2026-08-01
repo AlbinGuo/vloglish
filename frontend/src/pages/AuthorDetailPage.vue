@@ -21,11 +21,12 @@ const authorId = computed(() => Number(route.params.authorId))
 const accentIcon = computed(() => (author.value ? accentIconFor(author.value.accent) : undefined))
 const genderLabel = computed(() => (author.value?.gender === 'f' ? '女' : '男'))
 
-function episodePath(videoId: string) {
+function episodePath(ep: { video_id: string; requires_membership?: boolean }) {
   if (!auth.isLoggedIn) {
-    return `/login?next=${encodeURIComponent(`/english/episode/${videoId}`)}`
+    return `/login?next=${encodeURIComponent(`/english/episode/${ep.video_id}`)}`
   }
-  return `/english/episode/${videoId}`
+  if (ep.requires_membership) return '/pricing'
+  return `/english/episode/${ep.video_id}`
 }
 
 async function load() {
@@ -99,7 +100,7 @@ watch(authorId, load)
           v-for="ep in episodes"
           :key="ep.video_id"
           :episode="ep"
-          :to="episodePath(ep.video_id)"
+          :to="episodePath(ep)"
         />
       </div>
     </template>
