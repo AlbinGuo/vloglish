@@ -130,6 +130,16 @@ export async function getEnglishNavCounts() {
   return data
 }
 
+export async function getEnglishNavNew() {
+  const { data } = await api.get<{
+    series: number
+    articles: number
+    has_series_new?: boolean
+    has_articles_new?: boolean
+  }>('/api/english/nav-new/')
+  return data
+}
+
 export async function setEpisodeFavorite(videoId: string, favorite: boolean) {
   if (favorite) {
     const { data } = await api.post<{ success: boolean; is_favorite: boolean }>(

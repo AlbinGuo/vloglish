@@ -20,6 +20,7 @@ export interface ArticleSummary {
   segment_count: number
   cover: string
   published_at: string
+  is_new?: boolean
   progress: ArticleProgress | null
   accessible: boolean
 }

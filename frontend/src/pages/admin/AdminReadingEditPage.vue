@@ -8,7 +8,6 @@ import {
   adminGenerateArticleTts,
   adminEnrichArticle,
   adminImportArticleText,
-  adminPublishArticle,
   adminUpdateArticle,
   adminUploadArticleCover,
   type AdminArticleDetail,
@@ -56,6 +55,17 @@ const ttsVoiceOptions = [
   { value: 'Katerina', label: 'Katerina（女声）' },
 ]
 
+const statusOptions = [
+  { value: 'draft', label: '草稿' },
+  { value: 'published', label: '已发布' },
+  { value: 'archived', label: '已下架' },
+]
+
+const statusLabel = computed(() => {
+  const hit = statusOptions.find((o) => o.value === (article.value?.status || form.value.status))
+  return hit?.label || article.value?.status || form.value.status
+})
+
 async function load() {
   if (isNew.value || !refId.value) return
   loading.value = true
@@ -94,19 +104,25 @@ async function saveMeta() {
         await uploadCover(created.id)
       }
     } else if (refId.value) {
+      if (form.value.status === 'published' && article.value && !article.value.segment_count) {
+        error.value = '请先导入段落再设为「已发布」'
+        return
+      }
       const parsed = parseVocabSummary(form.value.vocab_summary || '')
       const n = countVocabSummaryItems(parsed)
       article.value = await adminUpdateArticle(refId.value, {
         ...form.value,
         vocab_summary: form.value.vocab_summary || '',
       })
+      form.value.status = article.value.status
       form.value.vocab_summary = article.value.vocab_summary_text || form.value.vocab_summary
+      const statusText = statusOptions.find((o) => o.value === article.value?.status)?.label || article.value.status
       if ((form.value.vocab_summary || '').trim() && n === 0) {
-        message.value = '已保存，但汇总文本未能解析出词条，请检查格式'
+        message.value = `已保存（${statusText}），但汇总文本未能解析出词条，请检查格式`
       } else if (n > 0) {
-        message.value = `已保存（汇总 ${n} 条 / ${parsed.length} 组）`
+        message.value = `已保存（${statusText}；汇总 ${n} 条 / ${parsed.length} 组）`
       } else {
-        message.value = '已保存'
+        message.value = `已保存（${statusText}）`
       }
       return
     }
@@ -328,18 +344,6 @@ async function generateTts() {
   }
 }
 
-async function publish() {
-  if (!refId.value) return
-  try {
-    await adminPublishArticle(refId.value)
-    await load()
-    message.value = '已发布'
-  } catch (e: unknown) {
-    const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-    error.value = detail || '发布失败'
-  }
-}
-
 function previewAudio(url: string) {
   new Audio(url).play()
 }
@@ -364,6 +368,12 @@ onMounted(load)
         />
         <span class="mt-1 block text-xs text-neutral-400">创建后自动从链接下载并上传到七牛</span>
       </label>
+      <label class="block text-sm">
+        <span class="text-neutral-500">状态</span>
+        <select v-model="form.status" class="mt-1 w-full rounded-lg border px-3 py-2 text-sm">
+          <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+        </select>
+      </label>
       <button type="button" class="rounded-lg bg-neutral-900 text-white px-4 py-2 text-sm" :disabled="saving" @click="saveMeta">
         创建
       </button>
@@ -378,12 +388,23 @@ onMounted(load)
         <div class="rounded-xl border bg-white p-6 space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 class="font-semibold">基本信息</h2>
-            <span class="text-xs text-neutral-500">{{ article.article_id }} · {{ article.status }} · TTS: {{ article.tts_status || 'none' }}</span>
+            <span class="text-xs text-neutral-500">{{ article.article_id }} · {{ statusLabel }} · TTS: {{ article.tts_status || 'none' }}</span>
           </div>
           <div class="grid sm:grid-cols-2 gap-4">
             <label class="block text-sm sm:col-span-2">
               <span class="text-neutral-500">标题</span>
               <input v-model="form.title" class="mt-1 w-full rounded-lg border px-3 py-2" />
+            </label>
+            <label class="block text-sm">
+              <span class="text-neutral-500">状态</span>
+              <select v-model="form.status" class="mt-1 w-full rounded-lg border px-3 py-2 text-sm">
+                <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+              </select>
+              <span class="mt-1 block text-xs text-neutral-400">改为「已发布」后用户端可见；「已下架」会从前台隐藏</span>
+            </label>
+            <label class="block text-sm">
+              <span class="text-neutral-500">难度 (1-5)</span>
+              <input v-model.number="form.stars" type="number" min="1" max="5" class="mt-1 w-full rounded-lg border px-3 py-2" />
             </label>
             <label class="block text-sm">
               <span class="text-neutral-500">来源</span>
@@ -426,10 +447,6 @@ onMounted(load)
                 class="h-28 w-44 object-cover rounded-lg border bg-neutral-50"
               />
             </div>
-            <label class="block text-sm">
-              <span class="text-neutral-500">难度 (1-5)</span>
-              <input v-model.number="form.stars" type="number" min="1" max="5" class="mt-1 w-full rounded-lg border px-3 py-2" />
-            </label>
           </div>
           <div class="flex flex-wrap items-end gap-3">
             <label class="block text-sm">
@@ -468,14 +485,6 @@ onMounted(load)
             </button>
             <button type="button" class="rounded-lg border px-4 py-2 text-sm" :disabled="importing || enriching || !article.segment_count" @click="reanalyze">
               仅重新分析词汇
-            </button>
-            <button
-              v-if="article.status !== 'published'"
-              type="button"
-              class="rounded-lg bg-emerald-600 text-white px-4 py-2 text-sm"
-              @click="publish"
-            >
-              发布
             </button>
             <RouterLink
               :to="`/english/reading/${article.article_id}`"

@@ -266,7 +266,7 @@ watch(
         >
           {{
             auth.isLoggedIn && !auth.isMember
-              ? `普通会员只展示 ${store.total} 期`
+              ? `普通用户只展示 ${store.total} 期，会员可看全部视频`
               : `已加载全部 ${store.total} 期`
           }}
         </div>

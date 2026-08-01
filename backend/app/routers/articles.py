@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
@@ -76,13 +76,15 @@ def list_articles(
         term = f"%{q.strip()}%"
         query = query.filter(or_(Article.title.ilike(term), Article.summary.ilike(term)))
 
+    # 上传/发布时间：published_at 为空时回退 created_at
+    upload_time = func.coalesce(Article.published_at, Article.created_at)
     order_map = {
-        "-published_at": Article.published_at.desc(),
-        "published_at": Article.published_at.asc(),
+        "-published_at": upload_time.desc(),
+        "published_at": upload_time.asc(),
         "stars": Article.stars.asc(),
         "-stars": Article.stars.desc(),
     }
-    query = query.order_by(order_map.get(ordering, Article.published_at.desc()))
+    query = query.order_by(order_map.get(ordering, upload_time.desc()), Article.id.desc())
 
     all_matched = query.all()
     progress_map: dict[int, object] = {}

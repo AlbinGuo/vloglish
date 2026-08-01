@@ -185,7 +185,13 @@ watch(
           />
           <div class="min-w-0 flex-1 flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
-              <h3 class="font-semibold leading-snug line-clamp-2">{{ article.title }}</h3>
+              <h3 class="font-semibold leading-snug line-clamp-2">
+                <span
+                  v-if="article.is_new"
+                  class="inline-block align-middle mr-2 text-sm px-2.5 py-1 rounded-md bg-red-500 text-white font-bold leading-none"
+                >新</span>
+                {{ article.title }}
+              </h3>
               <p class="text-xs text-neutral-500 mt-2 flex flex-wrap gap-x-2 gap-y-1">
                 <span v-if="article.source">{{ article.source }}</span>
                 <span v-if="article.published_at">{{ article.published_at.slice(0, 10) }}</span>

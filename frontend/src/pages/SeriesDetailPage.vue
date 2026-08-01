@@ -103,7 +103,7 @@ watch(slug, load)
             ← 全部合集
           </RouterLink>
           <h1 class="mt-2 text-2xl font-semibold tracking-tight">{{ series.title }}</h1>
-          <p class="mt-1 text-sm text-neutral-500">共 {{ series.episode_count }} 集 · 建议按序号观看</p>
+          <p class="mt-1 text-sm text-neutral-500">共 {{ series.episode_count }} 集 · 按上传时间排列</p>
           <p v-if="series.summary" class="mt-3 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
             {{ series.summary }}
           </p>
@@ -132,6 +132,12 @@ watch(slug, load)
                 class="absolute top-1 left-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-600 text-white font-medium"
               >
                 已学完
+              </span>
+              <span
+                v-else-if="ep.is_new"
+                class="absolute top-1 left-1 text-base px-3 py-1 rounded-md bg-red-500 text-white font-bold leading-none shadow"
+              >
+                新
               </span>
             </div>
             <div class="flex-1 min-w-0 py-0.5">

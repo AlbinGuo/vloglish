@@ -72,9 +72,9 @@ async function submit() {
         <template v-if="hasInvite">
           检测到邀请激活码，注册后将直接开通会员。
         </template>
-        <template v-else>
-          免费注册即可登录学习；未开通会员时首页仅展示部分视频，可随时在站内开通会员。
-        </template>
+<!--        <template v-else>-->
+<!--          免费注册即可登录学习；未开通会员时首页仅展示部分视频，可随时在站内开通会员。-->
+<!--        </template>-->
       </p>
 
       <form class="space-y-4" @submit.prevent="submit">

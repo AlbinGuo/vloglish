@@ -32,6 +32,13 @@ const stackActive = ref(false)
       :active="stackActive"
     />
 
+    <span
+      v-if="series.is_new"
+      class="absolute top-2 left-2 z-30 text-base px-3 py-1.5 rounded-md bg-red-500 text-white font-bold shadow-md leading-none"
+    >
+      新
+    </span>
+
     <div class="min-w-0 text-center">
       <h3 class="font-semibold text-sm sm:text-base truncate group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors">
         {{ series.title }}

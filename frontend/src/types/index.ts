@@ -127,6 +127,9 @@ export interface SeriesSummary {
   sort_order: number
   /** 普通用户可见合集入口，但内容需会员 */
   requires_membership?: boolean
+  published_at?: string
+  latest_content_at?: string
+  is_new?: boolean
 }
 
 export interface SeriesDetail {

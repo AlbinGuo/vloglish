@@ -171,6 +171,8 @@ def article_list_item(
     progress: UserArticleProgress | None = None,
     accessible: bool = True,
 ) -> dict:
+    from .services.content_new import content_is_new
+
     return {
         "article_id": article.article_id,
         "title": article.title,
@@ -182,6 +184,7 @@ def article_list_item(
         "segment_count": article.segment_count,
         "cover": article.cover or "",
         "published_at": _article_fmt_dt(article.published_at),
+        "is_new": content_is_new(article.published_at),
         "progress": article_progress_out(progress),
         "accessible": accessible,
     }

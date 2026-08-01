@@ -260,12 +260,52 @@ def english_nav_counts(
     return {"videos": videos, "series": series_count, "articles": articles}
 
 
+@router.get("/english/nav-new/")
+def english_nav_new(
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user_optional),
+):
+    """合集 / 文章是否有 2 天内上新内容（与是否点进列表无关，持续显示）。"""
+    from ..models import Article
+    from ..services.content_new import content_is_new, latest_dt
+
+    _ = user
+    series_new = 0
+    series_rows = (
+        db.query(EpisodeSeries)
+        .filter(EpisodeSeries.status == "published")
+        .all()
+    )
+    for series in series_rows:
+        episodes = list_series_episodes(db, series.id, published_only=True)
+        if not episodes:
+            continue
+        ep_times = [(ep.published_at or ep.created_at) for ep in episodes]
+        latest = latest_dt(series.published_at, series.created_at, *ep_times)
+        if content_is_new(latest):
+            series_new += 1
+
+    articles_new = 0
+    for article in db.query(Article).filter(Article.status == "published").all():
+        if content_is_new(article.published_at):
+            articles_new += 1
+
+    return {
+        "series": series_new,
+        "articles": articles_new,
+        "has_series_new": series_new > 0,
+        "has_articles_new": articles_new > 0,
+    }
+
+
 @router.get("/series/")
 def series_list(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """合集列表：登录用户可见；内容仍须会员才能进入详情。"""
+    from ..services.content_new import content_is_new, fmt_dt, latest_dt
+
     _ = user
     rows = (
         db.query(EpisodeSeries)
@@ -281,6 +321,8 @@ def series_list(
         covers = [ep.cover for ep in episodes if ep.cover][:3]
         if not covers and series.cover:
             covers = [series.cover]
+        ep_times = [(ep.published_at or ep.created_at) for ep in episodes]
+        latest = latest_dt(series.published_at, series.created_at, *ep_times)
         results.append(
             {
                 "id": series.id,
@@ -292,6 +334,9 @@ def series_list(
                 "episode_count": len(episodes),
                 "sort_order": series.sort_order or 0,
                 "requires_membership": not can_access_series_content(user),
+                "published_at": fmt_dt(series.published_at or series.created_at),
+                "latest_content_at": fmt_dt(latest),
+                "is_new": content_is_new(latest),
             }
         )
     return {"count": len(results), "results": results}
@@ -316,17 +361,24 @@ def series_detail(
     if not can_access_series_content(user):
         raise HTTPException(status_code=403, detail="需要开通会员才能查看合集内容")
 
+    # 列表按上传/发布时间倒序；上一集/下一集导航仍按 series_index（list_series_episodes）
+    episodes_by_time = sorted(
+        episodes,
+        key=lambda ep: ep.published_at or ep.created_at or datetime.min,
+        reverse=True,
+    )
+
     fav_ids = favorite_video_ids(db, device_id, user.id)
-    prog_map = progress_map_for_episodes(db, user.id, [ep.id for ep in episodes])
-    learner_map = learner_count_map_for_episodes(db, [ep.id for ep in episodes])
+    prog_map = progress_map_for_episodes(db, user.id, [ep.id for ep in episodes_by_time])
+    learner_map = learner_count_map_for_episodes(db, [ep.id for ep in episodes_by_time])
 
     return {
         "id": series.id,
         "slug": series.slug,
         "title": series.title,
         "summary": series.summary or "",
-        "cover": series.cover or (episodes[0].cover if episodes else ""),
-        "episode_count": len(episodes),
+        "cover": series.cover or (episodes_by_time[0].cover if episodes_by_time else ""),
+        "episode_count": len(episodes_by_time),
         "episodes": [
             episode_summary(
                 ep,
@@ -335,7 +387,7 @@ def series_detail(
                 progress_percent=prog_map.get(ep.id).completion_percent if prog_map.get(ep.id) else 0,
                 learner_count=learner_map.get(ep.id, 0),
             )
-            for ep in episodes
+            for ep in episodes_by_time
         ],
     }
 
