@@ -12,7 +12,7 @@ import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import EnglishHotTagsBar from '@/components/english/EnglishHotTagsBar.vue'
 import AuthorStackCard from '@/components/catalog/AuthorStackCard.vue'
 import CatalogContentToolbar from '@/components/catalog/CatalogContentToolbar.vue'
-import CatalogListToolbar from '@/components/catalog/CatalogListToolbar.vue'
+import DifficultyStarsFilter from '@/components/catalog/DifficultyStarsFilter.vue'
 import CatalogEpisodeSkeletons from '@/components/skeleton/CatalogEpisodeSkeletons.vue'
 import EpisodeCard from '@/components/EpisodeCard.vue'
 import EpisodeListRow from '@/components/EpisodeListRow.vue'
@@ -23,7 +23,7 @@ defineOptions({ name: 'HomePage' })
 const store = useCatalogStore()
 const auth = useAuthStore()
 const { viewMode } = useCatalogViewMode()
-const { browseMode } = useCatalogBrowseMode()
+const { browseMode, setBrowseMode } = useCatalogBrowseMode()
 const isMobile = useIsMobile()
 
 /** 未登录与手机端固定卡片视图 */
@@ -36,8 +36,15 @@ const loadMoreSentinel = ref<HTMLElement | null>(null)
 const authors = ref<AuthorCatalogItem[]>([])
 const authorsLoading = ref(false)
 const authorSearchQuery = ref(store.filters.search)
+const mobileSearchQuery = ref(store.filters.search)
 let loadMoreObserver: IntersectionObserver | null = null
 let authorSearchTimer: ReturnType<typeof setTimeout> | undefined
+let mobileSearchTimer: ReturnType<typeof setTimeout> | undefined
+
+const browseSegmentIdle =
+  'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
+const browseSegmentActive =
+  'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm'
 
 const { restore: restoreCatalogScroll } = useCatalogScrollMemory()
 
@@ -155,7 +162,7 @@ watch(filterKey, () => {
 })
 
 watch(authorSearchQuery, (value) => {
-  if (browseMode.value !== 'author') return
+  if (browseMode.value !== 'author' || isMobile.value) return
   clearTimeout(authorSearchTimer)
   authorSearchTimer = setTimeout(() => {
     const trimmed = value.trim()
@@ -164,11 +171,24 @@ watch(authorSearchQuery, (value) => {
   }, 300)
 })
 
+watch(mobileSearchQuery, (value) => {
+  if (!isMobile.value) return
+  clearTimeout(mobileSearchTimer)
+  mobileSearchTimer = setTimeout(() => {
+    const trimmed = value.trim()
+    if (trimmed === store.filters.search) return
+    void store.setSearch(trimmed)
+  }, 300)
+})
+
 watch(
   () => store.filters.search,
   (value) => {
-    if (browseMode.value === 'author' && value !== authorSearchQuery.value.trim()) {
+    if (browseMode.value === 'author' && !isMobile.value && value !== authorSearchQuery.value.trim()) {
       authorSearchQuery.value = value
+    }
+    if (isMobile.value && value !== mobileSearchQuery.value.trim()) {
+      mobileSearchQuery.value = value
     }
   },
 )
@@ -191,22 +211,81 @@ watch(
 
 <template>
   <div class="page-container py-6">
-    <div class="mb-3 flex items-center gap-2 sm:gap-3 min-w-0">
-      <EnglishNavTabs class="shrink-0" />
-      <EnglishHotTagsBar />
-      <div v-if="browseMode === 'author'" class="flex-1 min-w-0 max-w-xs sm:max-w-sm ml-auto">
-        <label class="sr-only" for="author-catalog-search">搜索作者或视频标题</label>
-        <input
-          id="author-catalog-search"
-          v-model="authorSearchQuery"
-          type="search"
-          placeholder="搜索作者或标题"
-          class="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 dark:text-white px-3 sm:px-4 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
-        />
+    <!-- 手机端：导航+浏览方式 / 标签整行 / 搜索+星级 -->
+    <template v-if="isMobile">
+      <div class="mb-3 flex items-center gap-2 min-w-0">
+        <EnglishNavTabs class="shrink-0 min-w-0 overflow-x-auto" />
+        <div
+          class="ml-auto shrink-0 inline-flex items-center gap-0.5 p-0.5 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-black/5 dark:border-white/10"
+          role="group"
+          aria-label="浏览方式"
+        >
+          <button
+            type="button"
+            class="px-2.5 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer whitespace-nowrap"
+            :class="browseMode === 'all' ? browseSegmentActive : browseSegmentIdle"
+            @click="setBrowseMode('all')"
+          >
+            全部视频
+          </button>
+          <button
+            type="button"
+            class="px-2.5 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer whitespace-nowrap"
+            :class="browseMode === 'author' ? browseSegmentActive : browseSegmentIdle"
+            @click="setBrowseMode('author')"
+          >
+            按作者
+          </button>
+        </div>
       </div>
-    </div>
 
-    <CatalogContentToolbar class="mb-4" :show-submit-entry="showSubmitEpisodeEntry" />
+      <EnglishHotTagsBar class="mb-3 w-full !flex-none" />
+
+      <div class="mb-3 flex items-center gap-2 min-w-0">
+        <div class="flex-1 min-w-0">
+          <label class="sr-only" for="mobile-catalog-search">搜索视频或作者</label>
+          <input
+            id="mobile-catalog-search"
+            v-model="mobileSearchQuery"
+            type="search"
+            placeholder="搜索视频名称或作者"
+            class="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 dark:text-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
+          />
+        </div>
+        <div class="shrink-0" aria-label="难度">
+          <DifficultyStarsFilter
+            :active-level="store.filters.stars"
+            @select="store.toggleStars"
+          />
+        </div>
+      </div>
+
+      <CatalogContentToolbar
+        class="mb-4"
+        :show-submit-entry="showSubmitEpisodeEntry"
+        compact-mobile
+      />
+    </template>
+
+    <!-- 桌面端 -->
+    <template v-else>
+      <div class="mb-3 flex items-center gap-2 sm:gap-3 min-w-0">
+        <EnglishNavTabs class="shrink-0" />
+        <EnglishHotTagsBar />
+        <div v-if="browseMode === 'author'" class="flex-1 min-w-0 max-w-xs sm:max-w-sm ml-auto">
+          <label class="sr-only" for="author-catalog-search">搜索作者或视频标题</label>
+          <input
+            id="author-catalog-search"
+            v-model="authorSearchQuery"
+            type="search"
+            placeholder="搜索作者或标题"
+            class="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 dark:text-white px-3 sm:px-4 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
+          />
+        </div>
+      </div>
+
+      <CatalogContentToolbar class="mb-4" :show-submit-entry="showSubmitEpisodeEntry" />
+    </template>
 
     <div
       v-if="previewBanner"
@@ -248,7 +327,6 @@ watch(
         </div>
 
         <div v-else class="rounded-xl border border-black/5 dark:border-white/10 overflow-hidden bg-white dark:bg-neutral-900">
-          <CatalogListToolbar />
           <div v-if="!store.episodes.length" class="text-center py-16 text-neutral-500">没有匹配的内容</div>
           <EpisodeListRow
             v-for="(ep, i) in store.episodes"

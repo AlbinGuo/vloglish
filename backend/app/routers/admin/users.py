@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from ...database import get_db
 from ...deps import get_current_admin
-from ...models import User
+from ...models import ActivationCode, User
 from ...schemas import (
     AdminUserGeoStatsOut,
     AdminUserListItemOut,
@@ -33,7 +33,7 @@ def _fmt_dt(value: datetime | None) -> str | None:
     return value.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _user_item(user: User, stats: dict) -> AdminUserListItemOut:
+def _user_item(user: User, stats: dict, *, activation_code: str | None = None) -> AdminUserListItemOut:
     last_active = stats.get("last_active_at")
     return AdminUserListItemOut(
         id=user.id,
@@ -45,6 +45,7 @@ def _user_item(user: User, stats: dict) -> AdminUserListItemOut:
         is_staff=user.is_staff,
         is_online=is_user_online(user),
         member_activated_at=_fmt_dt(user.member_activated_at),
+        activation_code=activation_code if user.is_member else None,
         created_at=_fmt_dt(user.created_at) or "",
         last_active_at=_fmt_dt(last_active if isinstance(last_active, datetime) else None),
         watch_time_7d=stats["watch_time_7d"],
@@ -54,6 +55,23 @@ def _user_item(user: User, stats: dict) -> AdminUserListItemOut:
         signup_region=user.signup_region,
         signup_city=user.signup_city,
     )
+
+
+def _activation_codes_by_user(db: Session, user_ids: list[int]) -> dict[int, str]:
+    if not user_ids:
+        return {}
+    rows = (
+        db.query(ActivationCode)
+        .filter(ActivationCode.used_by_user_id.in_(user_ids))
+        .order_by(ActivationCode.used_at.desc().nullslast(), ActivationCode.id.desc())
+        .all()
+    )
+    out: dict[int, str] = {}
+    for row in rows:
+        if row.used_by_user_id is None or row.used_by_user_id in out:
+            continue
+        out[row.used_by_user_id] = row.code
+    return out
 
 
 @router.get("/geo-stats/", response_model=AdminUserGeoStatsOut)
@@ -89,11 +107,12 @@ def list_users(
     q = admin_user_list_query(db, search=search, segment=segment)
     total = q.count()
     rows = q.offset((page - 1) * page_size).limit(page_size).all()
+    code_map = _activation_codes_by_user(db, [row[0].id for row in rows])
     results = []
     for row in rows:
         user = row[0]
         stats = row_stats_from_user_query(row)
-        results.append(_user_item(user, stats))
+        results.append(_user_item(user, stats, activation_code=code_map.get(user.id)))
     return AdminUserListOut(count=total, results=results)
 
 

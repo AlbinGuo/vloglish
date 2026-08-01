@@ -204,9 +204,10 @@ function selectRate(rate: number) {
 function selectLoopCount(count: number) {
   props.player.setSentenceLoopCount(count)
   props.player.enableSentenceLoop()
-  // 次数为无限时听写不会触发，自动关掉
-  if (count === 0 && props.player.dictationAfterLoop.value) {
-    props.player.setDictationAfterLoop(false)
+  // 次数为无限时听写 / 自动下一句不会触发，自动关掉
+  if (count === 0) {
+    if (props.player.dictationAfterLoop.value) props.player.setDictationAfterLoop(false)
+    if (props.player.autoAdvanceAfterLoop.value) props.player.setAutoAdvanceAfterLoop(false)
   }
 }
 
@@ -218,6 +219,11 @@ function closeLoopMenu() {
 function toggleDictationAfterLoop() {
   if (props.player.sentenceLoopCount.value === 0) return
   props.player.setDictationAfterLoop(!props.player.dictationAfterLoop.value)
+}
+
+function toggleAutoAdvanceAfterLoop() {
+  if (props.player.sentenceLoopCount.value === 0) return
+  props.player.setAutoAdvanceAfterLoop(!props.player.autoAdvanceAfterLoop.value)
 }
 
 function cycleInterval() {
@@ -699,18 +705,69 @@ function handleMainAction() {
             :class="
               player.sentenceLoopCount.value === 0
                 ? 'opacity-40 cursor-not-allowed text-neutral-400'
+                : player.autoAdvanceAfterLoop.value
+                  ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
+                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+            "
+            :disabled="player.sentenceLoopCount.value === 0"
+            :title="
+              player.sentenceLoopCount.value === 0
+                ? '无限循环无法自动下一句，请先选择次数'
+                : '每句播完设定次数后自动进入下一句'
+            "
+            @click="toggleAutoAdvanceAfterLoop"
+          >
+            <span class="min-w-0">
+              <span class="block font-medium">自动下一句</span>
+              <span class="block text-[10px] text-neutral-400 mt-0.5 leading-snug">
+                {{
+                  player.sentenceLoopCount.value === 0
+                    ? '请先选择有限次数'
+                    : '同句多遍连续播；换句时短暂停顿'
+                }}
+              </span>
+            </span>
+            <span
+              class="shrink-0 w-9 h-5 rounded-full relative transition-colors"
+              :class="player.autoAdvanceAfterLoop.value ? 'bg-amber-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+              aria-hidden="true"
+            >
+              <span
+                class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+                :class="player.autoAdvanceAfterLoop.value ? 'translate-x-4' : ''"
+              />
+            </span>
+          </button>
+          <button
+            type="button"
+            class="w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors"
+            :class="
+              player.sentenceLoopCount.value === 0
+                ? 'opacity-40 cursor-not-allowed text-neutral-400'
                 : player.dictationAfterLoop.value
                   ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
                   : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
             "
             :disabled="player.sentenceLoopCount.value === 0"
-            :title="player.sentenceLoopCount.value === 0 ? '无限循环无法自动进入听写，请先选择次数' : '播放完后进入听写'"
+            :title="
+              player.sentenceLoopCount.value === 0
+                ? '无限循环无法自动进入听写，请先选择次数'
+                : player.autoAdvanceAfterLoop.value
+                  ? '整段播完后进入听写'
+                  : '当前句次数播完后进入听写'
+            "
             @click="toggleDictationAfterLoop"
           >
             <span class="min-w-0">
               <span class="block font-medium">播放完后听写</span>
               <span class="block text-[10px] text-neutral-400 mt-0.5 leading-snug">
-                {{ player.sentenceLoopCount.value === 0 ? '请先选择有限次数' : '次数播完后进入听写' }}
+                {{
+                  player.sentenceLoopCount.value === 0
+                    ? '请先选择有限次数'
+                    : player.autoAdvanceAfterLoop.value
+                      ? '整段播完后进入听写'
+                      : '当前句次数播完后进入听写'
+                }}
               </span>
             </span>
             <span

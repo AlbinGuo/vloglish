@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Query, Session
 
-from ..models import LearningSession, User, UserEpisodeProgress, UserWordLookup
+from ..models import ActivationCode, LearningSession, User, UserEpisodeProgress, UserWordLookup
 from .presence import ONLINE_WINDOW_SEC
 
 SEGMENT_LABELS: dict[str, str] = {
@@ -137,7 +137,14 @@ def admin_user_list_query(
 
     if search and search.strip():
         term = f"%{search.strip()}%"
-        q = q.filter(User.email.ilike(term))
+        code_user_ids = (
+            db.query(ActivationCode.used_by_user_id)
+            .filter(
+                ActivationCode.code.ilike(term),
+                ActivationCode.used_by_user_id.isnot(None),
+            )
+        )
+        q = q.filter(or_(User.email.ilike(term), User.id.in_(code_user_ids)))
 
     if segment and segment in VALID_SEGMENTS:
         q = _apply_segment_filter(q, segment, db)

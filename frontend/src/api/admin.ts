@@ -138,6 +138,8 @@ export interface UserRow {
   is_staff: boolean
   is_online?: boolean
   member_activated_at: string | null
+  /** 会员对应激活码（若有） */
+  activation_code?: string | null
   created_at: string
   last_active_at: string | null
   watch_time_7d: number

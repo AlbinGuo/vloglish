@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import DifficultyStarsFilter from '@/components/catalog/DifficultyStarsFilter.vue'
 import { useCatalogBrowseMode, type CatalogBrowseMode } from '@/composables/useCatalogBrowseMode'
@@ -11,8 +11,10 @@ import { useCatalogStore, type CatalogDurationFilter } from '@/stores/catalog'
 const props = withDefaults(
   defineProps<{
     showSubmitEntry?: boolean
+    /** 手机端由首页自行排布搜索/浏览/星级时，隐藏本工具栏中对应项 */
+    compactMobile?: boolean
   }>(),
-  { showSubmitEntry: true },
+  { showSubmitEntry: true, compactMobile: false },
 )
 
 const auth = useAuthStore()
@@ -20,6 +22,9 @@ const store = useCatalogStore()
 const isMobile = useIsMobile()
 const { browseMode, setBrowseMode } = useCatalogBrowseMode()
 const { viewMode, setViewMode } = useCatalogViewMode()
+
+const searchQuery = ref(store.filters.search)
+let searchTimer: ReturnType<typeof setTimeout> | undefined
 
 const browseOptions: { value: CatalogBrowseMode; label: string }[] = [
   { value: 'all', label: '全部视频' },
@@ -37,24 +42,28 @@ const durationOptions: { value: Exclude<CatalogDurationFilter, ''>; label: strin
   { value: 'gt8', label: '大于8分钟' },
 ]
 
-const learningFilters = computed(() => {
-  const items = [
-    { key: 'learned' as const, label: '已看' },
-    { key: 'unlearned' as const, label: '未看' },
-  ]
-  if (auth.isMember) {
-    items.push({ key: 'favorite' as const, label: '收藏' })
-  }
-  return items
-})
+const mobileLayout = computed(() => isMobile.value && props.compactMobile)
+const durationAsSelect = computed(() => isMobile.value)
 
 const showViewToggle = computed(
   () => auth.isLoggedIn && !isMobile.value && browseMode.value === 'all',
 )
 
+const showBrowseToggle = computed(() => !mobileLayout.value)
+const showSearch = computed(() => browseMode.value === 'all' && !mobileLayout.value)
+const showStars = computed(() => !mobileLayout.value)
+
+const showFavoriteFilter = computed(() => auth.isMember)
 const showSubmitActions = computed(() => auth.isLoggedIn && props.showSubmitEntry)
 const submitLink = computed(() => (auth.isMember ? '/english/submit' : '/pricing'))
 const mySubmissionsLink = computed(() => (auth.isMember ? '/english/my-submissions' : '/pricing'))
+
+const durationSelectValue = computed({
+  get: () => store.filters.duration,
+  set: (value: CatalogDurationFilter) => {
+    void store.setDuration(value)
+  },
+})
 
 const segmentIdle =
   'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
@@ -65,6 +74,22 @@ const pillIdle =
 const pillActive =
   'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-100 dark:text-neutral-900'
 
+watch(searchQuery, (value) => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    const trimmed = value.trim()
+    if (trimmed === store.filters.search) return
+    void store.setSearch(trimmed)
+  }, 300)
+})
+
+watch(
+  () => store.filters.search,
+  (value) => {
+    if (value !== searchQuery.value.trim()) searchQuery.value = value
+  },
+)
+
 watch(
   () => auth.isMember,
   (member) => {
@@ -74,11 +99,33 @@ watch(
     }
   },
 )
+
+onMounted(() => {
+  if (store.filters.learningStatus === 'learned' || store.filters.learningStatus === 'unlearned') {
+    store.filters.learningStatus = ''
+    void store.loadEpisodes(true)
+  }
+})
 </script>
 
 <template>
   <div class="flex flex-wrap items-center gap-x-2 gap-y-2">
     <div
+      v-if="showSearch"
+      class="w-full sm:w-auto sm:min-w-[14rem] sm:max-w-xs sm:flex-1"
+    >
+      <label class="sr-only" for="catalog-episode-search">搜索视频或作者</label>
+      <input
+        id="catalog-episode-search"
+        v-model="searchQuery"
+        type="search"
+        placeholder="搜索视频名称或作者"
+        class="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 dark:text-white px-3 sm:px-4 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
+      />
+    </div>
+
+    <div
+      v-if="showBrowseToggle"
       class="inline-flex items-center gap-0.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-black/5 dark:border-white/10"
       role="group"
       aria-label="浏览方式"
@@ -114,31 +161,77 @@ watch(
     </div>
 
     <div
-      v-if="auth.isLoggedIn"
+      v-if="showFavoriteFilter"
       class="flex flex-wrap items-center gap-1.5"
       role="group"
-      aria-label="学习状态"
+      aria-label="收藏"
     >
       <button
-        v-for="f in learningFilters"
-        :key="f.key"
         type="button"
         class="text-xs px-2.5 py-1.5 rounded-full border transition cursor-pointer"
-        :class="store.filters.learningStatus === f.key ? pillActive : pillIdle"
-        @click="store.setLearningStatus(f.key)"
+        :class="store.filters.learningStatus === 'favorite' ? pillActive : pillIdle"
+        @click="store.setLearningStatus('favorite')"
       >
-        {{ f.label }}
+        收藏
       </button>
     </div>
 
-    <div class="flex items-center" aria-label="难度">
+    <div v-if="showStars" class="flex items-center" aria-label="难度">
       <DifficultyStarsFilter
         :active-level="store.filters.stars"
         @select="store.toggleStars"
       />
     </div>
 
-    <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="时长">
+    <!-- 手机：时长下拉 + 右侧上传入口 -->
+    <div
+      v-if="durationAsSelect"
+      class="flex items-center gap-2 w-full min-w-0"
+    >
+      <label class="sr-only" for="catalog-duration-select">时长</label>
+      <select
+        id="catalog-duration-select"
+        v-model="durationSelectValue"
+        class="min-w-0 flex-1 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
+      >
+        <option value="">全部时长</option>
+        <option
+          v-for="opt in durationOptions"
+          :key="opt.value"
+          :value="opt.value"
+        >
+          {{ opt.label }}
+        </option>
+      </select>
+      <div
+        v-if="showSubmitActions"
+        class="flex items-center gap-2 shrink-0"
+      >
+        <RouterLink
+          :to="submitLink"
+          class="inline-flex items-center gap-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium px-2.5 py-1.5 transition whitespace-nowrap"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 shrink-0" aria-hidden="true">
+            <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+          </svg>
+          上传视频
+        </RouterLink>
+        <RouterLink
+          :to="mySubmissionsLink"
+          class="text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 transition whitespace-nowrap"
+        >
+          我的语料库
+        </RouterLink>
+      </div>
+    </div>
+
+    <!-- 桌面：时长胶囊按钮 -->
+    <div
+      v-else
+      class="flex flex-wrap items-center gap-1.5"
+      role="group"
+      aria-label="时长"
+    >
       <button
         v-for="opt in durationOptions"
         :key="opt.value"
@@ -151,27 +244,8 @@ watch(
       </button>
     </div>
 
-    <button
-      type="button"
-      class="text-xs px-2.5 py-1.5 rounded-full border transition cursor-pointer"
-      :class="pillIdle"
-      :title="store.filters.ordering === 'created_at' ? '当前：最新优先' : '当前：最早优先'"
-      @click="store.toggleOrdering()"
-    >
-      {{ store.filters.ordering === 'created_at' ? '最新' : '最早' }}
-    </button>
-
-    <button
-      v-if="store.hasActiveFilters"
-      type="button"
-      class="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 underline-offset-2 hover:underline px-1"
-      @click="store.clearFilters()"
-    >
-      清除
-    </button>
-
     <div
-      v-if="showSubmitActions"
+      v-if="showSubmitActions && !durationAsSelect"
       class="flex items-center gap-2 ml-auto shrink-0"
     >
       <RouterLink

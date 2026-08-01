@@ -7,16 +7,7 @@ import { useCatalogStore, type CatalogDurationFilter } from '@/stores/catalog'
 const store = useCatalogStore()
 const auth = useAuthStore()
 
-const learningFilters = computed(() => {
-  const items = [
-    { key: 'learned' as const, label: '已看' },
-    { key: 'unlearned' as const, label: '未看' },
-  ]
-  if (auth.isMember) {
-    items.push({ key: 'favorite' as const, label: '收藏' })
-  }
-  return items
-})
+const showFavoriteFilter = computed(() => auth.isMember)
 
 const durationOptions: { value: Exclude<CatalogDurationFilter, ''>; label: string }[] = [
   { value: 'lt3', label: '小于3分钟' },
@@ -54,28 +45,18 @@ watch(
           清除
         </button>
       </div>
-      <button
-        type="button"
-        class="shrink-0 text-xs px-2.5 py-1 rounded-lg text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition"
-        :title="store.filters.ordering === 'created_at' ? '当前：最新优先' : '当前：最早优先'"
-        @click="store.toggleOrdering()"
-      >
-        {{ store.filters.ordering === 'created_at' ? '最新' : '最早' }}
-      </button>
     </div>
 
-    <div v-if="auth.isLoggedIn" class="space-y-2">
-      <div class="text-xs text-neutral-500">学习状态</div>
+    <div v-if="showFavoriteFilter" class="space-y-2">
+      <div class="text-xs text-neutral-500">收藏</div>
       <div class="flex flex-wrap gap-1.5">
         <button
-          v-for="f in learningFilters"
-          :key="f.key"
           type="button"
           class="text-xs px-2.5 py-1.5 rounded-full border transition cursor-pointer"
-          :class="store.filters.learningStatus === f.key ? pillActive : pillIdle"
-          @click="store.setLearningStatus(f.key)"
+          :class="store.filters.learningStatus === 'favorite' ? pillActive : pillIdle"
+          @click="store.setLearningStatus('favorite')"
         >
-          {{ f.label }}
+          收藏
         </button>
       </div>
     </div>

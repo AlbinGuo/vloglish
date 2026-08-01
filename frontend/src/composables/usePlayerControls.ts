@@ -30,8 +30,11 @@ export interface PlayerControlOptions {
 
   onWatchTick?: (deltaSec: number) => void
 
-  /** 单句循环次数播完并暂停时回调（用于听写等） */
+  /** 单句循环次数播完并暂停时回调（用于听写等；非「自动下一句」时按句触发） */
   onSentenceLoopComplete?: (sub: Subtitle) => void
+
+  /** 连续跟读整段结束（最后一句次数播完） */
+  onContinuousLoopComplete?: (payload: { lastSub: Subtitle; openDictation: boolean }) => void
 
 }
 
@@ -43,6 +46,7 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
   const loopMode = ref<LoopMode>('off')
 
+  /** 默认 1 遍 */
   const sentenceLoopCount = ref(1)
 
   const sentenceLoopsDone = ref(0)
@@ -59,7 +63,21 @@ export function usePlayerControls(opts: PlayerControlOptions) {
     })(),
   )
 
-  const loopInterval = ref(0)
+  /** 单句次数播完后自动进入下一句（连续跟读） */
+  const autoAdvanceAfterLoop = ref(
+    (() => {
+      try {
+        const raw = localStorage.getItem('teco-auto-advance-after-loop')
+        if (raw === null) return true
+        return raw === '1'
+      } catch {
+        return true
+      }
+    })(),
+  )
+
+  /** 句间间隔；连续跟读时若为 0 则按 1 秒停顿 */
+  const loopInterval = ref(1)
 
   /** 听写「再听一遍」：播完当前句后自动暂停 */
   let oneShotPauseSub: Subtitle | null = null
@@ -100,9 +118,14 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
       const label = n > 0 ? `${sentenceLoopsDone.value}/${n}` : '∞'
 
-      const gap = loopInterval.value > 0 ? ` · 间隔${loopInterval.value}s` : ''
+      const gapSec = effectiveLoopGapSec()
 
-      return `单句循环 ${label}${gap}`
+      const gap = gapSec > 0 ? ` · 间隔${gapSec}s` : ''
+
+      const advance =
+        autoAdvanceAfterLoop.value && n > 0 ? ' · 自动下一句' : ''
+
+      return `单句循环 ${label}${gap}${advance}`
 
     }
 
@@ -540,29 +563,75 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
 
+  function effectiveLoopGapSec() {
+    if (loopInterval.value > 0) return loopInterval.value
+    // 连续跟读时句与句之间至少短暂停顿 1 秒
+    if (autoAdvanceAfterLoop.value && sentenceLoopCount.value > 0) return 1
+    return 0
+  }
+
+  function setAutoAdvanceAfterLoop(on: boolean) {
+    autoAdvanceAfterLoop.value = on
+    try {
+      localStorage.setItem('teco-auto-advance-after-loop', on ? '1' : '0')
+    } catch {
+      // ignore
+    }
+  }
+
   function finishSentenceLoop(v: HTMLVideoElement, sub: Subtitle) {
-
-    loopMode.value = 'off'
-
-    sentenceLoopsDone.value = 0
-
     clearSentenceLoopTimer()
-
     oneShotPauseSub = null
 
+    const canAutoAdvance =
+      autoAdvanceAfterLoop.value && sentenceLoopCount.value > 0
+
+    if (canAutoAdvance) {
+      const subs = opts.sortedSubs.value
+      const nextIdx = opts.currentIndex.value + 1
+      if (nextIdx < subs.length) {
+        const gapMs = effectiveLoopGapSec() * 1000
+        // 句间停顿：视频继续播，不 pause；到点后跳到下一句重计遍数
+        const goNext = () => {
+          sentenceLoopTimer = null
+          sentenceLoopsDone.value = 0
+          seekTo(subs[nextIdx])
+          if (v.paused) void v.play()
+          isPlaying.value = true
+        }
+        if (gapMs > 0) {
+          isPlaying.value = true
+          if (v.paused) void v.play()
+          sentenceLoopTimer = setTimeout(goNext, gapMs)
+        } else {
+          goNext()
+        }
+        return
+      }
+
+      // 最后一句次数播完：整段结束
+      loopMode.value = 'off'
+      sentenceLoopsDone.value = 0
+      v.pause()
+      isPlaying.value = false
+      pinToSubtitle(v, sub)
+      opts.onContinuousLoopComplete?.({
+        lastSub: sub,
+        openDictation: dictationAfterLoop.value,
+      })
+      return
+    }
+
+    loopMode.value = 'off'
+    sentenceLoopsDone.value = 0
     v.pause()
-
     isPlaying.value = false
-
     // 停在本句起点，避免 currentTime 落在下一句区间导致字幕列表跳转
     pinToSubtitle(v, sub)
 
     if (dictationAfterLoop.value) {
-
       opts.onSentenceLoopComplete?.(sub)
-
     }
-
   }
 
 
@@ -621,33 +690,16 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
 
-    const restart = () => {
+    // 同一句多遍：第一遍结束立刻接下一遍，不停顿、不 pause
+    clearSentenceLoopTimer()
 
-      sentenceLoopTimer = null
+    v.currentTime = sub.start + 0.01
 
-      v.currentTime = sub.start + 0.01
+    currentTime.value = sub.start + 0.01
 
-      void v.play()
+    if (v.paused) void v.play()
 
-      isPlaying.value = true
-
-    }
-
-
-
-    if (loopInterval.value > 0) {
-
-      v.pause()
-
-      isPlaying.value = false
-
-      sentenceLoopTimer = setTimeout(restart, loopInterval.value * 1000)
-
-    } else {
-
-      restart()
-
-    }
+    isPlaying.value = true
 
   }
 
@@ -921,6 +973,10 @@ export function usePlayerControls(opts: PlayerControlOptions) {
     dictationAfterLoop,
 
     setDictationAfterLoop,
+
+    autoAdvanceAfterLoop,
+
+    setAutoAdvanceAfterLoop,
 
     playSentenceOnce,
 

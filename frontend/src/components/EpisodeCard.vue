@@ -61,7 +61,7 @@ function learnerLabel() {
           </span>
           <span
             v-if="episode.is_pinned"
-            class="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500 text-white font-bold shadow-md leading-none"
+            class="text-sm px-2.5 py-1 rounded-md bg-amber-500 text-white font-bold shadow-md leading-none"
           >
             置顶
           </span>

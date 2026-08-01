@@ -144,7 +144,7 @@ onUnmounted(() => {
         <input
           v-model="search"
           type="search"
-          placeholder="搜索邮箱"
+          placeholder="搜索邮箱或激活码"
           class="flex-1 min-w-[200px] rounded-lg border border-black/10 px-3 py-2 text-sm"
           @keyup.enter="doSearch"
         />
@@ -215,8 +215,39 @@ onUnmounted(() => {
                 </div>
               </div>
             </td>
-            <td class="px-4 py-3">{{ user.is_member ? '是' : '否' }}</td>
-            <td class="px-4 py-3">{{ user.is_active ? '正常' : '已停用' }}</td>
+            <td class="px-4 py-3">
+              <div class="space-y-1.5">
+                <span
+                  class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium leading-none"
+                  :class="
+                    user.is_member
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-neutral-100 text-neutral-500'
+                  "
+                >
+                  {{ user.is_member ? '会员' : '普通' }}
+                </span>
+                <div
+                  v-if="user.is_member && user.activation_code"
+                  class="text-xs font-mono text-neutral-700 break-all"
+                  :title="user.activation_code"
+                >
+                  {{ user.activation_code }}
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-3">
+              <span
+                class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium leading-none"
+                :class="
+                  user.is_active
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-red-100 text-red-700'
+                "
+              >
+                {{ user.is_active ? '正常' : '已停用' }}
+              </span>
+            </td>
             <td class="px-4 py-3 whitespace-nowrap">{{ formatSignupLocation(user) }}</td>
             <td class="px-4 py-3 whitespace-nowrap">{{ user.last_active_at || '—' }}</td>
             <td class="px-4 py-3 text-right tabular-nums whitespace-nowrap">

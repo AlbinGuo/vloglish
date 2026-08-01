@@ -139,21 +139,27 @@ const subtitleTooltipTeleport = computed(() =>
 )
 const videoHidden = ref(false)
 const SUBTITLES_HIDDEN_KEY = 'teco-subtitles-hidden'
-function loadSubtitlesHidden(): boolean {
-  try {
-    return localStorage.getItem(SUBTITLES_HIDDEN_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-const subtitlesHidden = ref(loadSubtitlesHidden())
+/** 仅这些视频进入时默认隐藏字幕；其余视频一律显示字幕 */
+const FORCE_SUBTITLES_HIDDEN_VIDEO_IDS = new Set(['S26GSrESWWCCKRw'])
+const subtitlesHidden = ref(false)
+const skipSubtitlesHiddenPersist = ref(false)
+
 watch(subtitlesHidden, (hidden) => {
+  if (skipSubtitlesHiddenPersist.value) return
   try {
     localStorage.setItem(SUBTITLES_HIDDEN_KEY, hidden ? '1' : '0')
   } catch {
     /* ignore */
   }
 })
+
+function syncSubtitlesHiddenForVideo(videoId: string) {
+  const hide =
+    !props.adminPreview && FORCE_SUBTITLES_HIDDEN_VIDEO_IDS.has(videoId)
+  skipSubtitlesHiddenPersist.value = true
+  subtitlesHidden.value = hide
+  skipSubtitlesHiddenPersist.value = false
+}
 const listRef = ref<HTMLElement | null>(null)
 const showSettings = ref(false)
 const isPhone = useIsPhone()
@@ -209,6 +215,18 @@ const learningBridge = {
   tickWatchTime: (_delta: number) => {},
 }
 
+const continuousFinishedNotice = ref(false)
+let continuousFinishedTimer: ReturnType<typeof setTimeout> | null = null
+
+function showContinuousFinishedNotice() {
+  continuousFinishedNotice.value = true
+  if (continuousFinishedTimer) clearTimeout(continuousFinishedTimer)
+  continuousFinishedTimer = setTimeout(() => {
+    continuousFinishedNotice.value = false
+    continuousFinishedTimer = null
+  }, 3200)
+}
+
 const player = usePlayerControls({
   videoRef,
   sortedSubs,
@@ -221,6 +239,13 @@ const player = usePlayerControls({
   },
   onSentenceLoopComplete: (sub) => {
     openDictationFor(sub)
+  },
+  onContinuousLoopComplete: ({ openDictation }) => {
+    showContinuousFinishedNotice()
+    if (openDictation) {
+      const first = sortedSubs.value[0]
+      if (first) openDictationFor(first)
+    }
   },
 })
 
@@ -535,6 +560,7 @@ function onEntryKeydown(e: KeyboardEvent) {
 }
 
 onMounted(() => {
+  syncSubtitlesHiddenForVideo(props.videoId)
   load()
   window.addEventListener('keydown', onEntryKeydown)
   window.addEventListener('afterprint', onAfterPrint)
@@ -542,16 +568,21 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (continuousFinishedTimer) clearTimeout(continuousFinishedTimer)
   if (listScrollAnim) cancelAnimationFrame(listScrollAnim)
   document.body.style.overflow = ''
   window.removeEventListener('keydown', onEntryKeydown)
   window.removeEventListener('afterprint', onAfterPrint)
   document.removeEventListener('fullscreenchange', onVideoPanelFullscreenChange)
 })
-watch(() => props.videoId, () => {
-  contentView.value = 'subtitles'
-  void load()
-})
+watch(
+  () => props.videoId,
+  (videoId) => {
+    contentView.value = 'subtitles'
+    syncSubtitlesHiddenForVideo(videoId)
+    void load()
+  },
+)
 watch(currentIndex, (idx, prevIdx) => {
   if (prevIdx !== undefined && idx !== prevIdx) {
     subtitleSlideDir.value = idx > prevIdx ? 'next' : 'prev'
@@ -1761,6 +1792,22 @@ function subtitleRowClass(index: number) {
       @close="showSettings = false"
       @update:subtitle-align="subtitleAlign = $event"
     />
+
+    <Teleport to="body">
+      <Transition name="continuous-finished-fade">
+        <div
+          v-if="continuousFinishedNotice"
+          class="fixed inset-x-0 bottom-20 sm:bottom-24 z-[400] flex justify-center pointer-events-none px-4"
+          role="status"
+        >
+          <p
+            class="rounded-full bg-neutral-900/90 dark:bg-neutral-100/95 text-white dark:text-neutral-900 text-sm font-medium px-4 py-2 shadow-lg"
+          >
+            已播完
+          </p>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -1812,5 +1859,16 @@ function subtitleRowClass(index: number) {
 .subtitle-fade-enter-from,
 .subtitle-fade-leave-to {
   opacity: 0;
+}
+
+.continuous-finished-fade-enter-active,
+.continuous-finished-fade-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.continuous-finished-fade-enter-from,
+.continuous-finished-fade-leave-to {
+  opacity: 0;
+  transform: translateY(0.5rem);
 }
 </style>

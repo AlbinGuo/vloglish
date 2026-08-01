@@ -94,7 +94,7 @@ watch(tags, async () => {
 <template>
   <div
     v-if="tags.length"
-    class="flex items-center gap-1 min-w-0 flex-1"
+    class="flex items-center gap-1 min-w-0 w-full sm:flex-1 sm:w-auto"
     aria-label="主题标签"
   >
     <button
