@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import wechatQr from '@/assets/wechat.png'
 import { useAuthStore } from '@/stores/auth'
 import { useCatalogStore } from '@/stores/catalog'
 
@@ -71,7 +70,7 @@ async function submit() {
           请联系管理员获取激活码（微信ID:vloglish01）。
         </p>
         <img
-          :src="wechatQr"
+          src="https://oss.sxakgs.com/vloglish/wx4.png"
           alt="微信二维码"
           class="mx-auto mt-3 w-44 h-44 rounded-lg object-contain bg-white"
         />
