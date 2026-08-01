@@ -356,6 +356,7 @@ export interface AdminEpisodeDetail {
   summary: string
   remark: string
   vocab_summary?: string
+  video_context?: string
   stars: number
   voca_size: number
   subtitle_count: number
@@ -390,6 +391,7 @@ export type AdminEpisodePayload = {
   summary: string
   remark: string
   vocab_summary?: string
+  video_context?: string
   stars: number
   voca_size: number
   cover: string
@@ -852,6 +854,33 @@ export async function adminCreateBroadcast(payload: {
   image_url?: string
 }) {
   const { data } = await adminApi.post<AdminBroadcast>('/api/admin/notifications/broadcasts/', payload)
+  return data
+}
+
+export interface AdminEpisodeSubmittedPopup {
+  id: number
+  title: string
+  body: string
+  episode_id: number | null
+  episode_title: string
+  original_video_url: string
+  submitter_email: string
+  submitter_nickname: string
+  submitted_at: string
+  created_at: string
+}
+
+export async function adminGetPendingSubmissionPopups() {
+  const { data } = await adminApi.get<{ results: AdminEpisodeSubmittedPopup[] }>(
+    '/api/admin/notifications/pending-popups/',
+  )
+  return data.results
+}
+
+export async function adminAckSubmissionPopup(id: number) {
+  const { data } = await adminApi.post<{ success: boolean }>(
+    `/api/admin/notifications/${id}/ack-popup/`,
+  )
   return data
 }
 

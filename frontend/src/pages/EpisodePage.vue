@@ -7,6 +7,7 @@ import { getEpisodeList, setEpisodeFavorite } from '@/api/episodes'
 import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
 import EpisodeWordCardList from '@/components/episode/EpisodeWordCardList.vue'
 import EpisodeVocabSummaryList from '@/components/episode/EpisodeVocabSummaryList.vue'
+import EpisodeVideoContextPanel from '@/components/episode/EpisodeVideoContextPanel.vue'
 import BlankPrintDocument from '@/components/episode/BlankPrintDocument.vue'
 import BlankPrintSheet from '@/components/episode/BlankPrintSheet.vue'
 import SentenceDictationSheet from '@/components/episode/SentenceDictationSheet.vue'
@@ -67,7 +68,7 @@ const episode = ref<EpisodeDetail | null>(null)
 const loading = ref(true)
 const error = ref('')
 const subtitleMode = ref<SubtitleDisplayMode>('both')
-const contentView = ref<'subtitles' | 'wordcards' | 'summary'>('subtitles')
+const contentView = ref<'subtitles' | 'wordcards' | 'summary' | 'context'>('subtitles')
 const showWordCards = computed(() => contentView.value === 'wordcards')
 const vocabSummaryGroups = computed(() => {
   const ep = episode.value
@@ -366,13 +367,12 @@ const modeButtons: { key: SubtitleDisplayMode; label: string }[] = [
   { key: 'en', label: '英语' },
   { key: 'zh', label: '中文' },
   { key: 'blank', label: '挖空' },
-  { key: 'dynamic', label: '动态' },
-  { key: 'ipa', label: 'IPA' },
 ]
 
 const currentModeLabel = computed(() => {
   if (contentView.value === 'wordcards') return '词卡'
   if (contentView.value === 'summary') return '汇总'
+  if (contentView.value === 'context') return '视频语境'
   return modeButtons.find((m) => m.key === subtitleMode.value)?.label ?? '字幕'
 })
 
@@ -387,6 +387,10 @@ function openWordCardsView() {
 
 function openVocabSummaryView() {
   contentView.value = 'summary'
+}
+
+function openVideoContextView() {
+  contentView.value = 'context'
 }
 
 function openBlankPrintSheet() {
@@ -1313,6 +1317,34 @@ function subtitleRowClass(index: number) {
           >
             汇总
           </button>
+          <button
+            type="button"
+            class="relative inline-flex items-center gap-1.5 px-3 py-1 pr-4 rounded-full whitespace-nowrap"
+            :class="
+              contentView === 'context'
+                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
+                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+            "
+            @click="openVideoContextView"
+            title="结合视频背景，帮助理解内容"
+          >
+            视频语境
+            <span
+              class="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded-full"
+              :class="
+                contentView === 'context'
+                  ? 'bg-white/20 text-white dark:bg-neutral-900/15 dark:text-neutral-900'
+                  : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
+              "
+            >
+              看懂背景
+            </span>
+            <span
+              class="absolute -top-1.5 -right-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none bg-red-500 text-white shadow-sm"
+            >
+              新
+            </span>
+          </button>
           <div class="flex items-center gap-1.5 ml-auto shrink-0">
             <button
               v-if="contentView === 'subtitles' && subtitleMode === 'blank'"
@@ -1366,6 +1398,11 @@ function subtitleRowClass(index: number) {
         <EpisodeVocabSummaryList
           v-else-if="contentView === 'summary'"
           :groups="vocabSummaryGroups"
+        />
+
+        <EpisodeVideoContextPanel
+          v-else-if="contentView === 'context'"
+          :content="episode.video_context || ''"
         />
 
         <!-- 动态模式 -->
@@ -1610,7 +1647,8 @@ function subtitleRowClass(index: number) {
               class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
               @click="openSubtitleModeFromMore"
             >
-              字幕 / 词卡 / 汇总
+              字幕 / 词卡 / 汇总 / 视频语境
+              <span class="ml-1.5 align-middle px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none bg-red-500 text-white">新</span>
               <span class="float-right text-neutral-400">{{ currentModeLabel }}</span>
             </button>
             <button
@@ -1730,6 +1768,7 @@ function subtitleRowClass(index: number) {
       @update:subtitle-mode="(m) => { selectSubtitleMode(m); subtitleModeSheetOpen = false }"
       @select-word-cards="openWordCardsView(); subtitleModeSheetOpen = false"
       @select-vocab-summary="openVocabSummaryView(); subtitleModeSheetOpen = false"
+      @select-video-context="openVideoContextView(); subtitleModeSheetOpen = false"
     />
 
     <BlankPrintSheet

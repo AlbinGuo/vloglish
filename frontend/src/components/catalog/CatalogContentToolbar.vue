@@ -7,6 +7,7 @@ import { useCatalogViewMode, type CatalogViewMode } from '@/composables/useCatal
 import { useIsMobile } from '@/composables/useBreakpoint'
 import { useAuthStore } from '@/stores/auth'
 import { useCatalogStore, type CatalogDurationFilter } from '@/stores/catalog'
+import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 
 const props = withDefaults(
   defineProps<{
@@ -19,6 +20,7 @@ const props = withDefaults(
 
 const auth = useAuthStore()
 const store = useCatalogStore()
+const corpusBadge = useMyCorpusBadgeStore()
 const isMobile = useIsMobile()
 const { browseMode, setBrowseMode } = useCatalogBrowseMode()
 const { viewMode, setViewMode } = useCatalogViewMode()
@@ -97,6 +99,8 @@ watch(
       store.filters.learningStatus = ''
       void store.loadEpisodes(true)
     }
+    if (member) void corpusBadge.refresh()
+    else corpusBadge.clear()
   },
 )
 
@@ -105,6 +109,7 @@ onMounted(() => {
     store.filters.learningStatus = ''
     void store.loadEpisodes(true)
   }
+  if (auth.isMember) void corpusBadge.refresh()
 })
 </script>
 
@@ -218,9 +223,21 @@ onMounted(() => {
         </RouterLink>
         <RouterLink
           :to="mySubmissionsLink"
-          class="text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 transition whitespace-nowrap"
+          class="relative inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 transition whitespace-nowrap"
         >
           我的语料库
+          <span
+            v-if="auth.isMember && corpusBadge.hasNew"
+            class="px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none bg-red-500 text-white"
+          >
+            新
+          </span>
+          <span
+            v-else-if="auth.isMember && corpusBadge.count > 0"
+            class="text-[10px] font-medium text-neutral-400 dark:text-neutral-500"
+          >
+            {{ corpusBadge.count }}
+          </span>
         </RouterLink>
       </div>
     </div>
@@ -259,9 +276,21 @@ onMounted(() => {
       </RouterLink>
       <RouterLink
         :to="mySubmissionsLink"
-        class="text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 transition whitespace-nowrap"
+        class="relative inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 transition whitespace-nowrap"
       >
         我的语料库
+        <span
+          v-if="auth.isMember && corpusBadge.hasNew"
+          class="px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none bg-red-500 text-white"
+        >
+          新
+        </span>
+        <span
+          v-else-if="auth.isMember && corpusBadge.count > 0"
+          class="text-[10px] font-medium text-neutral-400 dark:text-neutral-500"
+        >
+          {{ corpusBadge.count }}
+        </span>
       </RouterLink>
     </div>
   </div>

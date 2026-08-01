@@ -1,12 +1,23 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import {
+  adminAckSubmissionPopup,
+  adminGetPendingSubmissionPopups,
+  type AdminEpisodeSubmittedPopup as AdminEpisodeSubmittedPopupItem,
+} from '@/api/admin'
+import AdminEpisodeSubmittedPopup from '@/components/admin/AdminEpisodeSubmittedPopup.vue'
 import { useAdminAuthStore } from '@/stores/adminAuth'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAdminAuthStore()
 const mobileNavOpen = ref(false)
+
+const popupQueue = ref<AdminEpisodeSubmittedPopupItem[]>([])
+const popupBusy = ref(false)
+const currentPopup = computed(() => popupQueue.value[0] ?? null)
+let popupPollTimer: ReturnType<typeof setInterval> | null = null
 
 const nav = [
   { to: '/gnadmin/dashboard', label: '仪表盘' },
@@ -54,10 +65,88 @@ watch(
   },
 )
 
+async function refreshPendingPopups() {
+  if (!auth.isLoggedIn) {
+    popupQueue.value = []
+    return
+  }
+  try {
+    const results = await adminGetPendingSubmissionPopups()
+    const currentId = currentPopup.value?.id
+    if (currentId != null && results.some((r) => r.id === currentId)) {
+      const head = results.find((r) => r.id === currentId)!
+      popupQueue.value = [head, ...results.filter((r) => r.id !== currentId)]
+    } else {
+      popupQueue.value = results
+    }
+  } catch {
+    // 静默失败
+  }
+}
+
+function startPopupPolling() {
+  stopPopupPolling()
+  void refreshPendingPopups()
+  popupPollTimer = setInterval(() => {
+    if (auth.isLoggedIn) void refreshPendingPopups()
+  }, 5000)
+}
+
+function stopPopupPolling() {
+  if (popupPollTimer) {
+    clearInterval(popupPollTimer)
+    popupPollTimer = null
+  }
+  popupQueue.value = []
+}
+
+async function ackCurrentPopup() {
+  const item = currentPopup.value
+  if (!item || popupBusy.value) return
+  popupBusy.value = true
+  try {
+    await adminAckSubmissionPopup(item.id)
+    popupQueue.value = popupQueue.value.filter((p) => p.id !== item.id)
+  } catch {
+    popupQueue.value = popupQueue.value.filter((p) => p.id !== item.id)
+  } finally {
+    popupBusy.value = false
+  }
+}
+
+async function dismissSubmittedPopup() {
+  await ackCurrentPopup()
+}
+
+async function reviewSubmittedPopup() {
+  const episodeId = currentPopup.value?.episode_id
+  await ackCurrentPopup()
+  if (episodeId) {
+    await router.push(`/gnadmin/episodes/${episodeId}`)
+  }
+}
+
 async function logout() {
+  stopPopupPolling()
   auth.logout()
   await router.replace('/gnadmin/login')
 }
+
+onMounted(() => {
+  if (auth.isLoggedIn) startPopupPolling()
+})
+
+onUnmounted(() => {
+  stopPopupPolling()
+})
+
+watch(
+  () => auth.isLoggedIn,
+  (loggedIn) => {
+    if (loggedIn) startPopupPolling()
+    else stopPopupPolling()
+  },
+)
 </script>
 
 <template>
@@ -146,5 +235,12 @@ async function logout() {
         <RouterView />
       </main>
     </div>
+
+    <AdminEpisodeSubmittedPopup
+      :item="currentPopup"
+      :busy="popupBusy"
+      @dismiss="dismissSubmittedPopup"
+      @review="reviewSubmittedPopup"
+    />
   </div>
 </template>

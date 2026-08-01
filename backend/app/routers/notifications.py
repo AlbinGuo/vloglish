@@ -6,7 +6,13 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..deps import get_current_user
 from ..models import Episode, User, UserNotification
-from ..schemas import NotificationListOut, NotificationOut, UnreadCountOut
+from ..schemas import (
+    EpisodePublishedPopupListOut,
+    EpisodePublishedPopupOut,
+    NotificationListOut,
+    NotificationOut,
+    UnreadCountOut,
+)
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
@@ -70,6 +76,70 @@ def unread_count(user: User = Depends(get_current_user), db: Session = Depends(g
         .count()
     )
     return UnreadCountOut(unread_count=count)
+
+
+@router.get("/pending-popups/", response_model=EpisodePublishedPopupListOut)
+def pending_popups(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    rows = (
+        db.query(UserNotification)
+        .filter(
+            UserNotification.user_id == user.id,
+            UserNotification.type == "episode_published",
+            UserNotification.is_read.is_(False),
+            UserNotification.popup_acked_at.is_(None),
+        )
+        .order_by(UserNotification.created_at.asc(), UserNotification.id.asc())
+        .limit(20)
+        .all()
+    )
+    episode_ids = [r.episode_id for r in rows if r.episode_id]
+    episode_by_id: dict[int, Episode] = {}
+    if episode_ids:
+        for ep in db.query(Episode).filter(Episode.id.in_(episode_ids)).all():
+            episode_by_id[ep.id] = ep
+
+    results: list[EpisodePublishedPopupOut] = []
+    for row in rows:
+        ep = episode_by_id.get(row.episode_id) if row.episode_id else None
+        episode_title = ""
+        submitted_at = ""
+        video_id = None
+        if ep:
+            episode_title = (ep.short_title or "").strip() or "未命名视频"
+            submitted_at = _fmt_dt(ep.created_at)
+            video_id = ep.video_id
+        results.append(
+            EpisodePublishedPopupOut(
+                id=row.id,
+                title=row.title,
+                body=row.body,
+                episode_id=row.episode_id,
+                video_id=video_id,
+                episode_title=episode_title,
+                submitted_at=submitted_at,
+                created_at=_fmt_dt(row.created_at),
+            )
+        )
+    return EpisodePublishedPopupListOut(results=results)
+
+
+@router.post("/{notification_id}/ack-popup/")
+def ack_popup(
+    notification_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    row = (
+        db.query(UserNotification)
+        .filter(UserNotification.id == notification_id, UserNotification.user_id == user.id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="通知不存在")
+    row.popup_acked_at = datetime.utcnow()
+    row.is_read = True
+    db.commit()
+    return {"success": True}
 
 
 @router.post("/{notification_id}/read/")

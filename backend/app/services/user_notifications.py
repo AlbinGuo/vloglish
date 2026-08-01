@@ -1,10 +1,37 @@
 from sqlalchemy.orm import Session
 
-from ..models import Episode, UserNotification
+from ..models import Episode, User, UserNotification
 
 
 def _episode_title(ep: Episode) -> str:
     return (ep.short_title or "").strip() or "未命名视频"
+
+
+def notify_staff_episode_submitted(db: Session, ep: Episode, submitter: User) -> None:
+    """用户投稿后通知所有管理员（待弹窗 + 通知中心）。"""
+    staff_rows = (
+        db.query(User)
+        .filter(User.is_staff.is_(True), User.is_active.is_(True))
+        .all()
+    )
+    if not staff_rows:
+        return
+    nick = (submitter.nickname or "").strip()
+    who = f"{nick}（{submitter.email}）" if nick else submitter.email
+    url = (ep.original_video_url or "").strip()
+    body = f"{who} 提交了视频链接，请尽快审核。"
+    if url:
+        body += f"\n链接：{url}"
+    for staff in staff_rows:
+        db.add(
+            UserNotification(
+                user_id=staff.id,
+                type="episode_submitted",
+                title="新用户投稿待审核",
+                body=body,
+                episode_id=ep.id,
+            )
+        )
 
 
 def notify_episode_published(db: Session, ep: Episode, user_id: int) -> None:

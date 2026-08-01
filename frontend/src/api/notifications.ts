@@ -39,3 +39,26 @@ export async function markAllNotificationsRead() {
   const { data } = await api.post<{ success: boolean }>('/api/notifications/read-all/')
   return data
 }
+
+export interface EpisodePublishedPopup {
+  id: number
+  title: string
+  body: string
+  episode_id: number | null
+  video_id: string | null
+  episode_title: string
+  submitted_at: string
+  created_at: string
+}
+
+export async function getPendingPopups() {
+  const { data } = await api.get<{ results: EpisodePublishedPopup[] }>(
+    '/api/notifications/pending-popups/',
+  )
+  return data.results
+}
+
+export async function ackNotificationPopup(id: number) {
+  const { data } = await api.post<{ success: boolean }>(`/api/notifications/${id}/ack-popup/`)
+  return data
+}

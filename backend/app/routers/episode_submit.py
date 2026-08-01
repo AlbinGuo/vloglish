@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
@@ -5,12 +7,14 @@ from ..database import get_db
 from ..deps import get_current_member
 from ..models import Episode, User
 from ..schemas import (
+    UserCorpusBadgeOut,
     UserEpisodeSubmitIn,
     UserEpisodeSubmitOut,
     UserSubmissionItemOut,
     UserSubmissionListOut,
 )
 from ..services.episode_admin import apply_episode_fields, generate_video_id, get_or_create_author
+from ..services.user_notifications import notify_staff_episode_submitted
 from ..services.yt_dlp_fetch import is_supported_source_url
 
 router = APIRouter(prefix="/api/episodes/submit", tags=["episode-submit"])
@@ -57,6 +61,38 @@ def list_my_submissions(
         for ep in rows
     ]
     return UserSubmissionListOut(count=len(results), results=results)
+
+
+@router.get("/badge/", response_model=UserCorpusBadgeOut)
+def my_corpus_badge(
+    user: User = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    count = (
+        db.query(Episode)
+        .filter(Episode.submitted_by_user_id == user.id)
+        .count()
+    )
+    seen_at = getattr(user, "my_corpus_seen_at", None)
+    new_q = db.query(Episode.id).filter(
+        Episode.submitted_by_user_id == user.id,
+        Episode.status == "published",
+        Episode.published_at.isnot(None),
+    )
+    if seen_at is not None:
+        new_q = new_q.filter(Episode.published_at > seen_at)
+    has_new = new_q.limit(1).first() is not None
+    return UserCorpusBadgeOut(count=count, has_new=has_new)
+
+
+@router.post("/seen/")
+def mark_my_corpus_seen(
+    user: User = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    user.my_corpus_seen_at = datetime.utcnow()
+    db.commit()
+    return {"success": True}
 
 
 @router.post("/", response_model=UserEpisodeSubmitOut)
@@ -114,6 +150,8 @@ def submit_episode(
     ep = Episode(video_id=video_id, status="draft", submitted_by_user_id=user.id)
     apply_episode_fields(ep, payload, author=author, tags=[])
     db.add(ep)
+    db.flush()
+    notify_staff_episode_submitted(db, ep, user)
     db.commit()
     db.refresh(ep)
 

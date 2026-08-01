@@ -66,6 +66,7 @@ class Episode(Base):
     summary: Mapped[str] = mapped_column(Text, default="")
     remark: Mapped[str] = mapped_column(Text, default="")
     vocab_summary: Mapped[str] = mapped_column(Text, default="")
+    video_context: Mapped[str] = mapped_column(Text, default="")
     stars: Mapped[int] = mapped_column(Integer, default=3)
     voca_size: Mapped[int] = mapped_column(Integer, default=0)
     subtitle_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -195,6 +196,8 @@ class User(Base):
     member_activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     session_version: Mapped[int] = mapped_column(Integer, default=1)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # 上次进入「我的语料库」的时间；用于首页「新」角标
+    my_corpus_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     signup_country: Mapped[str | None] = mapped_column(String(64), nullable=True)
     signup_region: Mapped[str | None] = mapped_column(String(64), nullable=True)
     signup_city: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -269,6 +272,7 @@ class UserNotification(Base):
     episode_id: Mapped[int | None] = mapped_column(ForeignKey("episodes.id"), nullable=True)
     broadcast_id: Mapped[int | None] = mapped_column(ForeignKey("admin_broadcasts.id"), nullable=True)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
+    popup_acked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

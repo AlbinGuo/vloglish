@@ -102,6 +102,8 @@ export interface EpisodeDetail {
   vocab_summary?: VocabSummaryGroup[] | string
   /** 汇总原文（优先用此字段在前端再解析，避免旧后端只返回空数组） */
   vocab_summary_text?: string
+  /** 视频语境原文（HTML / Markdown） */
+  video_context?: string
 }
 
 export interface VocabSummaryItem {

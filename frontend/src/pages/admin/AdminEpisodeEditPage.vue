@@ -69,6 +69,7 @@ const form = ref<AdminEpisodePayload>({
   tag_names: [],
   subtitles: [],
   vocab_summary: '',
+  video_context: '',
 })
 
 const tagsInput = ref('')
@@ -159,6 +160,7 @@ async function loadEpisode() {
       tag_names: [...data.tag_names],
       subtitles: data.subtitles.map((s) => ({ ...s })),
       vocab_summary: data.vocab_summary || '',
+      video_context: data.video_context || '',
     }
     if (data.original_video_url) {
       sourceUrl.value = data.original_video_url
@@ -940,6 +942,22 @@ watch(
           >
             {{ enriching ? 'AI 增强中（自动分轮，可并行加速）...' : 'AI 增强当前字幕' }}
           </button>
+        </div>
+
+        <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 class="text-sm font-medium text-neutral-800">视频语境</h3>
+            <span class="text-xs text-neutral-400">用户端「视频语境」Tab 原样渲染</span>
+          </div>
+          <p class="text-xs text-neutral-500 leading-relaxed">
+            粘贴 HTML 或 Markdown；用户端按对应格式渲染展示（脚本等危险标签会被过滤）。
+          </p>
+          <textarea
+            v-model="form.video_context"
+            rows="12"
+            placeholder="粘贴视频语境内容（HTML / Markdown）…"
+            class="w-full rounded-lg border border-black/10 px-3 py-2 text-sm font-mono"
+          />
         </div>
 
         <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">

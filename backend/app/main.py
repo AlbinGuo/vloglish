@@ -157,6 +157,14 @@ def _migrate_schema():
     if "last_seen_at" not in cols:
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE users ADD COLUMN last_seen_at {datetime_type}"))
+    if "my_corpus_seen_at" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE users ADD COLUMN my_corpus_seen_at {datetime_type}"))
+            # 已有用户视为已看过，避免历史上已通过的投稿全部冒「新」
+            now_sql = "NOW()" if is_postgresql() else "CURRENT_TIMESTAMP"
+            conn.execute(
+                text(f"UPDATE users SET my_corpus_seen_at = {now_sql} WHERE my_corpus_seen_at IS NULL")
+            )
     for col, col_type in (
         ("signup_country", "VARCHAR(64)"),
         ("signup_region", "VARCHAR(64)"),
@@ -210,6 +218,9 @@ def _migrate_schema():
         if "vocab_summary" not in ep_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE episodes ADD COLUMN vocab_summary TEXT NOT NULL DEFAULT ''"))
+        if "video_context" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE episodes ADD COLUMN video_context TEXT NOT NULL DEFAULT ''"))
     if "user_notifications" in insp.get_table_names():
         notif_cols = {c["name"] for c in insp.get_columns("user_notifications")}
         if "broadcast_id" not in notif_cols:
@@ -218,6 +229,11 @@ def _migrate_schema():
         if "image_url" not in notif_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE user_notifications ADD COLUMN image_url TEXT NOT NULL DEFAULT ''"))
+        if "popup_acked_at" not in notif_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(f"ALTER TABLE user_notifications ADD COLUMN popup_acked_at {datetime_type}")
+                )
     if "admin_broadcasts" in insp.get_table_names():
         bc_cols = {c["name"] for c in insp.get_columns("admin_broadcasts")}
         if "image_url" not in bc_cols:

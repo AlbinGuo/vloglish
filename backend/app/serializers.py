@@ -109,6 +109,7 @@ def episode_detail(episode: Episode, total: int, *, series_nav: dict | None = No
             "series": series_nav,
             "vocab_summary": parse_vocab_summary(getattr(episode, "vocab_summary", None) or ""),
             "vocab_summary_text": getattr(episode, "vocab_summary", None) or "",
+            "video_context": getattr(episode, "video_context", None) or "",
         },
         "total_episodes": total,
     }

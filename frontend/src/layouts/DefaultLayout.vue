@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import {
+  ackNotificationPopup,
+  getPendingPopups,
+  type EpisodePublishedPopup as EpisodePublishedPopupItem,
+} from '@/api/notifications'
 import { sendPresenceHeartbeat } from '@/api/presence'
 import BrandLogo from '@/components/BrandLogo.vue'
 import ContinueLearningDropdown from '@/components/ContinueLearningDropdown.vue'
+import EpisodePublishedPopup from '@/components/EpisodePublishedPopup.vue'
 import FeedbackModal from '@/components/FeedbackModal.vue'
 import { useCatalogMobileHeaderHide } from '@/composables/useCatalogMobileHeaderHide'
 import { useAuthStore } from '@/stores/auth'
+import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 import { useNotificationStore } from '@/stores/notifications'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
@@ -14,12 +21,18 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const notifications = useNotificationStore()
+const corpusBadge = useMyCorpusBadgeStore()
 const feedbackOpen = ref(false)
+
+const popupQueue = ref<EpisodePublishedPopupItem[]>([])
+const popupBusy = ref(false)
+const currentPopup = computed(() => popupQueue.value[0] ?? null)
 
 const immersive = computed(() => Boolean(route.meta.immersive))
 const { headerVisible: catalogHeaderVisible, catalogHeaderAutoHide } = useCatalogMobileHeaderHide()
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let popupPollTimer: ReturnType<typeof setInterval> | null = null
 
 async function sendHeartbeat() {
   if (!auth.isLoggedIn) return
@@ -38,9 +51,75 @@ async function refreshUnreadCount() {
   await notifications.refresh()
 }
 
+async function refreshPendingPopups() {
+  if (!auth.isLoggedIn) {
+    popupQueue.value = []
+    return
+  }
+  try {
+    const results = await getPendingPopups()
+    const currentId = currentPopup.value?.id
+    if (currentId != null && results.some((r) => r.id === currentId)) {
+      const head = results.find((r) => r.id === currentId)!
+      popupQueue.value = [head, ...results.filter((r) => r.id !== currentId)]
+    } else {
+      popupQueue.value = results
+    }
+    if (auth.isMember) void corpusBadge.refresh()
+  } catch {
+    // 静默失败
+  }
+}
+
+function startPopupPolling() {
+  stopPopupPolling()
+  void refreshPendingPopups()
+  popupPollTimer = setInterval(() => {
+    if (auth.isLoggedIn) void refreshPendingPopups()
+  }, 5000)
+}
+
+function stopPopupPolling() {
+  if (popupPollTimer) {
+    clearInterval(popupPollTimer)
+    popupPollTimer = null
+  }
+  popupQueue.value = []
+}
+
+async function ackCurrentPopup() {
+  const item = currentPopup.value
+  if (!item || popupBusy.value) return
+  popupBusy.value = true
+  try {
+    await ackNotificationPopup(item.id)
+    popupQueue.value = popupQueue.value.filter((p) => p.id !== item.id)
+    await refreshUnreadCount()
+  } catch {
+    // 失败时仍关闭本地项，避免卡死；下次轮询会再出现
+    popupQueue.value = popupQueue.value.filter((p) => p.id !== item.id)
+  } finally {
+    popupBusy.value = false
+  }
+}
+
+async function dismissPublishedPopup() {
+  await ackCurrentPopup()
+}
+
+async function watchPublishedPopup() {
+  const videoId = currentPopup.value?.video_id
+  await ackCurrentPopup()
+  if (videoId) {
+    await router.push(`/english/episode/${videoId}`)
+  }
+}
+
 async function handleLogout() {
+  stopPopupPolling()
   await auth.logout()
   notifications.clear()
+  corpusBadge.clear()
   await router.replace('/english')
 }
 
@@ -48,6 +127,7 @@ onMounted(() => {
   if (auth.ready && auth.isLoggedIn) {
     sendHeartbeat()
     refreshUnreadCount()
+    startPopupPolling()
   }
   pollTimer = setInterval(() => {
     if (auth.isLoggedIn) {
@@ -59,6 +139,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
+  stopPopupPolling()
 })
 
 watch(
@@ -67,7 +148,12 @@ watch(
     if (ready && loggedIn) {
       sendHeartbeat()
       refreshUnreadCount()
-    } else if (ready) notifications.clear()
+      startPopupPolling()
+    } else if (ready) {
+      notifications.clear()
+      corpusBadge.clear()
+      stopPopupPolling()
+    }
   },
 )
 
@@ -211,5 +297,11 @@ watch(
       </RouterView>
     </main>
     <FeedbackModal v-model:open="feedbackOpen" />
+    <EpisodePublishedPopup
+      :item="currentPopup"
+      :busy="popupBusy"
+      @dismiss="dismissPublishedPopup"
+      @watch="watchPublishedPopup"
+    />
   </div>
 </template>

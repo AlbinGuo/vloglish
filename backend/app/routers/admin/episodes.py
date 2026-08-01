@@ -70,6 +70,7 @@ def _episode_detail(ep: Episode, submitter: User | None = None) -> AdminEpisodeD
         summary=ep.summary or "",
         remark=ep.remark or "",
         vocab_summary=getattr(ep, "vocab_summary", None) or "",
+        video_context=getattr(ep, "video_context", None) or "",
         stars=ep.stars,
         voca_size=ep.voca_size,
         subtitle_count=ep.subtitle_count,

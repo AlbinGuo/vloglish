@@ -3,10 +3,12 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { accentIconFor } from '@/constants/accentOptions'
 import { listMySubmissions, type UserSubmissionItem } from '@/api/episodes'
+import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 
 const loading = ref(true)
 const error = ref('')
 const rows = ref<UserSubmissionItem[]>([])
+const corpusBadge = useMyCorpusBadgeStore()
 
 const statusLabel: Record<string, string> = {
   draft: '待审核',
@@ -38,6 +40,7 @@ async function load() {
   try {
     const data = await listMySubmissions()
     rows.value = data.results
+    await corpusBadge.markSeen()
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
     error.value = msg || '加载失败'

@@ -265,6 +265,7 @@ class AdminEpisodeCreateIn(BaseModel):
     summary: str = ""
     remark: str = ""
     vocab_summary: str = ""
+    video_context: str = ""
     stars: int = Field(default=3, ge=1, le=5)
     voca_size: int = Field(default=0, ge=0)
     cover: str = ""
@@ -289,6 +290,7 @@ class AdminEpisodeUpdateIn(BaseModel):
     summary: str | None = None
     remark: str | None = None
     vocab_summary: str | None = None
+    video_context: str | None = None
     stars: int | None = Field(default=None, ge=1, le=5)
     voca_size: int | None = Field(default=None, ge=0)
     cover: str | None = None
@@ -355,6 +357,7 @@ class AdminEpisodeDetailOut(BaseModel):
     summary: str
     remark: str
     vocab_summary: str = ""
+    video_context: str = ""
     stars: int
     voca_size: int
     subtitle_count: int
@@ -540,6 +543,11 @@ class UserSubmissionListOut(BaseModel):
     results: list[UserSubmissionItemOut]
 
 
+class UserCorpusBadgeOut(BaseModel):
+    count: int
+    has_new: bool
+
+
 class AdminTagOut(BaseModel):
     id: int
     name: str
@@ -672,6 +680,7 @@ class EpisodeDetailOut(BaseModel):
     series: EpisodeSeriesNavOut | None = None
     vocab_summary: list[VocabSummaryGroupOut] = []
     vocab_summary_text: str = ""
+    video_context: str = ""
 
 
 class EpisodeDetailResponse(BaseModel):
@@ -747,6 +756,38 @@ class NotificationListOut(BaseModel):
 
 class UnreadCountOut(BaseModel):
     unread_count: int
+
+
+class EpisodePublishedPopupOut(BaseModel):
+    id: int
+    title: str
+    body: str
+    episode_id: int | None = None
+    video_id: str | None = None
+    episode_title: str = ""
+    submitted_at: str = ""
+    created_at: str
+
+
+class EpisodePublishedPopupListOut(BaseModel):
+    results: list[EpisodePublishedPopupOut]
+
+
+class AdminEpisodeSubmittedPopupOut(BaseModel):
+    id: int
+    title: str
+    body: str
+    episode_id: int | None = None
+    episode_title: str = ""
+    original_video_url: str = ""
+    submitter_email: str = ""
+    submitter_nickname: str = ""
+    submitted_at: str = ""
+    created_at: str
+
+
+class AdminEpisodeSubmittedPopupListOut(BaseModel):
+    results: list[AdminEpisodeSubmittedPopupOut]
 
 
 class AdminBroadcastCreateIn(BaseModel):

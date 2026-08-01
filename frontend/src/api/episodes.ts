@@ -214,6 +214,18 @@ export async function listMySubmissions() {
   return data
 }
 
+export async function getMyCorpusBadge() {
+  const { data } = await api.get<{ count: number; has_new: boolean }>(
+    '/api/episodes/submit/badge/',
+  )
+  return data
+}
+
+export async function markMyCorpusSeen() {
+  const { data } = await api.post<{ success: boolean }>('/api/episodes/submit/seen/')
+  return data
+}
+
 /** @deprecated 使用 lookupWord */
 export async function lookupToken(id: number, type: 1 | 2) {
   return lookupWord(String(id), type, '')

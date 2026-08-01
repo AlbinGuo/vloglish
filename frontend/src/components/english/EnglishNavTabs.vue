@@ -97,7 +97,7 @@ watch(
           : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
       "
     >
-      文章阅读
+      文章
       <span
         v-if="hasNew.articles"
         class="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-md text-xs font-bold leading-none bg-red-500 text-white shadow-sm"
