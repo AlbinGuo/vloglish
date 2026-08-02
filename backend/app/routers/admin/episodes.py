@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ...database import get_db
 from ...deps import get_current_admin
-from ...models import Episode, User
+from ...models import Episode, User, UserNotification
 from ...schemas import (
     AdminEpisodeCreateIn,
     AdminEpisodeDetailOut,
@@ -15,6 +15,8 @@ from ...schemas import (
     AdminFetchMediaOut,
     AdminNextEpisodeIndexOut,
     AdminEpisodeUpdateIn,
+    AdminReleasePopupStatsOut,
+    AdminReleasePopupUserOut,
     AdminSubtitleEnrichIn,
     AdminSubtitleIn,
     AdminVttImportIn,
@@ -35,7 +37,10 @@ from ...services.subtitle_import_admin import (
     enrich_existing_subtitles_for_admin,
     import_subtitle_text_for_admin,
 )
-from ...services.user_notifications import maybe_notify_submitter_on_status_change
+from ...services.user_notifications import (
+    maybe_notify_catalog_release,
+    maybe_notify_submitter_on_status_change,
+)
 from ...services.yt_dlp_fetch import fetch_and_upload_from_url
 from ...services.episode_series import get_series_or_none
 
@@ -334,6 +339,7 @@ def create_episode(
     if body.subtitles:
         replace_subtitles(db, ep.id, payload["subtitles"])
 
+    maybe_notify_catalog_release(db, ep)
     db.commit()
     db.refresh(ep)
     ep = _get_episode_or_404(db, ep.id)
@@ -424,9 +430,55 @@ def update_episode(
         # 官方内容始终按公共目录处理
         ep.is_catalog_public = False
 
+    maybe_notify_catalog_release(db, ep)
     db.commit()
     ep = _get_episode_or_404(db, episode_id)
     return _episode_detail(ep, _get_submitter(db, ep.submitted_by_user_id))
+
+
+@router.get("/episodes/{episode_id}/release-popup-stats/", response_model=AdminReleasePopupStatsOut)
+def release_popup_stats(
+    episode_id: int,
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    ep = _get_episode_or_404(db, episode_id)
+    rows = (
+        db.query(UserNotification, User)
+        .join(User, User.id == UserNotification.user_id)
+        .filter(
+            UserNotification.episode_id == ep.id,
+            UserNotification.type == "episode_new_release",
+        )
+        .order_by(User.email.asc())
+        .all()
+    )
+    seen_users: list[AdminReleasePopupUserOut] = []
+    unseen_users: list[AdminReleasePopupUserOut] = []
+    for notif, user in rows:
+        item = AdminReleasePopupUserOut(
+            user_id=user.id,
+            email=user.email or "",
+            nickname=(user.nickname or "").strip(),
+            popup_acked_at=_fmt_dt(notif.popup_acked_at),
+        )
+        if notif.popup_acked_at is not None:
+            seen_users.append(item)
+        else:
+            unseen_users.append(item)
+
+    return AdminReleasePopupStatsOut(
+        episode_id=ep.id,
+        video_id=ep.video_id,
+        short_title=ep.short_title or "",
+        notified=bool(getattr(ep, "release_notified_at", None)) or bool(rows),
+        release_notified_at=_fmt_dt(getattr(ep, "release_notified_at", None)),
+        recipient_count=len(rows),
+        seen_count=len(seen_users),
+        unseen_count=len(unseen_users),
+        seen_users=seen_users,
+        unseen_users=unseen_users,
+    )
 
 
 @router.delete("/episodes/{episode_id}/")

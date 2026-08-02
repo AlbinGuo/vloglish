@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy.orm import Session
 
 from ..models import Episode, User, UserNotification
@@ -5,6 +7,47 @@ from ..models import Episode, User, UserNotification
 
 def _episode_title(ep: Episode) -> str:
     return (ep.short_title or "").strip() or "未命名视频"
+
+
+def is_catalog_published_episode(ep: Episode) -> bool:
+    """官方内容或已设为全站可见的投稿，且已发布。"""
+    if ep.status != "published":
+        return False
+    if ep.submitted_by_user_id is None:
+        return True
+    return bool(getattr(ep, "is_catalog_public", False))
+
+
+def notify_catalog_episode_released(db: Session, ep: Episode) -> int:
+    """全站可见视频首次上线：给所有活跃用户写弹窗通知。返回触达人数。"""
+    if getattr(ep, "release_notified_at", None):
+        return 0
+    if not is_catalog_published_episode(ep):
+        return 0
+
+    users = db.query(User).filter(User.is_active.is_(True)).all()
+    title = "新视频上线"
+    body = f"「{_episode_title(ep)}」已上线，快来学习吧。"
+    if users:
+        db.add_all(
+            [
+                UserNotification(
+                    user_id=user.id,
+                    type="episode_new_release",
+                    title=title,
+                    body=body,
+                    episode_id=ep.id,
+                )
+                for user in users
+            ]
+        )
+    ep.release_notified_at = datetime.utcnow()
+    return len(users)
+
+
+def maybe_notify_catalog_release(db: Session, ep: Episode) -> int:
+    """若视频刚进入公共目录且尚未推送过，则推送全站上线弹窗。"""
+    return notify_catalog_episode_released(db, ep)
 
 
 def notify_staff_episode_submitted(db: Session, ep: Episode, submitter: User) -> None:

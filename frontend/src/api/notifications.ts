@@ -42,11 +42,13 @@ export async function markAllNotificationsRead() {
 
 export interface EpisodePublishedPopup {
   id: number
+  type: 'episode_published' | 'episode_new_release' | string
   title: string
   body: string
   episode_id: number | null
   video_id: string | null
   episode_title: string
+  cover_url: string
   submitted_at: string
   created_at: string
 }

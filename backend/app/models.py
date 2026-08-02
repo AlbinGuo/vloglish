@@ -88,6 +88,8 @@ class Episode(Base):
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     status: Mapped[str] = mapped_column(String(16), default="published")
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # 全站上线弹窗是否已推送过（首次进入公共目录时写入）
+    release_notified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     author: Mapped["Author"] = relationship()
     series: Mapped["EpisodeSeries | None"] = relationship(back_populates="episodes")

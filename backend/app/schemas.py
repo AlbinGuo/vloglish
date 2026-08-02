@@ -760,17 +760,39 @@ class UnreadCountOut(BaseModel):
 
 class EpisodePublishedPopupOut(BaseModel):
     id: int
+    type: str = "episode_published"
     title: str
     body: str
     episode_id: int | None = None
     video_id: str | None = None
     episode_title: str = ""
+    cover_url: str = ""
     submitted_at: str = ""
     created_at: str
 
 
 class EpisodePublishedPopupListOut(BaseModel):
     results: list[EpisodePublishedPopupOut]
+
+
+class AdminReleasePopupUserOut(BaseModel):
+    user_id: int
+    email: str
+    nickname: str = ""
+    popup_acked_at: str = ""
+
+
+class AdminReleasePopupStatsOut(BaseModel):
+    episode_id: int
+    video_id: str
+    short_title: str
+    notified: bool
+    release_notified_at: str = ""
+    recipient_count: int = 0
+    seen_count: int = 0
+    unseen_count: int = 0
+    seen_users: list[AdminReleasePopupUserOut] = []
+    unseen_users: list[AdminReleasePopupUserOut] = []
 
 
 class AdminEpisodeSubmittedPopupOut(BaseModel):

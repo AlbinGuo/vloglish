@@ -84,7 +84,7 @@ def pending_popups(user: User = Depends(get_current_user), db: Session = Depends
         db.query(UserNotification)
         .filter(
             UserNotification.user_id == user.id,
-            UserNotification.type == "episode_published",
+            UserNotification.type.in_(("episode_published", "episode_new_release")),
             UserNotification.is_read.is_(False),
             UserNotification.popup_acked_at.is_(None),
         )
@@ -104,18 +104,22 @@ def pending_popups(user: User = Depends(get_current_user), db: Session = Depends
         episode_title = ""
         submitted_at = ""
         video_id = None
+        cover_url = ""
         if ep:
             episode_title = (ep.short_title or "").strip() or "未命名视频"
             submitted_at = _fmt_dt(ep.created_at)
             video_id = ep.video_id
+            cover_url = (ep.thumbnail_url or ep.cover or "").strip()
         results.append(
             EpisodePublishedPopupOut(
                 id=row.id,
+                type=row.type,
                 title=row.title,
                 body=row.body,
                 episode_id=row.episode_id,
                 video_id=video_id,
                 episode_title=episode_title,
+                cover_url=cover_url,
                 submitted_at=submitted_at,
                 created_at=_fmt_dt(row.created_at),
             )

@@ -221,6 +221,11 @@ def _migrate_schema():
         if "video_context" not in ep_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE episodes ADD COLUMN video_context TEXT NOT NULL DEFAULT ''"))
+        if "release_notified_at" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(f"ALTER TABLE episodes ADD COLUMN release_notified_at {datetime_type}")
+                )
     if "user_notifications" in insp.get_table_names():
         notif_cols = {c["name"] for c in insp.get_columns("user_notifications")}
         if "broadcast_id" not in notif_cols:

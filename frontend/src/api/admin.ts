@@ -532,6 +532,33 @@ export async function adminGetEpisode(id: number) {
   return data
 }
 
+export interface AdminReleasePopupUser {
+  user_id: number
+  email: string
+  nickname: string
+  popup_acked_at: string
+}
+
+export interface AdminReleasePopupStats {
+  episode_id: number
+  video_id: string
+  short_title: string
+  notified: boolean
+  release_notified_at: string
+  recipient_count: number
+  seen_count: number
+  unseen_count: number
+  seen_users: AdminReleasePopupUser[]
+  unseen_users: AdminReleasePopupUser[]
+}
+
+export async function adminGetReleasePopupStats(id: number) {
+  const { data } = await adminApi.get<AdminReleasePopupStats>(
+    `/api/admin/episodes/${id}/release-popup-stats/`,
+  )
+  return data
+}
+
 export async function adminGetEpisodePreview(videoId: string) {
   const { data } = await adminApi.get<{ episode: EpisodeDetail; total_episodes: number }>(
     `/api/admin/episodes/preview/${encodeURIComponent(videoId)}/`,

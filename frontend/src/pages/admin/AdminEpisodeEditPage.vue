@@ -9,11 +9,13 @@ import {
   adminFetchMediaFromUrl,
   adminGetEpisode,
   adminGetNextEpisodeIndex,
+  adminGetReleasePopupStats,
   adminImportVtt,
   adminListSeries,
   adminListTags,
   adminUpdateEpisode,
   type AdminEpisodePayload,
+  type AdminReleasePopupStats,
   type AdminSeries,
   type AdminSubtitle,
 } from '@/api/admin'
@@ -45,6 +47,9 @@ const isUserSubmitted = ref(false)
 /** 用户投稿：勾选=全站可见；不勾选=仅投稿者可见 */
 const isCatalogPublic = ref(false)
 const submitterLabel = ref('')
+const releaseStats = ref<AdminReleasePopupStats | null>(null)
+const releaseStatsLoading = ref(false)
+const releaseStatsTab = ref<'seen' | 'unseen'>('seen')
 
 const form = ref<AdminEpisodePayload>({
   video_id: '',
@@ -126,6 +131,21 @@ function removeSubtitle(index: number) {
   else if (highlightEditIndex.value > index) highlightEditIndex.value -= 1
 }
 
+async function loadReleaseStats() {
+  if (!episodeId.value || isNew.value) {
+    releaseStats.value = null
+    return
+  }
+  releaseStatsLoading.value = true
+  try {
+    releaseStats.value = await adminGetReleasePopupStats(episodeId.value)
+  } catch {
+    releaseStats.value = null
+  } finally {
+    releaseStatsLoading.value = false
+  }
+}
+
 async function loadEpisode() {
   if (!episodeId.value) return
   loading.value = true
@@ -166,6 +186,7 @@ async function loadEpisode() {
       sourceUrl.value = data.original_video_url
     }
     syncTagsToInput()
+    await loadReleaseStats()
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
     error.value = msg || '加载失败'
@@ -597,6 +618,89 @@ watch(
     <div v-if="loading" class="text-neutral-500">加载中...</div>
 
     <template v-else>
+      <section
+        v-if="!isNew"
+        class="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 space-y-3 text-sm"
+      >
+        <div class="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p class="font-medium text-amber-950">全站上线弹窗统计</p>
+            <p class="text-amber-900/80 text-xs mt-1 leading-relaxed">
+              官方视频首次发布，或用户投稿首次设为「全站可见」时，会向所有活跃用户推送弹窗。「已看」以用户点击确认弹窗为准。
+            </p>
+          </div>
+          <button
+            type="button"
+            class="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+            :disabled="releaseStatsLoading"
+            @click="loadReleaseStats"
+          >
+            {{ releaseStatsLoading ? '刷新中...' : '刷新' }}
+          </button>
+        </div>
+
+        <div v-if="releaseStatsLoading && !releaseStats" class="text-amber-800/70">加载中...</div>
+        <template v-else-if="releaseStats">
+          <p v-if="!releaseStats.notified" class="text-amber-900">
+            尚未推送全站上线弹窗（发布为全站可见后会自动推送一次）。
+          </p>
+          <template v-else>
+            <div class="flex flex-wrap gap-3 text-amber-950">
+              <span>触达 <strong>{{ releaseStats.recipient_count }}</strong></span>
+              <span>已看 <strong>{{ releaseStats.seen_count }}</strong></span>
+              <span>未看 <strong>{{ releaseStats.unseen_count }}</strong></span>
+              <span v-if="releaseStats.release_notified_at" class="text-amber-800/70">
+                推送于 {{ releaseStats.release_notified_at }}
+              </span>
+            </div>
+            <div class="flex gap-2">
+              <button
+                type="button"
+                class="rounded-lg px-3 py-1.5 text-xs border transition"
+                :class="
+                  releaseStatsTab === 'seen'
+                    ? 'bg-neutral-900 text-white border-neutral-900'
+                    : 'bg-white border-amber-200 text-amber-950'
+                "
+                @click="releaseStatsTab = 'seen'"
+              >
+                已看（{{ releaseStats.seen_count }}）
+              </button>
+              <button
+                type="button"
+                class="rounded-lg px-3 py-1.5 text-xs border transition"
+                :class="
+                  releaseStatsTab === 'unseen'
+                    ? 'bg-neutral-900 text-white border-neutral-900'
+                    : 'bg-white border-amber-200 text-amber-950'
+                "
+                @click="releaseStatsTab = 'unseen'"
+              >
+                未看（{{ releaseStats.unseen_count }}）
+              </button>
+            </div>
+            <ul class="max-h-52 overflow-y-auto rounded-lg border border-amber-200 bg-white divide-y divide-amber-100">
+              <li
+                v-for="u in releaseStatsTab === 'seen' ? releaseStats.seen_users : releaseStats.unseen_users"
+                :key="u.user_id"
+                class="px-3 py-2 flex flex-wrap items-baseline justify-between gap-2 text-xs"
+              >
+                <span class="text-neutral-800">
+                  <span v-if="u.nickname" class="font-medium">{{ u.nickname }} · </span>{{ u.email }}
+                </span>
+                <span v-if="u.popup_acked_at" class="text-neutral-400">{{ u.popup_acked_at }}</span>
+              </li>
+              <li
+                v-if="(releaseStatsTab === 'seen' ? releaseStats.seen_users : releaseStats.unseen_users).length === 0"
+                class="px-3 py-4 text-center text-neutral-400"
+              >
+                暂无用户
+              </li>
+            </ul>
+          </template>
+        </template>
+      </section>
+
       <section
         v-if="isUserSubmitted"
         class="rounded-xl border border-violet-200 bg-violet-50 px-5 py-4 space-y-3 text-sm"
