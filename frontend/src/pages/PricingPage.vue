@@ -59,18 +59,26 @@ async function submit() {
           <h2 class="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-3">获取激活码</h2>
 
           <p class="text-neutral-800 dark:text-neutral-100 leading-relaxed">
-            <span class="text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">¥39.9</span>
+            <span class="inline-flex items-baseline gap-2 align-baseline">
+              <span class="text-3xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">¥39.9</span>
+              <span
+                class="relative -top-0.5 inline-flex items-center px-2 py-0.5 rounded-md text-xs sm:text-sm font-bold tracking-wide shadow-sm"
+                style="color: #edd577; background-color: #000000"
+              >
+                永久会员
+              </span>
+            </span>
             <span class="ml-2 text-base text-neutral-400 dark:text-neutral-500">（原价 </span>
-            <span class="text-base text-neutral-400 dark:text-neutral-500 line-through">¥79.9</span>
+            <span class="text-base text-neutral-400 dark:text-neutral-500 line-through">¥79.9/年</span>
             <span class="text-base text-neutral-400 dark:text-neutral-500">）</span>
-            <span class="text-sm sm:text-base text-neutral-600 dark:text-neutral-300"> · 限前 30 名 · 余 8 席</span>
+            <br/><span class="text-sm sm:text-base text-neutral-600 dark:text-neutral-300"> 仅限前 30 名用户 · 目前还剩 6 席</span>
           </p>
           <p class="mt-2 text-sm text-amber-700 dark:text-amber-300">
-            优惠截止时间：8 月 8 日
+            截止时间：8 月 8 日
           </p>
 
           <p class="mt-4 text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
-            请联系管理员获取激活码（微信ID：vloglish01）。也可扫码加入学习群。
+            请联系管理员获取激活码（微信ID：vloglish01）
           </p>
 
           <div class="mt-4 grid grid-cols-2 gap-3 flex-1">
@@ -84,11 +92,11 @@ async function submit() {
             </div>
             <div class="text-center space-y-2">
               <img
-                src="https://oss.sxakgs.com/vloglish/wxqun.png"
+                src="https://oss.sxakgs.com/vloglish/douyinqun.png"
                 alt="学习群二维码"
                 class="mx-auto w-full max-w-[11rem] aspect-square rounded-lg object-contain bg-neutral-50 dark:bg-neutral-800 border border-black/5 dark:border-white/10"
               />
-              <p class="text-xs text-neutral-500 dark:text-neutral-400">扫码进群</p>
+              <p class="text-xs text-neutral-500 dark:text-neutral-400">抖音扫码进群</p>
             </div>
           </div>
         </section>
