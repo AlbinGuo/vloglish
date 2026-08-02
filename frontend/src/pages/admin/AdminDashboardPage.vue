@@ -80,7 +80,7 @@ const cards = [
           <p class="text-4xl font-semibold tabular-nums text-emerald-900">{{ onlineUsers }}</p>
         </div>
         <p class="text-xs text-neutral-500 text-right max-w-[10rem]">
-          最近 {{ onlineWindowSec }} 秒内有活动视为在线，每 30 秒自动刷新
+          所有活跃用户（含非会员）：近 {{ onlineWindowSec }} 秒内有活动视为在线，每 30 秒自动刷新
         </p>
       </div>
     </div>

@@ -35,6 +35,7 @@ from ...services.article_admin import (
 )
 from ...services.article_cover import normalize_image_url, upload_article_cover_from_url
 from ...services.article_tts import generate_article_tts
+from ...services.user_notifications import maybe_notify_article_release
 
 router = APIRouter(prefix="/api/admin/articles", tags=["admin-articles"])
 
@@ -174,6 +175,8 @@ def admin_update_article(
         article.vocab_summary = body.vocab_summary or ""
     if body.status == "published" and not article.published_at:
         article.published_at = datetime.utcnow()
+    if article.status == "published":
+        maybe_notify_article_release(db, article)
     db.commit()
     db.refresh(article)
     segments = (
@@ -392,5 +395,6 @@ def admin_publish(
     article.status = "published"
     if not article.published_at:
         article.published_at = datetime.utcnow()
+    maybe_notify_article_release(db, article)
     db.commit()
     return {"success": True, "status": article.status}

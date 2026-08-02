@@ -272,6 +272,7 @@ class UserNotification(Base):
     body: Mapped[str] = mapped_column(Text, default="")
     image_url: Mapped[str] = mapped_column(Text, default="")
     episode_id: Mapped[int | None] = mapped_column(ForeignKey("episodes.id"), nullable=True)
+    article_id: Mapped[int | None] = mapped_column(ForeignKey("articles.id"), nullable=True)
     broadcast_id: Mapped[int | None] = mapped_column(ForeignKey("admin_broadcasts.id"), nullable=True)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     popup_acked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -407,6 +408,7 @@ class Article(Base):
     tts_status: Mapped[str] = mapped_column(String(16), default="none")
     vocab_summary: Mapped[str] = mapped_column(Text, default="")
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    release_notified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

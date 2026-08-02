@@ -9,6 +9,7 @@ from ..models import (
     UserArticleFavorite,
     UserArticleOpen,
     UserArticleProgress,
+    UserNotification,
     UserVocabularyItem,
     UserWordLookup,
 )
@@ -394,6 +395,10 @@ def delete_article_with_dependencies(db: Session, article_id: int) -> None:
     )
     db.query(UserArticleOpen).filter(UserArticleOpen.article_id == article_id).delete(
         synchronize_session=False
+    )
+    db.query(UserNotification).filter(UserNotification.article_id == article_id).update(
+        {UserNotification.article_id: None},
+        synchronize_session=False,
     )
     db.execute(delete(ArticleSegment).where(ArticleSegment.article_id == article_id))
     db.query(Article).filter(Article.id == article_id).delete(synchronize_session=False)

@@ -2,11 +2,15 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from ..models import Episode, User, UserNotification
+from ..models import Article, Episode, User, UserNotification
 
 
 def _episode_title(ep: Episode) -> str:
     return (ep.short_title or "").strip() or "未命名视频"
+
+
+def _article_title(article: Article) -> str:
+    return (article.title or "").strip() or "未命名文章"
 
 
 def is_catalog_published_episode(ep: Episode) -> bool:
@@ -48,6 +52,38 @@ def notify_catalog_episode_released(db: Session, ep: Episode) -> int:
 def maybe_notify_catalog_release(db: Session, ep: Episode) -> int:
     """若视频刚进入公共目录且尚未推送过，则推送全站上线弹窗。"""
     return notify_catalog_episode_released(db, ep)
+
+
+def notify_catalog_article_released(db: Session, article: Article) -> int:
+    """文章首次发布：给所有活跃用户写弹窗通知。返回触达人数。"""
+    if getattr(article, "release_notified_at", None):
+        return 0
+    if article.status != "published":
+        return 0
+
+    users = db.query(User).filter(User.is_active.is_(True)).all()
+    title = "新文章上线"
+    body = f"「{_article_title(article)}」已上线，快来阅读吧。"
+    if users:
+        db.add_all(
+            [
+                UserNotification(
+                    user_id=user.id,
+                    type="article_new_release",
+                    title=title,
+                    body=body,
+                    article_id=article.id,
+                )
+                for user in users
+            ]
+        )
+    article.release_notified_at = datetime.utcnow()
+    return len(users)
+
+
+def maybe_notify_article_release(db: Session, article: Article) -> int:
+    """若文章刚发布且尚未推送过，则推送全站上线弹窗。"""
+    return notify_catalog_article_released(db, article)
 
 
 def notify_staff_episode_submitted(db: Session, ep: Episode, submitter: User) -> None:

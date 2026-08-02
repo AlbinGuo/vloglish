@@ -239,6 +239,9 @@ def _migrate_schema():
                 conn.execute(
                     text(f"ALTER TABLE user_notifications ADD COLUMN popup_acked_at {datetime_type}")
                 )
+        if "article_id" not in notif_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE user_notifications ADD COLUMN article_id INTEGER"))
     if "admin_broadcasts" in insp.get_table_names():
         bc_cols = {c["name"] for c in insp.get_columns("admin_broadcasts")}
         if "image_url" not in bc_cols:
@@ -276,6 +279,11 @@ def _migrate_schema():
             with engine.begin() as conn:
                 conn.execute(
                     text("ALTER TABLE articles ADD COLUMN vocab_summary TEXT NOT NULL DEFAULT ''")
+                )
+        if "release_notified_at" not in art_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(f"ALTER TABLE articles ADD COLUMN release_notified_at {datetime_type}")
                 )
     if "article_segments" in insp.get_table_names():
         seg_cols = {c["name"] for c in insp.get_columns("article_segments")}

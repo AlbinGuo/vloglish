@@ -8,6 +8,7 @@ export interface Notification {
   image_url: string
   episode_id: number | null
   video_id: string | null
+  article_id: string | null
   is_read: boolean
   created_at: string
 }
@@ -42,11 +43,12 @@ export async function markAllNotificationsRead() {
 
 export interface EpisodePublishedPopup {
   id: number
-  type: 'episode_published' | 'episode_new_release' | string
+  type: 'episode_published' | 'episode_new_release' | 'article_new_release' | string
   title: string
   body: string
   episode_id: number | null
   video_id: string | null
+  article_id: string | null
   episode_title: string
   cover_url: string
   submitted_at: string
@@ -62,5 +64,13 @@ export async function getPendingPopups() {
 
 export async function ackNotificationPopup(id: number) {
   const { data } = await api.post<{ success: boolean }>(`/api/notifications/${id}/ack-popup/`)
+  return data
+}
+
+export async function ackNotificationPopups(ids: number[]) {
+  const { data } = await api.post<{ success: boolean; acked: number }>(
+    '/api/notifications/ack-popups/',
+    { ids },
+  )
   return data
 }

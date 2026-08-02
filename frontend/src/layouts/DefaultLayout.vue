@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import {
   ackNotificationPopup,
+  ackNotificationPopups,
   getPendingPopups,
   type EpisodePublishedPopup as EpisodePublishedPopupItem,
 } from '@/api/notifications'
@@ -24,9 +25,51 @@ const notifications = useNotificationStore()
 const corpusBadge = useMyCorpusBadgeStore()
 const feedbackOpen = ref(false)
 
-const popupQueue = ref<EpisodePublishedPopupItem[]>([])
+type PopupUnit =
+  | { kind: 'single'; item: EpisodePublishedPopupItem }
+  | { kind: 'multi'; items: EpisodePublishedPopupItem[] }
+
+const RELEASE_POPUP_TYPES = new Set(['episode_new_release', 'article_new_release'])
+
+function isReleasePopup(item: EpisodePublishedPopupItem) {
+  return RELEASE_POPUP_TYPES.has(item.type)
+}
+
+function unitEarliestAt(unit: PopupUnit) {
+  if (unit.kind === 'single') return unit.item.created_at
+  return unit.items.reduce((min, row) => (row.created_at < min ? row.created_at : min), unit.items[0].created_at)
+}
+
+function buildPopupUnits(results: EpisodePublishedPopupItem[]): PopupUnit[] {
+  const releases = results.filter(isReleasePopup)
+  const others = results.filter((r) => !isReleasePopup(r))
+  const units: PopupUnit[] = []
+  if (releases.length >= 2) {
+    units.push({ kind: 'multi', items: releases })
+  } else {
+    for (const item of releases) units.push({ kind: 'single', item })
+  }
+  for (const item of others) units.push({ kind: 'single', item })
+  units.sort((a, b) => {
+    const ta = unitEarliestAt(a)
+    const tb = unitEarliestAt(b)
+    if (ta !== tb) return ta < tb ? -1 : 1
+    const ida = a.kind === 'single' ? a.item.id : a.items[0]?.id ?? 0
+    const idb = b.kind === 'single' ? b.item.id : b.items[0]?.id ?? 0
+    return ida - idb
+  })
+  return units
+}
+
+const popupUnits = ref<PopupUnit[]>([])
 const popupBusy = ref(false)
-const currentPopup = computed(() => popupQueue.value[0] ?? null)
+const currentUnit = computed(() => popupUnits.value[0] ?? null)
+const currentPopupItem = computed(() =>
+  currentUnit.value?.kind === 'single' ? currentUnit.value.item : null,
+)
+const currentPopupItems = computed(() =>
+  currentUnit.value?.kind === 'multi' ? currentUnit.value.items : null,
+)
 
 const immersive = computed(() => Boolean(route.meta.immersive))
 const { headerVisible: catalogHeaderVisible, catalogHeaderAutoHide } = useCatalogMobileHeaderHide()
@@ -53,17 +96,34 @@ async function refreshUnreadCount() {
 
 async function refreshPendingPopups() {
   if (!auth.isLoggedIn) {
-    popupQueue.value = []
+    popupUnits.value = []
     return
   }
   try {
     const results = await getPendingPopups()
-    const currentId = currentPopup.value?.id
-    if (currentId != null && results.some((r) => r.id === currentId)) {
-      const head = results.find((r) => r.id === currentId)!
-      popupQueue.value = [head, ...results.filter((r) => r.id !== currentId)]
+    const units = buildPopupUnits(results)
+    const head = currentUnit.value
+    if (head) {
+      const headIds = new Set(
+        head.kind === 'multi' ? head.items.map((i) => i.id) : [head.item.id],
+      )
+      const stillHead = results.filter((r) => headIds.has(r.id))
+      if (stillHead.length) {
+        let headUnit: PopupUnit | null = null
+        if (stillHead.length >= 2 && stillHead.every(isReleasePopup)) {
+          headUnit = { kind: 'multi', items: stillHead }
+        } else if (stillHead.length === 1) {
+          headUnit = { kind: 'single', item: stillHead[0] }
+        } else {
+          headUnit = buildPopupUnits(stillHead)[0] ?? null
+        }
+        const rest = buildPopupUnits(results.filter((r) => !headIds.has(r.id)))
+        popupUnits.value = headUnit ? [headUnit, ...rest] : rest
+      } else {
+        popupUnits.value = units
+      }
     } else {
-      popupQueue.value = results
+      popupUnits.value = units
     }
     if (auth.isMember) void corpusBadge.refresh()
   } catch {
@@ -84,20 +144,22 @@ function stopPopupPolling() {
     clearInterval(popupPollTimer)
     popupPollTimer = null
   }
-  popupQueue.value = []
+  popupUnits.value = []
 }
 
 async function ackCurrentPopup() {
-  const item = currentPopup.value
-  if (!item || popupBusy.value) return
+  const unit = currentUnit.value
+  if (!unit || popupBusy.value) return
   popupBusy.value = true
+  const ids = unit.kind === 'multi' ? unit.items.map((i) => i.id) : [unit.item.id]
   try {
-    await ackNotificationPopup(item.id)
-    popupQueue.value = popupQueue.value.filter((p) => p.id !== item.id)
+    if (ids.length > 1) await ackNotificationPopups(ids)
+    else await ackNotificationPopup(ids[0])
+    popupUnits.value = popupUnits.value.slice(1)
     await refreshUnreadCount()
   } catch {
     // 失败时仍关闭本地项，避免卡死；下次轮询会再出现
-    popupQueue.value = popupQueue.value.filter((p) => p.id !== item.id)
+    popupUnits.value = popupUnits.value.slice(1)
   } finally {
     popupBusy.value = false
   }
@@ -107,11 +169,12 @@ async function dismissPublishedPopup() {
   await ackCurrentPopup()
 }
 
-async function watchPublishedPopup() {
-  const videoId = currentPopup.value?.video_id
+async function openPublishedPopup(payload: { videoId?: string; articleId?: string }) {
   await ackCurrentPopup()
-  if (videoId) {
-    await router.push(`/english/episode/${videoId}`)
+  if (payload.videoId) {
+    await router.push(`/english/episode/${payload.videoId}`)
+  } else if (payload.articleId) {
+    await router.push(`/english/reading/${payload.articleId}`)
   }
 }
 
@@ -298,10 +361,11 @@ watch(
     </main>
     <FeedbackModal v-model:open="feedbackOpen" />
     <EpisodePublishedPopup
-      :item="currentPopup"
+      :item="currentPopupItem"
+      :items="currentPopupItems"
       :busy="popupBusy"
       @dismiss="dismissPublishedPopup"
-      @watch="watchPublishedPopup"
+      @open="openPublishedPopup"
     />
   </div>
 </template>

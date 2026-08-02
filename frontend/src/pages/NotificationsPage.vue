@@ -91,6 +91,7 @@ async function readAll() {
 function typeLabel(type: string) {
   if (type === 'episode_published') return '审核通过'
   if (type === 'episode_new_release') return '新视频'
+  if (type === 'article_new_release') return '新文章'
   if (type === 'episode_rejected') return '已驳回'
   if (type === 'admin_broadcast') return '系统通知'
   return '通知'
@@ -99,6 +100,7 @@ function typeLabel(type: string) {
 function typeTagClass(type: string) {
   if (type === 'episode_published') return 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
   if (type === 'episode_new_release') return 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+  if (type === 'article_new_release') return 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300'
   if (type === 'episode_rejected') return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
   if (type === 'admin_broadcast') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
   return 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
@@ -177,6 +179,14 @@ onMounted(load)
           @click.stop
         >
           前往观看 →
+        </RouterLink>
+        <RouterLink
+          v-else-if="item.type === 'article_new_release' && item.article_id"
+          :to="`/english/reading/${item.article_id}`"
+          class="inline-block mt-3 text-sm font-medium text-amber-700 dark:text-amber-400 hover:underline"
+          @click.stop
+        >
+          前往阅读 →
         </RouterLink>
       </li>
     </ul>

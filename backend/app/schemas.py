@@ -744,6 +744,7 @@ class NotificationOut(BaseModel):
     image_url: str = ""
     episode_id: int | None = None
     video_id: str | None = None
+    article_id: str | None = None
     is_read: bool
     created_at: str
 
@@ -765,6 +766,7 @@ class EpisodePublishedPopupOut(BaseModel):
     body: str
     episode_id: int | None = None
     video_id: str | None = None
+    article_id: str | None = None
     episode_title: str = ""
     cover_url: str = ""
     submitted_at: str = ""
@@ -773,6 +775,10 @@ class EpisodePublishedPopupOut(BaseModel):
 
 class EpisodePublishedPopupListOut(BaseModel):
     results: list[EpisodePublishedPopupOut]
+
+
+class AckPopupsIn(BaseModel):
+    ids: list[int]
 
 
 class AdminReleasePopupUserOut(BaseModel):

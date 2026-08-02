@@ -23,13 +23,13 @@ def is_user_online(user: User, *, now: datetime | None = None) -> bool:
 
 
 def count_online_users(db: Session) -> int:
+    """活跃非管理员用户：最近 ONLINE_WINDOW_SEC 内有心跳视为在线（含非会员）。"""
     since = datetime.utcnow() - timedelta(seconds=ONLINE_WINDOW_SEC)
     return (
         db.query(User)
         .filter(
             User.is_active.is_(True),
             User.is_staff.is_(False),
-            User.is_member.is_(True),
             User.last_seen_at.isnot(None),
             User.last_seen_at >= since,
         )

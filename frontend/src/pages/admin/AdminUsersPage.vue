@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import {
+  adminFetchOnlineUsers,
   adminFetchUserSegments,
   adminListUsers,
   adminUpdateUser,
@@ -19,11 +20,12 @@ const total = ref(0)
 const rows = ref<UserRow[]>([])
 const segments = ref<AdminUserSegment[]>([])
 const error = ref('')
+const onlineUsers = ref(0)
+const onlineWindowSec = ref(90)
 
 let onlinePollTimer: ReturnType<typeof setInterval> | null = null
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / 20)))
-const onlineCount = computed(() => rows.value.filter((u) => u.is_online).length)
 
 const segmentHints: Record<AdminUserSegmentKey, string> = {
   active_7d: '最近 7 天内有学习记录',
@@ -50,6 +52,16 @@ async function loadSegments() {
   }
 }
 
+async function refreshOnlineUsers() {
+  try {
+    const data = await adminFetchOnlineUsers()
+    onlineUsers.value = data.online_users
+    onlineWindowSec.value = data.window_sec
+  } catch {
+    // 静默失败
+  }
+}
+
 async function load(opts: { silent?: boolean } = {}) {
   if (!opts.silent) {
     loading.value = true
@@ -64,6 +76,7 @@ async function load(opts: { silent?: boolean } = {}) {
     })
     rows.value = data.results
     total.value = data.count
+    await refreshOnlineUsers()
   } catch (e: unknown) {
     if (!opts.silent) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -172,8 +185,8 @@ onUnmounted(() => {
       </div>
       <p class="text-xs text-neutral-500">
         {{ currentSegmentHint }}
-        <span v-if="!loading && onlineCount > 0" class="ml-2 text-emerald-600">
-          · 本页在线 {{ onlineCount }} 人（近 90 秒有活动）
+        <span v-if="!loading" class="ml-2 text-emerald-600">
+          · 当前在线 {{ onlineUsers }} 人（近 {{ onlineWindowSec }} 秒有活动，含非会员）
         </span>
       </p>
     </div>
