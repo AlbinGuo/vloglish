@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import DauTrendChart from '@/components/charts/DauTrendChart.vue'
 import UserGeoBarChart from '@/components/charts/UserGeoBarChart.vue'
 import {
   adminFetchDashboard,
@@ -63,6 +64,14 @@ const cards = [
   { key: 'learning_completions_total', label: '累计学完期数' },
   { key: 'learning_lookups_total', label: '累计查词次数' },
 ] as const
+
+const dauTrend = computed(() => stats.value?.dau_trend ?? [])
+const registerLearn = computed(() => stats.value?.funnel_register_learn ?? null)
+const memberFunnel = computed(() => stats.value?.funnel_member ?? null)
+
+function barWidth(rate: number) {
+  return `${Math.max(0, Math.min(100, rate))}%`
+}
 </script>
 
 <template>
@@ -83,6 +92,116 @@ const cards = [
           所有活跃用户（含非会员）：近 {{ onlineWindowSec }} 秒内有活动视为在线，每 30 秒自动刷新
         </p>
       </div>
+    </div>
+
+    <!-- 本周健康度 -->
+    <section class="rounded-xl border border-black/5 bg-white p-5 shadow-sm space-y-4">
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 class="font-medium">运营健康度</h2>
+          <p class="text-xs text-neutral-400 mt-1">
+            DAU 基于到访记录（东八区）；漏斗不含管理员。到访数据上线后才开始累计。
+          </p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs text-neutral-500">今日 DAU</p>
+          <p class="text-2xl font-semibold tabular-nums text-amber-700">{{ stats.dau_today ?? 0 }}</p>
+        </div>
+      </div>
+      <DauTrendChart v-if="dauTrend.length" :points="dauTrend" height="240px" />
+      <p v-else class="py-8 text-center text-sm text-neutral-400">暂无 DAU 趋势数据</p>
+    </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <section
+        v-if="registerLearn"
+        class="rounded-xl border border-black/5 bg-white p-5 shadow-sm space-y-4"
+      >
+        <div>
+          <h2 class="font-medium">注册 → 首次学习</h2>
+          <p class="text-xs text-neutral-400 mt-1">
+            有任意视频学习进度即计为已学习；今日首学 {{ registerLearn.first_learn_today }} 人
+          </p>
+        </div>
+        <div class="flex items-end justify-between gap-3">
+          <div>
+            <p class="text-3xl font-semibold tabular-nums text-neutral-900">
+              {{ registerLearn.rate }}%
+            </p>
+            <p class="text-xs text-neutral-500 mt-1">
+              {{ registerLearn.users_learned }} / {{ registerLearn.users_total }} 用户已开过学
+            </p>
+          </div>
+          <div class="text-right text-xs text-neutral-500">
+            <p>近 30 日注册 {{ registerLearn.registered_30d }}</p>
+            <p class="mt-0.5">
+              其中已学习 {{ registerLearn.learned_among_registered_30d }}
+              （{{ registerLearn.rate_30d }}%）
+            </p>
+          </div>
+        </div>
+        <div class="space-y-2">
+          <div class="h-2 rounded-full bg-neutral-100 overflow-hidden">
+            <div
+              class="h-full rounded-full bg-neutral-800 transition-all"
+              :style="{ width: barWidth(registerLearn.rate) }"
+            />
+          </div>
+          <div class="h-2 rounded-full bg-amber-50 overflow-hidden">
+            <div
+              class="h-full rounded-full bg-amber-500 transition-all"
+              :style="{ width: barWidth(registerLearn.rate_30d) }"
+              title="近 30 日注册用户转化"
+            />
+          </div>
+          <p class="text-[11px] text-neutral-400">深色：全量转化 · 琥珀色：近 30 日注册转化</p>
+        </div>
+      </section>
+
+      <section
+        v-if="memberFunnel"
+        class="rounded-xl border border-black/5 bg-white p-5 shadow-sm space-y-4"
+      >
+        <div>
+          <h2 class="font-medium">用户 → 会员转化</h2>
+          <p class="text-xs text-neutral-400 mt-1">
+            近 7 日新开通 {{ memberFunnel.activated_7d }} · 近 30 日
+            {{ memberFunnel.activated_30d }}
+          </p>
+        </div>
+        <div class="flex items-end justify-between gap-3">
+          <div>
+            <p class="text-3xl font-semibold tabular-nums text-amber-700">
+              {{ memberFunnel.rate }}%
+            </p>
+            <p class="text-xs text-neutral-500 mt-1">
+              {{ memberFunnel.members_total }} / {{ memberFunnel.users_total }} 为会员
+            </p>
+          </div>
+          <div class="text-right text-xs text-neutral-500">
+            <p>近 30 日注册 {{ memberFunnel.registered_30d }}</p>
+            <p class="mt-0.5">
+              其中已开通 {{ memberFunnel.members_among_registered_30d }}
+              （{{ memberFunnel.rate_among_registered_30d }}%）
+            </p>
+          </div>
+        </div>
+        <div class="space-y-2">
+          <div class="h-2 rounded-full bg-neutral-100 overflow-hidden">
+            <div
+              class="h-full rounded-full bg-amber-600 transition-all"
+              :style="{ width: barWidth(memberFunnel.rate) }"
+            />
+          </div>
+          <div class="h-2 rounded-full bg-amber-50 overflow-hidden">
+            <div
+              class="h-full rounded-full bg-amber-400 transition-all"
+              :style="{ width: barWidth(memberFunnel.rate_among_registered_30d) }"
+            />
+          </div>
+          <p class="text-[11px] text-neutral-400">深琥珀：全量会员占比 · 浅色：近 30 日注册开通率</p>
+        </div>
+      </section>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">

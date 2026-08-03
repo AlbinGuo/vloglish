@@ -125,6 +125,32 @@ class AdminDemoCodeUpdateIn(BaseModel):
     episode_ids: list[int] | None = None
 
 
+class AdminDauPointOut(BaseModel):
+    date: str
+    dau: int
+
+
+class AdminFunnelRegisterLearnOut(BaseModel):
+    users_total: int
+    users_learned: int
+    rate: float
+    registered_30d: int
+    learned_among_registered_30d: int
+    rate_30d: float
+    first_learn_today: int = 0
+
+
+class AdminFunnelMemberOut(BaseModel):
+    users_total: int
+    members_total: int
+    rate: float
+    activated_7d: int
+    activated_30d: int
+    registered_30d: int
+    members_among_registered_30d: int
+    rate_among_registered_30d: float
+
+
 class AdminDashboardOut(BaseModel):
     users_total: int
     users_today: int
@@ -140,6 +166,10 @@ class AdminDashboardOut(BaseModel):
     learning_completions_total: int = 0
     learning_lookups_total: int = 0
     online_users_now: int = 0
+    dau_today: int = 0
+    dau_trend: list[AdminDauPointOut] = []
+    funnel_register_learn: AdminFunnelRegisterLearnOut | None = None
+    funnel_member: AdminFunnelMemberOut | None = None
 
 
 class AdminPresenceOnlineOut(BaseModel):
@@ -185,11 +215,35 @@ class AdminUserListItemOut(BaseModel):
     watch_time_7d: int = 0
     visit_days_7d: int = 0
     visit_days_30d: int = 0
+    visit_sessions_today: int = 0
+    visit_sessions_7d: int = 0
+    visit_sessions_30d: int = 0
     completed_episodes: int = 0
     lookup_count: int = 0
     signup_country: str | None = None
     signup_region: str | None = None
     signup_city: str | None = None
+
+
+class AdminVisitHourBucketOut(BaseModel):
+    hour: int
+    label: str
+    users: int
+    sessions: int
+
+
+class AdminVisitHourlyStatsOut(BaseModel):
+    days: int
+    timezone: str = "Asia/Shanghai"
+    total_sessions: int = 0
+    total_users: int = 0
+    peak_hour: int | None = None
+    peak_label: str | None = None
+    peak_users: int = 0
+    low_hour: int | None = None
+    low_label: str | None = None
+    low_users: int = 0
+    hours: list[AdminVisitHourBucketOut]
 
 
 class AdminUserGeoStatItemOut(BaseModel):

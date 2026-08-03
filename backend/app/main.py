@@ -300,3 +300,13 @@ def _migrate_schema():
         if "user_id" not in mo_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE membership_orders ADD COLUMN user_id INTEGER"))
+    if "user_daily_visits" in insp.get_table_names():
+        visit_cols = {c["name"] for c in insp.get_columns("user_daily_visits")}
+        if "session_count" not in visit_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE user_daily_visits "
+                        "ADD COLUMN session_count INTEGER NOT NULL DEFAULT 1"
+                    )
+                )

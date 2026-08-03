@@ -86,6 +86,32 @@ export interface AdminUser {
   is_staff: boolean
 }
 
+export interface DashboardDauPoint {
+  date: string
+  dau: number
+}
+
+export interface DashboardFunnelRegisterLearn {
+  users_total: number
+  users_learned: number
+  rate: number
+  registered_30d: number
+  learned_among_registered_30d: number
+  rate_30d: number
+  first_learn_today: number
+}
+
+export interface DashboardFunnelMember {
+  users_total: number
+  members_total: number
+  rate: number
+  activated_7d: number
+  activated_30d: number
+  registered_30d: number
+  members_among_registered_30d: number
+  rate_among_registered_30d: number
+}
+
 export interface DashboardStats {
   users_total: number
   users_today: number
@@ -101,6 +127,10 @@ export interface DashboardStats {
   learning_completions_total: number
   learning_lookups_total: number
   online_users_now: number
+  dau_today?: number
+  dau_trend?: DashboardDauPoint[]
+  funnel_register_learn?: DashboardFunnelRegisterLearn | null
+  funnel_member?: DashboardFunnelMember | null
 }
 
 export interface AdminPresenceOnline {
@@ -147,6 +177,10 @@ export interface UserRow {
   visit_days_7d?: number
   /** 近 30 天有到访的天数 */
   visit_days_30d?: number
+  /** 今日到访会话次数（间隔超过 30 分钟算新会话） */
+  visit_sessions_today?: number
+  visit_sessions_7d?: number
+  visit_sessions_30d?: number
   completed_episodes: number
   lookup_count: number
   signup_country: string | null
@@ -259,6 +293,34 @@ export async function adminListMembershipOrders(params: {
 
 export async function adminFetchUserGeoStats() {
   const { data } = await adminApi.get<AdminUserGeoStats>('/api/admin/users/geo-stats/')
+  return data
+}
+
+export interface AdminVisitHourBucket {
+  hour: number
+  label: string
+  users: number
+  sessions: number
+}
+
+export interface AdminVisitHourlyStats {
+  days: number
+  timezone: string
+  total_sessions: number
+  total_users: number
+  peak_hour: number | null
+  peak_label: string | null
+  peak_users: number
+  low_hour: number | null
+  low_label: string | null
+  low_users: number
+  hours: AdminVisitHourBucket[]
+}
+
+export async function adminFetchVisitHourlyStats(days: number = 7) {
+  const { data } = await adminApi.get<AdminVisitHourlyStats>('/api/admin/users/visit-hourly/', {
+    params: { days },
+  })
   return data
 }
 

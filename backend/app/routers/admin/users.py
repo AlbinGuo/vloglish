@@ -14,8 +14,9 @@ from ...schemas import (
     AdminUserSegmentOut,
     AdminUserSegmentsOut,
     AdminUserUpdateIn,
+    AdminVisitHourlyStatsOut,
 )
-from ...services.daily_visits import visit_day_counts_for_users
+from ...services.daily_visits import visit_hourly_stats, visit_stats_for_users
 from ...services.presence import is_user_online
 from ...services.user_geo import user_geo_stats
 from ...services.user_segments import (
@@ -52,6 +53,9 @@ def _user_item(user: User, stats: dict, *, activation_code: str | None = None) -
         watch_time_7d=stats["watch_time_7d"],
         visit_days_7d=int(stats.get("visit_days_7d") or 0),
         visit_days_30d=int(stats.get("visit_days_30d") or 0),
+        visit_sessions_today=int(stats.get("visit_sessions_today") or 0),
+        visit_sessions_7d=int(stats.get("visit_sessions_7d") or 0),
+        visit_sessions_30d=int(stats.get("visit_sessions_30d") or 0),
         completed_episodes=stats["completed_episodes"],
         lookup_count=stats["lookup_count"],
         signup_country=user.signup_country,
@@ -85,6 +89,16 @@ def get_user_geo_stats(
     return AdminUserGeoStatsOut(**user_geo_stats(db))
 
 
+@router.get("/visit-hourly/", response_model=AdminVisitHourlyStatsOut)
+def get_visit_hourly_stats(
+    days: int = Query(7, ge=1, le=90),
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """近 N 天到访时段分布（东八区小时，按会话开始时间）。"""
+    return AdminVisitHourlyStatsOut(**visit_hourly_stats(db, days=days))
+
+
 @router.get("/segments/", response_model=AdminUserSegmentsOut)
 def list_user_segments(
     _admin: User = Depends(get_current_admin),
@@ -112,14 +126,23 @@ def list_users(
     rows = q.offset((page - 1) * page_size).limit(page_size).all()
     user_ids = [row[0].id for row in rows]
     code_map = _activation_codes_by_user(db, user_ids)
-    visit_map = visit_day_counts_for_users(db, user_ids)
+    visit_map = visit_stats_for_users(db, user_ids)
     results = []
     for row in rows:
         user = row[0]
         stats = row_stats_from_user_query(row)
-        d7, d30 = visit_map.get(user.id, (0, 0))
-        stats["visit_days_7d"] = d7
-        stats["visit_days_30d"] = d30
+        stats.update(
+            visit_map.get(
+                user.id,
+                {
+                    "visit_days_7d": 0,
+                    "visit_days_30d": 0,
+                    "visit_sessions_7d": 0,
+                    "visit_sessions_30d": 0,
+                    "visit_sessions_today": 0,
+                },
+            )
+        )
         results.append(_user_item(user, stats, activation_code=code_map.get(user.id)))
     return AdminUserListOut(count=total, results=results)
 

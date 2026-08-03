@@ -1,17 +1,21 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   adminFetchOnlineUsers,
   adminFetchUserSegments,
+  adminFetchVisitHourlyStats,
   adminListUsers,
   adminUpdateUser,
   type AdminUserSegment,
   type AdminUserSegmentKey,
+  type AdminVisitHourlyStats,
   type UserRow,
 } from '@/api/admin'
+import VisitHourlyBarChart from '@/components/charts/VisitHourlyBarChart.vue'
 
 const loading = ref(true)
 const segmentsLoading = ref(true)
+const hourlyLoading = ref(true)
 const savingId = ref<number | null>(null)
 const search = ref('')
 const segment = ref<AdminUserSegmentKey | ''>('')
@@ -22,10 +26,20 @@ const segments = ref<AdminUserSegment[]>([])
 const error = ref('')
 const onlineUsers = ref(0)
 const onlineWindowSec = ref(90)
+const hourlyDays = ref<7 | 30>(7)
+const hourlyStats = ref<AdminVisitHourlyStats | null>(null)
 
 let onlinePollTimer: ReturnType<typeof setInterval> | null = null
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / 20)))
+
+const hourlySummary = computed(() => {
+  const s = hourlyStats.value
+  if (!s || s.total_sessions === 0) {
+    return '暂无到访会话数据（需用户登录/心跳后开始累计）'
+  }
+  return `近 ${s.days} 天共 ${s.total_users} 人、${s.total_sessions} 次会话 · 高峰 ${s.peak_label}（${s.peak_users} 人）· 低谷 ${s.low_label}（${s.low_users} 人）`
+})
 
 const segmentHints: Record<AdminUserSegmentKey, string> = {
   active_7d: '最近 7 天内有学习记录',
@@ -49,6 +63,17 @@ async function loadSegments() {
     segments.value = []
   } finally {
     segmentsLoading.value = false
+  }
+}
+
+async function loadHourly() {
+  hourlyLoading.value = true
+  try {
+    hourlyStats.value = await adminFetchVisitHourlyStats(hourlyDays.value)
+  } catch {
+    hourlyStats.value = null
+  } finally {
+    hourlyLoading.value = false
   }
 }
 
@@ -140,8 +165,12 @@ function formatSignupLocation(user: UserRow) {
   return parts.join(' · ')
 }
 
+watch(hourlyDays, () => {
+  void loadHourly()
+})
+
 onMounted(async () => {
-  await Promise.all([loadSegments(), load()])
+  await Promise.all([loadSegments(), load(), loadHourly()])
   onlinePollTimer = setInterval(() => load({ silent: true }), 30000)
 })
 
@@ -152,6 +181,48 @@ onUnmounted(() => {
 
 <template>
   <div class="space-y-4">
+    <div class="rounded-xl border border-black/5 bg-white p-4 space-y-3">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-medium text-neutral-900">到访时段分布</h2>
+          <p class="mt-1 text-xs text-neutral-500 leading-relaxed">
+            {{ hourlyLoading ? '加载中...' : hourlySummary }}
+          </p>
+          <p class="mt-1 text-xs text-neutral-400">
+            按东八区小时统计会话开始时间；琥珀色为高峰，灰色为低谷。上线后才开始累计。
+          </p>
+        </div>
+        <div class="inline-flex rounded-lg border border-black/10 p-0.5 text-sm shrink-0">
+          <button
+            type="button"
+            class="px-3 py-1 rounded-md transition"
+            :class="hourlyDays === 7 ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-50'"
+            @click="hourlyDays = 7"
+          >
+            近 7 天
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1 rounded-md transition"
+            :class="hourlyDays === 30 ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-50'"
+            @click="hourlyDays = 30"
+          >
+            近 30 天
+          </button>
+        </div>
+      </div>
+      <VisitHourlyBarChart
+        v-if="hourlyStats?.hours?.length"
+        :hours="hourlyStats.hours"
+        :peak-hour="hourlyStats.peak_hour"
+        :low-hour="hourlyStats.low_hour"
+        height="260px"
+      />
+      <div v-else-if="!hourlyLoading" class="py-10 text-center text-sm text-neutral-400">
+        暂无图表数据
+      </div>
+    </div>
+
     <div class="rounded-xl border border-black/5 bg-white p-4 space-y-3">
       <div class="flex flex-wrap gap-3">
         <input
@@ -189,7 +260,7 @@ onUnmounted(() => {
           · 当前在线 {{ onlineUsers }} 人（近 {{ onlineWindowSec }} 秒有活动，含非会员）
         </span>
         <span class="ml-2">
-          · 「到访」按东八区自然日统计，当天有心跳或登录即记 1 天（上线后才开始累计）
+          · 「到访天数」按东八区自然日；「到访次数」为会话数（距上次活动超过 30 分钟再上线计为新一次，上线后才开始累计）
         </span>
       </p>
     </div>
@@ -208,13 +279,19 @@ onUnmounted(() => {
             <th class="text-left px-4 py-3 font-medium whitespace-nowrap">最后活跃</th>
             <th
               class="text-right px-4 py-3 font-medium whitespace-nowrap"
-              title="有心跳或登录的自然日（东八区）"
+              title="今日到访会话次数（间隔超过 30 分钟算新一次）"
+            >
+              今日次数
+            </th>
+            <th
+              class="text-right px-4 py-3 font-medium whitespace-nowrap"
+              title="近 7 天：有到访的天数 / 会话次数合计"
             >
               7 日到访
             </th>
             <th
               class="text-right px-4 py-3 font-medium whitespace-nowrap"
-              title="有心跳或登录的自然日（东八区）"
+              title="近 30 天：有到访的天数 / 会话次数合计"
             >
               30 日到访
             </th>
@@ -279,10 +356,15 @@ onUnmounted(() => {
             <td class="px-4 py-3 whitespace-nowrap">{{ formatSignupLocation(user) }}</td>
             <td class="px-4 py-3 whitespace-nowrap">{{ user.last_active_at || '—' }}</td>
             <td class="px-4 py-3 text-right tabular-nums whitespace-nowrap">
-              {{ user.visit_days_7d ?? 0 }}/7
+              {{ user.visit_sessions_today ?? 0 }}
             </td>
             <td class="px-4 py-3 text-right tabular-nums whitespace-nowrap">
-              {{ user.visit_days_30d ?? 0 }}/30
+              <div>{{ user.visit_days_7d ?? 0 }}/7 天</div>
+              <div class="text-xs text-neutral-500">{{ user.visit_sessions_7d ?? 0 }} 次</div>
+            </td>
+            <td class="px-4 py-3 text-right tabular-nums whitespace-nowrap">
+              <div>{{ user.visit_days_30d ?? 0 }}/30 天</div>
+              <div class="text-xs text-neutral-500">{{ user.visit_sessions_30d ?? 0 }} 次</div>
             </td>
             <td class="px-4 py-3 text-right tabular-nums whitespace-nowrap">
               {{ formatWatchTime(user.watch_time_7d) }}
@@ -312,7 +394,7 @@ onUnmounted(() => {
             </td>
           </tr>
           <tr v-if="!rows.length">
-            <td colspan="13" class="px-4 py-8 text-center text-neutral-500">暂无数据</td>
+            <td colspan="14" class="px-4 py-8 text-center text-neutral-500">暂无数据</td>
           </tr>
         </tbody>
       </table>

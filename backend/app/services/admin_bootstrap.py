@@ -5,6 +5,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..models import ActivationCode, Episode, User, UserEpisodeProgress, UserWordLookup
+from .ops_metrics import ops_health_block
 from .presence import count_online_users
 
 
@@ -50,7 +51,7 @@ def dashboard_stats(db: Session) -> dict:
         )
         .count()
     )
-    return {
+    stats = {
         "users_total": db.query(User).count(),
         "users_today": db.query(User).filter(User.created_at >= today_start).count(),
         "members_total": db.query(User).filter(User.is_member.is_(True)).count(),
@@ -68,6 +69,8 @@ def dashboard_stats(db: Session) -> dict:
         "learning_lookups_total": db.query(UserWordLookup).count(),
         "online_users_now": count_online_users(db),
     }
+    stats.update(ops_health_block(db))
+    return stats
 
 
 def _active_learners_7d(db: Session) -> int:

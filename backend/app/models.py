@@ -231,6 +231,19 @@ class UserDailyVisit(Base):
     first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     hit_count: Mapped[int] = mapped_column(Integer, default=1)
+    # 当日到访会话次数：距上次心跳超过 SESSION_GAP 再上线则 +1
+    session_count: Mapped[int] = mapped_column(Integer, default=1)
+
+
+class UserVisitSession(Base):
+    """每次到访会话的开始时刻，用于按小时统计上站高峰。"""
+
+    __tablename__ = "user_visit_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    visit_date: Mapped[date] = mapped_column(Date, index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 
 class PasswordResetToken(Base):
