@@ -127,6 +127,8 @@ export interface DashboardStats {
   learning_completions_total: number
   learning_lookups_total: number
   online_users_now: number
+  online_members_now?: number
+  online_free_now?: number
   dau_today?: number
   dau_trend?: DashboardDauPoint[]
   funnel_register_learn?: DashboardFunnelRegisterLearn | null
@@ -135,6 +137,8 @@ export interface DashboardStats {
 
 export interface AdminPresenceOnline {
   online_users: number
+  online_members?: number
+  online_free?: number
   window_sec: number
 }
 

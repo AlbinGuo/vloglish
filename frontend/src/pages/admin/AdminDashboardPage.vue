@@ -15,6 +15,8 @@ const loading = ref(true)
 const stats = ref<DashboardStats | null>(null)
 const geoStats = ref<AdminUserGeoStats | null>(null)
 const onlineUsers = ref(0)
+const onlineMembers = ref(0)
+const onlineFree = ref(0)
 const onlineWindowSec = ref(90)
 
 let onlinePollTimer: ReturnType<typeof setInterval> | null = null
@@ -23,6 +25,8 @@ async function refreshOnlineUsers() {
   try {
     const data = await adminFetchOnlineUsers()
     onlineUsers.value = data.online_users
+    onlineMembers.value = data.online_members ?? 0
+    onlineFree.value = data.online_free ?? 0
     onlineWindowSec.value = data.window_sec
   } catch {
     // 保持上次数值
@@ -38,6 +42,8 @@ onMounted(async () => {
     stats.value = dashboard
     geoStats.value = geo
     onlineUsers.value = dashboard.online_users_now
+    onlineMembers.value = dashboard.online_members_now ?? 0
+    onlineFree.value = dashboard.online_free_now ?? 0
     await refreshOnlineUsers()
   } finally {
     loading.value = false
@@ -80,16 +86,26 @@ function barWidth(rate: number) {
     <div
       class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm"
     >
-      <div class="flex items-start justify-between gap-3">
+      <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p class="text-sm text-emerald-700 mb-1 flex items-center gap-2">
             <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
             当前在线用户
           </p>
           <p class="text-4xl font-semibold tabular-nums text-emerald-900">{{ onlineUsers }}</p>
+          <div class="mt-3 flex flex-wrap gap-4 text-sm">
+            <div>
+              <span class="text-neutral-500">会员</span>
+              <span class="ml-2 font-semibold tabular-nums text-amber-800">{{ onlineMembers }}</span>
+            </div>
+            <div>
+              <span class="text-neutral-500">普通用户</span>
+              <span class="ml-2 font-semibold tabular-nums text-neutral-800">{{ onlineFree }}</span>
+            </div>
+          </div>
         </div>
-        <p class="text-xs text-neutral-500 text-right max-w-[10rem]">
-          所有活跃用户（含非会员）：近 {{ onlineWindowSec }} 秒内有活动视为在线，每 30 秒自动刷新
+        <p class="text-xs text-neutral-500 text-right max-w-[12rem]">
+          近 {{ onlineWindowSec }} 秒内有活动视为在线（不含管理员），每 30 秒自动刷新
         </p>
       </div>
     </div>

@@ -166,6 +166,8 @@ class AdminDashboardOut(BaseModel):
     learning_completions_total: int = 0
     learning_lookups_total: int = 0
     online_users_now: int = 0
+    online_members_now: int = 0
+    online_free_now: int = 0
     dau_today: int = 0
     dau_trend: list[AdminDauPointOut] = []
     funnel_register_learn: AdminFunnelRegisterLearnOut | None = None
@@ -174,6 +176,8 @@ class AdminDashboardOut(BaseModel):
 
 class AdminPresenceOnlineOut(BaseModel):
     online_users: int
+    online_members: int = 0
+    online_free: int = 0
     window_sec: int
 
 

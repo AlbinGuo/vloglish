@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..models import ActivationCode, Episode, User, UserEpisodeProgress, UserWordLookup
 from .ops_metrics import ops_health_block
-from .presence import count_online_users
+from .presence import online_presence_breakdown
 
 
 def ensure_admin_user(db: Session) -> None:
@@ -67,8 +67,11 @@ def dashboard_stats(db: Session) -> dict:
         .filter(UserEpisodeProgress.is_completed.is_(True))
         .count(),
         "learning_lookups_total": db.query(UserWordLookup).count(),
-        "online_users_now": count_online_users(db),
     }
+    presence = online_presence_breakdown(db)
+    stats["online_users_now"] = presence["online_users"]
+    stats["online_members_now"] = presence["online_members"]
+    stats["online_free_now"] = presence["online_free"]
     stats.update(ops_health_block(db))
     return stats
 
