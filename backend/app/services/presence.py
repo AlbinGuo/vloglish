@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from ..models import User
+from .daily_visits import record_daily_visit
 
 # 最近 N 秒内有心跳视为在线
 ONLINE_WINDOW_SEC = 90
@@ -11,7 +12,9 @@ ONLINE_WINDOW_SEC = 90
 def touch_presence(db: Session, user: User) -> None:
     if user.is_staff:
         return
-    user.last_seen_at = datetime.utcnow()
+    now = datetime.utcnow()
+    user.last_seen_at = now
+    record_daily_visit(db, user, now_utc=now)
     db.commit()
 
 

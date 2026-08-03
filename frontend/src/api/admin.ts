@@ -143,6 +143,10 @@ export interface UserRow {
   created_at: string
   last_active_at: string | null
   watch_time_7d: number
+  /** 近 7 天有到访的天数（东八区，心跳/登录） */
+  visit_days_7d?: number
+  /** 近 30 天有到访的天数 */
+  visit_days_30d?: number
   completed_episodes: number
   lookup_count: number
   signup_country: string | null

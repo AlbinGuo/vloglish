@@ -1,7 +1,7 @@
 import json
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Table, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -217,6 +217,20 @@ class RefreshToken(Base):
     session_key: Mapped[str] = mapped_column(String(64), default="", index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class UserDailyVisit(Base):
+    """用户按自然日（东八区）的到访记录：有心跳/登录即记一天。"""
+
+    __tablename__ = "user_daily_visits"
+    __table_args__ = (UniqueConstraint("user_id", "visit_date", name="uq_user_daily_visit"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    visit_date: Mapped[date] = mapped_column(Date, index=True)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    hit_count: Mapped[int] = mapped_column(Integer, default=1)
 
 
 class PasswordResetToken(Base):

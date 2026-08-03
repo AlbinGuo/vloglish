@@ -35,6 +35,7 @@ from ..schemas import (
     ResetPasswordByEmailIn,
     UserOut,
 )
+from ..services.daily_visits import record_daily_visit
 from ..services.user_geo import apply_signup_geo, backfill_signup_geo
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -94,6 +95,8 @@ def issue_tokens(db: Session, user: User, device_id: str) -> AuthTokensOut:
             expires_at=refresh_token_expires_at(),
         )
     )
+    # 登录/注册/续期也记到访，避免心跳未触发时漏记当天
+    record_daily_visit(db, user)
     db.commit()
     db.refresh(user)
     return AuthTokensOut(access=access, refresh=refresh, user=user_out(user))

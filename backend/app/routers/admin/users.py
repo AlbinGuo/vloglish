@@ -15,6 +15,7 @@ from ...schemas import (
     AdminUserSegmentsOut,
     AdminUserUpdateIn,
 )
+from ...services.daily_visits import visit_day_counts_for_users
 from ...services.presence import is_user_online
 from ...services.user_geo import user_geo_stats
 from ...services.user_segments import (
@@ -49,6 +50,8 @@ def _user_item(user: User, stats: dict, *, activation_code: str | None = None) -
         created_at=_fmt_dt(user.created_at) or "",
         last_active_at=_fmt_dt(last_active if isinstance(last_active, datetime) else None),
         watch_time_7d=stats["watch_time_7d"],
+        visit_days_7d=int(stats.get("visit_days_7d") or 0),
+        visit_days_30d=int(stats.get("visit_days_30d") or 0),
         completed_episodes=stats["completed_episodes"],
         lookup_count=stats["lookup_count"],
         signup_country=user.signup_country,
@@ -107,11 +110,16 @@ def list_users(
     q = admin_user_list_query(db, search=search, segment=segment)
     total = q.count()
     rows = q.offset((page - 1) * page_size).limit(page_size).all()
-    code_map = _activation_codes_by_user(db, [row[0].id for row in rows])
+    user_ids = [row[0].id for row in rows]
+    code_map = _activation_codes_by_user(db, user_ids)
+    visit_map = visit_day_counts_for_users(db, user_ids)
     results = []
     for row in rows:
         user = row[0]
         stats = row_stats_from_user_query(row)
+        d7, d30 = visit_map.get(user.id, (0, 0))
+        stats["visit_days_7d"] = d7
+        stats["visit_days_30d"] = d30
         results.append(_user_item(user, stats, activation_code=code_map.get(user.id)))
     return AdminUserListOut(count=total, results=results)
 

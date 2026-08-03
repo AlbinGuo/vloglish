@@ -188,6 +188,9 @@ onUnmounted(() => {
         <span v-if="!loading" class="ml-2 text-emerald-600">
           · 当前在线 {{ onlineUsers }} 人（近 {{ onlineWindowSec }} 秒有活动，含非会员）
         </span>
+        <span class="ml-2">
+          · 「到访」按东八区自然日统计，当天有心跳或登录即记 1 天（上线后才开始累计）
+        </span>
       </p>
     </div>
 
@@ -203,6 +206,18 @@ onUnmounted(() => {
             <th class="text-left px-4 py-3 font-medium">状态</th>
             <th class="text-left px-4 py-3 font-medium whitespace-nowrap">注册地区</th>
             <th class="text-left px-4 py-3 font-medium whitespace-nowrap">最后活跃</th>
+            <th
+              class="text-right px-4 py-3 font-medium whitespace-nowrap"
+              title="有心跳或登录的自然日（东八区）"
+            >
+              7 日到访
+            </th>
+            <th
+              class="text-right px-4 py-3 font-medium whitespace-nowrap"
+              title="有心跳或登录的自然日（东八区）"
+            >
+              30 日到访
+            </th>
             <th class="text-right px-4 py-3 font-medium whitespace-nowrap">7 日学习</th>
             <th class="text-right px-4 py-3 font-medium whitespace-nowrap">学完</th>
             <th class="text-right px-4 py-3 font-medium whitespace-nowrap">查词</th>
@@ -264,6 +279,12 @@ onUnmounted(() => {
             <td class="px-4 py-3 whitespace-nowrap">{{ formatSignupLocation(user) }}</td>
             <td class="px-4 py-3 whitespace-nowrap">{{ user.last_active_at || '—' }}</td>
             <td class="px-4 py-3 text-right tabular-nums whitespace-nowrap">
+              {{ user.visit_days_7d ?? 0 }}/7
+            </td>
+            <td class="px-4 py-3 text-right tabular-nums whitespace-nowrap">
+              {{ user.visit_days_30d ?? 0 }}/30
+            </td>
+            <td class="px-4 py-3 text-right tabular-nums whitespace-nowrap">
               {{ formatWatchTime(user.watch_time_7d) }}
             </td>
             <td class="px-4 py-3 text-right tabular-nums">{{ user.completed_episodes }}</td>
@@ -291,7 +312,7 @@ onUnmounted(() => {
             </td>
           </tr>
           <tr v-if="!rows.length">
-            <td colspan="11" class="px-4 py-8 text-center text-neutral-500">暂无数据</td>
+            <td colspan="13" class="px-4 py-8 text-center text-neutral-500">暂无数据</td>
           </tr>
         </tbody>
       </table>

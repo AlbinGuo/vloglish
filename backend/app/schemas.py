@@ -183,6 +183,8 @@ class AdminUserListItemOut(BaseModel):
     created_at: str
     last_active_at: str | None = None
     watch_time_7d: int = 0
+    visit_days_7d: int = 0
+    visit_days_30d: int = 0
     completed_episodes: int = 0
     lookup_count: int = 0
     signup_country: str | None = None
