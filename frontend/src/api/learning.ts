@@ -47,6 +47,8 @@ export interface VocabularyItem {
   ipa?: string
   definition_cn?: string
   source_type?: string
+  source_subtitle_id?: number | null
+  source_segment_id?: number | null
 }
 
 export type ArticleVocabularyItem = VocabularyItem
@@ -61,6 +63,9 @@ export interface WordLookupRecord {
   episode_title: string
   is_saved: boolean
   looked_up_at: string
+  subtitle_id?: number | null
+  segment_id?: number | null
+  article_ref?: string
 }
 
 export async function getEpisodeProgress(videoId: string) {

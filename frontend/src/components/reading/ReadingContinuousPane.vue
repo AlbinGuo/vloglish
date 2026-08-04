@@ -12,6 +12,9 @@ const props = defineProps<{
   cover?: string
   title?: string
   vocabLinkHtmlMap?: Record<number, string | undefined>
+  /** 生词回看定位中的段落 id */
+  focusSegmentId?: number | null
+  emphasizeWord?: string
 }>()
 
 defineEmits<{
@@ -69,20 +72,21 @@ const blocks = computed(() => props.segments)
       v-for="segment in blocks"
       :key="segment.id"
       class="reading-continuous-block cursor-pointer rounded-lg px-2 py-2.5 -mx-2 transition-colors"
-      :class="
+      :class="[
         segment.index === currentIndex
           ? 'bg-amber-50/90 dark:bg-amber-950/35 ring-1 ring-amber-200/60 dark:ring-amber-500/25'
-          : 'hover:bg-black/[0.02] dark:hover:bg-white/[0.03]'
-      "
+          : 'hover:bg-black/[0.02] dark:hover:bg-white/[0.03]',
+      ]"
       :data-reading-segment="segment.index"
       :data-reading-segment-id="segment.id"
       :data-reading-context="segment.english"
       @click="$emit('activate', segment.index)"
     >
       <SubtitleEnglish
-        v-if="useHtml(segment)"
+        v-if="segment.english || useHtml(segment)"
         :html="englishHtml(segment)"
         align="left"
+        :emphasize-word="focusSegmentId === segment.id ? emphasizeWord : ''"
         @click="$emit('click', $event, segment)"
       />
       <p

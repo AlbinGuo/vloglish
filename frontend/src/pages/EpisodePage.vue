@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
-import { useRouter, RouterLink } from 'vue-router'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
 import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
 import { getEpisodeList, setEpisodeFavorite } from '@/api/episodes'
@@ -11,6 +11,15 @@ import EpisodeVideoContextPanel from '@/components/episode/EpisodeVideoContextPa
 import BlankPrintDocument from '@/components/episode/BlankPrintDocument.vue'
 import BlankPrintSheet from '@/components/episode/BlankPrintSheet.vue'
 import SentenceDictationSheet from '@/components/episode/SentenceDictationSheet.vue'
+import AiExplainSheet from '@/components/ai/AiExplainSheet.vue'
+import AiShadowingSheet from '@/components/ai/AiShadowingSheet.vue'
+import AiClozeSheet from '@/components/ai/AiClozeSheet.vue'
+import {
+  aiExplainSubtitleStream,
+  aiGenerateCloze,
+  type AiClozeResult,
+  type AiExplainResult,
+} from '@/api/aiCoach'
 import WordCardPrintDocument from '@/components/episode/WordCardPrintDocument.vue'
 import WordCardPrintSheet from '@/components/episode/WordCardPrintSheet.vue'
 import SubtitleModeSheet from '@/components/episode/SubtitleModeSheet.vue'
@@ -19,6 +28,7 @@ import { useMobilePlayerChrome } from '@/composables/useMobilePlayerChrome'
 import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import { useLearningProgress } from '@/composables/useLearningProgress'
 import { consumeEpisodeAutoplay, requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
+import { useSourceFocusPulse } from '@/composables/useSourceFocusPulse'
 import { useAuthStore } from '@/stores/auth'
 import type { EntryDetail, EpisodeDetail, EpisodeSummary, Subtitle } from '@/types'
 import EntryCard from '@/components/EntryCard.vue'
@@ -61,8 +71,14 @@ import {
 } from '@/utils/subtitleHtml'
 
 const props = defineProps<{ videoId: string; backTo?: string; adminPreview?: boolean }>()
+const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const {
+  focusWord: sourceFocusWord,
+  trigger: triggerSourceFocus,
+  isFocused: isSourceFocused,
+} = useSourceFocusPulse(5000)
 
 const episode = ref<EpisodeDetail | null>(null)
 const loading = ref(true)
@@ -123,7 +139,12 @@ const showIpa = ref(true)
 const selectedEntry = ref<EntryDetail | null>(null)
 const showEntryPanel = ref(false)
 const entryLoading = ref(false)
+/** 查词时所在字幕（收藏生词时用，避免误用播放进度的 currentSub） */
+const entrySourceSubtitleId = ref<number | null>(null)
 const entryError = ref('')
+const vocabNotice = ref('')
+const vocabNoticeType = ref<'ok' | 'err' | ''>('')
+let vocabNoticeTimer: ReturnType<typeof setTimeout> | null = null
 /** 打开词条弹窗前是否在播放；关闭后据此决定是否恢复 */
 const resumeAfterEntryClose = ref(false)
 const currentIndex = ref(0)
@@ -280,6 +301,219 @@ function startSubtitleDictation(sub: Subtitle, e?: Event) {
   pauseForDictationSheet()
   // 立刻弹填空；需要播放时再点弹窗里的「播放」
   openDictationFor(sub)
+}
+
+const aiExplainOpen = ref(false)
+const aiExplainLoading = ref(false)
+const aiExplainError = ref('')
+const aiExplainResult = ref<AiExplainResult | null>(null)
+const aiExplainSub = ref<Subtitle | null>(null)
+const aiExplainSessionCache = new Map<number, AiExplainResult>()
+let aiExplainAbort: AbortController | null = null
+
+const aiShadowOpen = ref(false)
+const aiShadowSub = ref<Subtitle | null>(null)
+
+const aiClozeOpen = ref(false)
+const aiClozeLoading = ref(false)
+const aiClozeError = ref('')
+const aiClozeResult = ref<AiClozeResult | null>(null)
+const aiClozeSub = ref<Subtitle | null>(null)
+const aiClozeSessionCache = new Map<number, AiClozeResult>()
+
+function emptyExplainShell(sub: Subtitle): AiExplainResult {
+  return {
+    video_id: props.videoId,
+    subtitle_id: sub.id,
+    english: sub.english || '',
+    chinese: sub.chinese || '',
+    plain_chinese: '',
+    structure: '',
+    expressions: [],
+    paraphrase: '',
+    tip: '',
+  }
+}
+
+async function startAiExplain(sub: Subtitle, e?: Event, force = false) {
+  e?.stopPropagation()
+  pauseForDictationSheet()
+  aiExplainSub.value = sub
+  aiExplainOpen.value = true
+  aiExplainError.value = ''
+  if (!force) {
+    const cached = aiExplainSessionCache.get(sub.id)
+    if (cached) {
+      aiExplainResult.value = cached
+      aiExplainLoading.value = false
+      return
+    }
+  }
+
+  aiExplainAbort?.abort()
+  const ac = new AbortController()
+  aiExplainAbort = ac
+
+  aiExplainLoading.value = true
+  aiExplainResult.value = emptyExplainShell(sub)
+  try {
+    const result = await aiExplainSubtitleStream(props.videoId, sub.id, {
+      force,
+      signal: ac.signal,
+      onEvent: (event) => {
+        if (ac.signal.aborted) return
+        if (event.type === 'meta') {
+          aiExplainResult.value = {
+            ...(aiExplainResult.value || emptyExplainShell(sub)),
+            video_id: event.video_id,
+            subtitle_id: event.subtitle_id,
+            english: event.english || sub.english || '',
+            chinese: event.chinese || sub.chinese || '',
+            from_cache: event.from_cache,
+            quota: event.quota,
+          }
+          return
+        }
+        if (event.type === 'field') {
+          const cur = aiExplainResult.value || emptyExplainShell(sub)
+          const key = event.key
+          if (key === 'expressions' && Array.isArray(event.value)) {
+            aiExplainResult.value = {
+              ...cur,
+              expressions: event.value as AiExplainResult['expressions'],
+            }
+          } else if (
+            key === 'plain_chinese' ||
+            key === 'structure' ||
+            key === 'paraphrase' ||
+            key === 'tip'
+          ) {
+            aiExplainResult.value = { ...cur, [key]: String(event.value || '') }
+          }
+        }
+      },
+    })
+    if (ac.signal.aborted) return
+    aiExplainResult.value = result
+    aiExplainSessionCache.set(sub.id, result)
+  } catch (err: unknown) {
+    if (ac.signal.aborted || (err as { name?: string })?.name === 'AbortError') return
+    const { promptIfAiQuotaExhausted } = await import('@/utils/aiQuotaGate')
+    if (await promptIfAiQuotaExhausted(err)) {
+      closeAiExplain()
+      return
+    }
+    const msg =
+      err instanceof Error
+        ? err.message
+        : (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+    aiExplainError.value = typeof msg === 'string' && msg ? msg : '讲解失败，请稍后重试'
+  } finally {
+    if (aiExplainAbort === ac) {
+      aiExplainLoading.value = false
+      aiExplainAbort = null
+    }
+  }
+}
+
+function regenerateAiExplain() {
+  const sub = aiExplainSub.value
+  if (!sub || aiExplainLoading.value) return
+  aiExplainSessionCache.delete(sub.id)
+  void startAiExplain(sub, undefined, true)
+}
+
+function closeAiExplain() {
+  aiExplainAbort?.abort()
+  aiExplainAbort = null
+  aiExplainOpen.value = false
+  aiExplainLoading.value = false
+}
+
+function startAiShadowing(sub: Subtitle, e?: Event) {
+  e?.stopPropagation()
+  pauseForDictationSheet()
+  aiShadowSub.value = sub
+  aiShadowOpen.value = true
+}
+
+const aiShadowSentenceIndex = computed(() => {
+  const sub = aiShadowSub.value
+  if (!sub) return -1
+  return sortedSubs.value.findIndex((s) => s.id === sub.id)
+})
+
+const aiShadowHasNext = computed(() => {
+  const idx = aiShadowSentenceIndex.value
+  return idx >= 0 && idx + 1 < sortedSubs.value.length
+})
+
+function onShadowPlay() {
+  const sub = aiShadowSub.value
+  if (sub) player.playSentenceOnce(sub)
+}
+
+function nextAiShadowing() {
+  const subs = sortedSubs.value
+  const idx = aiShadowSentenceIndex.value
+  const next = idx >= 0 ? subs[idx + 1] : null
+  if (!next) {
+    aiShadowOpen.value = false
+    aiShadowSub.value = null
+    return
+  }
+  pauseForDictationSheet()
+  player.seekTo(next)
+  aiShadowSub.value = next
+}
+
+async function startAiCloze(sub: Subtitle, e?: Event, force = false) {
+  e?.stopPropagation()
+  pauseForDictationSheet()
+  aiClozeSub.value = sub
+  aiClozeOpen.value = true
+  aiClozeError.value = ''
+  if (!force) {
+    const cached = aiClozeSessionCache.get(sub.id)
+    if (cached) {
+      aiClozeResult.value = cached
+      aiClozeLoading.value = false
+      return
+    }
+  }
+  aiClozeLoading.value = true
+  // 先展示原句，减少空白等待感
+  aiClozeResult.value = {
+    video_id: props.videoId,
+    subtitle_id: sub.id,
+    english: sub.english || '',
+    chinese: sub.chinese || '',
+    blanks: [],
+    hint: '',
+  }
+  try {
+    const result = await aiGenerateCloze(props.videoId, sub.id, force)
+    aiClozeResult.value = result
+    aiClozeSessionCache.set(sub.id, result)
+  } catch (err: unknown) {
+    const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+    aiClozeError.value = typeof msg === 'string' ? msg : '出题失败，请稍后重试'
+  } finally {
+    aiClozeLoading.value = false
+  }
+}
+
+function regenerateAiCloze() {
+  const sub = aiClozeSub.value
+  if (!sub || aiClozeLoading.value) return
+  aiClozeSessionCache.delete(sub.id)
+  void startAiCloze(sub, undefined, true)
+}
+
+function clozeToDictation() {
+  const sub = aiClozeSub.value
+  aiClozeOpen.value = false
+  if (sub) openDictationFor(sub)
 }
 
 function replayDictationSentence() {
@@ -452,7 +686,9 @@ async function openWordCard(item: WordCardItem) {
   showEntryPanel.value = true
   entryLoading.value = true
   entryError.value = ''
+  clearVocabNotice()
   selectedEntry.value = item.entry
+  entrySourceSubtitleId.value = item.meta?.subtitle_id ?? null
   try {
     selectedEntry.value = await lookupWord(item.word, item.type, item.context, {
       video_id: props.videoId,
@@ -775,9 +1011,11 @@ async function load() {
         learnedSubtitleIds.value = new Set()
       }
     }
-    nextTick(scrollCurrentIntoView)
+    const jumped = await applyVocabDeepLink()
+    if (!jumped) nextTick(scrollCurrentIntoView)
   } catch (e: unknown) {
-    const status = (e as { response?: { status?: number } })?.response?.status
+    const status = (e as { response?: { status?: number; data?: { detail?: string } } })?.response?.status
+    const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
     if (!props.adminPreview && status === 403) {
       await router.replace({
         path: '/pricing',
@@ -785,7 +1023,11 @@ async function load() {
       })
       return
     }
-    if (!isSwitch) error.value = '加载失败'
+    if (!isSwitch) {
+      if (status === 404) error.value = '视频不存在或已下架'
+      else if (typeof detail === 'string' && detail) error.value = detail
+      else error.value = '加载失败'
+    }
   } finally {
     loading.value = false
     if (shouldAutoplay && episode.value) {
@@ -797,6 +1039,69 @@ async function load() {
       }, 1000)
     }
   }
+}
+
+function subtitleContainsWord(sub: Subtitle, word: string) {
+  const needle = word.trim().toLowerCase()
+  if (!needle) return true
+  const hay = `${sub.english || ''} ${sub.english_html || ''}`.toLowerCase()
+  return needle.split(/\s+/).every((part) => {
+    const clean = part.replace(/[^a-z0-9'-]/gi, '')
+    return !clean || hay.includes(clean)
+  })
+}
+
+/** 优先精确 id；若带 word 且该句不含词，则在邻近句 / 全篇中校正 */
+function resolveDeepLinkSubtitle(subtitleId: number, word: string): Subtitle | null {
+  const subs = sortedSubs.value
+  const idx = subs.findIndex((s) => s.id === subtitleId)
+  const base = idx >= 0 ? subs[idx] : null
+  if (base && subtitleContainsWord(base, word)) return base
+
+  if (word.trim() && idx >= 0) {
+    for (const delta of [1, -1, 2, -2, 3, -3]) {
+      const nearby = subs[idx + delta]
+      if (nearby && subtitleContainsWord(nearby, word)) return nearby
+    }
+  }
+  if (word.trim()) {
+    const hit = subs.find((s) => subtitleContainsWord(s, word))
+    if (hit) return hit
+  }
+  return base
+}
+
+/** 生词本「回看」：按 subtitle id（并可按 word 校正）定位到对应字幕句 */
+async function applyVocabDeepLink(): Promise<boolean> {
+  const raw = route.query.subtitle
+  const subtitleId = Number(Array.isArray(raw) ? raw[0] : raw)
+  const wordRaw = route.query.word
+  const word = String(Array.isArray(wordRaw) ? wordRaw[0] : wordRaw || '')
+  if (!Number.isFinite(subtitleId) || subtitleId <= 0) return false
+
+  const sub = resolveDeepLinkSubtitle(subtitleId, word)
+  if (!sub) return false
+
+  // 生词定位优先于「继续上次进度」提示
+  clearResumePrompt()
+  player.seekTo(sub)
+  await nextTick()
+  scrollCurrentIntoView()
+
+  // 播放器稍晚挂载时再对齐一次时间轴
+  for (const delay of [120, 320, 700]) {
+    window.setTimeout(() => {
+      if (sortedSubs.value.some((s) => s.id === sub.id)) {
+        player.seekTo(sub)
+        scrollCurrentIntoView()
+      }
+    }, delay)
+  }
+
+  window.setTimeout(() => {
+    triggerSourceFocus(sub.id, word)
+  }, 100)
+  return true
 }
 
 async function applyResume() {
@@ -867,26 +1172,55 @@ function onSidePanelTabChange(tab: 'related' | 'lookup') {
   }
 }
 
+function clearVocabNotice() {
+  if (vocabNoticeTimer != null) {
+    clearTimeout(vocabNoticeTimer)
+    vocabNoticeTimer = null
+  }
+  vocabNotice.value = ''
+  vocabNoticeType.value = ''
+}
+
+function flashVocabNotice(message: string, type: 'ok' | 'err') {
+  if (vocabNoticeTimer != null) clearTimeout(vocabNoticeTimer)
+  vocabNotice.value = message
+  vocabNoticeType.value = type
+  vocabNoticeTimer = setTimeout(() => {
+    vocabNotice.value = ''
+    vocabNoticeType.value = ''
+    vocabNoticeTimer = null
+  }, 2200)
+}
+
 async function toggleVocabulary(entry: EntryDetail) {
   if (!auth.isLoggedIn || !entry) return
-  const sub = currentSub.value
+  const subtitleId = entrySourceSubtitleId.value ?? currentSub.value?.id
+  const wasSaved = Boolean(entry.favorite)
   try {
-    if (entry.favorite) {
+    if (wasSaved) {
       await removeVocabulary(entry.id)
       entry.favorite = false
+      flashVocabNotice('已移出生词本', 'ok')
     } else {
       await saveVocabulary({
         entry_id: entry.id,
         word: entry.headword,
         token_type: entry.category === 'phrase' ? 2 : 1,
         video_id: props.videoId,
-        subtitle_id: sub?.id,
+        subtitle_id: subtitleId,
       })
       entry.favorite = true
       noteLookup()
+      flashVocabNotice('已加入生词本', 'ok')
+      try {
+        const { useVocabularyStore } = await import('@/stores/vocabulary')
+        useVocabularyStore().invalidate()
+      } catch {
+        // ignore
+      }
     }
   } catch {
-    // ignore
+    flashVocabNotice('操作失败，请重试', 'err')
   }
 }
 
@@ -895,6 +1229,7 @@ async function reopenLookup(record: WordLookupRecord) {
   showEntryPanel.value = true
   entryLoading.value = true
   entryError.value = ''
+  clearVocabNotice()
   selectedEntry.value = null
   try {
     selectedEntry.value = await lookupWord(record.word, record.token_type as 1 | 2, record.context, {
@@ -994,10 +1329,12 @@ async function onSubtitleClick(e: MouseEvent) {
   showEntryPanel.value = true
   entryLoading.value = true
   entryError.value = ''
+  clearVocabNotice()
   selectedEntry.value = null
 
   const context = resolveSentenceContext(target)
   const sub = resolveSubtitleFromTarget(target)
+  entrySourceSubtitleId.value = sub?.id ?? null
   try {
     selectedEntry.value = await lookupWord(word, type as 1 | 2, context, {
       video_id: props.videoId,
@@ -1017,6 +1354,7 @@ function closeEntryPanel() {
   showEntryPanel.value = false
   selectedEntry.value = null
   entryError.value = ''
+  clearVocabNotice()
   resumePlaybackAfterEntry()
 }
 
@@ -1035,7 +1373,22 @@ async function toggleSubtitleLearned(sub: { id: number }, e: Event) {
   }
 }
 
+const backFrom = computed(() => {
+  const raw = route.query.from
+  return String(Array.isArray(raw) ? raw[0] : raw || '')
+})
+const fromVocabulary = computed(() => backFrom.value === 'vocab')
+const fromLearning = computed(() => backFrom.value === 'learning')
+
 function goBack() {
+  if (fromVocabulary.value) {
+    router.push('/english/vocabulary')
+    return
+  }
+  if (fromLearning.value) {
+    router.push('/english/learning')
+    return
+  }
   router.push(props.backTo ?? '/english')
 }
 
@@ -1078,7 +1431,9 @@ function subtitleRowClass(index: number) {
           : 'shrink-0'
       "
     >
-      <button class="text-sm text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white" @click="goBack">← 返回</button>
+      <button class="text-sm text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white" @click="goBack">
+        {{ fromVocabulary ? '← 生词本' : fromLearning ? '← 学习统计' : '← 返回' }}
+      </button>
       <div v-if="episode" class="flex-1 min-w-0">
         <p class="font-semibold truncate flex items-center gap-2">
           <span>{{ episode.short_title }}</span>
@@ -1413,7 +1768,7 @@ function subtitleRowClass(index: number) {
           :class="subtitleAlign === 'left' ? 'items-start text-left' : 'items-center text-center'"
           @click="currentSub && player.seekTo(currentSub)"
         >
-          <div class="relative w-full max-w-3xl">
+          <div class="relative w-full max-w-3xl rounded-2xl p-2 -m-2">
             <Transition
               :name="
                 isPhone
@@ -1437,6 +1792,7 @@ function subtitleRowClass(index: number) {
                 :show-chinese="modeShowsChinese(subtitleMode)"
                 :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
                 :lookup-meta="{ video_id: videoId, subtitle_id: currentSub.id }"
+                :emphasize-word="isSourceFocused(currentSub.id) ? sourceFocusWord : ''"
                 @click="onSubtitleClick"
               />
               <SubtitleBlock
@@ -1452,6 +1808,7 @@ function subtitleRowClass(index: number) {
                 :show-english="modeShowsEnglish(subtitleMode)"
                 :show-chinese="modeShowsChinese(subtitleMode)"
                 :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+                :emphasize-word="isSourceFocused(currentSub.id) ? sourceFocusWord : ''"
                 @click="onSubtitleClick"
               />
             </Transition>
@@ -1480,7 +1837,7 @@ function subtitleRowClass(index: number) {
             @click="player.seekTo(sub)"
           >
             <div
-              class="w-full relative transition-all duration-300 ease-out pr-14"
+              class="w-full relative transition-all duration-300 ease-out pr-2 sm:pr-4 pt-9"
               :class="
                 intensiveMode
                   ? [
@@ -1506,16 +1863,50 @@ function subtitleRowClass(index: number) {
               >
                 ✓
               </button>
-              <button
+              <div
                 v-else-if="!adminPreview"
-                type="button"
-                class="absolute top-2 right-2 z-10 px-2 h-7 rounded-full text-[11px] font-medium flex items-center justify-center border transition bg-white/90 border-black/10 text-neutral-600 hover:border-amber-400 hover:text-amber-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300 dark:hover:border-amber-500 dark:hover:text-amber-300"
-                :class="dictationTargetId === sub.id ? 'border-amber-400 text-amber-700 dark:border-amber-500 dark:text-amber-300' : ''"
-                title="听写本句"
-                @click="startSubtitleDictation(sub, $event)"
+                class="absolute top-1.5 right-1.5 z-10 flex flex-wrap justify-end gap-1 max-w-[min(100%,18rem)]"
               >
-                听写
-              </button>
+                <button
+                  type="button"
+                  class="px-2 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-violet-400 hover:text-violet-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300"
+                  title="AI 讲解本句"
+                  @click="startAiExplain(sub, $event)"
+                >
+                  AI讲解
+                </button>
+                <button
+                  type="button"
+                  class="relative px-2 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-sky-400 hover:text-sky-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300"
+                  title="跟读后由 AI 评分"
+                  @click="startAiShadowing(sub, $event)"
+                >
+                  <span
+                    class="absolute -top-1.5 -right-1 px-1 min-w-[1.5rem] h-3.5 rounded-full bg-sky-500 text-white text-[9px] font-semibold leading-none flex items-center justify-center shadow-sm pointer-events-none"
+                    aria-hidden="true"
+                  >
+                    Ai评分
+                  </span>
+                  AI跟读
+                </button>
+                <button
+                  type="button"
+                  class="px-2 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-emerald-400 hover:text-emerald-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300"
+                  title="AI 挖空练习"
+                  @click="startAiCloze(sub, $event)"
+                >
+                  AI挖空
+                </button>
+                <button
+                  type="button"
+                  class="px-2 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-amber-400 hover:text-amber-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300 dark:hover:border-amber-500 dark:hover:text-amber-300"
+                  :class="dictationTargetId === sub.id ? 'border-amber-400 text-amber-700 dark:border-amber-500 dark:text-amber-300' : ''"
+                  title="听写本句"
+                  @click="startSubtitleDictation(sub, $event)"
+                >
+                  听写
+                </button>
+              </div>
               <IntensiveReadingBlock
                 v-if="intensiveMode"
                 :english-html="renderHtml(sub.english_html)"
@@ -1528,6 +1919,7 @@ function subtitleRowClass(index: number) {
                 :show-chinese="modeShowsChinese(subtitleMode)"
                 :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
                 :lookup-meta="{ video_id: videoId, subtitle_id: sub.id }"
+                :emphasize-word="isSourceFocused(sub.id) ? sourceFocusWord : ''"
                 @click.stop="onSubtitleClick"
               />
               <SubtitleBlock
@@ -1541,6 +1933,7 @@ function subtitleRowClass(index: number) {
                 :show-english="modeShowsEnglish(subtitleMode)"
                 :show-chinese="modeShowsChinese(subtitleMode)"
                 :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+                :emphasize-word="isSourceFocused(sub.id) ? sourceFocusWord : ''"
                 @click.stop="onSubtitleClick"
               />
               <!-- 听写中：单词区毛玻璃遮罩，关闭弹窗后消失 -->
@@ -1785,6 +2178,36 @@ function subtitleRowClass(index: number) {
       @next="nextAfterDictation"
       @update:loop-count="onDictationLoopCountChange"
     />
+    <AiExplainSheet
+      :open="aiExplainOpen"
+      :loading="aiExplainLoading"
+      :error="aiExplainError"
+      :result="aiExplainResult"
+      @close="closeAiExplain"
+      @regenerate="regenerateAiExplain"
+    />
+    <AiShadowingSheet
+      :open="aiShadowOpen"
+      :video-id="videoId"
+      :subtitle-id="aiShadowSub?.id ?? null"
+      :english="aiShadowSub?.english || ''"
+      :chinese="aiShadowSub?.chinese || ''"
+      :sentence-index="aiShadowSentenceIndex"
+      :sentence-total="sortedSubs.length"
+      :has-next="aiShadowHasNext"
+      @close="aiShadowOpen = false"
+      @play="onShadowPlay"
+      @next="nextAiShadowing"
+    />
+    <AiClozeSheet
+      :open="aiClozeOpen"
+      :loading="aiClozeLoading"
+      :error="aiClozeError"
+      :result="aiClozeResult"
+      @close="aiClozeOpen = false"
+      @dictation="clozeToDictation"
+      @regenerate="regenerateAiCloze"
+    />
     <BlankPrintDocument
       v-if="episode"
       :title="episode.short_title"
@@ -1821,6 +2244,8 @@ function subtitleRowClass(index: number) {
       :loading="entryLoading"
       :error="entryError"
       :can-save-vocabulary="auth.isLoggedIn && !adminPreview"
+      :vocab-notice="vocabNotice"
+      :vocab-notice-type="vocabNoticeType"
       @close="closeEntryPanel"
       @toggle-vocabulary="toggleVocabulary"
     />

@@ -239,6 +239,61 @@ def is_entry_saved(db: Session, user_id: int, entry_id: int) -> bool:
     )
 
 
+def _subtitle_contains_word(english: str, word: str) -> bool:
+    needle = (word or "").strip().lower()
+    if not needle:
+        return True
+    hay = (english or "").lower()
+    if needle in hay:
+        return True
+    parts = [p for p in needle.split() if p.strip()]
+    return bool(parts) and all(p in hay for p in parts)
+
+
+def correct_source_subtitle_id(
+    db: Session,
+    *,
+    episode_id: int | None,
+    subtitle_id: int | None,
+    word: str,
+) -> int | None:
+    """若给定字幕不含该词，尝试邻近句校正（查词时进度句与点击句不一致的情况）。"""
+    if not subtitle_id or not episode_id:
+        return subtitle_id
+    from ..models import Subtitle
+
+    base = db.query(Subtitle).filter(Subtitle.id == subtitle_id, Subtitle.episode_id == episode_id).first()
+    if base and _subtitle_contains_word(base.english or "", word):
+        return subtitle_id
+
+    neighbors: list[Subtitle] = []
+    if base is not None:
+        neighbors = (
+            db.query(Subtitle)
+            .filter(
+                Subtitle.episode_id == episode_id,
+                Subtitle.index >= max(0, base.index - 3),
+                Subtitle.index <= base.index + 3,
+            )
+            .order_by(Subtitle.index.asc())
+            .all()
+        )
+    for sub in neighbors:
+        if _subtitle_contains_word(sub.english or "", word):
+            return sub.id
+
+    hit = (
+        db.query(Subtitle)
+        .filter(Subtitle.episode_id == episode_id)
+        .order_by(Subtitle.index.asc())
+        .all()
+    )
+    for sub in hit:
+        if _subtitle_contains_word(sub.english or "", word):
+            return sub.id
+    return subtitle_id
+
+
 def save_vocabulary(db: Session, user: User, data: dict) -> UserVocabularyItem:
     row = (
         db.query(UserVocabularyItem)
@@ -248,6 +303,13 @@ def save_vocabulary(db: Session, user: User, data: dict) -> UserVocabularyItem:
     article_id = data.get("article_id")
     article_ref = (data.get("article_id_str") or "").strip()
     source_type = data.get("source_type") or ("article" if article_id else "video")
+    word = (data.get("word") or "").strip()
+    subtitle_id = correct_source_subtitle_id(
+        db,
+        episode_id=data.get("episode_id"),
+        subtitle_id=data.get("subtitle_id"),
+        word=word,
+    )
 
     if row:
         if article_id:
@@ -258,7 +320,7 @@ def save_vocabulary(db: Session, user: User, data: dict) -> UserVocabularyItem:
                 row.source_video_id = article_ref
         elif data.get("episode_id"):
             row.source_episode_id = data.get("episode_id")
-            row.source_subtitle_id = data.get("subtitle_id")
+            row.source_subtitle_id = subtitle_id
             row.source_type = source_type
             if data.get("video_id"):
                 row.source_video_id = data.get("video_id")
@@ -269,10 +331,10 @@ def save_vocabulary(db: Session, user: User, data: dict) -> UserVocabularyItem:
     row = UserVocabularyItem(
         user_id=user.id,
         entry_id=data["entry_id"],
-        word=data["word"].strip(),
+        word=word,
         token_type=data.get("token_type", 1),
         source_episode_id=data.get("episode_id"),
-        source_subtitle_id=data.get("subtitle_id"),
+        source_subtitle_id=subtitle_id,
         source_article_id=article_id,
         source_segment_id=data.get("segment_id"),
         source_type=source_type,

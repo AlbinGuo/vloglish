@@ -16,6 +16,7 @@ import DifficultyStarsFilter from '@/components/catalog/DifficultyStarsFilter.vu
 import CatalogEpisodeSkeletons from '@/components/skeleton/CatalogEpisodeSkeletons.vue'
 import EpisodeCard from '@/components/EpisodeCard.vue'
 import EpisodeListRow from '@/components/EpisodeListRow.vue'
+import DailyPathCard from '@/components/ai/DailyPathCard.vue'
 import type { AuthorCatalogItem } from '@/types'
 
 defineOptions({ name: 'HomePage' })
@@ -52,13 +53,22 @@ const skeletonCount = computed(() =>
   displayViewMode.value === 'card' ? CARD_INITIAL_SIZE : LIST_INITIAL_SIZE,
 )
 
+/** 与定价页限时特惠对齐；过期后不再展示优惠句 */
+const MEMBERSHIP_PROMO_END = new Date('2026-08-08T23:59:59+08:00')
+
+const membershipPromoText = computed(() => {
+  if (Date.now() > MEMBERSHIP_PROMO_END.getTime()) return ''
+  return '永久会员限时 ¥39.9，优惠至 8 月 8 日'
+})
+
 const previewBanner = computed(() => {
   if (!auth.isLoggedIn || auth.isMember) return null
   return {
-    text: '当前为普通用户，带「会员」标识的视频需开通后观看；合集内容仅会员可学。',
+    text: '当前为普通用户，可观看最新 8 个独立视频；会员可观看全部内容及合集。',
     showLogin: false,
     showSignup: false,
     showPricing: true,
+    promo: membershipPromoText.value,
   }
 })
 
@@ -294,8 +304,15 @@ watch(
       <span>{{ previewBanner.text }}</span>
       <RouterLink v-if="previewBanner.showLogin" to="/login" class="font-medium underline">登录</RouterLink>
       <RouterLink v-if="previewBanner.showSignup" to="/signup" class="font-medium underline">注册</RouterLink>
-      <RouterLink v-if="previewBanner.showPricing" to="/pricing" class="font-medium underline">开通会员</RouterLink>
+      <template v-if="previewBanner.showPricing">
+        <RouterLink to="/pricing" class="font-medium underline">开通会员</RouterLink>
+        <span v-if="previewBanner.promo" class="text-amber-800/90 dark:text-amber-200/90">
+          （{{ previewBanner.promo }}）
+        </span>
+      </template>
     </div>
+
+    <DailyPathCard v-if="auth.isLoggedIn" class="mb-4" />
 
     <!-- 按作者分类 -->
     <template v-if="browseMode === 'author'">

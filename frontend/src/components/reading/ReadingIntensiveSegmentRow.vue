@@ -9,6 +9,7 @@ const props = defineProps<{
   segment: ArticleSegment
   articleId: string
   active?: boolean
+  emphasizeWord?: string
 }>()
 
 defineEmits<{ click: [event: MouseEvent]; activate: [] }>()
@@ -38,6 +39,7 @@ const englishHtml = computed(() =>
         :english="segment.english"
         :chinese="segment.chinese"
         :active="active"
+        :emphasize-word="emphasizeWord"
         :lookup-meta="{ article_id: articleId, segment_id: segment.id }"
         @click="$emit('click', $event)"
       />

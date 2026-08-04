@@ -12,7 +12,7 @@ from sqlalchemy import inspect, text
 from .database import DATABASE_URL, Base, SessionLocal, engine, is_postgresql
 from .models import ActivationCode
 from .schemas import AuthTokensOut
-from .routers import auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles
+from .routers import ai_coach, auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import auth as admin_auth
@@ -53,6 +53,7 @@ app.include_router(entries.router)
 app.include_router(articles.router)
 app.include_router(presence.router)
 app.include_router(membership.router)
+app.include_router(ai_coach.router)
 app.include_router(admin_auth.router)
 app.include_router(admin_dashboard.router)
 app.include_router(admin_activation_codes.router)

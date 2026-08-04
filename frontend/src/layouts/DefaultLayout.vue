@@ -11,6 +11,7 @@ import { sendPresenceHeartbeat } from '@/api/presence'
 import BrandLogo from '@/components/BrandLogo.vue'
 import ContinueLearningDropdown from '@/components/ContinueLearningDropdown.vue'
 import EpisodePublishedPopup from '@/components/EpisodePublishedPopup.vue'
+import AiQuotaExhaustedModal from '@/components/ai/AiQuotaExhaustedModal.vue'
 import FeedbackModal from '@/components/FeedbackModal.vue'
 import { useCatalogMobileHeaderHide } from '@/composables/useCatalogMobileHeaderHide'
 import { useAuthStore } from '@/stores/auth'
@@ -360,6 +361,7 @@ watch(
       </RouterView>
     </main>
     <FeedbackModal v-model:open="feedbackOpen" />
+    <AiQuotaExhaustedModal />
     <EpisodePublishedPopup
       :item="currentPopupItem"
       :items="currentPopupItems"

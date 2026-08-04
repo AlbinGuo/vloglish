@@ -17,12 +17,24 @@ const props = withDefaults(
     align?: 'left' | 'center'
     /** 设置后按词逐个点亮 #0fbb35 */
     wordHighlight?: SubtitleWordHighlight
+    /** 生词回看：短暂高亮匹配词 */
+    emphasizeWord?: string
   }>(),
   { align: 'left' },
 )
 
 const tokens = computed(() => normalizeWordSpacing(tokenizeSubtitleHtml(props.html)))
 const wordCount = computed(() => countSubtitleWords(props.html))
+const useTokenRender = computed(() => Boolean(props.wordHighlight || props.emphasizeWord?.trim()))
+
+const emphasizeParts = computed(() => {
+  const raw = (props.emphasizeWord || '').trim().toLowerCase()
+  if (!raw) return [] as string[]
+  return raw
+    .split(/\s+/)
+    .map((w) => w.replace(/[^a-z0-9'-]/gi, ''))
+    .filter(Boolean)
+})
 
 function normalizeWordSpacing(items: ReturnType<typeof tokenizeSubtitleHtml>) {
   const out: typeof items = []
@@ -35,6 +47,23 @@ function normalizeWordSpacing(items: ReturnType<typeof tokenizeSubtitleHtml>) {
     }
   }
   return out
+}
+
+function plainWord(html: string) {
+  return html
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9'-]/gi, '')
+}
+
+function isEmphasized(tokenHtml: string) {
+  const parts = emphasizeParts.value
+  if (!parts.length) return false
+  const word = plainWord(tokenHtml)
+  return Boolean(word && parts.includes(word))
 }
 
 function baseTextClasses(extra?: string) {
@@ -55,7 +84,14 @@ function textClasses(extra?: string) {
   ]
 }
 
-const wordTokens = computed(() => tokens.value.filter((token) => token.kind === 'word'))
+/** 回看强调：保持与普通 v-html 字幕相同的自然词距，不要用 flex gap */
+function emphasizeClasses() {
+  return [
+    ...baseTextClasses(),
+    'max-w-full min-w-0',
+    props.align === 'left' ? 'text-left w-full' : 'text-center w-full',
+  ]
+}
 
 function wordProgressClasses() {
   return [
@@ -74,15 +110,18 @@ function wordRead(wordIndex: number): boolean {
 
 <template>
   <span
-    v-if="wordHighlight"
-    :class="wordProgressClasses()"
+    v-if="useTokenRender"
+    :class="wordHighlight ? wordProgressClasses() : emphasizeClasses()"
     @click="$emit('click', $event)"
   >
     <template v-for="(token, i) in tokens" :key="i">
       <span
         v-if="token.kind === 'word'"
         class="subtitle-word-wrap inline"
-        :class="{ 'subtitle-word-read': wordRead(token.wordIndex) }"
+        :class="{
+          'subtitle-word-read': wordHighlight ? wordRead(token.wordIndex) : false,
+          'source-focus-word': isEmphasized(token.html),
+        }"
         v-html="token.html"
       />
       <span v-else class="whitespace-pre">{{ token.text }}</span>

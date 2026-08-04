@@ -965,6 +965,8 @@ class VocabularyItemOut(BaseModel):
     ipa: str = ""
     definition_cn: str = ""
     source_type: str = ""
+    source_subtitle_id: int | None = None
+    source_segment_id: int | None = None
 
 
 class VocabularySaveIn(BaseModel):
@@ -990,6 +992,9 @@ class WordLookupOut(BaseModel):
     episode_title: str
     is_saved: bool
     looked_up_at: str
+    subtitle_id: int | None = None
+    segment_id: int | None = None
+    article_ref: str = ""
 
 
 class WordLookupListOut(BaseModel):

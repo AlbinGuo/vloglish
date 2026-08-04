@@ -12,6 +12,8 @@ import IntensiveCoreVocabPanel from '@/components/intensive/IntensiveCoreVocabPa
 import IntensiveCoreVocabMobile from '@/components/intensive/IntensiveCoreVocabMobile.vue'
 import IntensiveModeToggle from '@/components/intensive/IntensiveModeToggle.vue'
 import SettingsButton from '@/components/SettingsButton.vue'
+import AiReadingQaSheet from '@/components/ai/AiReadingQaSheet.vue'
+import ReadingShareCard from '@/components/ai/ReadingShareCard.vue'
 import ReadingSettingsPanel from '@/components/reading/ReadingSettingsPanel.vue'
 import ReadingWordTooltipHost from '@/components/reading/ReadingWordTooltipHost.vue'
 import ReadingArticleVocabSidebar from '@/components/reading/ReadingArticleVocabSidebar.vue'
@@ -27,6 +29,7 @@ import { useReadingDualSplit } from '@/composables/useReadingDualSplit'
 import { useCoreVocabulary, type CoreVocabSource } from '@/composables/useCoreVocabulary'
 import { ARTICLE_VOCABULARY_KEY, useArticleVocabulary } from '@/composables/useArticleVocabulary'
 import { useAuthStore } from '@/stores/auth'
+import { useSourceFocusPulse } from '@/composables/useSourceFocusPulse'
 import type { EntryDetail } from '@/types'
 import { resolveReadingContext } from '@/utils/readingContext'
 import { highlightVocabLinkText, parseVocabSummary, type VocabSummaryGroup, type VocabSummaryItem } from '@/utils/vocabSummary'
@@ -34,6 +37,12 @@ import { highlightVocabLinkText, parseVocabSummary, type VocabSummaryGroup, type
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const {
+  focusId: sourceFocusId,
+  focusWord: sourceFocusWord,
+  trigger: triggerSourceFocus,
+  isFocused: isSourceFocused,
+} = useSourceFocusPulse(5000)
 
 const articleId = computed(() => route.params.articleId as string)
 const loading = ref(true)
@@ -52,7 +61,22 @@ const showEntry = ref(false)
 const entryLoading = ref(false)
 const entryError = ref('')
 const selectedEntry = ref<EntryDetail | null>(null)
+const vocabNotice = ref('')
+const vocabNoticeType = ref<'ok' | 'err' | ''>('')
+let vocabNoticeTimer: ReturnType<typeof setTimeout> | null = null
 const activeSegment = ref<ArticleSegment | null>(null)
+const aiQaOpen = ref(false)
+const shareOpen = ref(false)
+
+const shareEnglish = computed(() => {
+  const seg = segments.value[currentIndex.value]
+  return seg?.english || ''
+})
+const shareChinese = computed(() => {
+  const seg = segments.value[currentIndex.value]
+  return seg?.chinese || ''
+})
+const qaSegmentId = computed(() => segments.value[currentIndex.value]?.id ?? null)
 
 const {
   layoutMode,
@@ -148,6 +172,13 @@ function scrollToSegment(index: number, behavior: ScrollBehavior = 'smooth') {
   el?.scrollIntoView({ behavior, block: 'center' })
 }
 
+function resolveDeepLinkSegment(segmentsList: ArticleSegment[]): ArticleSegment | null {
+  const raw = route.query.segment
+  const segmentId = Number(Array.isArray(raw) ? raw[0] : raw)
+  if (!Number.isFinite(segmentId) || segmentId <= 0) return null
+  return segmentsList.find((s) => s.id === segmentId) ?? null
+}
+
 async function loadArticle() {
   loading.value = true
   error.value = ''
@@ -156,10 +187,20 @@ async function loadArticle() {
   try {
     const data = await getArticleDetail(articleId.value)
     article.value = data
-    const startIndex = data.progress?.last_segment_index ?? 0
+    const deepSeg = resolveDeepLinkSegment(data.segments || [])
+    const startIndex = deepSeg?.index ?? data.progress?.last_segment_index ?? 0
     currentIndex.value = startIndex
     await nextTick()
     scrollToSegment(startIndex, 'auto')
+    // 生词定位时再滚一次，确保双栏/异步渲染后也能对准，并触发高亮脉冲
+    if (deepSeg) {
+      const wordRaw = route.query.word
+      const word = String(Array.isArray(wordRaw) ? wordRaw[0] : wordRaw || '')
+      window.setTimeout(() => {
+        scrollToSegment(deepSeg.index, 'smooth')
+        triggerSourceFocus(deepSeg.id, word)
+      }, 120)
+    }
     startReporting()
     // 生词本后台加载，不挡住正文首屏
     void articleVocab.reload()
@@ -231,6 +272,7 @@ async function onWordClick(e: MouseEvent, segment: ArticleSegment) {
   showEntry.value = true
   entryLoading.value = true
   entryError.value = ''
+  clearVocabNotice()
   selectedEntry.value = null
 
   try {
@@ -253,20 +295,70 @@ async function onWordClick(e: MouseEvent, segment: ArticleSegment) {
   }
 }
 
+function clearVocabNotice() {
+  if (vocabNoticeTimer != null) {
+    clearTimeout(vocabNoticeTimer)
+    vocabNoticeTimer = null
+  }
+  vocabNotice.value = ''
+  vocabNoticeType.value = ''
+}
+
+function flashVocabNotice(message: string, type: 'ok' | 'err') {
+  if (vocabNoticeTimer != null) clearTimeout(vocabNoticeTimer)
+  vocabNotice.value = message
+  vocabNoticeType.value = type
+  vocabNoticeTimer = setTimeout(() => {
+    vocabNotice.value = ''
+    vocabNoticeType.value = ''
+    vocabNoticeTimer = null
+  }, 2200)
+}
+
+function closeEntryPanel() {
+  showEntry.value = false
+  clearVocabNotice()
+}
+
 async function toggleVocabulary(entry: EntryDetail) {
   if (!auth.isLoggedIn) return
+  const wasSaved = Boolean(entry.favorite)
   try {
     const saved = await articleVocab.toggle(entry, {
       segmentId: activeSegment.value?.id,
       tokenType: entry.category === '短语' ? 2 : 1,
     })
     selectedEntry.value = { ...entry, favorite: saved }
+    flashVocabNotice(saved ? '已加入生词本' : '已移出生词本', 'ok')
+    if (saved !== wasSaved) {
+      try {
+        const { useVocabularyStore } = await import('@/stores/vocabulary')
+        useVocabularyStore().invalidate()
+      } catch {
+        // ignore
+      }
+    }
   } catch {
-    entryError.value = '生词本操作失败'
+    flashVocabNotice('操作失败，请重试', 'err')
   }
 }
 
+const backFrom = computed(() => {
+  const raw = route.query.from
+  return String(Array.isArray(raw) ? raw[0] : raw || '')
+})
+const fromVocabulary = computed(() => backFrom.value === 'vocab')
+const fromLearning = computed(() => backFrom.value === 'learning')
+
 function goBack() {
+  if (fromVocabulary.value) {
+    router.push('/english/vocabulary')
+    return
+  }
+  if (fromLearning.value) {
+    router.push('/english/learning')
+    return
+  }
   router.push('/english/reading')
 }
 
@@ -299,7 +391,9 @@ watch(layoutMode, async () => {
     :class="[readingPageClass, intensivePageClass]"
   >
     <header class="shrink-0 flex items-center gap-3 px-4 py-3 bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10">
-      <button type="button" class="text-sm text-neutral-500 hover:text-black dark:hover:text-white shrink-0" @click="goBack">← 返回</button>
+      <button type="button" class="text-sm text-neutral-500 hover:text-black dark:hover:text-white shrink-0" @click="goBack">
+        {{ fromVocabulary ? '← 生词本' : fromLearning ? '← 学习统计' : '← 返回' }}
+      </button>
       <div v-if="article" class="flex-1 min-w-0">
         <p class="font-semibold truncate">{{ article.title }}</p>
         <p class="text-xs text-neutral-500 truncate">
@@ -325,6 +419,22 @@ watch(layoutMode, async () => {
       >
         词文对照
       </button>
+      <button
+        v-if="article"
+        type="button"
+        class="shrink-0 rounded-full px-3 py-1 text-xs font-medium border border-black/10 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:border-violet-400"
+        @click="aiQaOpen = true"
+      >
+        AI问答
+      </button>
+      <button
+        v-if="article"
+        type="button"
+        class="shrink-0 rounded-full px-3 py-1 text-xs font-medium border border-black/10 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:border-amber-400"
+        @click="shareOpen = true"
+      >
+        分享
+      </button>
       <IntensiveModeToggle />
       <SettingsButton class="shrink-0" @click="showSettings = true" />
     </header>
@@ -332,7 +442,9 @@ watch(layoutMode, async () => {
     <div v-if="loading" class="flex-1 flex items-center justify-center text-neutral-500">加载中...</div>
     <div v-else-if="limitError" class="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
       <p class="text-amber-800 dark:text-amber-200">{{ limitError }}</p>
-      <button type="button" class="text-sm underline" @click="goBack">返回列表</button>
+      <button type="button" class="text-sm underline" @click="goBack">
+        {{ fromVocabulary ? '返回生词本' : fromLearning ? '返回学习统计' : '返回列表' }}
+      </button>
     </div>
     <div v-else-if="error" class="flex-1 flex items-center justify-center text-red-500">{{ error }}</div>
 
@@ -370,6 +482,8 @@ watch(layoutMode, async () => {
                 :cover="article.cover"
                 :title="article.title"
                 :vocab-link-html-map="vocabLinkHtmlMap"
+                :focus-segment-id="sourceFocusId"
+                :emphasize-word="sourceFocusWord"
                 @activate="onActivateSegment"
                 @click="onWordClick"
               />
@@ -419,6 +533,7 @@ watch(layoutMode, async () => {
                       :segment="segment"
                       :article-id="articleId"
                       :active="segment.index === currentIndex"
+                      :emphasize-word="isSourceFocused(segment.id) ? sourceFocusWord : ''"
                       :vocab-link-html="vocabLinkHtmlFor(segment)"
                       @activate="onActivateSegment(segment.index)"
                       @click="onWordClick($event, segment)"
@@ -445,6 +560,7 @@ watch(layoutMode, async () => {
                     :segment="segment"
                     :article-id="articleId"
                     :active="segment.index === currentIndex"
+                    :emphasize-word="isSourceFocused(segment.id) ? sourceFocusWord : ''"
                     :vocab-link-html="vocabLinkHtmlFor(segment)"
                     @activate="onActivateSegment(segment.index)"
                     @click="onWordClick($event, segment)"
@@ -470,6 +586,7 @@ watch(layoutMode, async () => {
                   :segment="segment"
                   :article-id="articleId"
                   :active="segment.index === currentIndex"
+                  :emphasize-word="isSourceFocused(segment.id) ? sourceFocusWord : ''"
                   @activate="onActivateSegment(segment.index)"
                   @click="onWordClick($event, segment)"
                 />
@@ -505,11 +622,27 @@ watch(layoutMode, async () => {
       :loading="entryLoading"
       :error="entryError"
       :can-save-vocabulary="auth.isLoggedIn"
-      @close="showEntry = false"
+      :vocab-notice="vocabNotice"
+      :vocab-notice-type="vocabNoticeType"
+      @close="closeEntryPanel"
       @toggle-vocabulary="toggleVocabulary"
     />
 
     <ReadingSettingsPanel v-if="showSettings" @close="showSettings = false" />
+    <AiReadingQaSheet
+      :open="aiQaOpen"
+      :article-id="articleId"
+      :segment-id="qaSegmentId"
+      :segment-preview="shareEnglish"
+      @close="aiQaOpen = false"
+    />
+    <ReadingShareCard
+      :open="shareOpen"
+      :title="article?.title || ''"
+      :english="shareEnglish"
+      :chinese="shareChinese"
+      @close="shareOpen = false"
+    />
   </div>
 </template>
 

@@ -17,6 +17,7 @@ const props = withDefaults(
     showChinese?: boolean
     showIpa?: boolean
     lookupMeta?: WordLookupMeta
+    emphasizeWord?: string
   }>(),
   {
     align: 'left',
@@ -51,6 +52,7 @@ const displayChinese = computed(() => stripSpeakerMarkers(props.chinese))
       :active="active"
       :large="large"
       :align="align"
+      :emphasize-word="emphasizeWord"
       @click="$emit('click', $event)"
     />
     <p

@@ -41,6 +41,11 @@ from ..services.learning import (
     start_learning_session,
     update_episode_progress,
 )
+from ..services.vocab_list_cache import (
+    get_vocab_list_cache,
+    invalidate_vocab_list_cache,
+    set_vocab_list_cache,
+)
 
 router = APIRouter(prefix="/api/learning", tags=["learning"])
 
@@ -69,20 +74,74 @@ def _episode_title_map(db: Session, episode_ids: set[int]) -> dict[int, str]:
     return {r[0]: r[1] for r in rows}
 
 
-def _vocabulary_item_out(db: Session, row: UserVocabularyItem, title: str) -> VocabularyItemOut:
+def _resolve_vocab_source_ref(
+    db: Session,
+    row: UserVocabularyItem,
+    *,
+    episode_video_ids: dict[int, str] | None = None,
+    article_refs: dict[int, str] | None = None,
+) -> tuple[str, str]:
+    """返回 (source_type, source_ref)。source_ref 为 video_id 或 article_id 字符串。"""
+    source_type = (row.source_type or "").strip()
+    if not source_type:
+        source_type = "article" if row.source_article_id else "video"
+
+    ref = (row.source_video_id or "").strip()
+    if source_type == "article":
+        if row.source_article_id:
+            resolved = (
+                article_refs.get(row.source_article_id, "")
+                if article_refs is not None
+                else ""
+            )
+            if not resolved and article_refs is None:
+                art = db.query(Article.article_id).filter(Article.id == row.source_article_id).first()
+                resolved = art[0] if art else ""
+            if resolved:
+                ref = resolved
+        return "article", ref
+
+    # 视频来源优先用 episode.video_id，避免历史脏数据
+    if row.source_episode_id:
+        resolved = (
+            episode_video_ids.get(row.source_episode_id, "")
+            if episode_video_ids is not None
+            else ""
+        )
+        if not resolved and episode_video_ids is None:
+            ep = db.query(Episode.video_id).filter(Episode.id == row.source_episode_id).first()
+            resolved = ep[0] if ep else ""
+        if resolved:
+            ref = resolved
+    return "video", ref
+
+
+def _vocabulary_item_out(
+    db: Session,
+    row: UserVocabularyItem,
+    title: str,
+    *,
+    episode_video_ids: dict[int, str] | None = None,
+    article_refs: dict[int, str] | None = None,
+) -> VocabularyItemOut:
     exam_tags, ipa, definition_cn = entry_vocab_extras(db, row.entry_id)
+    source_type, source_ref = _resolve_vocab_source_ref(
+        db, row, episode_video_ids=episode_video_ids, article_refs=article_refs
+    )
     return VocabularyItemOut(
         id=row.id,
         entry_id=row.entry_id,
         word=row.word,
         token_type=row.token_type,
-        source_video_id=row.source_video_id,
+        source_video_id=source_ref,
         source_episode_title=title,
         created_at=_fmt_dt(row.created_at),
         exam_tags=exam_tags,
         ipa=ipa,
         definition_cn=definition_cn,
-        source_type=row.source_type or "",
+        source_type=source_type,
+        source_subtitle_id=row.source_subtitle_id,
+        source_segment_id=row.source_segment_id,
     )
 
 
@@ -171,10 +230,15 @@ def list_vocabulary(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    cached = get_vocab_list_cache(user.id, article_ref)
+    if cached is not None:
+        return cached
+
     q = db.query(UserVocabularyItem).filter(UserVocabularyItem.user_id == user.id)
     if article_ref:
         art = db.query(Article).filter(Article.article_id == article_ref.strip()).first()
         if not art:
+            set_vocab_list_cache(user.id, [], article_ref)
             return []
         q = q.filter(UserVocabularyItem.source_article_id == art.id)
     rows = q.order_by(UserVocabularyItem.created_at.desc()).all()
@@ -182,15 +246,33 @@ def list_vocabulary(
         rows = dedupe_vocabulary_by_word(rows)
     ep_ids = {r.source_episode_id for r in rows if r.source_episode_id}
     titles = _episode_title_map(db, ep_ids)
+    episode_video_ids: dict[int, str] = {}
+    if ep_ids:
+        for ep_id, video_id in db.query(Episode.id, Episode.video_id).filter(Episode.id.in_(ep_ids)).all():
+            episode_video_ids[ep_id] = video_id
     art_ids = {r.source_article_id for r in rows if r.source_article_id}
     art_titles: dict[int, str] = {}
+    article_refs: dict[int, str] = {}
     if art_ids:
-        for art_id, art_title in db.query(Article.id, Article.title).filter(Article.id.in_(art_ids)).all():
+        for art_id, art_title, art_ref in (
+            db.query(Article.id, Article.title, Article.article_id).filter(Article.id.in_(art_ids)).all()
+        ):
             art_titles[art_id] = art_title
+            article_refs[art_id] = art_ref
     result: list[VocabularyItemOut] = []
     for r in rows:
         title = titles.get(r.source_episode_id or 0, "") or art_titles.get(r.source_article_id or 0, "")
-        result.append(_vocabulary_item_out(db, r, title))
+        result.append(
+            _vocabulary_item_out(
+                db,
+                r,
+                title,
+                episode_video_ids=episode_video_ids,
+                article_refs=article_refs,
+            )
+        )
+    payload = [item.model_dump() for item in result]
+    set_vocab_list_cache(user.id, payload, article_ref)
     return result
 
 
@@ -226,6 +308,7 @@ def add_vocabulary(
             "article_id_str": body.article_ref.strip(),
         },
     )
+    invalidate_vocab_list_cache(user.id)
     title = ""
     if row.source_episode_id:
         ep = db.query(Episode).filter(Episode.id == row.source_episode_id).first()
@@ -244,6 +327,7 @@ def delete_vocabulary(
 ):
     if not remove_vocabulary(db, user.id, entry_id):
         raise HTTPException(status_code=404, detail="生词不存在")
+    invalidate_vocab_list_cache(user.id)
     return {"success": True}
 
 
@@ -269,6 +353,15 @@ def list_lookups(
     page_rows = deduped[start : start + page_size]
     ep_ids = {r.episode_id for r in page_rows if r.episode_id}
     titles = _episode_title_map(db, ep_ids)
+    art_ids = {r.article_id for r in page_rows if r.article_id}
+    art_refs: dict[int, str] = {}
+    art_titles: dict[int, str] = {}
+    if art_ids:
+        for art_id, art_ref, art_title in (
+            db.query(Article.id, Article.article_id, Article.title).filter(Article.id.in_(art_ids)).all()
+        ):
+            art_refs[art_id] = art_ref
+            art_titles[art_id] = art_title
     saved_ids = {
         v[0]
         for v in db.query(UserVocabularyItem.entry_id)
@@ -285,9 +378,12 @@ def list_lookups(
                 token_type=r.token_type,
                 context=r.context,
                 video_id=r.video_id,
-                episode_title=titles.get(r.episode_id or 0, ""),
+                episode_title=titles.get(r.episode_id or 0, "") or art_titles.get(r.article_id or 0, ""),
                 is_saved=r.entry_id in saved_ids,
                 looked_up_at=_fmt_dt(r.looked_up_at),
+                subtitle_id=r.subtitle_id,
+                segment_id=r.segment_id,
+                article_ref=art_refs.get(r.article_id or 0, ""),
             )
             for r in page_rows
         ],

@@ -19,6 +19,7 @@ const props = withDefaults(
     active?: boolean
     large?: boolean
     align?: 'left' | 'center'
+    emphasizeWord?: string
   }>(),
   { align: 'left' },
 )
@@ -27,6 +28,28 @@ defineEmits<{ click: [event: MouseEvent] }>()
 
 const tokens = computed(() => tokenizeForIntensive(props.html))
 const glossMap = ref<Map<string, GlossInfo>>(new Map())
+
+const emphasizeParts = computed(() => {
+  const raw = (props.emphasizeWord || '').trim().toLowerCase()
+  if (!raw) return [] as string[]
+  return raw
+    .split(/\s+/)
+    .map((w) => w.replace(/[^a-z0-9'-]/gi, ''))
+    .filter(Boolean)
+})
+
+function plainWord(html: string) {
+  return wordFromTokenHtml(html)
+    .toLowerCase()
+    .replace(/[^a-z0-9'-]/gi, '')
+}
+
+function isEmphasized(tokenHtml: string) {
+  const parts = emphasizeParts.value
+  if (!parts.length) return false
+  const word = plainWord(tokenHtml)
+  return Boolean(word && parts.includes(word))
+}
 
 const rootClass = computed(() => [
   'intensive-english subtitle-english pointer-events-auto leading-relaxed font-medium',
@@ -103,7 +126,11 @@ function glossFor(html: string): GlossInfo | undefined {
         v-else-if="isHighlightTokenHtml(token.html)"
         class="intensive-gloss-unit"
       >
-        <span class="intensive-gloss-word" v-html="token.html" />
+        <span
+          class="intensive-gloss-word"
+          :class="{ 'source-focus-word': isEmphasized(token.html) }"
+          v-html="token.html"
+        />
         <span
           class="intensive-gloss-cn"
           :class="glossFor(token.html)?.loading ? 'opacity-40 animate-pulse' : ''"
@@ -111,7 +138,12 @@ function glossFor(html: string): GlossInfo | undefined {
           {{ glossFor(token.html)?.gloss || '…' }}
         </span>
       </span>
-      <span v-else class="intensive-plain-token" v-html="token.html" />
+      <span
+        v-else
+        class="intensive-plain-token"
+        :class="{ 'source-focus-word': isEmphasized(token.html) }"
+        v-html="token.html"
+      />
     </template>
   </div>
 </template>

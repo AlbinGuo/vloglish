@@ -5,7 +5,7 @@ from .models import DemoCode, Episode
 from .episode_visibility import can_view_published_episode, published_visibility_filter
 
 # 普通用户（含未登录按「无会员」处理时）首页单集列表可见数量；会员为不限
-DEFAULT_FREE_EPISODE_LIMIT = 4
+DEFAULT_FREE_EPISODE_LIMIT = 8
 
 
 def free_episode_limit() -> int:

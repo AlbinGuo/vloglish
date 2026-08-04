@@ -88,6 +88,13 @@ api.interceptors.response.use(
       return Promise.reject(error)
     }
 
+    // 普通用户 AI 日额度用尽 → 弹窗确认（不强制跳转）
+    if (error.response?.status === 403 && typeof detail === 'string' && detail.includes('AI 次数已用完')) {
+      const { promptIfAiQuotaExhausted } = await import('@/utils/aiQuotaGate')
+      await promptIfAiQuotaExhausted(error)
+      return Promise.reject(error)
+    }
+
     if (!original || error.response?.status !== 401 || original._authRetry) {
       return Promise.reject(error)
     }

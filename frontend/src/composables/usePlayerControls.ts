@@ -182,23 +182,26 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
   function seekTo(sub: Subtitle) {
-
-    const v = getVideo()
-
-    if (!v) return
-
     clearSentenceLoopTimer()
 
+    // 按 id 定位，避免 sortedSubs 重算后 indexOf 引用失效变成 -1
+    const idx = opts.sortedSubs.value.findIndex((s) => s.id === sub.id)
+    if (idx >= 0) {
+      opts.currentIndex.value = idx
+      opts.onIndexChange?.(idx)
+    }
+
+    const v = getVideo()
+    if (!v) {
+      // 播放器未挂载时仍更新当前句，视频就绪后再靠 currentTime 对齐
+      currentTime.value = sub.start
+      sentenceLoopsDone.value = 0
+      return
+    }
+
     v.currentTime = sub.start
-
     currentTime.value = sub.start
-
-    opts.currentIndex.value = opts.sortedSubs.value.indexOf(sub)
-
-    opts.onIndexChange?.(opts.currentIndex.value)
-
     sentenceLoopsDone.value = 0
-
   }
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import urllib.error
 import urllib.request
@@ -9,6 +10,45 @@ import urllib.request
 from .config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL
 
 logger = logging.getLogger(__name__)
+
+
+def _deepseek_proxy_url() -> str | None:
+    for key in (
+        "DEEPSEEK_PROXY",
+        "HTTPS_PROXY",
+        "HTTP_PROXY",
+        "https_proxy",
+        "http_proxy",
+        "YT_DLP_PROXY",
+    ):
+        val = (os.getenv(key) or "").strip()
+        if val:
+            return val
+    return None
+
+
+def _deepseek_urlopen(req: urllib.request.Request, *, timeout: int):
+    proxy = _deepseek_proxy_url()
+    if proxy:
+        opener = urllib.request.build_opener(
+            urllib.request.ProxyHandler({"http": proxy, "https": proxy})
+        )
+        return opener.open(req, timeout=timeout)
+    return urllib.request.urlopen(req, timeout=timeout)
+
+
+def _deepseek_connect_error(exc: urllib.error.URLError) -> RuntimeError:
+    reason = getattr(exc, "reason", None) or exc
+    proxy = _deepseek_proxy_url()
+    if proxy:
+        hint = f"当前代理 {proxy}，请确认代理软件已开启且端口一致后重启后端。"
+    else:
+        hint = (
+            "本机直连 api.deepseek.com 失败。请在 backend/.env 配置 "
+            "DEEPSEEK_PROXY=http://127.0.0.1:端口（Clash/V2Ray 的 HTTP 端口），"
+            "开启代理后重启后端。"
+        )
+    return RuntimeError(f"无法连接 DeepSeek API（{reason}）。{hint}")
 
 VALID_EXAM_TAGS = frozenset({"CET4", "CET6", "TEM4", "TEM8", "TOEFL", "IELTS", "GRE"})
 
@@ -198,6 +238,36 @@ def _normalize_entry(raw: dict, entry_id: int) -> dict:
     }
 
 
+def _apply_thinking(body: dict, thinking: bool | None) -> None:
+    """V4 Flash/Pro 默认开启 thinking；结构化短任务应显式关闭，否则易耗尽 max_tokens 导致 content 为空。"""
+    if thinking is None:
+        return
+    body["thinking"] = {"type": "enabled" if thinking else "disabled"}
+
+
+def _message_content(payload: dict) -> str:
+    try:
+        choice = payload["choices"][0]
+        message = choice.get("message") or {}
+        content = message.get("content")
+        finish = choice.get("finish_reason")
+    except (KeyError, IndexError, TypeError) as exc:
+        raise RuntimeError(f"DeepSeek 响应结构异常：{exc}") from exc
+
+    text = (content or "").strip() if isinstance(content, str) else ""
+    if text:
+        return content if isinstance(content, str) else text
+
+    reasoning = message.get("reasoning_content") if isinstance(message, dict) else None
+    has_reasoning = isinstance(reasoning, str) and reasoning.strip()
+    if finish == "length" or has_reasoning:
+        raise RuntimeError(
+            "DeepSeek 思考过程耗尽输出额度，未返回正文。"
+            "请关闭 thinking 或提高 max_tokens 后重试。"
+        )
+    raise RuntimeError("DeepSeek 返回空内容，无法解析 JSON")
+
+
 def _chat_completion(
     *,
     system: str,
@@ -205,6 +275,8 @@ def _chat_completion(
     response_format: dict | None = None,
     temperature: float = 0.3,
     timeout: int = 60,
+    max_tokens: int | None = None,
+    thinking: bool | None = None,
 ) -> str:
     if not DEEPSEEK_API_KEY:
         raise RuntimeError("未配置 DEEPSEEK_API_KEY，请在 backend/.env 中设置")
@@ -219,6 +291,9 @@ def _chat_completion(
     }
     if response_format:
         body["response_format"] = response_format
+    if max_tokens is not None:
+        body["max_tokens"] = int(max_tokens)
+    _apply_thinking(body, thinking)
 
     req = urllib.request.Request(
         f"{DEEPSEEK_BASE_URL}/chat/completions",
@@ -231,7 +306,7 @@ def _chat_completion(
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with _deepseek_urlopen(req, timeout=timeout) as resp:
             raw_body = resp.read().decode()
             try:
                 payload = json.loads(raw_body)
@@ -253,12 +328,92 @@ def _chat_completion(
         raise RuntimeError(f"DeepSeek 请求失败 (HTTP {e.code}){hint}") from e
     except urllib.error.URLError as e:
         logger.error("DeepSeek network error: %s", e)
-        raise RuntimeError("无法连接 DeepSeek API") from e
+        raise _deepseek_connect_error(e) from e
+
+    return _message_content(payload)
+
+
+def _chat_completion_stream(
+    *,
+    system: str,
+    user: str,
+    response_format: dict | None = None,
+    temperature: float = 0.3,
+    timeout: int = 90,
+    max_tokens: int | None = None,
+    thinking: bool | None = None,
+):
+    """Yield content delta strings from DeepSeek SSE stream."""
+    if not DEEPSEEK_API_KEY:
+        raise RuntimeError("未配置 DEEPSEEK_API_KEY，请在 backend/.env 中设置")
+
+    body: dict = {
+        "model": DEEPSEEK_MODEL,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "temperature": temperature,
+        "stream": True,
+    }
+    if response_format:
+        body["response_format"] = response_format
+    if max_tokens is not None:
+        body["max_tokens"] = int(max_tokens)
+    _apply_thinking(body, thinking)
+
+    req = urllib.request.Request(
+        f"{DEEPSEEK_BASE_URL}/chat/completions",
+        data=json.dumps(body).encode(),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+            "Accept": "text/event-stream",
+        },
+        method="POST",
+    )
 
     try:
-        return payload["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError) as exc:
-        raise RuntimeError(f"DeepSeek 响应结构异常：{exc}") from exc
+        with _deepseek_urlopen(req, timeout=timeout) as resp:
+            while True:
+                raw_line = resp.readline()
+                if not raw_line:
+                    break
+                line = raw_line.decode("utf-8", errors="replace").strip()
+                if not line or line.startswith(":"):
+                    continue
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    payload = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                try:
+                    delta = payload["choices"][0].get("delta") or {}
+                    piece = delta.get("content")
+                except (KeyError, IndexError, TypeError):
+                    continue
+                if piece:
+                    yield str(piece)
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode()
+        logger.error("DeepSeek stream HTTP %s: %s", e.code, detail)
+        hint = ""
+        try:
+            err = json.loads(detail).get("error") or {}
+            msg = str(err.get("message") or "").strip()
+            if msg:
+                hint = f"：{msg}"
+        except Exception:
+            if detail.strip():
+                hint = f"：{detail.strip()[:240]}"
+        raise RuntimeError(f"DeepSeek 请求失败 (HTTP {e.code}){hint}") from e
+    except urllib.error.URLError as e:
+        logger.error("DeepSeek stream network error: %s", e)
+        raise _deepseek_connect_error(e) from e
 
 
 TRANSLATE_SYSTEM_PROMPT = """你是专业英中字幕翻译。将用户提供的英文字幕行逐条翻译成自然、准确的中文，适合英语学习场景。

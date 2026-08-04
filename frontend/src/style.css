@@ -18,6 +18,24 @@ body {
   min-height: 100dvh;
 }
 
+/* 生词本「回看」：只标目标词描边闪烁，段落样式完全不动 */
+.source-focus-word {
+  border-radius: 0.15rem;
+  outline: 2px solid rgb(245 158 11);
+  outline-offset: 2px;
+  animation: source-focus-word-blink 0.9s ease-in-out 3;
+}
+
+@keyframes source-focus-word-blink {
+  0%,
+  100% {
+    outline-color: rgb(245 158 11 / 0.25);
+  }
+  50% {
+    outline-color: rgb(245 158 11);
+  }
+}
+
 /* 移动端：禁止双指/双击缩放（配合 viewport meta） */
 @media (max-width: 1023px) {
   html {

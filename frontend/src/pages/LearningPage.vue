@@ -3,8 +3,16 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import LearningHeatmapChart from '@/components/charts/LearningHeatmapChart.vue'
 import LearningStatCard from '@/components/learning/LearningStatCard.vue'
+import DailyPathCard from '@/components/ai/DailyPathCard.vue'
 import { useIsPhone } from '@/composables/useBreakpoint'
-import { getLearningCalendar, getLearningSummary, getLookupHistory, type WordLookupRecord } from '@/api/learning'
+import {
+  getLearningCalendar,
+  getLearningSummary,
+  getLookupHistory,
+  saveVocabulary,
+  type WordLookupRecord,
+} from '@/api/learning'
+import { useVocabularyStore } from '@/stores/vocabulary'
 
 const isPhone = useIsPhone()
 
@@ -12,6 +20,21 @@ const loading = ref(true)
 const summary = ref<Awaited<ReturnType<typeof getLearningSummary>> | null>(null)
 const calendar = ref<{ date: string; watch_time_sec: number; sessions: number }[]>([])
 const lookupHistory = ref<WordLookupRecord[]>([])
+const savingIds = ref<Set<number>>(new Set())
+const saveError = ref('')
+
+const LOOKUP_DISPLAY_LIMIT = 12
+
+/** 未收藏优先，最多展示 N 条；若全已收藏则展示最近若干条已收藏 */
+const displayLookups = computed(() => {
+  const rows = [...lookupHistory.value]
+  const unsaved = rows.filter((r) => !r.is_saved)
+  if (unsaved.length) return unsaved.slice(0, LOOKUP_DISPLAY_LIMIT)
+  return rows.slice(0, Math.min(5, LOOKUP_DISPLAY_LIMIT))
+})
+
+const unsavedCount = computed(() => lookupHistory.value.filter((r) => !r.is_saved).length)
+const showingUnsavedOnly = computed(() => unsavedCount.value > 0)
 
 function formatDuration(sec: number) {
   const h = Math.floor(sec / 3600)
@@ -81,6 +104,57 @@ const statCards = computed(() => {
   return cards
 })
 
+function lookupSourcePath(item: WordLookupRecord) {
+  const query: Record<string, string> = { from: 'learning' }
+  if (item.word) query.word = item.word
+  const articleRef = (item.article_ref || '').trim()
+  if (articleRef) {
+    if (item.segment_id) query.segment = String(item.segment_id)
+    return `/english/reading/${articleRef}?${new URLSearchParams(query).toString()}`
+  }
+  const videoId = (item.video_id || '').trim()
+  if (!videoId) return ''
+  if (item.subtitle_id) query.subtitle = String(item.subtitle_id)
+  return `/english/episode/${videoId}?${new URLSearchParams(query).toString()}`
+}
+
+async function addToVocabulary(item: WordLookupRecord) {
+  if (item.is_saved || savingIds.value.has(item.id)) return
+  saveError.value = ''
+  const next = new Set(savingIds.value)
+  next.add(item.id)
+  savingIds.value = next
+  try {
+    const articleRef = (item.article_ref || '').trim()
+    await saveVocabulary({
+      entry_id: item.entry_id,
+      word: item.word,
+      token_type: item.token_type || 1,
+      video_id: articleRef ? undefined : item.video_id || undefined,
+      subtitle_id: item.subtitle_id ?? undefined,
+      article_ref: articleRef || undefined,
+      segment_id: item.segment_id ?? undefined,
+      source_type: articleRef ? 'article' : 'video',
+    })
+    lookupHistory.value = lookupHistory.value.map((row) =>
+      row.id === item.id || row.entry_id === item.entry_id ? { ...row, is_saved: true } : row,
+    )
+    if (summary.value) {
+      summary.value = {
+        ...summary.value,
+        vocabulary_count: summary.value.vocabulary_count + 1,
+      }
+    }
+    useVocabularyStore().invalidate()
+  } catch {
+    saveError.value = '加入生词本失败，请重试'
+  } finally {
+    const done = new Set(savingIds.value)
+    done.delete(item.id)
+    savingIds.value = done
+  }
+}
+
 onMounted(async () => {
   try {
     const [s, days, lookups] = await Promise.all([
@@ -90,7 +164,11 @@ onMounted(async () => {
     ])
     summary.value = s
     calendar.value = days
-    lookupHistory.value = lookups.results.slice(0, 30)
+    // 未收藏靠前
+    lookupHistory.value = [...lookups.results].sort((a, b) => {
+      if (a.is_saved === b.is_saved) return 0
+      return a.is_saved ? 1 : -1
+    })
   } finally {
     loading.value = false
   }
@@ -98,7 +176,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="page-container py-6 max-w-3xl space-y-6">
+  <div class="page-container py-6 max-w-4xl space-y-6">
     <div class="flex items-center justify-between gap-3">
       <div class="flex items-center gap-3 text-sm">
         <RouterLink to="/english" class="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">← 返回目录</RouterLink>
@@ -113,6 +191,8 @@ onMounted(async () => {
         生词本
       </RouterLink>
     </div>
+
+    <DailyPathCard />
 
     <div v-if="loading" class="text-neutral-500 text-sm">加载中...</div>
 
@@ -135,29 +215,80 @@ onMounted(async () => {
       </section>
 
       <section class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-5">
-        <h2 class="font-medium mb-4">最近查词</h2>
-        <div v-if="!lookupHistory.length" class="text-sm text-neutral-400 text-center py-6">暂无查词记录</div>
-        <ul v-else class="space-y-2">
-          <li
-            v-for="item in lookupHistory"
-            :key="item.id"
-            class="flex items-start justify-between gap-3 rounded-lg border border-black/5 dark:border-white/10 px-3 py-2"
+        <div class="flex items-start justify-between gap-3 mb-1">
+          <div class="min-w-0">
+            <h2 class="font-medium">
+              {{ showingUnsavedOnly ? '查过未收藏' : '最近查词' }}
+            </h2>
+            <p class="text-xs text-neutral-400 mt-1">
+              <template v-if="showingUnsavedOnly">
+                查过但还没进生词本的词，一键补收藏；共 {{ unsavedCount }} 个
+              </template>
+              <template v-else>
+                最近查过的词都已在生词本
+              </template>
+            </p>
+          </div>
+          <RouterLink
+            to="/english/vocabulary"
+            class="shrink-0 text-xs text-amber-700 dark:text-amber-400 hover:underline"
           >
-            <div class="min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="font-medium text-sm">{{ item.word }}</span>
-                <span v-if="item.is_saved" class="text-[10px] text-amber-700 dark:text-amber-400">生词</span>
-              </div>
-              <p class="text-xs text-neutral-400 line-clamp-1 mt-0.5">{{ item.context }}</p>
-              <p v-if="item.episode_title" class="text-[11px] text-neutral-400 mt-0.5">{{ item.episode_title }}</p>
+            生词本
+          </RouterLink>
+        </div>
+
+        <p v-if="saveError" class="text-xs text-red-600 dark:text-red-400 mt-2 mb-1">{{ saveError }}</p>
+
+        <div v-if="!displayLookups.length" class="text-sm text-neutral-400 text-center py-6">
+          暂无查词记录
+        </div>
+        <ul v-else class="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+          <li
+            v-for="item in displayLookups"
+            :key="item.id"
+            class="rounded-xl border border-black/5 dark:border-white/10 bg-neutral-50/80 dark:bg-neutral-950/40 p-3 flex flex-col min-h-[7.5rem]"
+            :class="item.is_saved ? 'opacity-70' : ''"
+          >
+            <div class="flex items-start justify-between gap-1.5 min-w-0">
+              <p class="font-medium text-[15px] leading-snug text-neutral-900 dark:text-neutral-100 break-words">
+                {{ item.word }}
+              </p>
+              <span
+                v-if="item.is_saved"
+                class="shrink-0 text-[10px] text-amber-700 dark:text-amber-400 mt-0.5"
+              >已收藏</span>
             </div>
-            <RouterLink
-              v-if="item.video_id"
-              :to="`/english/episode/${item.video_id}`"
-              class="shrink-0 text-xs text-amber-700 dark:text-amber-400 hover:underline"
+            <p
+              v-if="item.context"
+              class="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2 leading-relaxed"
             >
-              回看
-            </RouterLink>
+              {{ item.context }}
+            </p>
+            <p
+              v-if="item.episode_title"
+              class="mt-1 text-[11px] text-neutral-400 truncate"
+              :title="item.episode_title"
+            >
+              {{ item.episode_title }}
+            </p>
+            <div class="mt-auto pt-2.5 flex items-center gap-2.5">
+              <button
+                v-if="!item.is_saved"
+                type="button"
+                class="text-[11px] font-medium text-amber-800 dark:text-amber-300 hover:underline disabled:opacity-50"
+                :disabled="savingIds.has(item.id)"
+                @click="addToVocabulary(item)"
+              >
+                {{ savingIds.has(item.id) ? '加入中…' : '加入' }}
+              </button>
+              <RouterLink
+                v-if="lookupSourcePath(item)"
+                :to="lookupSourcePath(item)"
+                class="text-[11px] text-neutral-500 dark:text-neutral-400 hover:text-amber-700 dark:hover:text-amber-400 hover:underline"
+              >
+                回看
+              </RouterLink>
+            </div>
           </li>
         </ul>
       </section>

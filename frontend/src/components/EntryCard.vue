@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, inject } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import type { EntryDetail } from '@/types'
 import { READING_TTS_KEY } from '@/composables/useReadingTts'
 import { posLabel } from '@/utils/posLabel'
@@ -11,11 +12,16 @@ const props = defineProps<{
   loading?: boolean
   error?: string
   canSaveVocabulary?: boolean
+  /** 收藏操作短时提示文案 */
+  vocabNotice?: string
+  /** ok=成功，err=失败 */
+  vocabNoticeType?: 'ok' | 'err' | ''
 }>()
 
 const emit = defineEmits<{ close: []; toggleVocabulary: [entry: EntryDetail] }>()
 
 const readingTts = inject(READING_TTS_KEY, null)
+const starPulse = ref(false)
 
 const primaryPron = computed(() => {
   const list = props.entry?.pronunciations ?? []
@@ -23,6 +29,25 @@ const primaryPron = computed(() => {
 })
 
 const examTags = computed(() => formatExamTags(props.entry?.exam_tags ?? []))
+
+const showVocabViewLink = computed(
+  () => props.vocabNoticeType === 'ok' && Boolean(props.entry?.favorite) && Boolean(props.vocabNotice),
+)
+
+watch(
+  () => [props.vocabNotice, props.vocabNoticeType] as const,
+  ([notice, type]) => {
+    if (notice && type === 'ok') {
+      starPulse.value = false
+      requestAnimationFrame(() => {
+        starPulse.value = true
+        window.setTimeout(() => {
+          starPulse.value = false
+        }, 450)
+      })
+    }
+  },
+)
 
 function playPronunciation() {
   if (!props.entry) return
@@ -93,7 +118,10 @@ function onToggleVocabulary() {
                 v-if="canSaveVocabulary"
                 type="button"
                 class="shrink-0 transition-colors"
-                :class="entry.favorite ? 'text-amber-400 hover:text-amber-500' : 'text-neutral-300 hover:text-amber-400'"
+                :class="[
+                  entry.favorite ? 'text-amber-400 hover:text-amber-500' : 'text-neutral-300 hover:text-amber-400',
+                  starPulse ? 'entry-vocab-star-pulse' : '',
+                ]"
                 :aria-label="entry.favorite ? '移出生词本' : '加入生词本'"
                 @click="onToggleVocabulary"
               >
@@ -116,6 +144,23 @@ function onToggleVocabulary() {
               {{ entry.category }}
             </span>
           </div>
+
+          <p
+            v-if="vocabNotice"
+            class="mt-2 text-xs leading-none flex items-center gap-2 transition-opacity"
+            :class="vocabNoticeType === 'err' ? 'text-red-600 dark:text-red-400' : 'text-amber-700 dark:text-amber-300'"
+            role="status"
+          >
+            <span>{{ vocabNotice }}</span>
+            <RouterLink
+              v-if="showVocabViewLink"
+              to="/english/vocabulary"
+              class="underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-200"
+              @click="emit('close')"
+            >
+              查看
+            </RouterLink>
+          </p>
 
           <div v-if="examTags.length" class="flex flex-wrap gap-1.5 mt-2">
             <span
@@ -180,3 +225,21 @@ function onToggleVocabulary() {
     </div>
   </div>
 </template>
+
+<style scoped>
+@keyframes entry-vocab-star-pulse {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.28);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.entry-vocab-star-pulse {
+  animation: entry-vocab-star-pulse 0.45s ease-out;
+}
+</style>

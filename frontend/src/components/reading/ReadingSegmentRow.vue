@@ -12,6 +12,8 @@ const props = defineProps<{
   segment: ArticleSegment
   articleId: string
   active?: boolean
+  /** 生词回看：短暂高亮匹配词 */
+  emphasizeWord?: string
   /** 词文对照模式下的高亮 HTML（优先于 english_html） */
   vocabLinkHtml?: string
 }>()
@@ -25,7 +27,9 @@ const englishHtml = computed(() => {
   if (props.vocabLinkHtml) return props.vocabLinkHtml
   return preprocessSubtitleHtml(props.segment.english_html || props.segment.english)
 })
-const useHtml = computed(() => Boolean(props.vocabLinkHtml || props.segment.english_html))
+const useHtml = computed(() =>
+  Boolean(props.vocabLinkHtml || props.segment.english_html || props.segment.english),
+)
 </script>
 
 <template>
@@ -47,6 +51,7 @@ const useHtml = computed(() => Boolean(props.vocabLinkHtml || props.segment.engl
         v-if="useHtml"
         :html="englishHtml"
         align="left"
+        :emphasize-word="emphasizeWord"
         @click="$emit('click', $event)"
       />
       <p

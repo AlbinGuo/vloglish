@@ -17,6 +17,8 @@ const props = withDefaults(
     align?: SubtitleAlign
     chineseFocus?: boolean
     wordHighlight?: SubtitleWordHighlight
+    /** 生词回看：短暂高亮匹配词 */
+    emphasizeWord?: string
   }>(),
   { align: 'left', chineseFocus: false },
 )
@@ -70,6 +72,7 @@ function chineseClasses() {
       :large="large"
       :align="align"
       :word-highlight="wordHighlight"
+      :emphasize-word="emphasizeWord"
       @click="$emit('click', $event)"
     />
     <p v-if="showChinese && displayChinese" class="subtitle-chinese max-w-full break-words" :class="chineseClasses()">

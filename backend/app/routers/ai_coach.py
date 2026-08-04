@@ -1,0 +1,153 @@
+import json
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+from ..database import get_db
+from ..deps import get_current_user, get_device_id
+from ..models import User
+from ..services import ai_coach as coach
+
+router = APIRouter(prefix="/api/ai", tags=["ai-coach"])
+
+
+class ExplainIn(BaseModel):
+    video_id: str = Field(min_length=1, max_length=32)
+    subtitle_id: int
+    force: bool = False
+
+
+class ClozeIn(BaseModel):
+    video_id: str = Field(min_length=1, max_length=32)
+    subtitle_id: int
+    force: bool = False
+
+
+class ShadowingIn(BaseModel):
+    video_id: str = Field(min_length=1, max_length=32)
+    subtitle_id: int
+    transcript: str = ""
+
+
+class ReadingQaIn(BaseModel):
+    article_id: str = Field(min_length=1, max_length=32)
+    segment_id: int | None = None
+    question: str = ""
+
+
+@router.post("/explain-subtitle/")
+def explain_subtitle(
+    body: ExplainIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return coach.explain_subtitle(
+        db,
+        user,
+        video_id=body.video_id,
+        subtitle_id=body.subtitle_id,
+        force=body.force,
+    )
+
+
+@router.post("/explain-subtitle/stream/")
+def explain_subtitle_stream(
+    body: ExplainIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """SSE：meta → field* → done（或 error）。命中缓存时几乎瞬时推完。"""
+
+    def event_gen():
+        for event in coach.explain_subtitle_stream(
+            db,
+            user,
+            video_id=body.video_id,
+            subtitle_id=body.subtitle_id,
+            force=body.force,
+        ):
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/generate-cloze/")
+def generate_cloze(
+    body: ClozeIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return coach.cloze_for_subtitle(
+        db,
+        user,
+        video_id=body.video_id,
+        subtitle_id=body.subtitle_id,
+        force=body.force,
+    )
+
+
+@router.post("/shadowing-feedback/")
+def shadowing(
+    body: ShadowingIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return coach.shadowing_for_subtitle(
+        db,
+        user,
+        video_id=body.video_id,
+        subtitle_id=body.subtitle_id,
+        transcript=body.transcript,
+    )
+
+
+@router.get("/daily-path/")
+def daily_path(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return coach.daily_learning_path(db, user)
+
+
+@router.post("/reading-qa/")
+def reading_qa(
+    body: ReadingQaIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    device_id: str = Depends(get_device_id),
+):
+    return coach.article_qa(
+        db,
+        user,
+        article_id=body.article_id,
+        segment_id=body.segment_id,
+        question=body.question,
+        device_id=device_id,
+    )
+
+
+@router.get("/vocab-review/")
+def vocab_review(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    generate: bool = Query(False),
+    force: bool = Query(False),
+):
+    """错词复习。
+
+    - generate=0：仅查看，返回当日缓存（不耗额度）
+    - generate=1：有缓存则复用；无缓存才生成并耗额度
+    - force=1：强制重新生成并耗额度（需配合 generate=1）
+    """
+    if not generate:
+        return coach.peek_vocab_review(db, user)
+    return coach.build_vocab_review(db, user, force=force)
