@@ -1868,6 +1868,7 @@ function subtitleRowClass(index: number) {
                 class="absolute top-1.5 right-1.5 z-10 flex flex-wrap justify-end gap-1 max-w-[min(100%,18rem)]"
               >
                 <button
+                  v-if="!isPhone"
                   type="button"
                   class="px-2 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-violet-400 hover:text-violet-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300"
                   title="AI 讲解本句"
@@ -1876,20 +1877,7 @@ function subtitleRowClass(index: number) {
                   AI讲解
                 </button>
                 <button
-                  type="button"
-                  class="relative px-2 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-sky-400 hover:text-sky-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300"
-                  title="跟读后由 AI 评分"
-                  @click="startAiShadowing(sub, $event)"
-                >
-                  <span
-                    class="absolute -top-1.5 -right-1 px-1 min-w-[1.5rem] h-3.5 rounded-full bg-sky-500 text-white text-[9px] font-semibold leading-none flex items-center justify-center shadow-sm pointer-events-none"
-                    aria-hidden="true"
-                  >
-                    Ai评分
-                  </span>
-                  AI跟读
-                </button>
-                <button
+                  v-if="!isPhone"
                   type="button"
                   class="px-2 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-emerald-400 hover:text-emerald-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300"
                   title="AI 挖空练习"

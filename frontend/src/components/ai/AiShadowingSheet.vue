@@ -53,18 +53,74 @@ const scoreRingStyle = computed(() => {
   }
 })
 
-function getRecognition() {
-  const SR =
-    typeof window !== 'undefined'
-      ? (window as unknown as { SpeechRecognition?: new () => unknown; webkitSpeechRecognition?: new () => unknown })
-          .SpeechRecognition ||
-        (window as unknown as { webkitSpeechRecognition?: new () => unknown }).webkitSpeechRecognition
-      : undefined
-  return SR ? new SR() : null
+type SpeechRecognitionCtor = new () => {
+  lang: string
+  interimResults: boolean
+  continuous: boolean
+  maxAlternatives: number
+  start: () => void
+  stop: () => void
+  abort?: () => void
+  onresult: ((event: {
+    results: { [i: number]: { [j: number]: { transcript: string }; isFinal?: boolean }; length: number }
+  }) => void) | null
+  onerror: ((event: { error?: string; message?: string }) => void) | null
+  onend: (() => void) | null
+}
+
+function getRecognitionCtor(): SpeechRecognitionCtor | null {
+  if (typeof window === 'undefined') return null
+  const w = window as unknown as {
+    SpeechRecognition?: SpeechRecognitionCtor
+    webkitSpeechRecognition?: SpeechRecognitionCtor
+  }
+  return w.SpeechRecognition || w.webkitSpeechRecognition || null
+}
+
+function mapRecognitionError(code: string): string {
+  switch (code) {
+    case 'not-allowed':
+    case 'service-not-allowed':
+      return '麦克风权限被拒绝，请在浏览器地址栏允许麦克风后重试'
+    case 'no-speech':
+      return '没有听清，请靠近麦克风后再试一次'
+    case 'audio-capture':
+      return '找不到可用麦克风，请检查设备后重试'
+    case 'network':
+      return '语音识别服务连接失败（Chrome 依赖在线识别，国内网络常不可用）。请改用「手输 / 修改」后提交点评'
+    case 'language-not-supported':
+      return '当前浏览器不支持英语语音识别，请改用手动输入'
+    case 'aborted':
+      return ''
+    default:
+      return '语音识别失败，请重试或手动输入'
+  }
+}
+
+async function ensureMicPermission(): Promise<string | null> {
+  if (typeof window === 'undefined') return '当前环境无法使用麦克风'
+  if (!window.isSecureContext) {
+    return '语音识别需要 HTTPS 或 localhost，请换安全地址打开后再试'
+  }
+  if (!navigator.mediaDevices?.getUserMedia) return null
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    stream.getTracks().forEach((t) => t.stop())
+    return null
+  } catch (e: unknown) {
+    const name = (e as { name?: string })?.name || ''
+    if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+      return '麦克风权限被拒绝，请在浏览器地址栏允许麦克风后重试'
+    }
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      return '找不到可用麦克风，请检查设备后重试'
+    }
+    return '无法打开麦克风，请检查系统权限后重试'
+  }
 }
 
 function resetState() {
-  stopListening()
+  stopListening(true)
   transcript.value = ''
   result.value = null
   error.value = ''
@@ -72,9 +128,10 @@ function resetState() {
   showEditor.value = false
 }
 
-function stopListening() {
+function stopListening(abort = false) {
   try {
-    recognition?.stop?.()
+    if (abort) recognition?.abort?.()
+    else recognition?.stop?.()
   } catch {
     /* ignore */
   }
@@ -86,34 +143,69 @@ async function startListening() {
   result.value = null
   transcript.value = ''
   showEditor.value = true
-  const rec = getRecognition()
-  if (!rec) {
+
+  const Ctor = getRecognitionCtor()
+  if (!Ctor) {
     error.value = '当前浏览器不支持语音识别，可手动输入跟读内容后点评'
-    showEditor.value = true
     return
   }
+
+  const micErr = await ensureMicPermission()
+  if (micErr) {
+    error.value = micErr
+    return
+  }
+
+  stopListening(true)
+  const rec = new Ctor()
   recognition = rec
   recognition.lang = 'en-US'
   recognition.interimResults = true
   recognition.continuous = false
-  recognition.onresult = (event: {
-    results: { [i: number]: { [j: number]: { transcript: string } }; length: number }
-  }) => {
+  recognition.maxAlternatives = 1
+  recognition.onresult = (event) => {
     let text = ''
     for (let i = 0; i < event.results.length; i++) {
       text += event.results[i][0]?.transcript || ''
     }
     transcript.value = text.trim()
+    if (transcript.value) error.value = ''
   }
-  recognition.onerror = () => {
+  recognition.onerror = (event) => {
     listening.value = false
-    if (!transcript.value) error.value = '语音识别失败，请重试或手动输入'
+    const code = String(event?.error || '')
+    // 用户主动停止 / 切句时 abort，不当作失败
+    if (code === 'aborted') return
+    if (transcript.value) return
+    const msg = mapRecognitionError(code)
+    if (msg) {
+      error.value = msg
+      showEditor.value = true
+    }
   }
   recognition.onend = () => {
     listening.value = false
   }
-  listening.value = true
-  recognition.start()
+
+  try {
+    listening.value = true
+    recognition.start()
+  } catch (e: unknown) {
+    listening.value = false
+    const name = (e as { name?: string })?.name || ''
+    if (name === 'InvalidStateError') {
+      // 上一次识别尚未结束，稍后再试
+      try {
+        recognition.abort?.()
+      } catch {
+        /* ignore */
+      }
+      error.value = '识别尚未结束，请稍后再点麦克风'
+    } else {
+      error.value = '语音识别启动失败，请重试或手动输入'
+    }
+    showEditor.value = true
+  }
 }
 
 function retry() {
@@ -254,8 +346,12 @@ onUnmounted(() => {
                 <rect x="6" y="6" width="12" height="12" rx="2" />
               </svg>
             </button>
-            <p class="text-xs text-neutral-500">
-              {{ listening ? '正在听你说… 点击停止' : '点击麦克风开始跟读' }}
+            <p class="text-xs text-neutral-500 text-center max-w-xs">
+              {{
+                listening
+                  ? '正在听你说… 点击停止'
+                  : '点击麦克风开始跟读（识别依赖浏览器在线服务；失败可手输）'
+              }}
             </p>
             <div class="flex flex-wrap justify-center gap-2">
               <button
