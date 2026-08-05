@@ -449,10 +449,26 @@ const aiShadowHasNext = computed(() => {
   return idx >= 0 && idx + 1 < sortedSubs.value.length
 })
 
-function onShadowPlay() {
+let shadowRateBefore: number | null = null
+
+function onShadowPlay(rate = 1) {
   const sub = aiShadowSub.value
-  if (sub) player.playSentenceOnce(sub)
+  if (!sub) return
+  if (shadowRateBefore == null) shadowRateBefore = player.playbackRate.value
+  player.setRate(rate)
+  player.playSentenceOnce(sub)
 }
+
+watch(aiShadowOpen, (open) => {
+  if (open) {
+    shadowRateBefore = player.playbackRate.value
+    return
+  }
+  if (shadowRateBefore != null) {
+    player.setRate(shadowRateBefore)
+    shadowRateBefore = null
+  }
+})
 
 function nextAiShadowing() {
   const subs = sortedSubs.value

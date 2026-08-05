@@ -8,6 +8,7 @@ import {
   coreTypeForMode,
   type OralPracticeMode,
 } from '@/api/oralEval'
+import { fetchPracticeTts, type PracticeTtsVoice } from '@/api/practiceTts'
 import { useOralEvalEngine } from '@/composables/useOralEvalEngine'
 import { playWordPronunciation, stopSpeaking } from '@/utils/speakWord'
 
@@ -22,6 +23,8 @@ const props = withDefaults(
     subtitleId?: number | null
     english?: string
     chinese?: string
+    /** 单词打分：音标 */
+    ipa?: string
     title?: string
     sentenceIndex?: number
     sentenceTotal?: number
@@ -34,7 +37,7 @@ const props = withDefaults(
   },
 )
 
-const emit = defineEmits<{ close: []; play: []; next: [] }>()
+const emit = defineEmits<{ close: []; play: [rate: number]; next: [] }>()
 
 type Step = 'listen' | 'record' | 'result'
 type EngineMode = 'oral' | 'llm' | 'unknown'
@@ -50,12 +53,20 @@ const micUnsupported = ref(false)
 const autoSubmitArmed = ref(false)
 const engineMode = ref<EngineMode>('unknown')
 const fallbackHint = ref('')
+/** 示范音倍速：0.5 慢速 / 1 正常 */
+const demoRate = ref<0.5 | 1>(1)
+/** original = 词典音（单词）/ 视频原声（句子） */
+type DemoVoice = 'original' | PracticeTtsVoice
+const demoVoice = ref<DemoVoice>('original')
+const demoLoading = ref(false)
 
 const oral = useOralEvalEngine()
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let recognition: any = null
 let autoPlayTimer: ReturnType<typeof setTimeout> | null = null
+let demoAudio: HTMLAudioElement | null = null
+let demoObjectUrl: string | null = null
 
 const practiceMode = computed<OralPracticeMode>(() => props.mode || 'sentence')
 const targetText = computed(() => (props.refText || props.english || '').trim())
@@ -113,6 +124,20 @@ const listenHint = computed(() => {
   if (practiceMode.value === 'word') return '先听示范音，再跟读这个单词'
   if (practiceMode.value === 'passage') return '先听/看清段落，再开始朗读'
   return '先听清楚原句，再开始跟读'
+})
+
+const originalVoiceLabel = computed(() => (practiceMode.value === 'word' ? '词典' : '原声'))
+const showDemoSource = computed(
+  () =>
+    practiceMode.value === 'word' ||
+    practiceMode.value === 'sentence' ||
+    practiceMode.value === 'passage',
+)
+const playDemoLabel = computed(() => {
+  if (demoVoice.value !== 'original') return '听示范音'
+  if (practiceMode.value === 'word') return '听示范音'
+  if (practiceMode.value === 'passage') return '听本段'
+  return '听原句'
 })
 
 const recordHint = computed(() => {
@@ -216,20 +241,41 @@ function clearAutoPlay() {
   }
 }
 
+function stopDemoAudio() {
+  if (demoAudio) {
+    try {
+      demoAudio.pause()
+      demoAudio.removeAttribute('src')
+      demoAudio.load()
+    } catch {
+      /* ignore */
+    }
+    demoAudio = null
+  }
+  if (demoObjectUrl) {
+    URL.revokeObjectURL(demoObjectUrl)
+    demoObjectUrl = null
+  }
+}
+
 function resetState() {
   clearAutoPlay()
   stopListening(true)
   oral.cancel()
   stopSpeaking()
+  stopDemoAudio()
   step.value = 'listen'
   transcript.value = ''
   result.value = null
   error.value = ''
   loading.value = false
+  demoLoading.value = false
   showTips.value = false
   micUnsupported.value = false
   autoSubmitArmed.value = false
   fallbackHint.value = ''
+  demoRate.value = 1
+  demoVoice.value = 'original'
 }
 
 function stopListening(abort = false) {
@@ -246,13 +292,64 @@ function stopListening(abort = false) {
   }
 }
 
-function playOriginal() {
-  error.value = ''
+function playOriginalSource() {
+  const rate = demoRate.value
   if (practiceMode.value === 'word') {
-    void playWordPronunciation(targetText.value)
+    void playWordPronunciation(targetText.value, null, rate)
     return
   }
-  emit('play')
+  emit('play', rate)
+}
+
+async function playTtsDemo(voice: PracticeTtsVoice) {
+  if (!targetText.value) return
+  const blob = await fetchPracticeTts(targetText.value, voice, practiceMode.value)
+  const url = URL.createObjectURL(blob)
+  demoObjectUrl = url
+  const audio = new Audio(url)
+  demoAudio = audio
+  audio.playbackRate = demoRate.value
+  audio.onended = () => {
+    stopDemoAudio()
+  }
+  await audio.play()
+}
+
+async function playDemo() {
+  error.value = ''
+  stopSpeaking()
+  stopDemoAudio()
+
+  if (demoVoice.value === 'original') {
+    playOriginalSource()
+    return
+  }
+
+  demoLoading.value = true
+  try {
+    await playTtsDemo(demoVoice.value)
+  } catch (e: unknown) {
+    const raw = e instanceof Error ? e.message : ''
+    const friendly =
+      /API[-\s]?[Kk]ey|401|未配置|无效|失效/.test(raw)
+        ? '示范 TTS 密钥无效或未配置'
+        : raw || '示范音暂不可用'
+    fallbackHint.value = `${friendly}，已改用${originalVoiceLabel.value}`
+    demoVoice.value = 'original'
+    playOriginalSource()
+  } finally {
+    demoLoading.value = false
+  }
+}
+
+function setDemoVoice(voice: DemoVoice) {
+  demoVoice.value = voice
+  void playDemo()
+}
+
+function setDemoRate(rate: 0.5 | 1) {
+  demoRate.value = rate
+  void playDemo()
 }
 
 function goRecord() {
@@ -451,7 +548,7 @@ function scheduleAutoPlay() {
   if (practiceMode.value === 'passage') return
   autoPlayTimer = setTimeout(() => {
     autoPlayTimer = null
-    if (props.open && step.value === 'listen') playOriginal()
+    if (props.open && step.value === 'listen') void playDemo()
   }, 420)
 }
 
@@ -498,6 +595,7 @@ onUnmounted(() => {
   stopListening(true)
   oral.cancel()
   stopSpeaking()
+  stopDemoAudio()
   if (typeof document !== 'undefined') document.body.style.overflow = ''
 })
 </script>
@@ -587,12 +685,95 @@ onUnmounted(() => {
               {{ targetText }}
             </p>
             <p
-              v-if="chinese && practiceMode !== 'word'"
+              v-if="ipa"
+              class="mt-1.5 text-sm text-neutral-400 dark:text-neutral-500 font-serif leading-relaxed"
+            >
+              {{ ipa }}
+            </p>
+            <p
+              v-if="chinese"
               class="mt-2 text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed"
             >
               {{ chinese }}
             </p>
           </section>
+
+          <!-- 示范源 + 语速：单词打分 + AI 跟读 -->
+          <div
+            v-if="showDemoSource"
+            class="rounded-2xl border border-black/[0.05] dark:border-white/10 bg-white/70 dark:bg-neutral-900/60 px-3 py-2 space-y-2"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-xs text-neutral-500 shrink-0">示范音</span>
+              <div class="inline-flex flex-wrap justify-end gap-1 rounded-xl bg-neutral-100 dark:bg-neutral-800 p-0.5">
+                <button
+                  type="button"
+                  class="min-w-[3.25rem] h-8 px-2.5 rounded-[0.65rem] text-xs font-medium transition"
+                  :class="
+                    demoVoice === 'original'
+                      ? 'bg-white text-amber-800 shadow-sm dark:bg-neutral-700 dark:text-amber-200'
+                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                  "
+                  @click="setDemoVoice('original')"
+                >
+                  {{ originalVoiceLabel }}
+                </button>
+                <button
+                  type="button"
+                  class="min-w-[3.25rem] h-8 px-2.5 rounded-[0.65rem] text-xs font-medium transition"
+                  :class="
+                    demoVoice === 'Ryan'
+                      ? 'bg-white text-amber-800 shadow-sm dark:bg-neutral-700 dark:text-amber-200'
+                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                  "
+                  @click="setDemoVoice('Ryan')"
+                >
+                  Ryan
+                </button>
+                <button
+                  type="button"
+                  class="min-w-[3.75rem] h-8 px-2.5 rounded-[0.65rem] text-xs font-medium transition"
+                  :class="
+                    demoVoice === 'Katerina'
+                      ? 'bg-white text-amber-800 shadow-sm dark:bg-neutral-700 dark:text-amber-200'
+                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                  "
+                  @click="setDemoVoice('Katerina')"
+                >
+                  Katerina
+                </button>
+              </div>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-xs text-neutral-500 shrink-0">示范语速</span>
+              <div class="inline-flex rounded-xl bg-neutral-100 dark:bg-neutral-800 p-0.5">
+                <button
+                  type="button"
+                  class="min-w-[4.25rem] h-8 rounded-[0.65rem] text-xs font-medium transition"
+                  :class="
+                    demoRate === 0.5
+                      ? 'bg-white text-amber-800 shadow-sm dark:bg-neutral-700 dark:text-amber-200'
+                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                  "
+                  @click="setDemoRate(0.5)"
+                >
+                  0.5×
+                </button>
+                <button
+                  type="button"
+                  class="min-w-[4.25rem] h-8 rounded-[0.65rem] text-xs font-medium transition"
+                  :class="
+                    demoRate === 1
+                      ? 'bg-white text-amber-800 shadow-sm dark:bg-neutral-700 dark:text-amber-200'
+                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                  "
+                  @click="setDemoRate(1)"
+                >
+                  正常
+                </button>
+              </div>
+            </div>
+          </div>
 
           <p
             v-if="fallbackHint"
@@ -606,13 +787,27 @@ onUnmounted(() => {
             <p class="text-sm text-neutral-500 text-center">{{ listenHint }}</p>
             <button
               type="button"
-              class="inline-flex items-center justify-center gap-2 w-full max-w-xs h-12 rounded-2xl text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 active:scale-[0.99] transition"
-              @click="playOriginal"
+              class="inline-flex items-center justify-center gap-2 w-full max-w-xs h-12 rounded-2xl text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 active:scale-[0.99] transition disabled:opacity-60"
+              :disabled="demoLoading"
+              @click="playDemo"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <svg
+                v-if="demoLoading"
+                class="animate-spin"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
+              </svg>
+              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M8 5v14l11-7L8 5z" />
               </svg>
-              {{ practiceMode === 'word' ? '听示范音' : practiceMode === 'passage' ? '听本段' : '听原句' }}
+              {{ demoLoading ? '合成中…' : playDemoLabel }}
             </button>
             <button
               type="button"
@@ -672,10 +867,11 @@ onUnmounted(() => {
 
             <button
               type="button"
-              class="text-xs text-neutral-500 hover:text-amber-700 dark:hover:text-amber-300 underline underline-offset-2"
-              @click="playOriginal"
+              class="text-xs text-neutral-500 hover:text-amber-700 dark:hover:text-amber-300 underline underline-offset-2 disabled:opacity-50"
+              :disabled="demoLoading"
+              @click="playDemo"
             >
-              再听一遍
+              {{ demoLoading ? '合成中…' : '再听一遍' }}
             </button>
 
             <div v-if="!useOral || micUnsupported" class="w-full space-y-1.5 pt-1">

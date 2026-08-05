@@ -37,11 +37,24 @@ let speakingClearTimer: ReturnType<typeof setTimeout> | null = null
 
 const wordScoreOpen = ref(false)
 const wordScoreText = ref('')
+const wordScoreIpa = ref('')
+const wordScoreChinese = ref('')
 
-function startWordScore(word: string) {
+function startWordScore(word: string, meta?: { ipa?: string; chinese?: string }) {
   const w = (word || '').trim()
   if (!w) return
   wordScoreText.value = w
+  let ipa = (meta?.ipa || '').trim()
+  let chinese = (meta?.chinese || '').trim()
+  if (!ipa || !chinese) {
+    const found = items.value.find((i) => i.word.trim().toLowerCase() === w.toLowerCase())
+    if (found) {
+      if (!ipa) ipa = (found.ipa || '').trim()
+      if (!chinese) chinese = (found.definition_cn || '').trim()
+    }
+  }
+  wordScoreIpa.value = ipa
+  wordScoreChinese.value = chinese
   wordScoreOpen.value = true
 }
 
@@ -428,27 +441,40 @@ onUnmounted(() => {
             >
               {{ item.definition_cn }}
             </p>
-            <div class="mt-auto pt-2.5 flex items-center gap-2.5 flex-wrap">
+            <div class="mt-auto pt-2.5 flex items-center gap-1.5 border-t border-black/[0.04] dark:border-white/[0.06]">
               <button
                 type="button"
-                class="text-[11px] font-medium text-sky-700 dark:text-sky-400 hover:underline"
-                @click="startWordScore(item.word)"
+                class="inline-flex items-center justify-center w-9 h-9 rounded-xl text-sky-700 bg-sky-50 hover:bg-sky-100 dark:text-sky-300 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 transition"
+                title="跟读打分"
+                aria-label="跟读打分"
+                @click="startWordScore(item.word, { ipa: item.ipa, chinese: item.definition_cn })"
               >
-                打分
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3z" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M19 11a7 7 0 0 1-14 0M12 18v3" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
               </button>
               <RouterLink
                 v-if="sourcePath(item)"
                 :to="sourcePath(item)"
-                class="text-[11px] text-amber-700 dark:text-amber-400 hover:underline"
+                class="inline-flex items-center justify-center w-9 h-9 rounded-xl text-amber-700 bg-amber-50 hover:bg-amber-100 dark:text-amber-300 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 transition"
+                title="回看来源"
+                aria-label="回看来源"
               >
-                回看
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
               </RouterLink>
               <button
                 type="button"
-                class="text-[11px] text-red-600 dark:text-red-400 hover:underline"
+                class="ml-auto inline-flex items-center justify-center w-9 h-9 rounded-xl text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-950/40 transition"
+                title="从生词本移除"
+                aria-label="从生词本移除"
                 @click="remove(item)"
               >
-                移除
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
               </button>
             </div>
           </li>
@@ -460,6 +486,8 @@ onUnmounted(() => {
       :open="wordScoreOpen"
       mode="word"
       :ref-text="wordScoreText"
+      :ipa="wordScoreIpa"
+      :chinese="wordScoreChinese"
       title="单词打分"
       :has-next="false"
       @close="wordScoreOpen = false"

@@ -274,8 +274,8 @@ const readingTts = useReadingTts({
 })
 provide(READING_TTS_KEY, readingTts)
 
-function onOralPlay() {
-  void readingTts.playSegment(currentIndex.value)
+function onOralPlay(rate = 1) {
+  void readingTts.playSegment(currentIndex.value, false, rate)
 }
 
 function resolveClickedWordSpan(target: HTMLElement, root: HTMLElement): HTMLElement | null {

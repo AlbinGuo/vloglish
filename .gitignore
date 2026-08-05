@@ -57,6 +57,7 @@ lerna-debug.log*
 *.sqlite3
 backend/data/teco.db
 backend/data/media/
+backend/data/tts_cache/
 backend/teco_lab.db
 
 # --- Logs & caches ---

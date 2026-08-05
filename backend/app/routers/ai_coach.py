@@ -3,7 +3,7 @@ import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -11,6 +11,7 @@ from ..database import get_db
 from ..deps import get_client_ip, get_current_user, get_current_user_optional, get_device_id
 from ..models import User
 from ..services import ai_coach as coach
+from ..services import practice_tts as practice_tts_svc
 
 router = APIRouter(prefix="/api/ai", tags=["ai-coach"])
 
@@ -48,6 +49,13 @@ class OralEvalFeedbackIn(BaseModel):
 class TextShadowingIn(BaseModel):
     target: str = Field(min_length=1, max_length=8000)
     transcript: str = ""
+
+
+class PracticeTtsIn(BaseModel):
+    text: str = Field(min_length=1, max_length=1200)
+    voice: str = Field(min_length=1, max_length=32)
+    # word / sentence / passage 长度上限由服务层按 mode 再校验
+    mode: str = Field(default="sentence", max_length=16)
 
 
 class ReadingQaIn(BaseModel):
@@ -188,6 +196,27 @@ def shadowing_text(
         user,
         target=body.target,
         transcript=body.transcript,
+    )
+
+
+@router.post("/practice-tts/")
+def practice_tts(
+    body: PracticeTtsIn,
+    _user: User = Depends(get_current_user),
+):
+    """跟读/单词打分示范音（Ryan / Katerina）。不计入 AI 日额度；本地磁盘缓存。"""
+    audio, cache_hit = practice_tts_svc.synthesize_practice_tts(
+        text=body.text,
+        voice=body.voice,
+        mode=body.mode,
+    )
+    return Response(
+        content=audio,
+        media_type="audio/mpeg",
+        headers={
+            "X-Practice-TTS-Cache": "HIT" if cache_hit else "MISS",
+            "Cache-Control": "private, max-age=86400",
+        },
     )
 
 

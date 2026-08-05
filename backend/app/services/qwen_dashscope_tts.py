@@ -10,8 +10,31 @@ import urllib.request
 from .tts_common import ensure_mp3_bytes, normalize_tts_text
 
 
+_PLACEHOLDER_KEYS = frozenset(
+    {
+        "",
+        "sk-xxx",
+        "xxx",
+        "changeme",
+        "your-api-key",
+        "your_api_key",
+        "REPLACE_ME",
+    }
+)
+
+
+def _dashscope_api_key() -> str:
+    return os.getenv("DASHSCOPE_API_KEY", "").strip()
+
+
 def qwen_tts_configured() -> bool:
-    return bool(os.getenv("DASHSCOPE_API_KEY", "").strip())
+    key = _dashscope_api_key()
+    if not key or key in _PLACEHOLDER_KEYS:
+        return False
+    # 文档示例里的假值，避免当成已配置去请求
+    if key.lower().endswith("xxx") and len(key) < 16:
+        return False
+    return True
 
 
 QWEN_ARTICLE_VOICES = ("Ryan", "Katerina")
@@ -74,9 +97,9 @@ def _parse_response(body: dict) -> str:
 
 
 def synthesize_speech(text: str, *, voice: str | None = None) -> bytes:
-    api_key = os.getenv("DASHSCOPE_API_KEY", "").strip()
-    if not api_key:
-        raise RuntimeError("未配置 DASHSCOPE_API_KEY")
+    if not qwen_tts_configured():
+        raise RuntimeError("未配置有效的 DASHSCOPE_API_KEY（请在百炼控制台创建并写入 backend/.env）")
+    api_key = _dashscope_api_key()
 
     cleaned = normalize_tts_text(text)
     payload = _build_payload(cleaned, voice=voice)
@@ -101,6 +124,10 @@ def synthesize_speech(text: str, *, voice: str | None = None) -> bytes:
             message = detail.get("message") or raw[:500]
         except json.JSONDecodeError:
             message = raw[:500]
+        if exc.code == 401:
+            raise RuntimeError(
+                "DashScope API Key 无效或已失效，请到百炼控制台重置后更新 backend/.env 的 DASHSCOPE_API_KEY 并重启后端"
+            ) from exc
         raise RuntimeError(f"DashScope TTS 请求失败 ({exc.code}): {message}") from exc
 
     audio_url = _parse_response(body)

@@ -8,7 +8,7 @@ export interface ReadingTtsContext {
   hasAudio: Ref<boolean>
   isPlaying: Ref<boolean>
   playingIndex: Ref<number | null>
-  playSegment: (index: number, continuous?: boolean) => void
+  playSegment: (index: number, continuous?: boolean, rate?: number) => void
   toggleCurrent: () => void
   playContinuous: () => void
   pause: () => void
@@ -61,7 +61,7 @@ export function useReadingTts(opts: {
     return opts.segments.value.find((s) => s.index === index)
   }
 
-  function playSegment(index: number, keepContinuous = continuous.value) {
+  function playSegment(index: number, keepContinuous = continuous.value, rate?: number) {
     const seg = segmentByIndex(index)
     if (!seg?.audio_url?.trim()) return
 
@@ -70,7 +70,7 @@ export function useReadingTts(opts: {
     continuous.value = keepContinuous
 
     const el = new Audio(seg.audio_url)
-    el.playbackRate = ttsRate.value
+    el.playbackRate = rate ?? ttsRate.value
     el.onplay = () => {
       isPlaying.value = true
       playingIndex.value = index
