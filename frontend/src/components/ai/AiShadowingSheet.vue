@@ -59,12 +59,14 @@ const demoRate = ref<0.5 | 1>(1)
 type DemoVoice = 'original' | PracticeTtsVoice
 const demoVoice = ref<DemoVoice>('original')
 const demoLoading = ref(false)
+const demoPlaying = ref(false)
 
 const oral = useOralEvalEngine()
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let recognition: any = null
 let autoPlayTimer: ReturnType<typeof setTimeout> | null = null
+let demoPlayingTimer: ReturnType<typeof setTimeout> | null = null
 let demoAudio: HTMLAudioElement | null = null
 let demoObjectUrl: string | null = null
 
@@ -241,7 +243,37 @@ function clearAutoPlay() {
   }
 }
 
+function clearDemoPlayingTimer() {
+  if (demoPlayingTimer != null) {
+    clearTimeout(demoPlayingTimer)
+    demoPlayingTimer = null
+  }
+}
+
+function markDemoPlaying(ms?: number) {
+  clearDemoPlayingTimer()
+  demoPlaying.value = true
+  const duration = ms ?? estimateDemoMs(targetText.value, demoRate.value)
+  demoPlayingTimer = setTimeout(() => {
+    demoPlayingTimer = null
+    demoPlaying.value = false
+  }, duration)
+}
+
+function estimateDemoMs(text: string, rate: number) {
+  const words = text.trim().split(/\s+/).filter(Boolean).length
+  const base =
+    practiceMode.value === 'word'
+      ? 1400
+      : practiceMode.value === 'passage'
+        ? Math.max(3200, words * 380)
+        : Math.max(1800, words * 420)
+  return Math.round(base / Math.max(0.5, rate)) + 350
+}
+
 function stopDemoAudio() {
+  clearDemoPlayingTimer()
+  demoPlaying.value = false
   if (demoAudio) {
     try {
       demoAudio.pause()
@@ -270,6 +302,7 @@ function resetState() {
   error.value = ''
   loading.value = false
   demoLoading.value = false
+  demoPlaying.value = false
   showTips.value = false
   micUnsupported.value = false
   autoSubmitArmed.value = false
@@ -294,6 +327,7 @@ function stopListening(abort = false) {
 
 function playOriginalSource() {
   const rate = demoRate.value
+  markDemoPlaying()
   if (practiceMode.value === 'word') {
     void playWordPronunciation(targetText.value, null, rate)
     return
@@ -312,6 +346,8 @@ async function playTtsDemo(voice: PracticeTtsVoice) {
   audio.onended = () => {
     stopDemoAudio()
   }
+  clearDemoPlayingTimer()
+  demoPlaying.value = true
   await audio.play()
 }
 
@@ -399,11 +435,14 @@ async function startOralRecording() {
     step.value = 'result'
     showTips.value = Boolean(result.value.issues?.length || result.value.tips?.length)
     await nextTick()
-  } catch {
+  } catch (e: unknown) {
     listening.value = false
     loading.value = false
     engineMode.value = 'llm'
-    fallbackHint.value = '发音评测暂不可用，已切换为识别点评'
+    const detail = e instanceof Error ? e.message.trim() : ''
+    fallbackHint.value = detail
+      ? `发音评测暂不可用（${detail.slice(0, 80)}），已切换为识别点评`
+      : '发音评测暂不可用，已切换为识别点评'
     error.value = ''
     void startListening()
   } finally {
@@ -673,7 +712,10 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-4 space-y-3.5">
+        <div
+          class="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 space-y-3.5"
+          :class="step === 'listen' ? 'pb-[max(1.25rem,env(safe-area-inset-bottom))]' : 'pb-4'"
+        >
           <!-- Target card -->
           <section
             class="relative overflow-hidden rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white dark:bg-neutral-900 px-4 py-3.5"
@@ -783,38 +825,181 @@ onUnmounted(() => {
           </p>
 
           <!-- Listen -->
-          <section v-if="step === 'listen'" class="flex flex-col items-center gap-3.5 pt-2 pb-1">
-            <p class="text-sm text-neutral-500 text-center">{{ listenHint }}</p>
-            <button
-              type="button"
-              class="inline-flex items-center justify-center gap-2 w-full max-w-xs h-12 rounded-2xl text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 active:scale-[0.99] transition disabled:opacity-60"
-              :disabled="demoLoading"
-              @click="playDemo"
-            >
-              <svg
-                v-if="demoLoading"
-                class="animate-spin"
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
+          <section v-if="step === 'listen'" class="flex flex-col items-center gap-4 pt-3 pb-2">
+            <p class="text-sm text-neutral-500 text-center px-2 leading-relaxed">{{ listenHint }}</p>
+
+            <div class="w-full max-w-sm space-y-3">
+              <!-- 听示范：大圆形播放，播放中有声波动效 -->
+              <button
+                type="button"
+                class="group relative w-full overflow-hidden rounded-[1.35rem] border text-left transition duration-200 active:scale-[0.985] disabled:opacity-60"
+                :class="
+                  demoPlaying
+                    ? 'border-amber-300/80 bg-gradient-to-br from-amber-50 to-orange-50 shadow-[0_10px_28px_rgba(217,119,6,0.18)] dark:border-amber-700/50 dark:from-amber-950/40 dark:to-orange-950/30'
+                    : 'border-black/[0.06] bg-white hover:border-amber-200 hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-neutral-900 dark:hover:border-amber-800/60'
+                "
+                :disabled="demoLoading"
+                @click="playDemo"
               >
-                <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
-              </svg>
-              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M8 5v14l11-7L8 5z" />
-              </svg>
-              {{ demoLoading ? '合成中…' : playDemoLabel }}
-            </button>
+                <div class="flex items-center gap-3.5 px-4 py-3.5">
+                  <span
+                    class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white transition"
+                    :class="
+                      demoLoading
+                        ? 'bg-amber-400'
+                        : demoPlaying
+                          ? 'bg-amber-500 shadow-[0_0_0_6px_rgba(245,158,11,0.22)]'
+                          : 'bg-amber-600 group-hover:bg-amber-500 group-hover:scale-105'
+                    "
+                  >
+                    <span
+                      v-if="demoPlaying"
+                      class="absolute inset-0 rounded-full bg-amber-400/40 animate-ping"
+                      aria-hidden="true"
+                    />
+                    <svg
+                      v-if="demoLoading"
+                      class="relative animate-spin"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
+                    </svg>
+                    <svg
+                      v-else-if="demoPlaying"
+                      class="relative"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M11 5L6 9H3v6h3l5 4V5zm5.5 1.5a6.5 6.5 0 0 1 0 11"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                      />
+                      <path
+                        d="M15 8.5a3.5 3.5 0 0 1 0 7"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                    <svg
+                      v-else
+                      class="relative ml-0.5"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M8 5v14l11-7L8 5z" />
+                    </svg>
+                  </span>
+
+                  <span class="min-w-0 flex-1">
+                    <span class="block text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">
+                      {{ demoLoading ? '示范音合成中…' : demoPlaying ? '正在播放示范' : playDemoLabel }}
+                    </span>
+                    <span class="mt-0.5 block text-xs text-neutral-500 dark:text-neutral-400">
+                      {{
+                        demoPlaying
+                          ? '听清了再开始跟读'
+                          : demoVoice === 'original'
+                            ? practiceMode === 'word'
+                              ? '词典音 · 可切换 Ryan / Katerina'
+                              : '当前选中的示范源 · 可调语速'
+                            : `${demoVoice} · ${demoRate === 0.5 ? '0.5× 慢速' : '正常语速'}`
+                      }}
+                    </span>
+                  </span>
+
+                  <span
+                    class="flex items-end gap-[3px] h-7 shrink-0 pr-0.5"
+                    :class="demoPlaying ? 'opacity-100' : 'opacity-35 group-hover:opacity-70'"
+                    aria-hidden="true"
+                  >
+                    <span
+                      class="w-[3px] rounded-full bg-amber-500"
+                      :class="demoPlaying ? 'h-3 animate-[pulse_0.7s_ease-in-out_infinite]' : 'h-2'"
+                    />
+                    <span
+                      class="w-[3px] rounded-full bg-amber-500"
+                      :class="demoPlaying ? 'h-6 animate-[pulse_0.85s_ease-in-out_infinite]' : 'h-4'"
+                      style="animation-delay: 0.12s"
+                    />
+                    <span
+                      class="w-[3px] rounded-full bg-amber-500"
+                      :class="demoPlaying ? 'h-4 animate-[pulse_0.65s_ease-in-out_infinite]' : 'h-3'"
+                      style="animation-delay: 0.24s"
+                    />
+                    <span
+                      class="w-[3px] rounded-full bg-amber-500"
+                      :class="demoPlaying ? 'h-5 animate-[pulse_0.9s_ease-in-out_infinite]' : 'h-2.5'"
+                      style="animation-delay: 0.08s"
+                    />
+                  </span>
+                </div>
+              </button>
+
+              <!-- 开始跟读：主 CTA -->
+              <button
+                type="button"
+                class="group relative w-full overflow-hidden rounded-[1.35rem] bg-sky-600 text-left text-white shadow-[0_12px_28px_rgba(2,132,199,0.28)] transition duration-200 hover:bg-sky-500 hover:shadow-[0_14px_32px_rgba(2,132,199,0.34)] active:scale-[0.985]"
+                @click="goRecord"
+              >
+                <span
+                  class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(255,255,255,0.22),transparent_55%)]"
+                  aria-hidden="true"
+                />
+                <span class="relative flex items-center gap-3.5 px-4 py-3.5">
+                  <span
+                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/18 ring-1 ring-white/25 transition group-hover:scale-105"
+                  >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path
+                        d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"
+                      />
+                    </svg>
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block text-[15px] font-semibold tracking-wide">开始跟读</span>
+                    <span class="mt-0.5 block text-xs text-sky-100/90">
+                      {{ useOral ? '对着麦克风读，系统直接评发音' : '跟读后自动识别并点评' }}
+                    </span>
+                  </span>
+                  <svg
+                    class="shrink-0 opacity-80 transition group-hover:translate-x-0.5"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.2"
+                    aria-hidden="true"
+                  >
+                    <path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </span>
+              </button>
+            </div>
+
             <button
               type="button"
-              class="inline-flex items-center justify-center w-full max-w-xs h-11 rounded-2xl text-sm font-medium border border-sky-200 text-sky-900 bg-sky-50 hover:bg-sky-100 dark:border-sky-800 dark:text-sky-200 dark:bg-sky-950/40 transition"
-              @click="goRecord"
+              class="mt-1 text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition"
+              @click="$emit('close')"
             >
-              开始跟读
+              稍后再练
             </button>
           </section>
 
@@ -1010,28 +1195,12 @@ onUnmounted(() => {
           </section>
         </div>
 
-        <!-- Footer -->
+        <!-- Footer：听示范步主操作已在内容区，不重复底栏 -->
         <div
+          v-if="step !== 'listen'"
           class="shrink-0 flex items-center gap-2 px-5 py-3 border-t border-black/5 dark:border-white/10 bg-[#FBF8F3]/95 dark:bg-neutral-950/95 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         >
-          <template v-if="step === 'listen'">
-            <button
-              type="button"
-              class="flex-1 h-11 rounded-2xl text-sm text-neutral-500 hover:bg-black/5 dark:hover:bg-white/5"
-              @click="$emit('close')"
-            >
-              稍后再练
-            </button>
-            <button
-              type="button"
-              class="flex-[1.35] h-11 rounded-2xl text-sm font-semibold bg-sky-600 text-white hover:bg-sky-700"
-              @click="goRecord"
-            >
-              开始跟读
-            </button>
-          </template>
-
-          <template v-else-if="step === 'record'">
+          <template v-if="step === 'record'">
             <button
               type="button"
               class="flex-1 h-11 rounded-2xl text-sm border border-black/10 dark:border-white/15 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"

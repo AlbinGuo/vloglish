@@ -143,21 +143,30 @@ def request_warrant(*, user_id: str, user_client_ip: str) -> dict[str, Any]:
             continue
 
         code = data.get("code")
+        # 注意：code=0 表示成功，不能用 `code or -1`（0 在 Python 里是 falsy）
         if code is None and data.get("success") is True:
             payload = data.get("data") or {}
             warrant = payload.get("warrantId") or payload.get("warrant_id") or payload.get("AccessWarrantId")
             expire = payload.get("expireTime") or payload.get("expire_at") or payload.get("ExpireTime")
             if warrant:
+                try:
+                    expire_at_i = int(expire) if expire is not None else None
+                except (TypeError, ValueError):
+                    expire_at_i = None
                 return {
                     "warrant_id": str(warrant),
-                    "expire_at": int(expire) if str(expire).isdigit() else None,
+                    "expire_at": expire_at_i,
                     "application_id": app_id,
                     "user_id": uid,
                     "sdk_url": oral_eval_sdk_url(),
                     "accent": oral_eval_accent(),
                 }
 
-        if int(code or -1) != 0:
+        try:
+            code_i = int(code) if code is not None else -1
+        except (TypeError, ValueError):
+            code_i = -1
+        if code_i != 0:
             last_err = str(data.get("msg") or data.get("message") or f"code={code}")
             continue
 
