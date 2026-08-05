@@ -1,12 +1,14 @@
 import json
 
-from fastapi import APIRouter, Depends, Query
+from typing import Any
+
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..deps import get_current_user, get_device_id
+from ..deps import get_client_ip, get_current_user, get_device_id
 from ..models import User
 from ..services import ai_coach as coach
 
@@ -29,6 +31,12 @@ class ShadowingIn(BaseModel):
     video_id: str = Field(min_length=1, max_length=32)
     subtitle_id: int
     transcript: str = ""
+
+
+class OralShadowingIn(BaseModel):
+    video_id: str = Field(min_length=1, max_length=32)
+    subtitle_id: int
+    oral_result: dict[str, Any] = Field(default_factory=dict)
 
 
 class ReadingQaIn(BaseModel):
@@ -107,6 +115,37 @@ def shadowing(
         video_id=body.video_id,
         subtitle_id=body.subtitle_id,
         transcript=body.transcript,
+    )
+
+
+@router.get("/oral-eval/status/")
+def oral_eval_status(_user: User = Depends(get_current_user)):
+    """是否启用口语评测引擎（未配置时前端走 ASR+LLM 回退）。"""
+    return coach.oral_eval_status()
+
+
+@router.post("/oral-eval/warrant/")
+def oral_eval_warrant(
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    """服务端代理申请 warrant_id，密钥不下发前端。"""
+    return coach.oral_eval_warrant_for_user(user, client_ip=get_client_ip(request))
+
+
+@router.post("/shadowing-oral-feedback/")
+def shadowing_oral(
+    body: OralShadowingIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """口语评测成功后的统一结果落库/额度与建议生成。"""
+    return coach.shadowing_from_oral_result(
+        db,
+        user,
+        video_id=body.video_id,
+        subtitle_id=body.subtitle_id,
+        oral_payload=body.oral_result,
     )
 
 

@@ -24,6 +24,14 @@ from ..services.article_access import can_access_article
 from .ai_quota import check_and_consume
 from .ai_result_cache import content_hash, get_ai_result, set_ai_result
 from .daily_visits import visit_date_now
+from .oral_eval import (
+    build_feedback_from_oral_result,
+    oral_eval_accent,
+    oral_eval_app_id,
+    oral_eval_configured,
+    oral_eval_sdk_url,
+    request_warrant,
+)
 
 # 当日错词复习卡缓存（进程内；多 worker 不共享）。键：user_id:YYYY-MM-DD:fingerprint
 _VOCAB_REVIEW_CACHE: dict[str, dict] = {}
@@ -286,14 +294,13 @@ def cloze_for_subtitle(
     }
 
 
-def shadowing_for_subtitle(
+def _load_subtitle_for_user(
     db: Session,
     user: User,
     *,
     video_id: str,
     subtitle_id: int,
-    transcript: str,
-) -> dict:
+) -> tuple[Episode, Subtitle]:
     episode = db.query(Episode).filter(Episode.video_id == video_id).first()
     if not episode:
         raise HTTPException(status_code=404, detail="剧集不存在")
@@ -306,6 +313,18 @@ def shadowing_for_subtitle(
     )
     if not sub:
         raise HTTPException(status_code=404, detail="字幕不存在")
+    return episode, sub
+
+
+def shadowing_for_subtitle(
+    db: Session,
+    user: User,
+    *,
+    video_id: str,
+    subtitle_id: int,
+    transcript: str,
+) -> dict:
+    _, sub = _load_subtitle_for_user(db, user, video_id=video_id, subtitle_id=subtitle_id)
 
     quota = check_and_consume(db, user, action="ai")
     try:
@@ -317,6 +336,49 @@ def shadowing_for_subtitle(
         "subtitle_id": subtitle_id,
         "english": sub.english or "",
         "transcript": transcript or "",
+        "engine": "llm",
+        **feedback,
+        "quota": quota,
+    }
+
+
+def oral_eval_status() -> dict:
+    enabled = oral_eval_configured()
+    return {
+        "enabled": enabled,
+        "application_id": oral_eval_app_id() if enabled else "",
+        "sdk_url": oral_eval_sdk_url() if enabled else "",
+        "accent": oral_eval_accent() if enabled else "am",
+        "core_type": "en.sent.score",
+    }
+
+
+def oral_eval_warrant_for_user(user: User, *, client_ip: str | None) -> dict:
+    if not oral_eval_configured():
+        raise HTTPException(status_code=503, detail="口语评测未启用")
+    try:
+        return request_warrant(user_id=f"u{user.id}", user_client_ip=client_ip or "127.0.0.1")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+def shadowing_from_oral_result(
+    db: Session,
+    user: User,
+    *,
+    video_id: str,
+    subtitle_id: int,
+    oral_payload: dict[str, Any],
+) -> dict:
+    """口语评测成功后：消耗 AI 额度并返回统一点评结构（规则生成建议）。"""
+    _, sub = _load_subtitle_for_user(db, user, video_id=video_id, subtitle_id=subtitle_id)
+    quota = check_and_consume(db, user, action="ai")
+    feedback = build_feedback_from_oral_result(oral_payload or {}, target=sub.english or "")
+    return {
+        "video_id": video_id,
+        "subtitle_id": subtitle_id,
+        "english": sub.english or "",
+        "transcript": feedback.get("transcript") or "",
         **feedback,
         "quota": quota,
     }

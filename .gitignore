@@ -42,6 +42,8 @@ htmlcov/
 node_modules/
 dist/
 dist-ssr/
+# 阿里云口语评测闭源 SDK（从控制台下载后放到此路径）
+frontend/public/sdk/engine.js
 *.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*

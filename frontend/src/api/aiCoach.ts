@@ -48,6 +48,11 @@ export interface AiClozeResult {
   quota?: AiQuota | null
 }
 
+export interface AiShadowingWordScore {
+  char: string
+  score: number
+}
+
 export interface AiShadowingResult {
   video_id: string
   subtitle_id: number
@@ -58,6 +63,13 @@ export interface AiShadowingResult {
   praise: string
   issues: string[]
   tips: string[]
+  /** oral = 阿里云口语评测；llm = ASR 文本 + AI 点评 */
+  engine?: 'oral' | 'llm' | string
+  accuracy?: number
+  fluency?: number
+  rhythm?: number
+  words?: AiShadowingWordScore[]
+  audio_url?: string
   quota?: AiQuota
 }
 

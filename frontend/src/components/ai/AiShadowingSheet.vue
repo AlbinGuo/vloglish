@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { aiShadowingFeedback, type AiShadowingResult } from '@/api/aiCoach'
+import { aiShadowingOralFeedback } from '@/api/oralEval'
+import { useOralEvalEngine } from '@/composables/useOralEvalEngine'
 
 const props = defineProps<{
   open: boolean
@@ -16,6 +18,7 @@ const props = defineProps<{
 const emit = defineEmits<{ close: []; play: []; next: [] }>()
 
 type Step = 'listen' | 'record' | 'result'
+type EngineMode = 'oral' | 'llm' | 'unknown'
 
 const step = ref<Step>('listen')
 const listening = ref(false)
@@ -26,6 +29,10 @@ const result = ref<AiShadowingResult | null>(null)
 const showTips = ref(false)
 const micUnsupported = ref(false)
 const autoSubmitArmed = ref(false)
+const engineMode = ref<EngineMode>('unknown')
+const fallbackHint = ref('')
+
+const oral = useOralEvalEngine()
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let recognition: any = null
@@ -71,6 +78,15 @@ const stepMeta = computed(() => {
   if (step.value === 'record') return { n: 2, label: '跟读' }
   return { n: 3, label: '看点评' }
 })
+
+const useOral = computed(() => engineMode.value === 'oral')
+
+function wordToneClass(score: number) {
+  if (score >= 85) return 'text-emerald-700 dark:text-emerald-300'
+  if (score >= 75) return 'text-sky-700 dark:text-sky-300'
+  if (score >= 55) return 'text-neutral-600 dark:text-neutral-300'
+  return 'text-rose-600 dark:text-rose-400 font-semibold'
+}
 
 type SpeechRecognitionCtor = new () => {
   lang: string
@@ -148,6 +164,7 @@ function clearAutoPlay() {
 function resetState() {
   clearAutoPlay()
   stopListening(true)
+  oral.cancel()
   step.value = 'listen'
   transcript.value = ''
   result.value = null
@@ -156,6 +173,7 @@ function resetState() {
   showTips.value = false
   micUnsupported.value = false
   autoSubmitArmed.value = false
+  fallbackHint.value = ''
 }
 
 function stopListening(abort = false) {
@@ -166,6 +184,10 @@ function stopListening(abort = false) {
     /* ignore */
   }
   listening.value = false
+  if (useOral.value) {
+    if (abort) oral.cancel()
+    else oral.stop()
+  }
 }
 
 function playOriginal() {
@@ -177,6 +199,53 @@ function goRecord() {
   error.value = ''
   result.value = null
   step.value = 'record'
+}
+
+async function resolveEngine() {
+  engineMode.value = 'unknown'
+  const ok = await oral.probe()
+  engineMode.value = ok ? 'oral' : 'llm'
+}
+
+async function startOralRecording() {
+  if (!props.subtitleId) return
+  error.value = ''
+  result.value = null
+  transcript.value = ''
+  fallbackHint.value = ''
+  autoSubmitArmed.value = true
+  step.value = 'record'
+
+  const micErr = await ensureMicPermission()
+  if (micErr) {
+    engineMode.value = 'llm'
+    micUnsupported.value = true
+    error.value = micErr
+    return
+  }
+
+  listening.value = true
+  loading.value = false
+  try {
+    const oralRaw = await oral.evaluateSentence(props.english)
+    listening.value = false
+    loading.value = true
+    result.value = await aiShadowingOralFeedback(props.videoId, props.subtitleId, oralRaw)
+    transcript.value = result.value.transcript || ''
+    step.value = 'result'
+    showTips.value = false
+    await nextTick()
+  } catch {
+    listening.value = false
+    loading.value = false
+    // 评测失败 → 回退 ASR+LLM
+    engineMode.value = 'llm'
+    fallbackHint.value = '发音评测暂不可用，已切换为识别点评'
+    error.value = ''
+    void startListening()
+  } finally {
+    autoSubmitArmed.value = false
+  }
 }
 
 async function startListening() {
@@ -264,6 +333,10 @@ function toggleMic() {
     stopListening(false)
     return
   }
+  if (useOral.value) {
+    void startOralRecording()
+    return
+  }
   void startListening()
 }
 
@@ -273,8 +346,10 @@ function retry() {
   transcript.value = ''
   showTips.value = false
   autoSubmitArmed.value = false
+  fallbackHint.value = ''
   step.value = 'record'
-  void startListening()
+  if (useOral.value) void startOralRecording()
+  else void startListening()
 }
 
 async function submitFeedback() {
@@ -309,7 +384,6 @@ function onNext() {
 
 function scheduleAutoPlay() {
   clearAutoPlay()
-  // 打开后轻量自动听一遍，降低「直接点麦」的失误
   autoPlayTimer = setTimeout(() => {
     autoPlayTimer = null
     if (props.open && step.value === 'listen') emit('play')
@@ -318,7 +392,7 @@ function scheduleAutoPlay() {
 
 watch(
   () => props.open,
-  (v) => {
+  async (v) => {
     if (typeof document !== 'undefined') {
       document.body.style.overflow = v ? 'hidden' : ''
     }
@@ -327,15 +401,17 @@ watch(
       return
     }
     resetState()
+    await resolveEngine()
     scheduleAutoPlay()
   },
 )
 
 watch(
   () => props.subtitleId,
-  (id, prev) => {
+  async (id, prev) => {
     if (props.open && id != null && id !== prev) {
       resetState()
+      await resolveEngine()
       scheduleAutoPlay()
     }
   },
@@ -343,7 +419,8 @@ watch(
 
 onUnmounted(() => {
   clearAutoPlay()
-  stopListening()
+  stopListening(true)
+  oral.cancel()
   if (typeof document !== 'undefined') document.body.style.overflow = ''
 })
 </script>
@@ -358,7 +435,6 @@ onUnmounted(() => {
       <div
         class="w-full sm:max-w-lg max-h-[90dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-[#FDFBF7] dark:bg-neutral-900 border border-black/5 dark:border-white/10 shadow-xl overflow-hidden"
       >
-        <!-- Header -->
         <div class="shrink-0 px-5 pt-4 pb-3 border-b border-black/5 dark:border-white/10">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
@@ -374,6 +450,12 @@ onUnmounted(() => {
                   class="text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
                 >
                   第 {{ stepMeta.n }} 步 · {{ stepMeta.label }}
+                </span>
+                <span
+                  v-if="useOral"
+                  class="text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
+                >
+                  发音评测
                 </span>
               </div>
             </div>
@@ -400,7 +482,6 @@ onUnmounted(() => {
         </div>
 
         <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 space-y-4">
-          <!-- Target sentence (always visible) -->
           <section class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-800/50 p-3.5 space-y-2">
             <p class="text-[15px] sm:text-base font-medium leading-relaxed text-neutral-900 dark:text-neutral-100">
               {{ english }}
@@ -410,7 +491,6 @@ onUnmounted(() => {
             </p>
           </section>
 
-          <!-- Step: listen -->
           <section v-if="step === 'listen'" class="flex flex-col items-center gap-4 py-4">
             <p class="text-sm text-neutral-500 text-center">先听清楚原句，再开始跟读</p>
             <button
@@ -432,7 +512,6 @@ onUnmounted(() => {
             </button>
           </section>
 
-          <!-- Step: record -->
           <section v-else-if="step === 'record'" class="flex flex-col items-center gap-3 py-2">
             <button
               type="button"
@@ -485,9 +564,15 @@ onUnmounted(() => {
 
             <p class="text-sm text-neutral-600 dark:text-neutral-300 text-center min-h-[1.25rem]">
               <template v-if="loading">正在点评…</template>
+              <template v-else-if="listening && useOral">正在录音评测… 说完再点停止</template>
               <template v-else-if="listening">正在听你说… 说完再点一下停止</template>
               <template v-else-if="micUnsupported">语音识别不可用时，可在下方输入英文</template>
+              <template v-else-if="useOral">点击麦克风跟读，系统将直接评分发音</template>
               <template v-else>点击麦克风跟读，停止后自动点评</template>
+            </p>
+
+            <p v-if="fallbackHint" class="text-xs text-amber-700 dark:text-amber-300 text-center">
+              {{ fallbackHint }}
             </p>
 
             <button
@@ -498,7 +583,7 @@ onUnmounted(() => {
               再听一遍原句
             </button>
 
-            <div class="w-full space-y-1.5 pt-1">
+            <div v-if="!useOral || micUnsupported" class="w-full space-y-1.5 pt-1">
               <label class="block text-xs text-neutral-500">
                 {{ micUnsupported || error ? '输入你跟读的英文' : '识别结果（可修改）' }}
               </label>
@@ -510,12 +595,14 @@ onUnmounted(() => {
               />
             </div>
 
-            <p v-if="error" class="w-full text-sm text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 rounded-xl px-3 py-2">
+            <p
+              v-if="error && !useOral"
+              class="w-full text-sm text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 rounded-xl px-3 py-2"
+            >
               {{ error }}
             </p>
           </section>
 
-          <!-- Step: result -->
           <section v-else-if="step === 'result' && result" class="space-y-3">
             <div
               class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-800/40 p-4"
@@ -546,9 +633,55 @@ onUnmounted(() => {
                   >
                     {{ result.praise }}
                   </p>
+                  <p v-if="result.engine === 'oral'" class="text-[11px] text-neutral-400 mt-1">
+                    发音评测 · 声学打分
+                  </p>
+                </div>
+              </div>
+
+              <div
+                v-if="result.engine === 'oral' && (result.accuracy != null || result.fluency != null)"
+                class="mt-3 grid grid-cols-3 gap-2 text-center"
+              >
+                <div class="rounded-lg bg-neutral-50 dark:bg-neutral-800/80 py-2">
+                  <p class="text-sm font-semibold tabular-nums">{{ result.accuracy ?? '—' }}</p>
+                  <p class="text-[10px] text-neutral-500">准确度</p>
+                </div>
+                <div class="rounded-lg bg-neutral-50 dark:bg-neutral-800/80 py-2">
+                  <p class="text-sm font-semibold tabular-nums">{{ result.fluency ?? '—' }}</p>
+                  <p class="text-[10px] text-neutral-500">流利度</p>
+                </div>
+                <div class="rounded-lg bg-neutral-50 dark:bg-neutral-800/80 py-2">
+                  <p class="text-sm font-semibold tabular-nums">{{ result.rhythm ?? '—' }}</p>
+                  <p class="text-[10px] text-neutral-500">韵律</p>
                 </div>
               </div>
             </div>
+
+            <div
+              v-if="result.words?.length"
+              class="rounded-xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-neutral-800/30 px-3.5 py-3"
+            >
+              <p class="text-[11px] font-medium text-neutral-500 mb-2">词级发音</p>
+              <p class="text-[15px] leading-relaxed flex flex-wrap gap-x-1.5 gap-y-1">
+                <span
+                  v-for="(w, i) in result.words"
+                  :key="`${w.char}-${i}`"
+                  :class="wordToneClass(w.score)"
+                  :title="`${w.char}: ${w.score}`"
+                >
+                  {{ w.char }}
+                </span>
+              </p>
+            </div>
+
+            <audio
+              v-if="result.audio_url"
+              class="w-full"
+              controls
+              preload="none"
+              :src="result.audio_url"
+            />
 
             <div
               v-if="(result.issues?.length || result.tips?.length)"
@@ -577,7 +710,7 @@ onUnmounted(() => {
                 <div v-if="result.issues?.length" class="space-y-1">
                   <p class="text-[11px] font-medium text-neutral-500">待改进</p>
                   <ul class="space-y-1 text-sm text-neutral-700 dark:text-neutral-300">
-                    <li v-for="(item, i) in result.issues.slice(0, 2)" :key="`i-${i}`" class="flex gap-2">
+                    <li v-for="(item, i) in result.issues.slice(0, 3)" :key="`i-${i}`" class="flex gap-2">
                       <span class="text-rose-500 shrink-0">·</span>
                       <span>{{ item }}</span>
                     </li>
@@ -586,7 +719,7 @@ onUnmounted(() => {
                 <div v-if="result.tips?.length" class="space-y-1">
                   <p class="text-[11px] font-medium text-neutral-500">小建议</p>
                   <ul class="space-y-1 text-sm text-neutral-700 dark:text-neutral-300">
-                    <li v-for="(item, i) in result.tips.slice(0, 2)" :key="`t-${i}`" class="flex gap-2">
+                    <li v-for="(item, i) in result.tips.slice(0, 3)" :key="`t-${i}`" class="flex gap-2">
                       <span class="text-amber-600 shrink-0">·</span>
                       <span>{{ item }}</span>
                     </li>
@@ -595,13 +728,12 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <p v-if="transcript" class="text-xs text-neutral-400 px-0.5">
+            <p v-if="transcript && result.engine !== 'oral'" class="text-xs text-neutral-400 px-0.5">
               你说的：{{ transcript }}
             </p>
           </section>
         </div>
 
-        <!-- Footer：随阶段变化 -->
         <div
           class="shrink-0 flex items-center gap-2 px-5 py-3 border-t border-black/5 dark:border-white/10 bg-white/80 dark:bg-neutral-900/90 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         >
@@ -632,12 +764,22 @@ onUnmounted(() => {
               返回听原句
             </button>
             <button
+              v-if="!useOral"
               type="button"
               class="flex-[1.2] px-3 py-2.5 rounded-xl text-sm font-medium bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 disabled:opacity-40"
               :disabled="loading || listening || !transcript.trim()"
               @click="submitFeedback"
             >
               {{ loading ? '点评中…' : '提交点评' }}
+            </button>
+            <button
+              v-else
+              type="button"
+              class="flex-[1.2] px-3 py-2.5 rounded-xl text-sm font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-40"
+              :disabled="loading || listening"
+              @click="toggleMic"
+            >
+              {{ listening ? '停止并评分' : loading ? '评分中…' : '开始录音' }}
             </button>
           </template>
 
