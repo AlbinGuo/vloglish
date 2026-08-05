@@ -64,16 +64,28 @@ export async function fetchOralEvalWarrant() {
   }
 }
 
+export interface OralFeedbackContext {
+  source_type?: string
+  video_id?: string
+  subtitle_id?: number | null
+  article_id?: string
+  segment_id?: number | null
+  title?: string
+  mode?: OralPracticeMode
+}
+
 export async function aiShadowingOralFeedback(
   videoId: string,
   subtitleId: number,
   oralResult: Record<string, unknown>,
+  opts?: { title?: string },
 ) {
   try {
     const { data } = await api.post<AiShadowingResult>('/api/ai/shadowing-oral-feedback/', {
       video_id: videoId,
       subtitle_id: subtitleId,
       oral_result: oralResult,
+      title: opts?.title || '',
     })
     return data
   } catch (e) {
@@ -85,12 +97,19 @@ export async function aiOralEvalFeedback(
   refText: string,
   oralResult: Record<string, unknown>,
   coreType: OralCoreType,
+  ctx?: OralFeedbackContext,
 ) {
   try {
     const { data } = await api.post<AiShadowingResult>('/api/ai/oral-eval/feedback/', {
       ref_text: refText,
       oral_result: oralResult,
       core_type: coreType,
+      source_type: ctx?.source_type || 'other',
+      video_id: ctx?.video_id || '',
+      subtitle_id: ctx?.subtitle_id ?? null,
+      article_id: ctx?.article_id || '',
+      segment_id: ctx?.segment_id ?? null,
+      title: ctx?.title || '',
     })
     return data
   } catch (e) {
@@ -98,10 +117,21 @@ export async function aiOralEvalFeedback(
   }
 }
 
-export async function aiShadowingTextFeedback(target: string, transcript: string) {
+export async function aiShadowingTextFeedback(
+  target: string,
+  transcript: string,
+  ctx?: OralFeedbackContext,
+) {
   const { data } = await api.post<AiShadowingResult>('/api/ai/shadowing-text-feedback/', {
     target,
     transcript,
+    mode: ctx?.mode || 'sentence',
+    source_type: ctx?.source_type || 'other',
+    video_id: ctx?.video_id || '',
+    subtitle_id: ctx?.subtitle_id ?? null,
+    article_id: ctx?.article_id || '',
+    segment_id: ctx?.segment_id ?? null,
+    title: ctx?.title || '',
   })
   return data
 }

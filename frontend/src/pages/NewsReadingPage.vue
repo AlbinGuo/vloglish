@@ -14,7 +14,7 @@ import IntensiveCoreVocabMobile from '@/components/intensive/IntensiveCoreVocabM
 import IntensiveModeToggle from '@/components/intensive/IntensiveModeToggle.vue'
 import SettingsButton from '@/components/SettingsButton.vue'
 import AiReadingQaSheet from '@/components/ai/AiReadingQaSheet.vue'
-import AiShadowingSheet from '@/components/ai/AiShadowingSheet.vue'
+import AiShadowingSheet, { type PassagePracticeBlock } from '@/components/ai/AiShadowingSheet.vue'
 import ReadingShareCard from '@/components/ai/ReadingShareCard.vue'
 import ReadingSettingsPanel from '@/components/reading/ReadingSettingsPanel.vue'
 import ReadingWordTooltipHost from '@/components/reading/ReadingWordTooltipHost.vue'
@@ -76,12 +76,18 @@ const oralMode = ref<'passage'>('passage')
 const oralText = ref('')
 const oralChinese = ref('')
 const oralTitle = ref('篇章评测')
+const oralSegmentId = ref<number | null>(null)
+const oralBlocks = ref<PassagePracticeBlock[]>([])
 
 function startSegmentOral(segment: ArticleSegment) {
+  const en = (segment.english || '').trim()
+  const zh = (segment.chinese || '').trim()
   oralMode.value = 'passage'
-  oralText.value = (segment.english || '').trim()
-  oralChinese.value = (segment.chinese || '').trim()
+  oralText.value = en
+  oralChinese.value = zh
   oralTitle.value = '段落跟读'
+  oralSegmentId.value = segment.id
+  oralBlocks.value = [{ english: en, chinese: zh, focus: true, segmentIndex: segment.index }]
   setCurrentIndex(segment.index)
   oralOpen.value = true
 }
@@ -91,23 +97,29 @@ function startPassageOral() {
   const list = segments.value
   if (!list.length) return
   const start = Math.max(0, currentIndex.value)
-  const parts: string[] = []
-  const zhParts: string[] = []
+  const blocks: PassagePracticeBlock[] = []
   let chars = 0
+  let firstSegId: number | null = null
   for (let i = start; i < list.length; i++) {
     const en = (list[i].english || '').trim()
     if (!en) continue
-    if (chars + en.length > 1200 && parts.length) break
-    parts.push(en)
-    const zh = (list[i].chinese || '').trim()
-    if (zh) zhParts.push(zh)
+    if (chars + en.length > 1200 && blocks.length) break
+    if (firstSegId == null) firstSegId = list[i].id
+    blocks.push({
+      english: en,
+      chinese: (list[i].chinese || '').trim(),
+      focus: blocks.length === 0,
+      segmentIndex: list[i].index,
+    })
     chars += en.length
   }
-  if (!parts.length) return
+  if (!blocks.length) return
   oralMode.value = 'passage'
-  oralText.value = parts.join(' ')
-  oralChinese.value = zhParts.join(' ')
-  oralTitle.value = parts.length > 1 ? '篇章评测' : '段落跟读'
+  oralText.value = blocks.map((b) => b.english).join(' ')
+  oralChinese.value = blocks.map((b) => b.chinese).filter(Boolean).join(' ')
+  oralTitle.value = blocks.length > 1 ? '篇章评测' : '段落跟读'
+  oralSegmentId.value = firstSegId
+  oralBlocks.value = blocks
   oralOpen.value = true
 }
 
@@ -275,7 +287,14 @@ const readingTts = useReadingTts({
 provide(READING_TTS_KEY, readingTts)
 
 function onOralPlay(rate = 1) {
-  void readingTts.playSegment(currentIndex.value, false, rate)
+  const indexes = oralBlocks.value
+    .map((b) => b.segmentIndex)
+    .filter((n): n is number => typeof n === 'number')
+  if (indexes.length) {
+    readingTts.playRange(Math.min(...indexes), Math.max(...indexes), rate)
+    return
+  }
+  readingTts.playSegment(currentIndex.value, false, rate)
 }
 
 function resolveClickedWordSpan(target: HTMLElement, root: HTMLElement): HTMLElement | null {
@@ -830,6 +849,11 @@ watch(layoutMode, async () => {
       :ref-text="oralText"
       :chinese="oralChinese"
       :title="oralTitle"
+      :article-id="articleId"
+      :segment-id="oralSegmentId"
+      :vocab-groups="vocabSummaryGroups"
+      :passage-blocks="oralBlocks"
+      source-type="article"
       :has-next="false"
       @close="oralOpen = false"
       @play="onOralPlay"

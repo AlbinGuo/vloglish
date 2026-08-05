@@ -508,6 +508,39 @@ class SiteSetting(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class UserPracticeRecord(Base):
+    """口语评测 / 单词打分 / 篇章评测练习记录（含可选录音）。"""
+
+    __tablename__ = "user_practice_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    mode: Mapped[str] = mapped_column(String(16), default="sentence", index=True)  # word|sentence|passage
+    engine: Mapped[str] = mapped_column(String(16), default="oral")  # oral|llm
+    source_type: Mapped[str] = mapped_column(String(16), default="other")  # video|article|vocab|other
+    video_id: Mapped[str] = mapped_column(String(32), default="", index=True)
+    subtitle_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    article_id: Mapped[str] = mapped_column(String(32), default="", index=True)
+    segment_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    title: Mapped[str] = mapped_column(String(256), default="")
+    ref_text: Mapped[str] = mapped_column(Text, default="")
+    transcript: Mapped[str] = mapped_column(Text, default="")
+    score: Mapped[int] = mapped_column(Integer, default=0)
+    level: Mapped[str] = mapped_column(String(32), default="")
+    accuracy: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fluency: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rhythm: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    integrity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    praise: Mapped[str] = mapped_column(Text, default="")
+    issues_json: Mapped[str] = mapped_column(Text, default="[]")
+    tips_json: Mapped[str] = mapped_column(Text, default="[]")
+    words_json: Mapped[str] = mapped_column(Text, default="[]")
+    result_json: Mapped[str] = mapped_column(Text, default="{}")
+    audio_url: Mapped[str] = mapped_column(Text, default="")
+    audio_source: Mapped[str] = mapped_column(String(16), default="")  # remote|upload|""
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
 class MembershipOrder(Base):
     """站内自助购买永久会员订单（支付宝）。"""
 

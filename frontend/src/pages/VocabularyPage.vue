@@ -489,6 +489,7 @@ onUnmounted(() => {
       :ipa="wordScoreIpa"
       :chinese="wordScoreChinese"
       title="单词打分"
+      source-type="vocab"
       :has-next="false"
       @close="wordScoreOpen = false"
       @next="wordScoreOpen = false"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, inject, nextTick, onUnmounted, ref, watch } from 'vue'
 import { aiShadowingFeedback, type AiShadowingResult } from '@/api/aiCoach'
 import {
   aiOralEvalFeedback,
@@ -10,8 +10,21 @@ import {
 } from '@/api/oralEval'
 import { fetchPracticeTts, type PracticeTtsVoice } from '@/api/practiceTts'
 import { fetchOralRemoteAudio } from '@/api/oralEvalAudio'
+import { uploadPracticeAudio } from '@/api/practiceRecords'
+import { READING_TTS_KEY } from '@/composables/useReadingTts'
 import { useOralEvalEngine } from '@/composables/useOralEvalEngine'
 import { playWordPronunciation, stopSpeaking } from '@/utils/speakWord'
+import { highlightVocabLinkText, type VocabSummaryGroup } from '@/utils/vocabSummary'
+
+/** 篇章评测：按段落展示，播放中随语音切换浅底 */
+export type PassagePracticeBlock = {
+  english: string
+  chinese?: string
+  /** 初始当前句（未播放时） */
+  focus?: boolean
+  /** 文章段落 index，用于原声连播与同步 */
+  segmentIndex?: number
+}
 
 const props = withDefaults(
   defineProps<{
@@ -22,6 +35,9 @@ const props = withDefaults(
     refText?: string
     videoId?: string
     subtitleId?: number | null
+    articleId?: string
+    segmentId?: number | null
+    sourceType?: 'video' | 'article' | 'vocab' | 'other'
     english?: string
     chinese?: string
     /** 单词打分：音标 */
@@ -30,11 +46,18 @@ const props = withDefaults(
     sentenceIndex?: number
     sentenceTotal?: number
     hasNext?: boolean
+    /** 文章难词表：篇章评测内高亮重点词 */
+    vocabGroups?: VocabSummaryGroup[]
+    /** 篇章分段；有则按段渲染（当前段浅底 + 词高亮） */
+    passageBlocks?: PassagePracticeBlock[]
   }>(),
   {
     mode: 'sentence',
     subtitleId: null,
+    segmentId: null,
     hasNext: true,
+    vocabGroups: () => [],
+    passageBlocks: () => [],
   },
 )
 
@@ -87,6 +110,53 @@ let demoObjectUrl: string | null = null
 const practiceMode = computed<OralPracticeMode>(() => props.mode || 'sentence')
 const targetText = computed(() => (props.refText || props.english || '').trim())
 const coreType = computed(() => coreTypeForMode(practiceMode.value))
+const readingTts = inject(READING_TTS_KEY, null)
+
+const passageBlocksView = computed(() =>
+  (props.passageBlocks || [])
+    .map((b) => ({
+      english: (b.english || '').trim(),
+      chinese: (b.chinese || '').trim(),
+      focus: Boolean(b.focus),
+      segmentIndex: typeof b.segmentIndex === 'number' ? b.segmentIndex : null,
+    }))
+    .filter((b) => b.english),
+)
+
+const showPassageBlocks = computed(
+  () => practiceMode.value === 'passage' && passageBlocksView.value.length > 0,
+)
+
+/** 播放中高亮的段落下标；未播放时用初始 focus */
+const playingBlockIndex = ref<number | null>(null)
+/** 示范音会话未结束（可暂停后继续） */
+const demoSessionActive = ref(false)
+let ttsSeqToken = 0
+let ttsSeqResume: (() => void) | null = null
+let ttsSeqWaitPause: Promise<void> | null = null
+
+const activeBlockIndex = computed(() => {
+  if (playingBlockIndex.value != null) return playingBlockIndex.value
+  const fi = passageBlocksView.value.findIndex((b) => b.focus)
+  return fi >= 0 ? fi : 0
+})
+
+function passageBlockHtml(english: string) {
+  return highlightVocabLinkText(english, props.vocabGroups || [])
+}
+
+const highlightedTargetHtml = computed(() => {
+  if (practiceMode.value !== 'passage' || !targetText.value) return ''
+  if (!props.vocabGroups?.length) return ''
+  return highlightVocabLinkText(targetText.value, props.vocabGroups)
+})
+
+const demoActionLabel = computed(() => {
+  if (demoLoading.value) return '示范音合成中…'
+  if (demoPlaying.value) return '点击暂停'
+  if (demoSessionActive.value) return '继续播放'
+  return playDemoLabel.value
+})
 
 const sheetTitle = computed(() => {
   if (props.title) return props.title
@@ -285,12 +355,24 @@ function estimateDemoMs(text: string, rate: number) {
   return Math.round(base / Math.max(0.5, rate)) + 350
 }
 
+function endDemoSession() {
+  demoSessionActive.value = false
+  demoPlaying.value = false
+  playingBlockIndex.value = null
+  ttsSeqToken += 1
+  ttsSeqResume = null
+  ttsSeqWaitPause = null
+}
+
 function stopDemoAudio() {
   clearDemoPlayingTimer()
-  demoPlaying.value = false
+  endDemoSession()
   if (demoAudio) {
     try {
       demoAudio.pause()
+      demoAudio.onended = null
+      demoAudio.onpause = null
+      demoAudio.onplay = null
       demoAudio.removeAttribute('src')
       demoAudio.load()
     } catch {
@@ -302,6 +384,47 @@ function stopDemoAudio() {
     URL.revokeObjectURL(demoObjectUrl)
     demoObjectUrl = null
   }
+  if (practiceMode.value === 'passage' && readingTts) {
+    readingTts.stop()
+  }
+}
+
+function pauseDemoAudio() {
+  clearDemoPlayingTimer()
+  if (demoAudio && !demoAudio.paused) {
+    demoAudio.pause()
+    demoPlaying.value = false
+    return true
+  }
+  if (practiceMode.value === 'passage' && readingTts?.isPlaying.value) {
+    readingTts.pause()
+    demoPlaying.value = false
+    return true
+  }
+  return false
+}
+
+function resumeDemoAudio() {
+  if (demoAudio && demoAudio.paused && !demoAudio.ended && demoSessionActive.value) {
+    void demoAudio.play().then(() => {
+      demoPlaying.value = true
+    }).catch(() => {
+      endDemoSession()
+    })
+    return true
+  }
+  if (ttsSeqWaitPause && ttsSeqResume) {
+    ttsSeqResume()
+    ttsSeqResume = null
+    ttsSeqWaitPause = null
+    demoPlaying.value = true
+    return true
+  }
+  if (practiceMode.value === 'passage' && readingTts && demoSessionActive.value) {
+    readingTts.resume()
+    return true
+  }
+  return false
 }
 
 function formatPlaybackTime(sec: number) {
@@ -507,36 +630,203 @@ function stopListening(abort = false) {
   }
 }
 
+function passageRange() {
+  const blocks = passageBlocksView.value
+  const indexes = blocks
+    .map((b) => b.segmentIndex)
+    .filter((n): n is number => typeof n === 'number')
+  if (!indexes.length) return null
+  return { start: Math.min(...indexes), end: Math.max(...indexes) }
+}
+
 function playOriginalSource() {
   const rate = demoRate.value
-  markDemoPlaying()
   if (practiceMode.value === 'word') {
+    demoSessionActive.value = true
+    markDemoPlaying()
     void playWordPronunciation(targetText.value, null, rate)
     return
   }
+
+  if (practiceMode.value === 'passage' && readingTts) {
+    const range = passageRange()
+    demoSessionActive.value = true
+    demoPlaying.value = true
+    if (range) {
+      playingBlockIndex.value = 0
+      readingTts.playRange(range.start, range.end, rate)
+    } else {
+      markDemoPlaying()
+      emit('play', rate)
+    }
+    return
+  }
+
+  demoSessionActive.value = true
+  markDemoPlaying()
   emit('play', rate)
 }
 
-async function playTtsDemo(voice: PracticeTtsVoice) {
+function playAudioElement(audio: HTMLAudioElement) {
+  return new Promise<void>((resolve, reject) => {
+    const onEnded = () => {
+      cleanup()
+      resolve()
+    }
+    const onError = () => {
+      cleanup()
+      reject(new Error('示范音播放失败'))
+    }
+    const cleanup = () => {
+      audio.removeEventListener('ended', onEnded)
+      audio.removeEventListener('error', onError)
+    }
+    audio.addEventListener('ended', onEnded)
+    audio.addEventListener('error', onError)
+    void audio.play().catch((e) => {
+      cleanup()
+      reject(e)
+    })
+  })
+}
+
+async function waitIfTtsPaused(token: number) {
+  if (demoPlaying.value || token !== ttsSeqToken) return
+  if (!demoSessionActive.value) return
+  ttsSeqWaitPause = new Promise<void>((resolve) => {
+    ttsSeqResume = resolve
+  })
+  await ttsSeqWaitPause
+}
+
+async function playPassageTtsSequential(voice: PracticeTtsVoice) {
+  const blocks = passageBlocksView.value
+  if (!blocks.length) {
+    await playTtsDemoWhole(voice)
+    return
+  }
+
+  const token = ++ttsSeqToken
+  demoSessionActive.value = true
+  demoPlaying.value = true
+
+  for (let i = 0; i < blocks.length; i++) {
+    if (token !== ttsSeqToken || !demoSessionActive.value) return
+    await waitIfTtsPaused(token)
+    if (token !== ttsSeqToken || !demoSessionActive.value) return
+
+    playingBlockIndex.value = i
+    demoLoading.value = true
+    let blob: Blob
+    try {
+      blob = await fetchPracticeTts(blocks[i].english, voice, 'passage')
+    } finally {
+      demoLoading.value = false
+    }
+    if (token !== ttsSeqToken || !demoSessionActive.value) return
+
+    if (demoObjectUrl) {
+      URL.revokeObjectURL(demoObjectUrl)
+      demoObjectUrl = null
+    }
+    if (demoAudio) {
+      try {
+        demoAudio.pause()
+      } catch {
+        /* ignore */
+      }
+      demoAudio = null
+    }
+
+    const url = URL.createObjectURL(blob)
+    demoObjectUrl = url
+    const audio = new Audio(url)
+    demoAudio = audio
+    audio.playbackRate = demoRate.value
+    demoPlaying.value = true
+    try {
+      await playAudioElement(audio)
+    } catch {
+      if (token === ttsSeqToken) endDemoSession()
+      return
+    }
+    if (demoAudio === audio) demoAudio = null
+  }
+
+  if (token === ttsSeqToken) endDemoSession()
+}
+
+async function playTtsDemoWhole(voice: PracticeTtsVoice) {
   if (!targetText.value) return
   const blob = await fetchPracticeTts(targetText.value, voice, practiceMode.value)
+  if (demoObjectUrl) {
+    URL.revokeObjectURL(demoObjectUrl)
+    demoObjectUrl = null
+  }
   const url = URL.createObjectURL(blob)
   demoObjectUrl = url
   const audio = new Audio(url)
   demoAudio = audio
   audio.playbackRate = demoRate.value
   audio.onended = () => {
-    stopDemoAudio()
+    endDemoSession()
+    if (demoObjectUrl) {
+      URL.revokeObjectURL(demoObjectUrl)
+      demoObjectUrl = null
+    }
+    demoAudio = null
   }
   clearDemoPlayingTimer()
+  demoSessionActive.value = true
   demoPlaying.value = true
   await audio.play()
 }
 
+async function playTtsDemo(voice: PracticeTtsVoice) {
+  if (practiceMode.value === 'passage' && passageBlocksView.value.length > 1) {
+    await playPassageTtsSequential(voice)
+    return
+  }
+  if (practiceMode.value === 'passage' && passageBlocksView.value.length === 1) {
+    playingBlockIndex.value = 0
+  }
+  await playTtsDemoWhole(voice)
+}
+
 async function playDemo() {
   error.value = ''
+
+  // 播放中 → 暂停；已暂停 → 继续
+  if (demoPlaying.value) {
+    if (!pauseDemoAudio()) {
+      // 段落间隙（如下一段合成中）：先进入暂停，等恢复后再继续
+      demoPlaying.value = false
+    }
+    return
+  }
+  if (demoSessionActive.value && resumeDemoAudio()) {
+    return
+  }
+
   stopSpeaking()
-  stopDemoAudio()
+  // 重新开播前清掉旧音频/连播
+  clearDemoPlayingTimer()
+  if (demoAudio) {
+    try {
+      demoAudio.pause()
+      demoAudio.removeAttribute('src')
+      demoAudio.load()
+    } catch {
+      /* ignore */
+    }
+    demoAudio = null
+  }
+  if (demoObjectUrl) {
+    URL.revokeObjectURL(demoObjectUrl)
+    demoObjectUrl = null
+  }
+  if (practiceMode.value === 'passage' && readingTts) readingTts.stop()
+  endDemoSession()
 
   if (demoVoice.value === 'original') {
     playOriginalSource()
@@ -561,16 +851,27 @@ async function playDemo() {
 }
 
 function setDemoVoice(voice: DemoVoice) {
+  stopDemoAudio()
   demoVoice.value = voice
   void playDemo()
 }
 
 function setDemoRate(rate: 0.5 | 1) {
   demoRate.value = rate
+  if (demoAudio) demoAudio.playbackRate = rate
+  // 原声连播进行中只改速率；已结束则重播
+  if (demoSessionActive.value && demoPlaying.value && readingTts && demoVoice.value === 'original') {
+    return
+  }
+  if (demoSessionActive.value && demoPlaying.value && demoAudio) {
+    return
+  }
+  stopDemoAudio()
   void playDemo()
 }
 
 function goRecord() {
+  stopDemoAudio()
   error.value = ''
   result.value = null
   step.value = 'record'
@@ -582,11 +883,50 @@ async function resolveEngine() {
   engineMode.value = ok ? 'oral' : 'llm'
 }
 
+function feedbackContext() {
+  const source =
+    props.sourceType ||
+    (props.articleId ? 'article' : props.videoId ? 'video' : practiceMode.value === 'word' ? 'vocab' : 'other')
+  return {
+    source_type: source,
+    video_id: props.videoId || '',
+    subtitle_id: props.subtitleId,
+    article_id: props.articleId || '',
+    segment_id: props.segmentId,
+    title: props.title || sheetTitle.value,
+    mode: practiceMode.value,
+  }
+}
+
+async function maybeUploadLocalPracticeAudio(res: AiShadowingResult) {
+  const recordId = res.practice_record_id
+  if (!recordId) return
+  if ((res.practice_audio_url || res.audio_url || '').trim()) return
+  const local = oral.localAudioUrl.value
+  if (!local || !local.startsWith('blob:')) return
+  try {
+    const blob = await fetch(local).then((r) => r.blob())
+    if (!blob.size) return
+    const uploaded = await uploadPracticeAudio(recordId, blob)
+    if (uploaded.audio_url) {
+      result.value = {
+        ...res,
+        audio_url: uploaded.audio_url,
+        practice_audio_url: uploaded.audio_url,
+      }
+    }
+  } catch {
+    /* 补传失败不影响本次点评展示 */
+  }
+}
+
 async function submitOralResult(oralRaw: Record<string, unknown>) {
   if (props.videoId && props.subtitleId != null && practiceMode.value === 'sentence') {
-    return aiShadowingOralFeedback(props.videoId, props.subtitleId, oralRaw)
+    return aiShadowingOralFeedback(props.videoId, props.subtitleId, oralRaw, {
+      title: props.title || '',
+    })
   }
-  return aiOralEvalFeedback(targetText.value, oralRaw, coreType.value)
+  return aiOralEvalFeedback(targetText.value, oralRaw, coreType.value, feedbackContext())
 }
 
 async function startOralRecording() {
@@ -630,6 +970,7 @@ async function startOralRecording() {
     transcript.value = result.value.transcript || ''
     step.value = 'result'
     showTips.value = Boolean(result.value.issues?.length || result.value.tips?.length)
+    await maybeUploadLocalPracticeAudio(result.value)
     await resolvePlayback(result.value.audio_url || remoteFromSdk)
     await nextTick()
   } catch (e: unknown) {
@@ -764,7 +1105,7 @@ async function submitFeedback() {
     if (props.videoId && props.subtitleId != null && practiceMode.value === 'sentence') {
       result.value = await aiShadowingFeedback(props.videoId, props.subtitleId, text)
     } else {
-      result.value = await aiShadowingTextFeedback(targetText.value, text)
+      result.value = await aiShadowingTextFeedback(targetText.value, text, feedbackContext())
     }
     step.value = 'result'
     showTips.value = Boolean(result.value.issues?.length || result.value.tips?.length)
@@ -830,6 +1171,44 @@ watch(
   },
 )
 
+watch(
+  () => readingTts?.playingIndex.value ?? null,
+  (idx) => {
+    if (practiceMode.value !== 'passage' || demoVoice.value !== 'original') return
+    if (!demoSessionActive.value) return
+    if (idx == null) {
+      if (!readingTts?.isPlaying.value) {
+        demoSessionActive.value = false
+        demoPlaying.value = false
+      }
+      return
+    }
+    const i = passageBlocksView.value.findIndex((b) => b.segmentIndex === idx)
+    if (i >= 0) playingBlockIndex.value = i
+  },
+)
+
+watch(
+  () => readingTts?.isPlaying.value ?? false,
+  (playing) => {
+    if (practiceMode.value !== 'passage' || demoVoice.value !== 'original') return
+    if (!demoSessionActive.value && !playing) return
+    if (playing) {
+      demoSessionActive.value = true
+      demoPlaying.value = true
+    } else {
+      demoPlaying.value = false
+    }
+  },
+)
+
+watch(activeBlockIndex, async (idx) => {
+  if (!showPassageBlocks.value || !props.open) return
+  await nextTick()
+  const el = document.querySelector(`[data-practice-block="${idx}"]`)
+  el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+})
+
 onUnmounted(() => {
   clearAutoPlay()
   stopListening(true)
@@ -850,7 +1229,8 @@ onUnmounted(() => {
       @click.self="$emit('close')"
     >
       <div
-        class="w-full sm:max-w-md max-h-[92dvh] flex flex-col rounded-t-[1.75rem] sm:rounded-[1.75rem] bg-[#FBF8F3] dark:bg-neutral-950 border border-black/5 dark:border-white/10 overflow-hidden"
+        class="w-full max-h-[92dvh] sm:max-h-[90dvh] flex flex-col rounded-t-[1.75rem] sm:rounded-[1.75rem] bg-[#FBF8F3] dark:bg-neutral-950 border border-black/5 dark:border-white/10 overflow-hidden"
+        :class="practiceMode === 'passage' ? 'sm:max-w-4xl' : 'sm:max-w-2xl'"
       >
         <!-- Header -->
         <div class="shrink-0 px-5 pt-4 pb-3">
@@ -921,26 +1301,76 @@ onUnmounted(() => {
         >
           <!-- Target card -->
           <section
-            class="relative overflow-hidden rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white dark:bg-neutral-900 px-4 py-3.5"
+            class="relative rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white dark:bg-neutral-900 px-4 py-3.5"
+            :class="practiceMode === 'passage' ? 'sm:px-5 sm:py-4' : 'overflow-hidden'"
           >
-            <p
-              class="leading-relaxed text-neutral-900 dark:text-neutral-50"
-              :class="practiceMode === 'word' ? 'text-2xl font-semibold tracking-wide' : 'text-[15px] sm:text-base font-medium'"
+            <div
+              :class="
+                practiceMode === 'passage'
+                  ? 'max-h-[min(48vh,30rem)] overflow-y-auto overscroll-contain pr-0.5'
+                  : ''
+              "
             >
-              {{ targetText }}
-            </p>
-            <p
-              v-if="ipa"
-              class="mt-1.5 text-sm text-neutral-400 dark:text-neutral-500 font-serif leading-relaxed"
-            >
-              {{ ipa }}
-            </p>
-            <p
-              v-if="chinese"
-              class="mt-2 text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed"
-            >
-              {{ chinese }}
-            </p>
+              <!-- 篇章：按段展示，当前句浅底 + 文章难词高亮 -->
+              <div v-if="showPassageBlocks" class="space-y-2 practice-passage-text">
+                <div
+                  v-for="(block, i) in passageBlocksView"
+                  :key="i"
+                  :data-practice-block="i"
+                  class="rounded-xl px-2.5 py-2 transition-colors"
+                  :class="
+                    i === activeBlockIndex
+                      ? 'bg-amber-50 dark:bg-amber-950/40 ring-1 ring-amber-200/80 dark:ring-amber-800/50'
+                      : 'bg-transparent'
+                  "
+                >
+                  <p
+                    class="text-[15px] sm:text-[17px] font-medium leading-[1.75] text-neutral-900 dark:text-neutral-50"
+                    v-html="passageBlockHtml(block.english)"
+                  />
+                  <p
+                    v-if="block.chinese"
+                    class="mt-1.5 text-sm sm:text-[15px] text-neutral-500 dark:text-neutral-400 leading-[1.65]"
+                  >
+                    {{ block.chinese }}
+                  </p>
+                </div>
+              </div>
+
+              <template v-else>
+                <p
+                  v-if="highlightedTargetHtml"
+                  class="text-neutral-900 dark:text-neutral-50 practice-passage-text text-[15px] sm:text-[17px] font-medium leading-[1.75]"
+                  v-html="highlightedTargetHtml"
+                />
+                <p
+                  v-else
+                  class="text-neutral-900 dark:text-neutral-50"
+                  :class="
+                    practiceMode === 'word'
+                      ? 'text-2xl font-semibold tracking-wide leading-relaxed'
+                      : practiceMode === 'passage'
+                        ? 'text-[15px] sm:text-[17px] font-medium leading-[1.75]'
+                        : 'text-[15px] sm:text-base font-medium leading-relaxed'
+                  "
+                >
+                  {{ targetText }}
+                </p>
+                <p
+                  v-if="ipa"
+                  class="mt-1.5 text-sm text-neutral-400 dark:text-neutral-500 font-serif leading-relaxed"
+                >
+                  {{ ipa }}
+                </p>
+                <p
+                  v-if="chinese"
+                  class="mt-2 text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed"
+                  :class="practiceMode === 'passage' ? 'sm:text-[15px] leading-[1.65]' : ''"
+                >
+                  {{ chinese }}
+                </p>
+              </template>
+            </div>
           </section>
 
           <!-- 示范源 + 语速：单词打分 + AI 跟读 -->
@@ -1031,17 +1461,20 @@ onUnmounted(() => {
           <section v-if="step === 'listen'" class="flex flex-col items-center gap-4 pt-3 pb-2">
             <p class="text-sm text-neutral-500 text-center px-2 leading-relaxed">{{ listenHint }}</p>
 
-            <div class="w-full max-w-sm space-y-3">
+            <div
+              class="w-full space-y-3"
+              :class="practiceMode === 'passage' ? 'sm:max-w-2xl mx-auto' : 'sm:max-w-lg mx-auto'"
+            >
               <!-- 听示范：大圆形播放，播放中有声波动效 -->
               <button
                 type="button"
                 class="group relative w-full overflow-hidden rounded-[1.35rem] border text-left transition duration-200 active:scale-[0.985] disabled:opacity-60"
                 :class="
-                  demoPlaying
+                  demoPlaying || demoSessionActive
                     ? 'border-amber-300/80 bg-gradient-to-br from-amber-50 to-orange-50 shadow-[0_10px_28px_rgba(217,119,6,0.18)] dark:border-amber-700/50 dark:from-amber-950/40 dark:to-orange-950/30'
                     : 'border-black/[0.06] bg-white hover:border-amber-200 hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-neutral-900 dark:hover:border-amber-800/60'
                 "
-                :disabled="demoLoading"
+                :disabled="demoLoading && !demoSessionActive"
                 @click="playDemo"
               >
                 <div class="flex items-center gap-3.5 px-4 py-3.5">
@@ -1076,26 +1509,14 @@ onUnmounted(() => {
                     <svg
                       v-else-if="demoPlaying"
                       class="relative"
-                      width="20"
-                      height="20"
+                      width="18"
+                      height="18"
                       viewBox="0 0 24 24"
                       fill="currentColor"
                       aria-hidden="true"
                     >
-                      <path
-                        d="M11 5L6 9H3v6h3l5 4V5zm5.5 1.5a6.5 6.5 0 0 1 0 11"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                      />
-                      <path
-                        d="M15 8.5a3.5 3.5 0 0 1 0 7"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                      />
+                      <rect x="6" y="5" width="4" height="14" rx="1" />
+                      <rect x="14" y="5" width="4" height="14" rx="1" />
                     </svg>
                     <svg
                       v-else
@@ -1112,17 +1533,19 @@ onUnmounted(() => {
 
                   <span class="min-w-0 flex-1">
                     <span class="block text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">
-                      {{ demoLoading ? '示范音合成中…' : demoPlaying ? '正在播放示范' : playDemoLabel }}
+                      {{ demoActionLabel }}
                     </span>
                     <span class="mt-0.5 block text-xs text-neutral-500 dark:text-neutral-400">
                       {{
                         demoPlaying
-                          ? '听清了再开始跟读'
-                          : demoVoice === 'original'
-                            ? practiceMode === 'word'
-                              ? '词典音 · 可切换 Ryan / Katerina'
-                              : '当前选中的示范源 · 可调语速'
-                            : `${demoVoice} · ${demoRate === 0.5 ? '0.5× 慢速' : '正常语速'}`
+                          ? '播放中 · 再点可暂停'
+                          : demoSessionActive
+                            ? '已暂停 · 再点继续'
+                            : demoVoice === 'original'
+                              ? practiceMode === 'word'
+                                ? '词典音 · 可切换 Ryan / Katerina'
+                                : '当前选中的示范源 · 可调语速'
+                              : `${demoVoice} · ${demoRate === 0.5 ? '0.5× 慢速' : '正常语速'}`
                       }}
                     </span>
                   </span>
@@ -1266,7 +1689,7 @@ onUnmounted(() => {
               <label class="block text-xs text-neutral-500">识别结果（可修改）</label>
               <textarea
                 v-model="transcript"
-                rows="2"
+                :rows="practiceMode === 'passage' ? 4 : 2"
                 class="w-full rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3.5 py-2.5 text-sm leading-relaxed"
                 placeholder="跟读内容会出现在这里"
               />
@@ -1592,3 +2015,9 @@ onUnmounted(() => {
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.practice-passage-text :deep(.vocab-link-hl) {
+  font-weight: 600;
+}
+</style>

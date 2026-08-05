@@ -2,7 +2,7 @@ import json
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from ..database import get_db
 from ..deps import get_client_ip, get_current_user, get_current_user_optional, get_device_id
 from ..models import User
 from ..services import ai_coach as coach
+from ..services import practice_records as practice_records_svc
 from ..services import practice_tts as practice_tts_svc
 from ..services import oral_eval as oral_eval_svc
 
@@ -39,17 +40,31 @@ class OralShadowingIn(BaseModel):
     video_id: str = Field(min_length=1, max_length=32)
     subtitle_id: int
     oral_result: dict[str, Any] = Field(default_factory=dict)
+    title: str = Field(default="", max_length=256)
 
 
 class OralEvalFeedbackIn(BaseModel):
     ref_text: str = Field(min_length=1, max_length=8000)
     oral_result: dict[str, Any] = Field(default_factory=dict)
     core_type: str = Field(default="en.sent.score", max_length=32)
+    source_type: str = Field(default="other", max_length=16)
+    video_id: str = Field(default="", max_length=32)
+    subtitle_id: int | None = None
+    article_id: str = Field(default="", max_length=32)
+    segment_id: int | None = None
+    title: str = Field(default="", max_length=256)
 
 
 class TextShadowingIn(BaseModel):
     target: str = Field(min_length=1, max_length=8000)
     transcript: str = ""
+    mode: str = Field(default="sentence", max_length=16)
+    source_type: str = Field(default="other", max_length=16)
+    video_id: str = Field(default="", max_length=32)
+    subtitle_id: int | None = None
+    article_id: str = Field(default="", max_length=32)
+    segment_id: int | None = None
+    title: str = Field(default="", max_length=256)
 
 
 class PracticeTtsIn(BaseModel):
@@ -185,6 +200,7 @@ def shadowing_oral(
         video_id=body.video_id,
         subtitle_id=body.subtitle_id,
         oral_payload=body.oral_result,
+        title=body.title,
     )
 
 
@@ -201,6 +217,12 @@ def oral_eval_feedback(
         ref_text=body.ref_text,
         oral_payload=body.oral_result,
         core_type=body.core_type,
+        source_type=body.source_type,
+        video_id=body.video_id,
+        subtitle_id=body.subtitle_id,
+        article_id=body.article_id,
+        segment_id=body.segment_id,
+        title=body.title,
     )
 
 
@@ -216,7 +238,78 @@ def shadowing_text(
         user,
         target=body.target,
         transcript=body.transcript,
+        mode=body.mode,
+        source_type=body.source_type,
+        video_id=body.video_id,
+        subtitle_id=body.subtitle_id,
+        article_id=body.article_id,
+        segment_id=body.segment_id,
+        title=body.title,
     )
+
+
+@router.get("/practice-records/")
+def list_practice_records(
+    mode: str | None = Query(default=None, max_length=16),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=50),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """练习记录列表（查阅不扣额度）。"""
+    return practice_records_svc.list_practice_records(
+        db, user, mode=mode, page=page, page_size=page_size
+    )
+
+
+@router.get("/practice-records/{record_id}/")
+def get_practice_record(
+    record_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    row = practice_records_svc.get_practice_record(db, user, record_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="练习记录不存在")
+    return practice_records_svc.record_to_dict(row, include_detail=True)
+
+
+@router.delete("/practice-records/{record_id}/")
+def delete_practice_record(
+    record_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ok = practice_records_svc.delete_practice_record(db, user, record_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="练习记录不存在")
+    return {"ok": True}
+
+
+@router.post("/practice-records/{record_id}/audio/")
+async def upload_practice_audio(
+    record_id: int,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """前端上传本地录音到练习记录（云端录音转存失败时的回退）。"""
+    row = practice_records_svc.get_practice_record(db, user, record_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="练习记录不存在")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="录音文件为空")
+    ctype = (file.content_type or "audio/ogg").split(";")[0].strip()
+    try:
+        url = practice_records_svc.archive_audio_bytes(
+            db, user, row, data, content_type=ctype, source="upload"
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"录音上传失败：{exc}") from exc
+    return {"ok": True, "audio_url": url, "id": row.id}
 
 
 @router.post("/practice-tts/")

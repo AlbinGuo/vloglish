@@ -9,9 +9,12 @@ export interface ReadingTtsContext {
   isPlaying: Ref<boolean>
   playingIndex: Ref<number | null>
   playSegment: (index: number, continuous?: boolean, rate?: number) => void
+  /** 连续播放 [startIndex, endIndex] 闭区间内有音频的段落 */
+  playRange: (startIndex: number, endIndex: number, rate?: number) => void
   toggleCurrent: () => void
   playContinuous: () => void
   pause: () => void
+  resume: () => void
   stop: () => void
   prevSegment: () => void
   nextSegment: () => void
@@ -31,6 +34,9 @@ export function useReadingTts(opts: {
   const isPlaying = ref(false)
   const playingIndex = ref<number | null>(null)
   const continuous = ref(false)
+  /** 连播上界（含）；null 表示不限制（沿用全文 autoAdvance） */
+  const rangeEndIndex = ref<number | null>(null)
+  const pendingRate = ref<number | null>(null)
 
   const hasAudio = computed(() => opts.segments.value.some((s) => Boolean(s.audio_url?.trim())))
 
@@ -46,31 +52,47 @@ export function useReadingTts(opts: {
 
   function stop() {
     continuous.value = false
+    rangeEndIndex.value = null
+    pendingRate.value = null
     isPlaying.value = false
     playingIndex.value = null
     cleanupAudio()
   }
 
   function pause() {
-    continuous.value = false
     audioEl.value?.pause()
     isPlaying.value = false
+  }
+
+  function resume() {
+    const el = audioEl.value
+    if (!el || el.ended) return
+    void el.play().catch(() => {
+      stop()
+    })
   }
 
   function segmentByIndex(index: number) {
     return opts.segments.value.find((s) => s.index === index)
   }
 
-  function playSegment(index: number, keepContinuous = continuous.value, rate?: number) {
+  function playSegment(
+    index: number,
+    keepContinuous = continuous.value,
+    rate?: number,
+    endIndex?: number | null,
+  ) {
     const seg = segmentByIndex(index)
     if (!seg?.audio_url?.trim()) return
 
     stopSpeaking()
     cleanupAudio()
     continuous.value = keepContinuous
+    if (endIndex !== undefined) rangeEndIndex.value = endIndex
+    if (rate != null) pendingRate.value = rate
 
     const el = new Audio(seg.audio_url)
-    el.playbackRate = rate ?? ttsRate.value
+    el.playbackRate = pendingRate.value ?? rate ?? ttsRate.value
     el.onplay = () => {
       isPlaying.value = true
       playingIndex.value = index
@@ -82,21 +104,46 @@ export function useReadingTts(opts: {
     }
     el.onended = () => {
       isPlaying.value = false
-      playingIndex.value = null
       cleanupAudio()
+
+      const end = rangeEndIndex.value
+      const nextIndex = index + 1
+      if (end != null) {
+        if (!continuous.value || nextIndex > end) {
+          continuous.value = false
+          rangeEndIndex.value = null
+          pendingRate.value = null
+          playingIndex.value = null
+          return
+        }
+        const hasNext = opts.segments.value.some(
+          (s) => s.index === nextIndex && nextIndex <= end && s.audio_url?.trim(),
+        )
+        if (hasNext) {
+          playSegment(nextIndex, true, pendingRate.value ?? undefined, end)
+        } else {
+          continuous.value = false
+          rangeEndIndex.value = null
+          pendingRate.value = null
+          playingIndex.value = null
+        }
+        return
+      }
 
       const shouldAdvance = continuous.value || autoAdvance.value
       if (!shouldAdvance) {
         continuous.value = false
+        playingIndex.value = null
         return
       }
 
-      const nextIndex = index + 1
       const hasNext = opts.segments.value.some((s) => s.index === nextIndex && s.audio_url?.trim())
       if (hasNext) {
-        playSegment(nextIndex, true)
+        playSegment(nextIndex, true, pendingRate.value ?? undefined)
       } else {
         continuous.value = false
+        pendingRate.value = null
+        playingIndex.value = null
       }
     }
 
@@ -104,6 +151,12 @@ export function useReadingTts(opts: {
     void el.play().catch(() => {
       stop()
     })
+  }
+
+  function playRange(startIndex: number, endIndex: number, rate?: number) {
+    const start = Math.min(startIndex, endIndex)
+    const end = Math.max(startIndex, endIndex)
+    playSegment(start, true, rate, end)
   }
 
   function toggleCurrent() {
@@ -148,9 +201,11 @@ export function useReadingTts(opts: {
     isPlaying,
     playingIndex,
     playSegment,
+    playRange,
     toggleCurrent,
     playContinuous,
     pause,
+    resume,
     stop,
     prevSegment,
     nextSegment,

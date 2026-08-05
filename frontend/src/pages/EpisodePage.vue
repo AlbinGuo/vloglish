@@ -2287,6 +2287,8 @@ function subtitleRowClass(index: number) {
       :subtitle-id="aiShadowSub?.id ?? null"
       :english="aiShadowSub?.english || ''"
       :chinese="aiShadowSub?.chinese || ''"
+      :title="episode?.short_title || ''"
+      source-type="video"
       :sentence-index="aiShadowSentenceIndex"
       :sentence-total="sortedSubs.length"
       :has-next="aiShadowHasNext"

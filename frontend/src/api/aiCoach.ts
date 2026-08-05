@@ -73,6 +73,9 @@ export interface AiShadowingResult {
   integrity?: number | null
   words?: AiShadowingWordScore[]
   audio_url?: string
+  /** 落库后的练习记录 id，便于前端补传本地录音 */
+  practice_record_id?: number
+  practice_audio_url?: string
   quota?: AiQuota
 }
 

@@ -35,6 +35,7 @@ from .oral_eval import (
     oral_eval_sdk_url,
     request_warrant,
 )
+from .practice_records import create_practice_record, mode_from_core_type
 
 # 当日错词复习卡缓存（进程内；多 worker 不共享）。键：user_id:YYYY-MM-DD:fingerprint
 _VOCAB_REVIEW_CACHE: dict[str, dict] = {}
@@ -334,15 +335,33 @@ def shadowing_for_subtitle(
         feedback = shadowing_feedback(target=sub.english or "", said=transcript or "")
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    return {
+    payload = {
         "video_id": video_id,
         "subtitle_id": subtitle_id,
         "english": sub.english or "",
         "transcript": transcript or "",
         "engine": "llm",
+        "mode": "sentence",
         **feedback,
         "quota": quota,
     }
+    try:
+        record = create_practice_record(
+            db,
+            user,
+            feedback=payload,
+            mode="sentence",
+            engine="llm",
+            source_type="video",
+            video_id=video_id,
+            subtitle_id=subtitle_id,
+            ref_text=sub.english or "",
+        )
+        payload["practice_record_id"] = record.id
+        payload["practice_audio_url"] = record.audio_url or ""
+    except Exception:
+        pass
+    return payload
 
 
 def oral_eval_status() -> dict:
@@ -372,6 +391,7 @@ def shadowing_from_oral_result(
     video_id: str,
     subtitle_id: int,
     oral_payload: dict[str, Any],
+    title: str = "",
 ) -> dict:
     """口语评测成功后：消耗 AI 额度并返回统一点评结构（规则生成建议）。"""
     _, sub = _load_subtitle_for_user(db, user, video_id=video_id, subtitle_id=subtitle_id)
@@ -381,7 +401,7 @@ def shadowing_from_oral_result(
         target=sub.english or "",
         core_type=CORE_SENT,
     )
-    return {
+    payload = {
         "video_id": video_id,
         "subtitle_id": subtitle_id,
         "english": sub.english or "",
@@ -389,6 +409,26 @@ def shadowing_from_oral_result(
         **feedback,
         "quota": quota,
     }
+    try:
+        record = create_practice_record(
+            db,
+            user,
+            feedback=payload,
+            mode="sentence",
+            engine="oral",
+            source_type="video",
+            video_id=video_id,
+            subtitle_id=subtitle_id,
+            title=title,
+            ref_text=sub.english or "",
+        )
+        payload["practice_record_id"] = record.id
+        payload["practice_audio_url"] = record.audio_url or ""
+        if record.audio_url:
+            payload["audio_url"] = record.audio_url
+    except Exception:
+        pass
+    return payload
 
 
 def oral_eval_feedback(
@@ -398,6 +438,12 @@ def oral_eval_feedback(
     ref_text: str,
     oral_payload: dict[str, Any],
     core_type: str = CORE_SENT,
+    source_type: str = "other",
+    video_id: str = "",
+    subtitle_id: int | None = None,
+    article_id: str = "",
+    segment_id: int | None = None,
+    title: str = "",
 ) -> dict:
     """通用口语评测结果（单词 / 句子 / 篇章），不绑定字幕。"""
     text = (ref_text or "").strip()
@@ -406,15 +452,45 @@ def oral_eval_feedback(
     ct = (core_type or CORE_SENT).strip()
     if ct not in (CORE_WORD, CORE_SENT, CORE_PASSAGE):
         ct = CORE_SENT
+    mode = mode_from_core_type(ct)
     quota = check_and_consume(db, user, action="ai")
     feedback = build_feedback_from_oral_result(oral_payload or {}, target=text, core_type=ct)
-    return {
+    src = (source_type or "other").strip() or "other"
+    if article_id:
+        src = "article"
+    elif video_id:
+        src = "video"
+    elif mode == "word" and src == "other":
+        src = "vocab"
+    payload = {
         "english": text,
         "ref_text": text,
         "transcript": feedback.get("transcript") or "",
         **feedback,
         "quota": quota,
     }
+    try:
+        record = create_practice_record(
+            db,
+            user,
+            feedback=payload,
+            mode=mode,
+            engine="oral",
+            source_type=src,
+            video_id=video_id,
+            subtitle_id=subtitle_id,
+            article_id=article_id,
+            segment_id=segment_id,
+            title=title,
+            ref_text=text,
+        )
+        payload["practice_record_id"] = record.id
+        payload["practice_audio_url"] = record.audio_url or ""
+        if record.audio_url:
+            payload["audio_url"] = record.audio_url
+    except Exception:
+        pass
+    return payload
 
 
 def shadowing_for_text(
@@ -423,24 +499,62 @@ def shadowing_for_text(
     *,
     target: str,
     transcript: str,
+    mode: str = "sentence",
+    source_type: str = "other",
+    video_id: str = "",
+    subtitle_id: int | None = None,
+    article_id: str = "",
+    segment_id: int | None = None,
+    title: str = "",
 ) -> dict:
     """无字幕场景的 ASR+LLM 跟读点评（单词/篇章回退）。"""
     text = (target or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="目标文本为空")
+    practice_mode = (mode or "sentence").strip()
+    if practice_mode not in ("word", "sentence", "passage"):
+        practice_mode = "sentence"
     quota = check_and_consume(db, user, action="ai")
     try:
         feedback = shadowing_feedback(target=text, said=transcript or "")
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    return {
+    src = (source_type or "other").strip() or "other"
+    if article_id:
+        src = "article"
+    elif video_id:
+        src = "video"
+    elif practice_mode == "word" and src == "other":
+        src = "vocab"
+    payload = {
         "english": text,
         "ref_text": text,
         "transcript": transcript or "",
         "engine": "llm",
+        "mode": practice_mode,
         **feedback,
         "quota": quota,
     }
+    try:
+        record = create_practice_record(
+            db,
+            user,
+            feedback=payload,
+            mode=practice_mode,
+            engine="llm",
+            source_type=src,
+            video_id=video_id,
+            subtitle_id=subtitle_id,
+            article_id=article_id,
+            segment_id=segment_id,
+            title=title,
+            ref_text=text,
+        )
+        payload["practice_record_id"] = record.id
+        payload["practice_audio_url"] = record.audio_url or ""
+    except Exception:
+        pass
+    return payload
 
 
 def daily_learning_path(db: Session, user: User) -> dict:
