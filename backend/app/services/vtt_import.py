@@ -57,6 +57,16 @@ def english_html_to_plain(html: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def _plain_text_key(text: str) -> str:
+    """大小写不敏感、空白归一后的比对键。"""
+    return re.sub(r"\s+", " ", (text or "").strip()).casefold()
+
+
+def _html_has_vocab_markup(html: str) -> bool:
+    h = html or ""
+    return "highlight-" in h or "data-gloss=" in h or 'tid="' in h or 'pid="' in h
+
+
 def normalize_subtitle_fields(
     english: str,
     chinese: str = "",
@@ -65,13 +75,27 @@ def normalize_subtitle_fields(
     english = strip_speaker_markers(strip_youtube_inline_tags(english))
     chinese = strip_speaker_markers(chinese)
     html = strip_speaker_markers_html(english_html)
-    # 播放器渲染 english_html；若明文 english 与 html 文本不一致，按 english 重建
-    # （管理端只改 english 时，旧 html 不能继续保留）
-    if not english:
-        html = ""
-    elif not html or english_html_to_plain(html) != english:
-        html = words_to_html(english)
-    return english, chinese, html
+
+    if not english and not html:
+        return "", chinese, ""
+    if not english and html:
+        return english_html_to_plain(html), chinese, html
+    if not html:
+        return english, chinese, words_to_html(english)
+
+    plain_from_html = english_html_to_plain(html)
+    # 明文与 html 抽文本一致（忽略大小写/多余空白）：保留高亮 html
+    if _plain_text_key(plain_from_html) == _plain_text_key(english):
+        # 以 html 抽文本为准，避免 I'm / i'm 这类差异再次触发重建
+        return plain_from_html or english, chinese, html
+
+    # 已有词汇高亮/标注时：以 html 为准同步 english，禁止用纯文本重建抹掉高亮
+    # （外部 JSON 导入常见：english 全小写，english_html 含专有名词大小写）
+    if _html_has_vocab_markup(html):
+        return plain_from_html, chinese, html
+
+    # 管理端只改了 english、旧 html 无高亮：按 english 重建 span
+    return english, chinese, words_to_html(english)
 
 
 def contains_cjk(text: str) -> bool:

@@ -22,6 +22,10 @@ import {
 import { accentOptions } from '@/constants/accentOptions'
 import { nationalityOptions } from '@/constants/nationalityOptions'
 import { countHighlights, parseEnglishHtmlTokens } from '@/utils/subtitleHighlightEdit'
+import {
+  parsePreparedSubtitlesJson,
+  PREPARED_SUBTITLES_JSON_EXAMPLE,
+} from '@/utils/preparedSubtitlesJson'
 import { countVocabSummaryItems, parseVocabSummary } from '@/utils/vocabSummary'
 
 const route = useRoute()
@@ -39,6 +43,9 @@ const error = ref('')
 const success = ref('')
 const tagSuggestions = ref<string[]>([])
 const subtitleImportText = ref('')
+/** 外部 AI 处理好的整集 JSON（含 english_html） */
+const preparedJsonText = ref('')
+const importingPrepared = ref(false)
 /** 对当前字幕 AI 增强：keep=不翻译；translate=翻译中文 */
 const subtitleEnrichMode = ref<'keep' | 'translate'>('keep')
 const sourceUrl = ref('')
@@ -378,6 +385,39 @@ async function importSubtitles() {
   } finally {
     importing.value = false
   }
+}
+
+function importPreparedJson() {
+  if (!preparedJsonText.value.trim()) {
+    error.value = '请粘贴已处理好的字幕 JSON'
+    return
+  }
+  importingPrepared.value = true
+  error.value = ''
+  success.value = ''
+  try {
+    const data = parsePreparedSubtitlesJson(preparedJsonText.value)
+    form.value.subtitles = data.subtitles.map((s) => ({ ...s }))
+    highlightEditIndex.value = null
+    const parts = [
+      `已导入处理好的字幕 ${data.subtitles.length} 条`,
+      data.withHtmlCount ? `含 english_html ${data.withHtmlCount} 条` : '无 english_html',
+      data.highlightCount ? `高亮 ${data.highlightCount} 处` : '无高亮',
+    ]
+    if (data.withChineseCount) parts.push(`中文 ${data.withChineseCount} 条`)
+    if (data.withIpaCount) parts.push(`音标 ${data.withIpaCount} 条`)
+    success.value = parts.join('，') + '。请检查后保存。'
+    error.value = data.warnings.length ? data.warnings.slice(0, 8).join('；') : ''
+    preparedJsonText.value = ''
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'JSON 导入失败'
+  } finally {
+    importingPrepared.value = false
+  }
+}
+
+function fillPreparedJsonExample() {
+  preparedJsonText.value = PREPARED_SUBTITLES_JSON_EXAMPLE
 }
 
 async function enrichCurrentSubtitles() {
@@ -988,9 +1028,48 @@ watch(
           </div>
         </div>
 
+        <div class="rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 space-y-3">
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p class="text-sm font-medium text-emerald-900">粘贴已处理好的字幕 JSON（推荐）</p>
+              <p class="text-xs text-emerald-800/90 leading-relaxed mt-1">
+                外部 AI 处理完后，直接粘贴整集最终稿：含
+                <code class="px-1 rounded bg-white/70">start</code> /
+                <code class="px-1 rounded bg-white/70">end</code> /
+                <code class="px-1 rounded bg-white/70">english</code> /
+                <code class="px-1 rounded bg-white/70">chinese</code> /
+                <code class="px-1 rounded bg-white/70">ipa</code> /
+                <code class="px-1 rounded bg-white/70">english_html</code>
+                （含词汇高亮）。不调站内 AI，秒级替换当前字幕表。
+              </p>
+            </div>
+            <button
+              type="button"
+              class="text-xs text-emerald-800 underline shrink-0"
+              @click="fillPreparedJsonExample"
+            >
+              填入示例
+            </button>
+          </div>
+          <textarea
+            v-model="preparedJsonText"
+            rows="6"
+            placeholder='[{"start":0,"end":3.2,"english":"...","chinese":"...","ipa":"...","english_html":"<span>...</span>"}]'
+            class="w-full rounded-lg border border-emerald-200/80 bg-white px-3 py-2 text-sm font-mono"
+          />
+          <button
+            type="button"
+            class="text-sm px-3 py-1.5 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50"
+            :disabled="importingPrepared || importing || enriching"
+            @click="importPreparedJson"
+          >
+            {{ importingPrepared ? '解析中...' : '解析 JSON 并替换字幕' }}
+          </button>
+        </div>
+
         <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">
           <p class="text-sm text-neutral-600">
-            从 VTT / SRT 导入文本（秒级，不调 AI）。导入后可点下方「AI 增强当前字幕」生成翻译/音标/高亮，无需再选文件。
+            从 VTT / SRT 导入文本（秒级，不调 AI）。导入后可点下方「AI 增强当前字幕」生成翻译/音标/高亮，或改用上方 JSON 最终稿。
           </p>
           <textarea
             v-model="subtitleImportText"
