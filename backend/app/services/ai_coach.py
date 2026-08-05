@@ -25,6 +25,9 @@ from .ai_quota import check_and_consume
 from .ai_result_cache import content_hash, get_ai_result, set_ai_result
 from .daily_visits import visit_date_now
 from .oral_eval import (
+    CORE_PASSAGE,
+    CORE_SENT,
+    CORE_WORD,
     build_feedback_from_oral_result,
     oral_eval_accent,
     oral_eval_app_id,
@@ -373,12 +376,68 @@ def shadowing_from_oral_result(
     """口语评测成功后：消耗 AI 额度并返回统一点评结构（规则生成建议）。"""
     _, sub = _load_subtitle_for_user(db, user, video_id=video_id, subtitle_id=subtitle_id)
     quota = check_and_consume(db, user, action="ai")
-    feedback = build_feedback_from_oral_result(oral_payload or {}, target=sub.english or "")
+    feedback = build_feedback_from_oral_result(
+        oral_payload or {},
+        target=sub.english or "",
+        core_type=CORE_SENT,
+    )
     return {
         "video_id": video_id,
         "subtitle_id": subtitle_id,
         "english": sub.english or "",
         "transcript": feedback.get("transcript") or "",
+        **feedback,
+        "quota": quota,
+    }
+
+
+def oral_eval_feedback(
+    db: Session,
+    user: User,
+    *,
+    ref_text: str,
+    oral_payload: dict[str, Any],
+    core_type: str = CORE_SENT,
+) -> dict:
+    """通用口语评测结果（单词 / 句子 / 篇章），不绑定字幕。"""
+    text = (ref_text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="评测文本为空")
+    ct = (core_type or CORE_SENT).strip()
+    if ct not in (CORE_WORD, CORE_SENT, CORE_PASSAGE):
+        ct = CORE_SENT
+    quota = check_and_consume(db, user, action="ai")
+    feedback = build_feedback_from_oral_result(oral_payload or {}, target=text, core_type=ct)
+    return {
+        "english": text,
+        "ref_text": text,
+        "transcript": feedback.get("transcript") or "",
+        **feedback,
+        "quota": quota,
+    }
+
+
+def shadowing_for_text(
+    db: Session,
+    user: User,
+    *,
+    target: str,
+    transcript: str,
+) -> dict:
+    """无字幕场景的 ASR+LLM 跟读点评（单词/篇章回退）。"""
+    text = (target or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="目标文本为空")
+    quota = check_and_consume(db, user, action="ai")
+    try:
+        feedback = shadowing_feedback(target=text, said=transcript or "")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {
+        "english": text,
+        "ref_text": text,
+        "transcript": transcript or "",
+        "engine": "llm",
         **feedback,
         "quota": quota,
     }

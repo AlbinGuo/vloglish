@@ -14,6 +14,7 @@ import IntensiveCoreVocabMobile from '@/components/intensive/IntensiveCoreVocabM
 import IntensiveModeToggle from '@/components/intensive/IntensiveModeToggle.vue'
 import SettingsButton from '@/components/SettingsButton.vue'
 import AiReadingQaSheet from '@/components/ai/AiReadingQaSheet.vue'
+import AiShadowingSheet from '@/components/ai/AiShadowingSheet.vue'
 import ReadingShareCard from '@/components/ai/ReadingShareCard.vue'
 import ReadingSettingsPanel from '@/components/reading/ReadingSettingsPanel.vue'
 import ReadingWordTooltipHost from '@/components/reading/ReadingWordTooltipHost.vue'
@@ -69,6 +70,46 @@ let vocabNoticeTimer: ReturnType<typeof setTimeout> | null = null
 const activeSegment = ref<ArticleSegment | null>(null)
 const aiQaOpen = ref(false)
 const shareOpen = ref(false)
+
+const oralOpen = ref(false)
+const oralMode = ref<'passage'>('passage')
+const oralText = ref('')
+const oralChinese = ref('')
+const oralTitle = ref('篇章评测')
+
+function startSegmentOral(segment: ArticleSegment) {
+  oralMode.value = 'passage'
+  oralText.value = (segment.english || '').trim()
+  oralChinese.value = (segment.chinese || '').trim()
+  oralTitle.value = '段落跟读'
+  setCurrentIndex(segment.index)
+  oralOpen.value = true
+}
+
+/** 从当前段起向后拼接，做短篇/篇章评测（控制长度） */
+function startPassageOral() {
+  const list = segments.value
+  if (!list.length) return
+  const start = Math.max(0, currentIndex.value)
+  const parts: string[] = []
+  const zhParts: string[] = []
+  let chars = 0
+  for (let i = start; i < list.length; i++) {
+    const en = (list[i].english || '').trim()
+    if (!en) continue
+    if (chars + en.length > 1200 && parts.length) break
+    parts.push(en)
+    const zh = (list[i].chinese || '').trim()
+    if (zh) zhParts.push(zh)
+    chars += en.length
+  }
+  if (!parts.length) return
+  oralMode.value = 'passage'
+  oralText.value = parts.join(' ')
+  oralChinese.value = zhParts.join(' ')
+  oralTitle.value = parts.length > 1 ? '篇章评测' : '段落跟读'
+  oralOpen.value = true
+}
 
 const shareEnglish = computed(() => {
   const seg = segments.value[currentIndex.value]
@@ -232,6 +273,10 @@ const readingTts = useReadingTts({
   scrollToSegment,
 })
 provide(READING_TTS_KEY, readingTts)
+
+function onOralPlay() {
+  void readingTts.playSegment(currentIndex.value)
+}
 
 function resolveClickedWordSpan(target: HTMLElement, root: HTMLElement): HTMLElement | null {
   let el: HTMLElement | null = target.closest('span')
@@ -527,6 +572,14 @@ watch(layoutMode, async () => {
       <button
         v-if="article"
         type="button"
+        class="shrink-0 rounded-full px-3 py-1 text-xs font-medium border border-black/10 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:border-sky-400"
+        @click="startPassageOral"
+      >
+        篇章评测
+      </button>
+      <button
+        v-if="article"
+        type="button"
         class="shrink-0 rounded-full px-3 py-1 text-xs font-medium border border-black/10 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:border-violet-400"
         @click="aiQaOpen = true"
       >
@@ -644,6 +697,7 @@ watch(layoutMode, async () => {
                       v-on="wordLongPressHandlers"
                       @activate="onActivateSegment(segment.index)"
                       @click="onWordClick($event, segment)"
+                      @oral-practice="startSegmentOral(segment)"
                     />
                   </div>
                 </div>
@@ -677,6 +731,7 @@ watch(layoutMode, async () => {
                     v-on="wordLongPressHandlers"
                     @activate="onActivateSegment(segment.index)"
                     @click="onWordClick($event, segment)"
+                    @oral-practice="startSegmentOral(segment)"
                   />
                 </div>
               </div>
@@ -768,6 +823,17 @@ watch(layoutMode, async () => {
       :segment-id="qaSegmentId"
       :segment-preview="shareEnglish"
       @close="aiQaOpen = false"
+    />
+    <AiShadowingSheet
+      :open="oralOpen"
+      :mode="oralMode"
+      :ref-text="oralText"
+      :chinese="oralChinese"
+      :title="oralTitle"
+      :has-next="false"
+      @close="oralOpen = false"
+      @play="onOralPlay"
+      @next="oralOpen = false"
     />
     <ReadingShareCard
       :open="shareOpen"

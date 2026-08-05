@@ -18,7 +18,11 @@ const props = defineProps<{
   vocabLinkHtml?: string
 }>()
 
-defineEmits<{ click: [event: MouseEvent]; activate: [] }>()
+const emit = defineEmits<{
+  click: [event: MouseEvent]
+  activate: []
+  'oral-practice': []
+}>()
 
 const { showChinese } = useReadingSettings()
 
@@ -61,6 +65,15 @@ const useHtml = computed(() =>
       >
         {{ segment.english }}
       </p>
+      <div class="mt-2.5 flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 px-2 h-7 rounded-full text-[11px] font-medium border border-black/10 bg-white/90 text-neutral-600 hover:border-sky-400 hover:text-sky-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
+          @click.stop="emit('oral-practice')"
+        >
+          跟读评分
+        </button>
+      </div>
       </div>
     </div>
     <template v-if="showChinese">

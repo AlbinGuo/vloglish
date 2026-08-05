@@ -65,9 +65,12 @@ export interface AiShadowingResult {
   tips: string[]
   /** oral = 阿里云口语评测；llm = ASR 文本 + AI 点评 */
   engine?: 'oral' | 'llm' | string
+  mode?: 'word' | 'sentence' | 'passage' | string
+  core_type?: string
   accuracy?: number
   fluency?: number
   rhythm?: number
+  integrity?: number | null
   words?: AiShadowingWordScore[]
   audio_url?: string
   quota?: AiQuota

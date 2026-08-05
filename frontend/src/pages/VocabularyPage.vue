@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import type { VocabularyItem } from '@/api/learning'
 import { aiVocabReview, type VocabReviewCard } from '@/api/aiCoach'
+import AiShadowingSheet from '@/components/ai/AiShadowingSheet.vue'
 import { useVocabularyStore } from '@/stores/vocabulary'
 import { playWordPronunciation, stopSpeaking, warmSpeechVoices } from '@/utils/speakWord'
 
@@ -33,6 +34,16 @@ const reviewBtnRef = ref<HTMLElement | null>(null)
 /** 当前正在朗读的词（用于按钮高亮） */
 const speakingKey = ref('')
 let speakingClearTimer: ReturnType<typeof setTimeout> | null = null
+
+const wordScoreOpen = ref(false)
+const wordScoreText = ref('')
+
+function startWordScore(word: string) {
+  const w = (word || '').trim()
+  if (!w) return
+  wordScoreText.value = w
+  wordScoreOpen.value = true
+}
 
 const primaryReviewLabel = computed(() => {
   if (reviewLoading.value) return '处理中...'
@@ -308,6 +319,13 @@ onUnmounted(() => {
             <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
           </svg>
         </button>
+        <button
+          type="button"
+          class="shrink-0 px-2.5 h-9 rounded-full text-xs font-medium border border-sky-200 text-sky-800 bg-sky-50 hover:bg-sky-100 dark:border-sky-800 dark:text-sky-200 dark:bg-sky-950/40"
+          @click="startWordScore(reviewCards[reviewIndex]?.answer || '')"
+        >
+          打分
+        </button>
       </div>
       <p v-if="showAnswer && reviewCards[reviewIndex]?.example" class="text-sm text-neutral-600 dark:text-neutral-300">
         {{ reviewCards[reviewIndex]?.example }}
@@ -410,7 +428,14 @@ onUnmounted(() => {
             >
               {{ item.definition_cn }}
             </p>
-            <div class="mt-auto pt-2.5 flex items-center gap-2.5">
+            <div class="mt-auto pt-2.5 flex items-center gap-2.5 flex-wrap">
+              <button
+                type="button"
+                class="text-[11px] font-medium text-sky-700 dark:text-sky-400 hover:underline"
+                @click="startWordScore(item.word)"
+              >
+                打分
+              </button>
               <RouterLink
                 v-if="sourcePath(item)"
                 :to="sourcePath(item)"
@@ -430,5 +455,15 @@ onUnmounted(() => {
         </ul>
       </section>
     </div>
+
+    <AiShadowingSheet
+      :open="wordScoreOpen"
+      mode="word"
+      :ref-text="wordScoreText"
+      title="单词打分"
+      :has-next="false"
+      @close="wordScoreOpen = false"
+      @next="wordScoreOpen = false"
+    />
   </div>
 </template>

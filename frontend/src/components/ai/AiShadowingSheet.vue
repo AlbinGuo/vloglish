@@ -1,19 +1,38 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { aiShadowingFeedback, type AiShadowingResult } from '@/api/aiCoach'
-import { aiShadowingOralFeedback } from '@/api/oralEval'
+import {
+  aiOralEvalFeedback,
+  aiShadowingOralFeedback,
+  aiShadowingTextFeedback,
+  coreTypeForMode,
+  type OralPracticeMode,
+} from '@/api/oralEval'
 import { useOralEvalEngine } from '@/composables/useOralEvalEngine'
+import { playWordPronunciation, stopSpeaking } from '@/utils/speakWord'
 
-const props = defineProps<{
-  open: boolean
-  videoId: string
-  subtitleId: number | null
-  english: string
-  chinese?: string
-  sentenceIndex?: number
-  sentenceTotal?: number
-  hasNext?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    open: boolean
+    /** word=单词打分 sentence=字幕跟读 passage=篇章评测 */
+    mode?: OralPracticeMode
+    /** 评测文本；未传时用 english */
+    refText?: string
+    videoId?: string
+    subtitleId?: number | null
+    english?: string
+    chinese?: string
+    title?: string
+    sentenceIndex?: number
+    sentenceTotal?: number
+    hasNext?: boolean
+  }>(),
+  {
+    mode: 'sentence',
+    subtitleId: null,
+    hasNext: true,
+  },
+)
 
 const emit = defineEmits<{ close: []; play: []; next: [] }>()
 
@@ -38,6 +57,17 @@ const oral = useOralEvalEngine()
 let recognition: any = null
 let autoPlayTimer: ReturnType<typeof setTimeout> | null = null
 
+const practiceMode = computed<OralPracticeMode>(() => props.mode || 'sentence')
+const targetText = computed(() => (props.refText || props.english || '').trim())
+const coreType = computed(() => coreTypeForMode(practiceMode.value))
+
+const sheetTitle = computed(() => {
+  if (props.title) return props.title
+  if (practiceMode.value === 'word') return '单词打分'
+  if (practiceMode.value === 'passage') return '篇章评测'
+  return 'AI 跟读'
+})
+
 const sentenceLabel = computed(() => {
   const total = props.sentenceTotal ?? 0
   const idx = props.sentenceIndex
@@ -54,38 +84,67 @@ const progressPercent = computed(() => {
 
 const scoreTone = computed(() => {
   const s = result.value?.score ?? 0
-  if (s >= 80) return 'emerald'
-  if (s >= 60) return 'amber'
-  return 'rose'
+  if (s >= 80) return 'good'
+  if (s >= 60) return 'mid'
+  return 'low'
 })
 
 const scoreRingStyle = computed(() => {
   const score = Math.max(0, Math.min(100, Number(result.value?.score) || 0))
   const deg = (score / 100) * 360
   const color =
-    scoreTone.value === 'emerald'
-      ? 'rgb(16 185 129)'
-      : scoreTone.value === 'amber'
-        ? 'rgb(245 158 11)'
-        : 'rgb(244 63 94)'
-  return {
-    background: `conic-gradient(${color} ${deg}deg, rgb(229 229 229) 0deg)`,
-  }
-})
-
-const stepMeta = computed(() => {
-  if (step.value === 'listen') return { n: 1, label: '听原句' }
-  if (step.value === 'record') return { n: 2, label: '跟读' }
-  return { n: 3, label: '看点评' }
+    scoreTone.value === 'good'
+      ? 'rgb(5 150 105)'
+      : scoreTone.value === 'mid'
+        ? 'rgb(217 119 6)'
+        : 'rgb(225 29 72)'
+  return { background: `conic-gradient(${color} ${deg}deg, rgb(238 238 238) 0deg)` }
 })
 
 const useOral = computed(() => engineMode.value === 'oral')
 
+const engineLabel = computed(() => {
+  if (engineMode.value === 'oral') return '发音评测'
+  if (engineMode.value === 'llm') return '识别点评'
+  return '准备中'
+})
+
+const listenHint = computed(() => {
+  if (practiceMode.value === 'word') return '先听示范音，再跟读这个单词'
+  if (practiceMode.value === 'passage') return '先听/看清段落，再开始朗读'
+  return '先听清楚原句，再开始跟读'
+})
+
+const recordHint = computed(() => {
+  if (loading.value) return '正在评分…'
+  if (listening.value && useOral.value) return '正在录音… 说完点一下结束'
+  if (listening.value) return '正在听你说… 说完再点停止'
+  if (micUnsupported.value) return '可用下方输入框提交英文'
+  if (useOral.value && practiceMode.value === 'word') return '点麦克风读出这个单词'
+  if (useOral.value && practiceMode.value === 'passage') return '点麦克风朗读整段'
+  if (useOral.value) return '点麦克风跟读，系统直接评发音'
+  return '点麦克风跟读，停止后自动点评'
+})
+
+const dimensionItems = computed(() => {
+  const r = result.value
+  if (!r || r.engine !== 'oral') return []
+  const items: { key: string; label: string; value: number }[] = []
+  if (r.accuracy != null) items.push({ key: 'a', label: '准确', value: r.accuracy })
+  if (r.fluency != null) items.push({ key: 'f', label: '流利', value: r.fluency })
+  if (practiceMode.value === 'passage' && r.integrity != null) {
+    items.push({ key: 'i', label: '完整', value: r.integrity })
+  } else if (r.rhythm != null && practiceMode.value !== 'word') {
+    items.push({ key: 'r', label: '韵律', value: r.rhythm })
+  }
+  return items
+})
+
 function wordToneClass(score: number) {
-  if (score >= 85) return 'text-emerald-700 dark:text-emerald-300'
-  if (score >= 75) return 'text-sky-700 dark:text-sky-300'
-  if (score >= 55) return 'text-neutral-600 dark:text-neutral-300'
-  return 'text-rose-600 dark:text-rose-400 font-semibold'
+  if (score >= 85) return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+  if (score >= 75) return 'bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300'
+  if (score >= 55) return 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
+  return 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300'
 }
 
 type SpeechRecognitionCtor = new () => {
@@ -134,9 +193,7 @@ function mapRecognitionError(code: string): string {
 
 async function ensureMicPermission(): Promise<string | null> {
   if (typeof window === 'undefined') return '当前环境无法使用麦克风'
-  if (!window.isSecureContext) {
-    return '语音识别需要 HTTPS 或 localhost'
-  }
+  if (!window.isSecureContext) return '需要 HTTPS 或 localhost 才能录音'
   if (!navigator.mediaDevices?.getUserMedia) return null
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -147,9 +204,7 @@ async function ensureMicPermission(): Promise<string | null> {
     if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
       return '麦克风权限被拒绝，请在浏览器地址栏允许后重试'
     }
-    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-      return '找不到可用麦克风'
-    }
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') return '找不到可用麦克风'
     return '无法打开麦克风'
   }
 }
@@ -165,6 +220,7 @@ function resetState() {
   clearAutoPlay()
   stopListening(true)
   oral.cancel()
+  stopSpeaking()
   step.value = 'listen'
   transcript.value = ''
   result.value = null
@@ -192,6 +248,10 @@ function stopListening(abort = false) {
 
 function playOriginal() {
   error.value = ''
+  if (practiceMode.value === 'word') {
+    void playWordPronunciation(targetText.value)
+    return
+  }
   emit('play')
 }
 
@@ -207,8 +267,15 @@ async function resolveEngine() {
   engineMode.value = ok ? 'oral' : 'llm'
 }
 
+async function submitOralResult(oralRaw: Record<string, unknown>) {
+  if (props.videoId && props.subtitleId != null && practiceMode.value === 'sentence') {
+    return aiShadowingOralFeedback(props.videoId, props.subtitleId, oralRaw)
+  }
+  return aiOralEvalFeedback(targetText.value, oralRaw, coreType.value)
+}
+
 async function startOralRecording() {
-  if (!props.subtitleId) return
+  if (!targetText.value) return
   error.value = ''
   result.value = null
   transcript.value = ''
@@ -227,18 +294,17 @@ async function startOralRecording() {
   listening.value = true
   loading.value = false
   try {
-    const oralRaw = await oral.evaluateSentence(props.english)
+    const oralRaw = await oral.evaluate(targetText.value, coreType.value)
     listening.value = false
     loading.value = true
-    result.value = await aiShadowingOralFeedback(props.videoId, props.subtitleId, oralRaw)
+    result.value = await submitOralResult(oralRaw)
     transcript.value = result.value.transcript || ''
     step.value = 'result'
-    showTips.value = false
+    showTips.value = Boolean(result.value.issues?.length || result.value.tips?.length)
     await nextTick()
   } catch {
     listening.value = false
     loading.value = false
-    // 评测失败 → 回退 ASR+LLM
     engineMode.value = 'llm'
     fallbackHint.value = '发音评测暂不可用，已切换为识别点评'
     error.value = ''
@@ -258,7 +324,7 @@ async function startListening() {
   const Ctor = getRecognitionCtor()
   if (!Ctor) {
     micUnsupported.value = true
-    error.value = '当前浏览器不支持语音识别，请输入跟读内容后点评'
+    error.value = '当前浏览器不支持语音识别，请输入内容后点评'
     return
   }
 
@@ -313,11 +379,6 @@ async function startListening() {
     autoSubmitArmed.value = false
     const name = (e as { name?: string })?.name || ''
     if (name === 'InvalidStateError') {
-      try {
-        recognition.abort?.()
-      } catch {
-        /* ignore */
-      }
       error.value = '识别尚未结束，请稍后再点'
     } else {
       micUnsupported.value = true
@@ -353,7 +414,6 @@ function retry() {
 }
 
 async function submitFeedback() {
-  if (!props.subtitleId) return
   const text = transcript.value.trim()
   if (!text) {
     error.value = '请先跟读或输入英文'
@@ -364,9 +424,13 @@ async function submitFeedback() {
   stopListening()
   autoSubmitArmed.value = false
   try {
-    result.value = await aiShadowingFeedback(props.videoId, props.subtitleId, text)
+    if (props.videoId && props.subtitleId != null && practiceMode.value === 'sentence') {
+      result.value = await aiShadowingFeedback(props.videoId, props.subtitleId, text)
+    } else {
+      result.value = await aiShadowingTextFeedback(targetText.value, text)
+    }
     step.value = 'result'
-    showTips.value = false
+    showTips.value = Boolean(result.value.issues?.length || result.value.tips?.length)
     await nextTick()
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -384,10 +448,11 @@ function onNext() {
 
 function scheduleAutoPlay() {
   clearAutoPlay()
+  if (practiceMode.value === 'passage') return
   autoPlayTimer = setTimeout(() => {
     autoPlayTimer = null
-    if (props.open && step.value === 'listen') emit('play')
-  }, 380)
+    if (props.open && step.value === 'listen') playOriginal()
+  }, 420)
 }
 
 watch(
@@ -417,10 +482,22 @@ watch(
   },
 )
 
+watch(
+  () => props.refText || props.english,
+  async (text, prev) => {
+    if (props.open && text && text !== prev) {
+      resetState()
+      await resolveEngine()
+      scheduleAutoPlay()
+    }
+  },
+)
+
 onUnmounted(() => {
   clearAutoPlay()
   stopListening(true)
   oral.cancel()
+  stopSpeaking()
   if (typeof document !== 'undefined') document.body.style.overflow = ''
 })
 </script>
@@ -429,39 +506,40 @@ onUnmounted(() => {
   <Teleport to="body">
     <div
       v-if="open"
-      class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/45 p-0 sm:p-4"
+      class="fixed inset-0 z-[500] flex items-end sm:items-center justify-center bg-neutral-950/50 p-0 sm:p-4 backdrop-blur-[2px]"
       @click.self="$emit('close')"
     >
       <div
-        class="w-full sm:max-w-lg max-h-[90dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-[#FDFBF7] dark:bg-neutral-900 border border-black/5 dark:border-white/10 shadow-xl overflow-hidden"
+        class="w-full sm:max-w-md max-h-[92dvh] flex flex-col rounded-t-[1.75rem] sm:rounded-[1.75rem] bg-[#FBF8F3] dark:bg-neutral-950 border border-black/5 dark:border-white/10 overflow-hidden"
       >
-        <div class="shrink-0 px-5 pt-4 pb-3 border-b border-black/5 dark:border-white/10">
+        <!-- Header -->
+        <div class="shrink-0 px-5 pt-4 pb-3">
+          <div class="mx-auto mb-3 h-1 w-10 rounded-full bg-neutral-300/80 dark:bg-neutral-700 sm:hidden" />
           <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
+            <div class="min-w-0 space-y-1">
               <div class="flex items-center gap-2 flex-wrap">
-                <h2 class="text-base font-semibold tracking-tight">AI 跟读</h2>
+                <h2 class="text-[17px] font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+                  {{ sheetTitle }}
+                </h2>
                 <span
                   v-if="sentenceLabel"
-                  class="text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-sky-100 text-sky-900 dark:bg-sky-950/50 dark:text-sky-300"
+                  class="text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-sky-100/90 text-sky-900 dark:bg-sky-950/50 dark:text-sky-300"
                 >
                   {{ sentenceLabel }}
                 </span>
-                <span
-                  class="text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
-                >
-                  第 {{ stepMeta.n }} 步 · {{ stepMeta.label }}
-                </span>
-                <span
-                  v-if="useOral"
-                  class="text-[11px] font-medium px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
-                >
-                  发音评测
-                </span>
               </div>
+              <p class="text-[12px] text-neutral-500 dark:text-neutral-400">
+                <span
+                  class="font-medium"
+                  :class="useOral ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'"
+                >{{ engineLabel }}</span>
+                <span class="mx-1 opacity-40">·</span>
+                <span>{{ step === 'listen' ? '听示范' : step === 'record' ? '跟读录音' : '查看结果' }}</span>
+              </p>
             </div>
             <button
               type="button"
-              class="w-8 h-8 flex items-center justify-center rounded-full text-neutral-400 hover:text-neutral-700 hover:bg-black/5 dark:hover:text-neutral-200 dark:hover:bg-white/10 shrink-0"
+              class="w-9 h-9 flex items-center justify-center rounded-full text-neutral-400 hover:text-neutral-700 hover:bg-black/5 dark:hover:text-neutral-200 dark:hover:bg-white/10 shrink-0"
               aria-label="关闭"
               @click="$emit('close')"
             >
@@ -470,9 +548,25 @@ onUnmounted(() => {
               </svg>
             </button>
           </div>
+
+          <!-- Steps -->
+          <div class="mt-3.5 flex items-center gap-1.5">
+            <div
+              v-for="(s, i) in (['listen', 'record', 'result'] as Step[])"
+              :key="s"
+              class="h-1 flex-1 rounded-full transition-colors duration-300"
+              :class="
+                step === s
+                  ? 'bg-amber-500'
+                  : i < (['listen', 'record', 'result'] as Step[]).indexOf(step)
+                    ? 'bg-amber-300/80 dark:bg-amber-700/60'
+                    : 'bg-neutral-200 dark:bg-neutral-800'
+              "
+            />
+          </div>
           <div
             v-if="sentenceTotal && sentenceTotal > 0"
-            class="mt-3 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden"
+            class="mt-2 h-1 rounded-full bg-neutral-200/80 dark:bg-neutral-800 overflow-hidden"
           >
             <div
               class="h-full rounded-full bg-sky-500 transition-all duration-300"
@@ -481,98 +575,99 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4 space-y-4">
-          <section class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-800/50 p-3.5 space-y-2">
-            <p class="text-[15px] sm:text-base font-medium leading-relaxed text-neutral-900 dark:text-neutral-100">
-              {{ english }}
+        <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-4 space-y-3.5">
+          <!-- Target card -->
+          <section
+            class="relative overflow-hidden rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white dark:bg-neutral-900 px-4 py-3.5"
+          >
+            <p
+              class="leading-relaxed text-neutral-900 dark:text-neutral-50"
+              :class="practiceMode === 'word' ? 'text-2xl font-semibold tracking-wide' : 'text-[15px] sm:text-base font-medium'"
+            >
+              {{ targetText }}
             </p>
-            <p v-if="chinese" class="text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
+            <p
+              v-if="chinese && practiceMode !== 'word'"
+              class="mt-2 text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed"
+            >
               {{ chinese }}
             </p>
           </section>
 
-          <section v-if="step === 'listen'" class="flex flex-col items-center gap-4 py-4">
-            <p class="text-sm text-neutral-500 text-center">先听清楚原句，再开始跟读</p>
+          <p
+            v-if="fallbackHint"
+            class="text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 rounded-xl px-3 py-2"
+          >
+            {{ fallbackHint }}
+          </p>
+
+          <!-- Listen -->
+          <section v-if="step === 'listen'" class="flex flex-col items-center gap-3.5 pt-2 pb-1">
+            <p class="text-sm text-neutral-500 text-center">{{ listenHint }}</p>
             <button
               type="button"
-              class="inline-flex items-center justify-center gap-2 w-full max-w-xs px-5 py-3.5 rounded-2xl text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 shadow-md shadow-amber-600/20 transition"
+              class="inline-flex items-center justify-center gap-2 w-full max-w-xs h-12 rounded-2xl text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 active:scale-[0.99] transition"
               @click="playOriginal"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M8 5v14l11-7L8 5z" />
               </svg>
-              听原句
+              {{ practiceMode === 'word' ? '听示范音' : practiceMode === 'passage' ? '听本段' : '听原句' }}
             </button>
             <button
               type="button"
-              class="inline-flex items-center justify-center gap-2 w-full max-w-xs px-5 py-3 rounded-2xl text-sm font-medium border border-sky-300 text-sky-800 bg-sky-50 hover:bg-sky-100 dark:border-sky-700 dark:text-sky-200 dark:bg-sky-950/40 dark:hover:bg-sky-950/60 transition"
+              class="inline-flex items-center justify-center w-full max-w-xs h-11 rounded-2xl text-sm font-medium border border-sky-200 text-sky-900 bg-sky-50 hover:bg-sky-100 dark:border-sky-800 dark:text-sky-200 dark:bg-sky-950/40 transition"
               @click="goRecord"
             >
-              听完了，开始跟读
+              开始跟读
             </button>
           </section>
 
-          <section v-else-if="step === 'record'" class="flex flex-col items-center gap-3 py-2">
+          <!-- Record -->
+          <section v-else-if="step === 'record'" class="flex flex-col items-center gap-3 pt-1">
             <button
               type="button"
-              class="relative w-[5rem] h-[5rem] rounded-full flex items-center justify-center text-white shadow-md transition disabled:opacity-60"
+              class="relative w-[5.5rem] h-[5.5rem] rounded-full flex items-center justify-center text-white transition disabled:opacity-60"
               :class="
                 listening
-                  ? 'bg-rose-500 shadow-rose-500/30'
+                  ? 'bg-rose-500 shadow-[0_10px_28px_rgba(244,63,94,0.35)]'
                   : loading
                     ? 'bg-neutral-400'
-                    : 'bg-sky-600 hover:bg-sky-700 shadow-sky-600/25'
+                    : 'bg-sky-600 hover:bg-sky-700 shadow-[0_10px_28px_rgba(2,132,199,0.28)]'
               "
               :disabled="loading"
-              :aria-label="listening ? '停止跟读' : '开始跟读'"
+              :aria-label="listening ? '停止' : '开始录音'"
               @click="toggleMic"
             >
               <span
                 v-if="listening"
-                class="absolute inset-0 rounded-full bg-rose-400/40 animate-ping"
+                class="absolute inset-[-6px] rounded-full border-2 border-rose-300/70 animate-ping"
                 aria-hidden="true"
               />
               <svg
                 v-if="loading"
                 class="animate-spin"
-                width="26"
-                height="26"
+                width="28"
+                height="28"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
                 stroke-width="2"
-                aria-hidden="true"
               >
                 <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
               </svg>
-              <svg
-                v-else-if="!listening"
-                width="28"
-                height="28"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden="true"
-              >
+              <svg v-else-if="!listening" width="30" height="30" viewBox="0 0 24 24" fill="currentColor">
                 <path
                   d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"
                 />
               </svg>
-              <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                 <rect x="6" y="6" width="12" height="12" rx="2" />
               </svg>
             </button>
 
-            <p class="text-sm text-neutral-600 dark:text-neutral-300 text-center min-h-[1.25rem]">
-              <template v-if="loading">正在点评…</template>
-              <template v-else-if="listening && useOral">正在录音评测… 说完再点停止</template>
-              <template v-else-if="listening">正在听你说… 说完再点一下停止</template>
-              <template v-else-if="micUnsupported">语音识别不可用时，可在下方输入英文</template>
-              <template v-else-if="useOral">点击麦克风跟读，系统将直接评分发音</template>
-              <template v-else>点击麦克风跟读，停止后自动点评</template>
-            </p>
-
-            <p v-if="fallbackHint" class="text-xs text-amber-700 dark:text-amber-300 text-center">
-              {{ fallbackHint }}
+            <p class="text-sm text-neutral-600 dark:text-neutral-300 text-center min-h-[1.25rem] px-2">
+              {{ recordHint }}
             </p>
 
             <button
@@ -580,49 +675,48 @@ onUnmounted(() => {
               class="text-xs text-neutral-500 hover:text-amber-700 dark:hover:text-amber-300 underline underline-offset-2"
               @click="playOriginal"
             >
-              再听一遍原句
+              再听一遍
             </button>
 
             <div v-if="!useOral || micUnsupported" class="w-full space-y-1.5 pt-1">
-              <label class="block text-xs text-neutral-500">
-                {{ micUnsupported || error ? '输入你跟读的英文' : '识别结果（可修改）' }}
-              </label>
+              <label class="block text-xs text-neutral-500">识别结果（可修改）</label>
               <textarea
                 v-model="transcript"
                 rows="2"
-                class="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-800 px-3 py-2.5 text-sm leading-relaxed"
-                :placeholder="micUnsupported ? '在此输入英文，然后点下方点评' : '跟读内容会出现在这里'"
+                class="w-full rounded-2xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3.5 py-2.5 text-sm leading-relaxed"
+                placeholder="跟读内容会出现在这里"
               />
             </div>
 
             <p
               v-if="error && !useOral"
-              class="w-full text-sm text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 rounded-xl px-3 py-2"
+              class="w-full text-sm text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 rounded-2xl px-3 py-2"
             >
               {{ error }}
             </p>
           </section>
 
+          <!-- Result -->
           <section v-else-if="step === 'result' && result" class="space-y-3">
             <div
-              class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-800/40 p-4"
+              class="rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white dark:bg-neutral-900 p-4"
             >
               <div class="flex items-center gap-4">
-                <div class="relative w-[4.5rem] h-[4.5rem] rounded-full shrink-0 p-[3px]" :style="scoreRingStyle">
+                <div class="relative w-[4.75rem] h-[4.75rem] rounded-full shrink-0 p-[3px]" :style="scoreRingStyle">
                   <div
-                    class="w-full h-full rounded-full bg-[#FDFBF7] dark:bg-neutral-900 flex flex-col items-center justify-center"
+                    class="w-full h-full rounded-full bg-[#FBF8F3] dark:bg-neutral-950 flex flex-col items-center justify-center"
                   >
-                    <span class="text-xl font-bold leading-none tabular-nums">{{ result.score }}</span>
+                    <span class="text-2xl font-bold leading-none tabular-nums">{{ result.score }}</span>
                     <span class="text-[10px] text-neutral-400 mt-0.5">分</span>
                   </div>
                 </div>
                 <div class="min-w-0">
                   <p
-                    class="text-base font-semibold"
+                    class="text-lg font-semibold"
                     :class="{
-                      'text-emerald-700 dark:text-emerald-300': scoreTone === 'emerald',
-                      'text-amber-800 dark:text-amber-300': scoreTone === 'amber',
-                      'text-rose-700 dark:text-rose-300': scoreTone === 'rose',
+                      'text-emerald-700 dark:text-emerald-300': scoreTone === 'good',
+                      'text-amber-700 dark:text-amber-300': scoreTone === 'mid',
+                      'text-rose-700 dark:text-rose-300': scoreTone === 'low',
                     }"
                   >
                     {{ result.level || '已点评' }}
@@ -633,66 +727,59 @@ onUnmounted(() => {
                   >
                     {{ result.praise }}
                   </p>
-                  <p v-if="result.engine === 'oral'" class="text-[11px] text-neutral-400 mt-1">
-                    发音评测 · 声学打分
-                  </p>
                 </div>
               </div>
 
-              <div
-                v-if="result.engine === 'oral' && (result.accuracy != null || result.fluency != null)"
-                class="mt-3 grid grid-cols-3 gap-2 text-center"
-              >
-                <div class="rounded-lg bg-neutral-50 dark:bg-neutral-800/80 py-2">
-                  <p class="text-sm font-semibold tabular-nums">{{ result.accuracy ?? '—' }}</p>
-                  <p class="text-[10px] text-neutral-500">准确度</p>
-                </div>
-                <div class="rounded-lg bg-neutral-50 dark:bg-neutral-800/80 py-2">
-                  <p class="text-sm font-semibold tabular-nums">{{ result.fluency ?? '—' }}</p>
-                  <p class="text-[10px] text-neutral-500">流利度</p>
-                </div>
-                <div class="rounded-lg bg-neutral-50 dark:bg-neutral-800/80 py-2">
-                  <p class="text-sm font-semibold tabular-nums">{{ result.rhythm ?? '—' }}</p>
-                  <p class="text-[10px] text-neutral-500">韵律</p>
+              <div v-if="dimensionItems.length" class="mt-4 grid gap-2" :class="dimensionItems.length === 3 ? 'grid-cols-3' : 'grid-cols-2'">
+                <div
+                  v-for="d in dimensionItems"
+                  :key="d.key"
+                  class="rounded-xl bg-[#F7F3EC] dark:bg-neutral-800/80 px-2 py-2.5 text-center"
+                >
+                  <p class="text-base font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">
+                    {{ d.value }}
+                  </p>
+                  <p class="text-[10px] text-neutral-500 mt-0.5">{{ d.label }}</p>
                 </div>
               </div>
             </div>
 
             <div
               v-if="result.words?.length"
-              class="rounded-xl border border-black/5 dark:border-white/10 bg-white/80 dark:bg-neutral-800/30 px-3.5 py-3"
+              class="rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white/90 dark:bg-neutral-900/80 px-3.5 py-3"
             >
               <p class="text-[11px] font-medium text-neutral-500 mb-2">词级发音</p>
-              <p class="text-[15px] leading-relaxed flex flex-wrap gap-x-1.5 gap-y-1">
+              <div class="flex flex-wrap gap-1.5">
                 <span
                   v-for="(w, i) in result.words"
                   :key="`${w.char}-${i}`"
+                  class="inline-flex items-center rounded-lg px-2 py-1 text-[13px] font-medium"
                   :class="wordToneClass(w.score)"
                   :title="`${w.char}: ${w.score}`"
                 >
                   {{ w.char }}
                 </span>
-              </p>
+              </div>
             </div>
 
             <audio
               v-if="result.audio_url"
-              class="w-full"
+              class="w-full h-10"
               controls
               preload="none"
               :src="result.audio_url"
             />
 
             <div
-              v-if="(result.issues?.length || result.tips?.length)"
-              class="rounded-xl border border-black/5 dark:border-white/10 bg-white/70 dark:bg-neutral-800/30 overflow-hidden"
+              v-if="result.issues?.length || result.tips?.length"
+              class="rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white/80 dark:bg-neutral-900/60 overflow-hidden"
             >
               <button
                 type="button"
                 class="w-full flex items-center justify-between px-3.5 py-2.5 text-sm text-neutral-600 dark:text-neutral-300"
                 @click="showTips = !showTips"
               >
-                <span>{{ showTips ? '收起改进建议' : '查看改进建议' }}</span>
+                <span>{{ showTips ? '收起建议' : '改进建议' }}</span>
                 <svg
                   width="16"
                   height="16"
@@ -706,48 +793,42 @@ onUnmounted(() => {
                   <path d="m6 9 6 6 6-6" />
                 </svg>
               </button>
-              <div v-if="showTips" class="px-3.5 pb-3 space-y-3 border-t border-black/5 dark:border-white/10 pt-3">
-                <div v-if="result.issues?.length" class="space-y-1">
-                  <p class="text-[11px] font-medium text-neutral-500">待改进</p>
-                  <ul class="space-y-1 text-sm text-neutral-700 dark:text-neutral-300">
-                    <li v-for="(item, i) in result.issues.slice(0, 3)" :key="`i-${i}`" class="flex gap-2">
-                      <span class="text-rose-500 shrink-0">·</span>
-                      <span>{{ item }}</span>
-                    </li>
-                  </ul>
-                </div>
-                <div v-if="result.tips?.length" class="space-y-1">
-                  <p class="text-[11px] font-medium text-neutral-500">小建议</p>
-                  <ul class="space-y-1 text-sm text-neutral-700 dark:text-neutral-300">
-                    <li v-for="(item, i) in result.tips.slice(0, 3)" :key="`t-${i}`" class="flex gap-2">
-                      <span class="text-amber-600 shrink-0">·</span>
-                      <span>{{ item }}</span>
-                    </li>
-                  </ul>
-                </div>
+              <div
+                v-if="showTips"
+                class="px-3.5 pb-3 space-y-3 border-t border-black/5 dark:border-white/10 pt-3"
+              >
+                <ul v-if="result.issues?.length" class="space-y-1.5 text-sm text-neutral-700 dark:text-neutral-300">
+                  <li v-for="(item, i) in result.issues.slice(0, 3)" :key="`i-${i}`" class="flex gap-2">
+                    <span class="text-rose-500 shrink-0">·</span>
+                    <span>{{ item }}</span>
+                  </li>
+                </ul>
+                <ul v-if="result.tips?.length" class="space-y-1.5 text-sm text-neutral-700 dark:text-neutral-300">
+                  <li v-for="(item, i) in result.tips.slice(0, 3)" :key="`t-${i}`" class="flex gap-2">
+                    <span class="text-amber-600 shrink-0">·</span>
+                    <span>{{ item }}</span>
+                  </li>
+                </ul>
               </div>
             </div>
-
-            <p v-if="transcript && result.engine !== 'oral'" class="text-xs text-neutral-400 px-0.5">
-              你说的：{{ transcript }}
-            </p>
           </section>
         </div>
 
+        <!-- Footer -->
         <div
-          class="shrink-0 flex items-center gap-2 px-5 py-3 border-t border-black/5 dark:border-white/10 bg-white/80 dark:bg-neutral-900/90 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          class="shrink-0 flex items-center gap-2 px-5 py-3 border-t border-black/5 dark:border-white/10 bg-[#FBF8F3]/95 dark:bg-neutral-950/95 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         >
           <template v-if="step === 'listen'">
             <button
               type="button"
-              class="flex-1 px-3 py-2.5 rounded-xl text-sm text-neutral-500 hover:bg-black/5 dark:hover:bg-white/5"
+              class="flex-1 h-11 rounded-2xl text-sm text-neutral-500 hover:bg-black/5 dark:hover:bg-white/5"
               @click="$emit('close')"
             >
               稍后再练
             </button>
             <button
               type="button"
-              class="flex-[1.4] px-3 py-2.5 rounded-xl text-sm font-medium bg-sky-600 text-white hover:bg-sky-700"
+              class="flex-[1.35] h-11 rounded-2xl text-sm font-semibold bg-sky-600 text-white hover:bg-sky-700"
               @click="goRecord"
             >
               开始跟读
@@ -757,16 +838,16 @@ onUnmounted(() => {
           <template v-else-if="step === 'record'">
             <button
               type="button"
-              class="flex-1 px-3 py-2.5 rounded-xl text-sm border border-black/10 dark:border-white/15 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
+              class="flex-1 h-11 rounded-2xl text-sm border border-black/10 dark:border-white/15 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
               :disabled="loading || listening"
               @click="step = 'listen'"
             >
-              返回听原句
+              返回
             </button>
             <button
               v-if="!useOral"
               type="button"
-              class="flex-[1.2] px-3 py-2.5 rounded-xl text-sm font-medium bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 disabled:opacity-40"
+              class="flex-[1.25] h-11 rounded-2xl text-sm font-semibold bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 disabled:opacity-40"
               :disabled="loading || listening || !transcript.trim()"
               @click="submitFeedback"
             >
@@ -775,18 +856,18 @@ onUnmounted(() => {
             <button
               v-else
               type="button"
-              class="flex-[1.2] px-3 py-2.5 rounded-xl text-sm font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-40"
-              :disabled="loading || listening"
+              class="flex-[1.25] h-11 rounded-2xl text-sm font-semibold bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-40"
+              :disabled="loading"
               @click="toggleMic"
             >
-              {{ listening ? '停止并评分' : loading ? '评分中…' : '开始录音' }}
+              {{ listening ? '停止评分' : loading ? '评分中…' : '开始录音' }}
             </button>
           </template>
 
           <template v-else>
             <button
               type="button"
-              class="flex-1 px-3 py-2.5 rounded-xl text-sm border border-black/10 dark:border-white/15 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
+              class="flex-1 h-11 rounded-2xl text-sm border border-black/10 dark:border-white/15 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
               :disabled="loading || listening"
               @click="retry"
             >
@@ -794,10 +875,10 @@ onUnmounted(() => {
             </button>
             <button
               type="button"
-              class="flex-[1.3] px-3 py-2.5 rounded-xl text-sm font-medium bg-amber-600 text-white hover:bg-amber-700"
+              class="flex-[1.3] h-11 rounded-2xl text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700"
               @click="onNext"
             >
-              {{ hasNext === false ? '完成' : '下一句' }}
+              {{ hasNext === false || practiceMode === 'word' ? '完成' : practiceMode === 'passage' ? '完成' : '下一句' }}
             </button>
           </template>
         </div>

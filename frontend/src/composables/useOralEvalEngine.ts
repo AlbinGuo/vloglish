@@ -1,5 +1,10 @@
 import { ref } from 'vue'
-import { fetchOralEvalStatus, fetchOralEvalWarrant, type OralEvalWarrant } from '@/api/oralEval'
+import {
+  fetchOralEvalStatus,
+  fetchOralEvalWarrant,
+  type OralCoreType,
+  type OralEvalWarrant,
+} from '@/api/oralEval'
 
 type EngineInstance = {
   startRecord: (params: Record<string, unknown>, done?: (msg: string) => void, fail?: (msg: string) => void) => void
@@ -18,8 +23,10 @@ declare global {
 let sdkLoadPromise: Promise<EngineCtor> | null = null
 let cachedWarrant: OralEvalWarrant | null = null
 
-function defaultEvalTimeMs(refText: string) {
+function defaultEvalTimeMs(refText: string, coreType: OralCoreType) {
   const words = refText.trim().split(/\s+/).filter(Boolean).length
+  if (coreType === 'en.word.score') return Math.max(4000, 2500 + words * 800)
+  if (coreType === 'en.pred.score') return Math.max(8000, 3000 + words * 450)
   return 2000 + words * 600 + 1000
 }
 
@@ -127,7 +134,10 @@ export function useOralEvalEngine() {
     return engine
   }
 
-  function evaluateSentence(refText: string): Promise<Record<string, unknown>> {
+  function evaluate(
+    refText: string,
+    coreType: OralCoreType = 'en.sent.score',
+  ): Promise<Record<string, unknown>> {
     const text = refText.trim()
     if (!text) return Promise.reject(new Error('评测文本为空'))
 
@@ -163,15 +173,15 @@ export function useOralEvalEngine() {
           const inst = await ensureEngine()
           const warrant = await getWarrant()
           const params: Record<string, unknown> = {
-            coreType: 'en.sent.score',
+            coreType,
             refText: text,
             warrantId: warrant.warrant_id,
             rank: 100,
             precision: 0.5,
             attachAudioUrl: 1,
-            outputPhones: 0,
+            outputPhones: coreType === 'en.word.score' ? 1 : 0,
             accent,
-            evalTime: defaultEvalTimeMs(text),
+            evalTime: defaultEvalTimeMs(text, coreType),
           }
           inst.startRecord(params, finishOk, finishErr)
         } catch (e) {
@@ -179,6 +189,11 @@ export function useOralEvalEngine() {
         }
       })()
     })
+  }
+
+  /** @deprecated 使用 evaluate(text, 'en.sent.score') */
+  function evaluateSentence(refText: string) {
+    return evaluate(refText, 'en.sent.score')
   }
 
   function stop() {
@@ -204,6 +219,7 @@ export function useOralEvalEngine() {
     volume,
     evaluating,
     probe,
+    evaluate,
     evaluateSentence,
     stop,
     cancel,

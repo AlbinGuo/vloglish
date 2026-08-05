@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..deps import get_client_ip, get_current_user, get_device_id
+from ..deps import get_client_ip, get_current_user, get_current_user_optional, get_device_id
 from ..models import User
 from ..services import ai_coach as coach
 
@@ -37,6 +37,17 @@ class OralShadowingIn(BaseModel):
     video_id: str = Field(min_length=1, max_length=32)
     subtitle_id: int
     oral_result: dict[str, Any] = Field(default_factory=dict)
+
+
+class OralEvalFeedbackIn(BaseModel):
+    ref_text: str = Field(min_length=1, max_length=8000)
+    oral_result: dict[str, Any] = Field(default_factory=dict)
+    core_type: str = Field(default="en.sent.score", max_length=32)
+
+
+class TextShadowingIn(BaseModel):
+    target: str = Field(min_length=1, max_length=8000)
+    transcript: str = ""
 
 
 class ReadingQaIn(BaseModel):
@@ -119,8 +130,8 @@ def shadowing(
 
 
 @router.get("/oral-eval/status/")
-def oral_eval_status(_user: User = Depends(get_current_user)):
-    """是否启用口语评测引擎（未配置时前端走 ASR+LLM 回退）。"""
+def oral_eval_status(_user: User | None = Depends(get_current_user_optional)):
+    """是否启用口语评测引擎（未配置时前端走 ASR+LLM 回退）。无需登录即可探测。"""
     return coach.oral_eval_status()
 
 
@@ -146,6 +157,37 @@ def shadowing_oral(
         video_id=body.video_id,
         subtitle_id=body.subtitle_id,
         oral_payload=body.oral_result,
+    )
+
+
+@router.post("/oral-eval/feedback/")
+def oral_eval_feedback(
+    body: OralEvalFeedbackIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """通用口语评测反馈（单词 / 句子 / 篇章）。"""
+    return coach.oral_eval_feedback(
+        db,
+        user,
+        ref_text=body.ref_text,
+        oral_payload=body.oral_result,
+        core_type=body.core_type,
+    )
+
+
+@router.post("/shadowing-text-feedback/")
+def shadowing_text(
+    body: TextShadowingIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """任意文本的 ASR+LLM 跟读点评（无字幕场景回退）。"""
+    return coach.shadowing_for_text(
+        db,
+        user,
+        target=body.target,
+        transcript=body.transcript,
     )
 
 

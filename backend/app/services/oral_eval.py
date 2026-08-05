@@ -17,6 +17,10 @@ DEFAULT_AUTH_URLS = (
     "https://gate-03.api.cloud.ssapi.cn/auth/authorize",
 )
 
+CORE_WORD = "en.word.score"
+CORE_SENT = "en.sent.score"
+CORE_PASSAGE = "en.pred.score"
+
 
 def oral_eval_configured() -> bool:
     app_id = (os.getenv("ORAL_EVAL_APP_ID") or "").strip()
@@ -189,7 +193,23 @@ def _level_from_score(score: int) -> str:
     return "需加强"
 
 
-def _praise_from_score(score: int) -> str:
+def _praise_from_score(score: int, *, mode: str) -> str:
+    if mode == "word":
+        if score >= 85:
+            return "这个词读得很准，记牢了！"
+        if score >= 75:
+            return "不错，再听一遍示范音微调一下。"
+        if score >= 60:
+            return "接近了，对着音标慢慢读两遍。"
+        return "先听示范音，再跟着慢读。"
+    if mode == "passage":
+        if score >= 85:
+            return "篇章朗读很流畅，继续保持！"
+        if score >= 75:
+            return "整体不错，标红处再练几遍会更稳。"
+        if score >= 60:
+            return "已经读下来了，注意完整度和停顿。"
+        return "可以先分段练，再连起来读整段。"
     if score >= 85:
         return "发音很棒，继续保持！"
     if score >= 75:
@@ -199,48 +219,72 @@ def _praise_from_score(score: int) -> str:
     return "别着急，先听清原句再慢一点跟读。"
 
 
-def build_feedback_from_oral_result(payload: dict[str, Any], *, target: str) -> dict[str, Any]:
-    """把引擎 JSON 归一化为与 LLM 跟读点评相近的结构。"""
-    result = payload.get("result") if isinstance(payload.get("result"), dict) else payload
-    if not isinstance(result, dict):
-        result = {}
-
+def _as_int(value: Any, default: int = 0) -> int:
     try:
-        overall = int(round(float(result.get("overall") or 0)))
+        return int(round(float(value)))
     except (TypeError, ValueError):
-        overall = 0
-    overall = max(0, min(100, overall))
+        return default
 
-    try:
-        accuracy = int(round(float(result.get("accuracy") or result.get("pron") or overall)))
-    except (TypeError, ValueError):
-        accuracy = overall
 
-    fluency_obj = result.get("fluency") if isinstance(result.get("fluency"), dict) else {}
-    try:
-        fluency = int(round(float(fluency_obj.get("overall") or 0)))
-    except (TypeError, ValueError):
-        fluency = 0
-
-    rhythm_obj = result.get("rhythm") if isinstance(result.get("rhythm"), dict) else {}
-    try:
-        rhythm = int(round(float(rhythm_obj.get("overall") or 0)))
-    except (TypeError, ValueError):
-        rhythm = 0
-
+def _extract_words(result: dict[str, Any]) -> list[dict[str, Any]]:
     words: list[dict[str, Any]] = []
     details = result.get("details") if isinstance(result.get("details"), list) else []
     for item in details:
         if not isinstance(item, dict):
             continue
+        # 篇章：details 是句子，词在 snt_details
+        snt = item.get("snt_details")
+        if isinstance(snt, list):
+            for w in snt:
+                if not isinstance(w, dict):
+                    continue
+                char = str(w.get("char") or "").strip()
+                if not char:
+                    continue
+                words.append({"char": char, "score": max(0, min(100, _as_int(w.get("score"))))})
+            continue
         char = str(item.get("char") or "").strip()
         if not char:
             continue
-        try:
-            wscore = int(round(float(item.get("score") or 0)))
-        except (TypeError, ValueError):
-            wscore = 0
-        words.append({"char": char, "score": max(0, min(100, wscore))})
+        words.append({"char": char, "score": max(0, min(100, _as_int(item.get("score"))))})
+    return words
+
+
+def build_feedback_from_oral_result(
+    payload: dict[str, Any],
+    *,
+    target: str,
+    core_type: str = CORE_SENT,
+) -> dict[str, Any]:
+    """把引擎 JSON 归一化为统一点评结构（单词 / 句子 / 篇章）。"""
+    result = payload.get("result") if isinstance(payload.get("result"), dict) else payload
+    if not isinstance(result, dict):
+        result = {}
+
+    mode = "sentence"
+    if core_type == CORE_WORD:
+        mode = "word"
+    elif core_type == CORE_PASSAGE:
+        mode = "passage"
+
+    overall = max(0, min(100, _as_int(result.get("overall"))))
+    accuracy = max(0, min(100, _as_int(result.get("accuracy") or result.get("pron") or overall)))
+
+    fluency_raw = result.get("fluency")
+    if isinstance(fluency_raw, dict):
+        fluency = max(0, min(100, _as_int(fluency_raw.get("overall"))))
+        speed = fluency_raw.get("speed")
+        pause_n = _as_int(fluency_raw.get("pause"))
+    else:
+        fluency = max(0, min(100, _as_int(fluency_raw)))
+        speed = None
+        pause_n = 0
+
+    rhythm_obj = result.get("rhythm") if isinstance(result.get("rhythm"), dict) else {}
+    rhythm = max(0, min(100, _as_int(rhythm_obj.get("overall"))))
+    integrity = max(0, min(100, _as_int(result.get("integrity"))))
+
+    words = _extract_words(result)
 
     issues: list[str] = []
     tips: list[str] = []
@@ -248,13 +292,12 @@ def build_feedback_from_oral_result(payload: dict[str, Any], *, target: str) -> 
     if weak:
         shown = "、".join(f"「{w['char']}」" for w in weak[:4])
         issues.append(f"这些词发音偏弱：{shown}")
-        tips.append("先单独慢读弱项单词，再整句连起来。")
+        tips.append("先单独慢读弱项单词，再连起来。" if mode != "word" else "听示范音后，再慢读两遍这个词。")
     elif words and any(w["score"] < 75 for w in words):
         mid = [w for w in words if w["score"] < 75][:3]
         shown = "、".join(f"「{w['char']}」" for w in mid)
         tips.append(f"可再练：{shown}")
 
-    speed = fluency_obj.get("speed")
     if speed == 0:
         issues.append("语速偏慢")
         tips.append("熟悉后稍微加快，保持单词完整即可。")
@@ -262,19 +305,18 @@ def build_feedback_from_oral_result(payload: dict[str, Any], *, target: str) -> 
         issues.append("语速偏快")
         tips.append("放慢一点，注意词尾和连读。")
 
-    pause = fluency_obj.get("pause")
-    try:
-        pause_n = int(pause or 0)
-    except (TypeError, ValueError):
-        pause_n = 0
     if pause_n >= 3:
-        issues.append("句中停顿偏多")
+        issues.append("停顿偏多")
         tips.append("按意群一口气读完，减少不必要停顿。")
 
+    if mode == "passage" and integrity and integrity < 70:
+        issues.append("完整度偏低，可能有漏读")
+        tips.append("对照文本读完整段，漏读的句子单独补练。")
+
     if not tips and overall >= 85:
-        tips.append("可以挑战下一句，或用更快一点的语速再读一遍。")
+        tips.append("可以挑战下一题，或用更快语速再读一遍。")
     if not tips:
-        tips.append("对照原句听一遍，再跟读一次。")
+        tips.append("对照示范再跟读一次。")
 
     audio_url = str(payload.get("audioUrl") or payload.get("audio_url") or "").strip()
     if not audio_url:
@@ -283,18 +325,22 @@ def build_feedback_from_oral_result(payload: dict[str, Any], *, target: str) -> 
         if app_id and record_id:
             audio_url = f"https://files.cloud.ssapi.cn/{app_id}/{record_id}.mp3"
 
-    return {
+    out: dict[str, Any] = {
         "score": overall,
         "level": _level_from_score(overall),
-        "praise": _praise_from_score(overall),
+        "praise": _praise_from_score(overall, mode=mode),
         "issues": issues[:5],
         "tips": tips[:5],
         "engine": "oral",
-        "accuracy": max(0, min(100, accuracy)),
-        "fluency": max(0, min(100, fluency)),
-        "rhythm": max(0, min(100, rhythm)),
+        "core_type": core_type,
+        "mode": mode,
+        "accuracy": accuracy,
+        "fluency": fluency,
+        "rhythm": rhythm,
+        "integrity": integrity if mode == "passage" else None,
         "words": words,
         "audio_url": audio_url,
         "target": target or "",
-        "transcript": " ".join(w["char"] for w in words),
+        "transcript": " ".join(w["char"] for w in words) if words else "",
     }
+    return out
