@@ -416,12 +416,25 @@ async function startOralRecording() {
   autoSubmitArmed.value = true
   step.value = 'record'
 
-  const micErr = await ensureMicPermission()
-  if (micErr) {
+  // 口语 SDK 自己申请麦克风；不要先 getUserMedia 再 stop，否则易抢占/弄死 stream
+  if (typeof window !== 'undefined' && !window.isSecureContext) {
     engineMode.value = 'llm'
     micUnsupported.value = true
-    error.value = micErr
+    error.value = '需要 HTTPS 或 localhost 才能录音'
     return
+  }
+  try {
+    if (navigator.permissions?.query) {
+      const status = await navigator.permissions.query({ name: 'microphone' as PermissionName })
+      if (status.state === 'denied') {
+        engineMode.value = 'llm'
+        micUnsupported.value = true
+        error.value = '麦克风权限被拒绝，请在浏览器地址栏允许后重试'
+        return
+      }
+    }
+  } catch {
+    /* Permissions API 不支持 microphone 时忽略，交给 SDK */
   }
 
   listening.value = true

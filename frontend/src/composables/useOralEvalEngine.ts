@@ -71,6 +71,10 @@ async function getWarrant(): Promise<OralEvalWarrant> {
   return cachedWarrant
 }
 
+function streamIsLive(stream: MediaStream | null | undefined): stream is MediaStream {
+  return Boolean(stream && typeof stream.getTracks === 'function' && stream.getTracks().some((t) => t.readyState === 'live'))
+}
+
 export function useOralEvalEngine() {
   const available = ref(false)
   const ready = ref(false)
@@ -78,6 +82,8 @@ export function useOralEvalEngine() {
   const evaluating = ref(false)
 
   let engine: EngineInstance | null = null
+  /** SDK 在构造时异步申请麦克风；未就绪时 startRecord 会报 createMediaStreamSource 错 */
+  let micReadyPromise: Promise<void> | null = null
   let accent = 'am'
   let applicationId = ''
   let userId = ''
@@ -102,6 +108,16 @@ export function useOralEvalEngine() {
     }
   }
 
+  function resetEngine() {
+    try {
+      engine?.cancelRecord?.()
+    } catch {
+      /* ignore */
+    }
+    engine = null
+    micReadyPromise = null
+  }
+
   async function ensureEngine(): Promise<EngineInstance> {
     const warrant = await getWarrant()
     applicationId = warrant.application_id || applicationId
@@ -112,26 +128,68 @@ export function useOralEvalEngine() {
     const Ctor = window.EngineEvaluat
     if (!Ctor) throw new Error('口语评测 SDK 不可用')
 
+    // 已有实例但麦克风流已失效 → 重建
+    const existingStream = (engine as unknown as { _audio?: { stream?: MediaStream } } | null)?._audio?.stream
+    if (engine && existingStream != null && !streamIsLive(existingStream)) {
+      resetEngine()
+    }
+
     if (!engine) {
-      engine = new Ctor({
-        applicationId,
-        userId,
-        warrantId: warrant.warrant_id,
-        coreType: 'en.sent.score',
-        logIsOpen: false,
-        micAllowCallback: () => undefined,
-        micForbidCallback: () => undefined,
-        micVolumeCallback: (data: number) => {
-          volume.value = Number(data) || 0
-        },
-        JSSDKNotSupport: () => undefined,
-        noNetwork: () => undefined,
-        engineFirstInitDone: () => undefined,
-        engineBackResultDone: () => undefined,
-        engineBackResultFail: () => undefined,
+      micReadyPromise = new Promise<void>((resolve, reject) => {
+        let settled = false
+        const timer = window.setTimeout(() => {
+          if (settled) return
+          settled = true
+          reject(new Error('麦克风初始化超时，请检查权限后重试'))
+        }, 20000)
+
+        const finishOk = () => {
+          if (settled) return
+          settled = true
+          window.clearTimeout(timer)
+          resolve()
+        }
+        const finishErr = (msg: string) => {
+          if (settled) return
+          settled = true
+          window.clearTimeout(timer)
+          resetEngine()
+          reject(new Error(msg))
+        }
+
+        try {
+          engine = new Ctor({
+            applicationId,
+            userId,
+            warrantId: warrant.warrant_id,
+            coreType: 'en.sent.score',
+            logIsOpen: false,
+            micAllowCallback: () => finishOk(),
+            micForbidCallback: () => finishErr('麦克风权限被拒绝或无法打开'),
+            micVolumeCallback: (data: number) => {
+              volume.value = Number(data) || 0
+            },
+            JSSDKNotSupport: () => finishErr('当前浏览器不支持口语评测'),
+            noNetwork: () => undefined,
+            engineFirstInitDone: () => undefined,
+            engineBackResultDone: () => undefined,
+            engineBackResultFail: () => undefined,
+          })
+        } catch (e) {
+          finishErr(e instanceof Error ? e.message : '口语评测引擎初始化失败')
+        }
       })
     }
-    return engine
+
+    if (micReadyPromise) await micReadyPromise
+
+    const liveStream = (engine as unknown as { _audio?: { stream?: MediaStream } } | null)?._audio?.stream
+    if (liveStream != null && !streamIsLive(liveStream)) {
+      resetEngine()
+      throw new Error('麦克风未就绪，请允许权限后重试')
+    }
+
+    return engine!
   }
 
   function evaluate(
@@ -164,7 +222,13 @@ export function useOralEvalEngine() {
             : msg && typeof msg === 'object'
               ? JSON.stringify(msg)
               : '口语评测失败'
-        reject(new Error(detail.slice(0, 200)))
+        // MediaStream 类错误更友好
+        const textMsg = detail.slice(0, 200)
+        if (/MediaStream|createMediaStreamSource/i.test(textMsg)) {
+          reject(new Error('麦克风未就绪，请允许权限后重试'))
+          return
+        }
+        reject(new Error(textMsg))
       }
 
       void (async () => {
@@ -223,5 +287,6 @@ export function useOralEvalEngine() {
     evaluateSentence,
     stop,
     cancel,
+    resetEngine,
   }
 }
