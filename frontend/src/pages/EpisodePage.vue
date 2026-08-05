@@ -29,6 +29,7 @@ import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import { useLearningProgress } from '@/composables/useLearningProgress'
 import { consumeEpisodeAutoplay, requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useSourceFocusPulse } from '@/composables/useSourceFocusPulse'
+import { useWordLongPress } from '@/composables/useWordLongPress'
 import { useAuthStore } from '@/stores/auth'
 import type { EntryDetail, EpisodeDetail, EpisodeSummary, Subtitle } from '@/types'
 import EntryCard from '@/components/EntryCard.vue'
@@ -810,6 +811,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (continuousFinishedTimer) clearTimeout(continuousFinishedTimer)
   if (listScrollAnim) cancelAnimationFrame(listScrollAnim)
+  if (quickVocabToastTimer != null) clearTimeout(quickVocabToastTimer)
   document.body.style.overflow = ''
   window.removeEventListener('keydown', onEntryKeydown)
   window.removeEventListener('afterprint', onAfterPrint)
@@ -1311,19 +1313,93 @@ function resolveClickedWordSpan(target: HTMLElement, root: HTMLElement): HTMLEle
   return null
 }
 
-async function onSubtitleClick(e: MouseEvent) {
-  const root = (e.target as HTMLElement).closest('.subtitle-english')
-  if (!root) return
-
-  const target = resolveClickedWordSpan(e.target as HTMLElement, root as HTMLElement)
-  if (!target) return
-
+function resolveWordHitFromEvent(e: Event) {
+  const root = (e.target as HTMLElement).closest('.subtitle-english') as HTMLElement | null
+  if (!root) return null
+  const target = resolveClickedWordSpan(e.target as HTMLElement, root)
+  if (!target) return null
   const word = target.textContent?.trim().replace(/\s+/g, ' ') ?? ''
-  if (!word) return
-
+  if (!word) return null
   const pid = target.getAttribute('pid')
   const isPhrase = Boolean(pid) || target.classList.contains('phrase-token')
-  const type = isPhrase ? 2 : 1
+  const type = (isPhrase ? 2 : 1) as 1 | 2
+  const context = resolveSentenceContext(target)
+  const sub = resolveSubtitleFromTarget(target)
+  return { target, word, type, context, subtitleId: sub?.id ?? null }
+}
+
+const quickVocabToast = ref('')
+let quickVocabToastTimer: ReturnType<typeof setTimeout> | null = null
+let quickFavoriteBusy = false
+
+function flashQuickVocabToast(message: string) {
+  if (quickVocabToastTimer != null) clearTimeout(quickVocabToastTimer)
+  quickVocabToast.value = message
+  quickVocabToastTimer = setTimeout(() => {
+    quickVocabToast.value = ''
+    quickVocabToastTimer = null
+  }, 2200)
+}
+
+async function quickFavoriteFromPointer(e: PointerEvent) {
+  if (!auth.isLoggedIn || props.adminPreview || quickFavoriteBusy) return
+  const hit = resolveWordHitFromEvent(e)
+  if (!hit) return
+
+  quickFavoriteBusy = true
+  entrySourceSubtitleId.value = hit.subtitleId
+  try {
+    const entry = await lookupWord(hit.word, hit.type, hit.context, {
+      video_id: props.videoId,
+      subtitle_id: hit.subtitleId ?? undefined,
+    })
+    noteLookup()
+    if (entry.favorite) {
+      flashQuickVocabToast(`「${entry.headword}」已在生词本`)
+      return
+    }
+    await saveVocabulary({
+      entry_id: entry.id,
+      word: entry.headword,
+      token_type: entry.category === 'phrase' ? 2 : 1,
+      video_id: props.videoId,
+      subtitle_id: hit.subtitleId ?? undefined,
+    })
+    hit.target.classList.add('highlight', 'token-clicked')
+    flashQuickVocabToast(`已加入生词本：${entry.headword}`)
+    try {
+      const { useVocabularyStore } = await import('@/stores/vocabulary')
+      useVocabularyStore().invalidate()
+    } catch {
+      // ignore
+    }
+  } catch {
+    flashQuickVocabToast('收藏失败，请重试')
+  } finally {
+    quickFavoriteBusy = false
+  }
+}
+
+const wordLongPress = useWordLongPress({
+  enabled: () => auth.isLoggedIn && !props.adminPreview,
+  onLongPress: (e) => {
+    void quickFavoriteFromPointer(e)
+  },
+})
+
+const wordLongPressHandlers = {
+  pointerdown: wordLongPress.onPointerDown,
+  pointermove: wordLongPress.onPointerMove,
+  pointerup: wordLongPress.onPointerUp,
+  pointercancel: wordLongPress.onPointerCancel,
+  contextmenu: wordLongPress.onContextMenu,
+}
+
+async function onSubtitleClick(e: MouseEvent) {
+  if (wordLongPress.consumeIfFired()) return
+
+  const hit = resolveWordHitFromEvent(e)
+  if (!hit) return
 
   pausePlaybackForEntry()
   showEntryPanel.value = true
@@ -1332,17 +1408,15 @@ async function onSubtitleClick(e: MouseEvent) {
   clearVocabNotice()
   selectedEntry.value = null
 
-  const context = resolveSentenceContext(target)
-  const sub = resolveSubtitleFromTarget(target)
-  entrySourceSubtitleId.value = sub?.id ?? null
+  entrySourceSubtitleId.value = hit.subtitleId
   try {
-    selectedEntry.value = await lookupWord(word, type as 1 | 2, context, {
+    selectedEntry.value = await lookupWord(hit.word, hit.type, hit.context, {
       video_id: props.videoId,
-      subtitle_id: sub?.id,
+      subtitle_id: hit.subtitleId ?? undefined,
     })
     if (auth.isLoggedIn) noteLookup()
     if (sidePanelTab.value === 'lookup') void loadLookupHistory()
-    target.classList.add('highlight', 'token-clicked')
+    hit.target.classList.add('highlight', 'token-clicked')
   } catch {
     entryError.value = '词条加载失败，请确认后端已启动且 DeepSeek API 配置正确'
   } finally {
@@ -1619,6 +1693,7 @@ function subtitleRowClass(index: number) {
             :dictation-frost="isDictationFrost(displaySub.id)"
             :data-subtitle-context="displaySub.english"
             @seek="player.seekTo(displaySub)"
+            v-on="wordLongPressHandlers"
             @click="onSubtitleClick"
           />
         </SubtitleWordTooltipHost>
@@ -1793,6 +1868,7 @@ function subtitleRowClass(index: number) {
                 :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
                 :lookup-meta="{ video_id: videoId, subtitle_id: currentSub.id }"
                 :emphasize-word="isSourceFocused(currentSub.id) ? sourceFocusWord : ''"
+                v-on="wordLongPressHandlers"
                 @click="onSubtitleClick"
               />
               <SubtitleBlock
@@ -1809,6 +1885,7 @@ function subtitleRowClass(index: number) {
                 :show-chinese="modeShowsChinese(subtitleMode)"
                 :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
                 :emphasize-word="isSourceFocused(currentSub.id) ? sourceFocusWord : ''"
+                v-on="wordLongPressHandlers"
                 @click="onSubtitleClick"
               />
             </Transition>
@@ -1837,8 +1914,9 @@ function subtitleRowClass(index: number) {
             @click="player.seekTo(sub)"
           >
             <div
-              class="w-full relative transition-all duration-300 ease-out pr-2 sm:pr-4 pt-9"
-              :class="
+              class="w-full relative transition-all duration-300 ease-out pr-2 sm:pr-4"
+              :class="[
+                isPhone ? 'pt-14' : 'pt-9',
                 intensiveMode
                   ? [
                       'intensive-subtitle-card rounded-xl border p-3 sm:p-4',
@@ -1846,8 +1924,8 @@ function subtitleRowClass(index: number) {
                         ? 'border-red-300/80 dark:border-red-700/50 ring-1 ring-red-200/60 dark:ring-red-900/30'
                         : 'border-red-100/80 dark:border-red-950/40',
                     ]
-                  : [subtitleRowClass(i), i === currentIndex && 'subtitle-row--active']
-              "
+                  : [subtitleRowClass(i), i === currentIndex && 'subtitle-row--active'],
+              ]"
             >
               <button
                 v-if="showSubtitleLearnedMark && auth.isLoggedIn && !adminPreview"
@@ -1865,10 +1943,9 @@ function subtitleRowClass(index: number) {
               </button>
               <div
                 v-else-if="!adminPreview"
-                class="absolute top-1.5 right-1.5 z-10 flex flex-wrap justify-end gap-1 max-w-[min(100%,18rem)]"
+                class="absolute top-1.5 right-1.5 z-10 flex flex-wrap justify-end gap-1 max-w-[min(100%,22rem)]"
               >
                 <button
-                  v-if="!isPhone"
                   type="button"
                   class="px-2 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-violet-400 hover:text-violet-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300"
                   title="AI 讲解本句"
@@ -1877,7 +1954,19 @@ function subtitleRowClass(index: number) {
                   AI讲解
                 </button>
                 <button
-                  v-if="!isPhone"
+                  type="button"
+                  class="inline-flex items-center gap-1 px-2 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-sky-400 hover:text-sky-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
+                  title="AI 跟读评分"
+                  @click="startAiShadowing(sub, $event)"
+                >
+                  AI跟读
+                  <span
+                    class="px-1 py-px rounded text-[9px] font-semibold leading-none bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300"
+                  >
+                    评分
+                  </span>
+                </button>
+                <button
                   type="button"
                   class="px-2 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-emerald-400 hover:text-emerald-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300"
                   title="AI 挖空练习"
@@ -1908,6 +1997,7 @@ function subtitleRowClass(index: number) {
                 :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
                 :lookup-meta="{ video_id: videoId, subtitle_id: sub.id }"
                 :emphasize-word="isSourceFocused(sub.id) ? sourceFocusWord : ''"
+                v-on="wordLongPressHandlers"
                 @click.stop="onSubtitleClick"
               />
               <SubtitleBlock
@@ -1922,6 +2012,7 @@ function subtitleRowClass(index: number) {
                 :show-chinese="modeShowsChinese(subtitleMode)"
                 :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
                 :emphasize-word="isSourceFocused(sub.id) ? sourceFocusWord : ''"
+                v-on="wordLongPressHandlers"
                 @click.stop="onSubtitleClick"
               />
               <!-- 听写中：单词区毛玻璃遮罩，关闭弹窗后消失 -->
@@ -2183,7 +2274,7 @@ function subtitleRowClass(index: number) {
       :sentence-index="aiShadowSentenceIndex"
       :sentence-total="sortedSubs.length"
       :has-next="aiShadowHasNext"
-      @close="aiShadowOpen = false"
+      @close="aiShadowOpen = false; aiShadowSub = null"
       @play="onShadowPlay"
       @next="nextAiShadowing"
     />
@@ -2237,6 +2328,22 @@ function subtitleRowClass(index: number) {
       @close="closeEntryPanel"
       @toggle-vocabulary="toggleVocabulary"
     />
+
+    <Teleport to="body">
+      <Transition name="continuous-finished-fade">
+        <div
+          v-if="quickVocabToast"
+          class="fixed inset-x-0 bottom-24 sm:bottom-28 z-[420] flex justify-center pointer-events-none px-4"
+          role="status"
+        >
+          <div
+            class="rounded-full bg-neutral-900/90 dark:bg-neutral-100/95 text-white dark:text-neutral-900 text-sm px-4 py-2 shadow-lg max-w-sm text-center"
+          >
+            {{ quickVocabToast }}
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
     <KeyboardHelp v-if="player.showHelp.value" @close="player.showHelp.value = false" />
     <SettingsPanel
       v-if="showSettings"

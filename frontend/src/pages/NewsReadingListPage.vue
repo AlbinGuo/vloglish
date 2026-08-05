@@ -6,6 +6,7 @@ import {
   getArticleList,
   type ArticleSummary,
 } from '@/api/articles'
+import EnglishCatalogNavBar from '@/components/english/EnglishCatalogNavBar.vue'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import { useAuthStore } from '@/stores/auth'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
@@ -109,8 +110,11 @@ watch(
 </script>
 
 <template>
-  <div class="page-container py-6">
-    <EnglishNavTabs class="mb-6" />
+  <div>
+    <EnglishCatalogNavBar />
+
+    <div class="page-container pt-3 pb-6 sm:py-6">
+    <EnglishNavTabs class="hidden sm:block mb-6" />
 
     <div
       v-if="previewBanner"
@@ -222,6 +226,7 @@ watch(
         </button>
       </div>
       <p v-else class="pt-4 text-center text-sm text-neutral-400">共 {{ total }} 篇</p>
+    </div>
     </div>
   </div>
 </template>

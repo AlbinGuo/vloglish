@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { getSeriesList } from '@/api/episodes'
+import EnglishCatalogNavBar from '@/components/english/EnglishCatalogNavBar.vue'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import SeriesStackCard from '@/components/catalog/SeriesStackCard.vue'
 import type { SeriesSummary } from '@/types'
@@ -26,18 +27,22 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-[1600px] px-4 sm:px-6 py-6">
-    <EnglishNavTabs class="mb-6" />
+  <div>
+    <EnglishCatalogNavBar />
 
-    <p v-if="loading" class="py-24 text-center text-neutral-500">加载中...</p>
-    <p v-else-if="error" class="py-24 text-center text-red-600">{{ error }}</p>
-    <p v-else-if="!seriesList.length" class="py-24 text-center text-neutral-500">暂无合集</p>
+    <div class="page-container pt-3 pb-6 sm:py-6">
+      <EnglishNavTabs class="hidden sm:block mb-6" />
 
-    <div
-      v-else
-      class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3"
-    >
-      <SeriesStackCard v-for="item in seriesList" :key="item.id" :series="item" />
+      <p v-if="loading" class="py-24 text-center text-neutral-500">加载中...</p>
+      <p v-else-if="error" class="py-24 text-center text-red-600">{{ error }}</p>
+      <p v-else-if="!seriesList.length" class="py-24 text-center text-neutral-500">暂无合集</p>
+
+      <div
+        v-else
+        class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3"
+      >
+        <SeriesStackCard v-for="item in seriesList" :key="item.id" :series="item" />
+      </div>
     </div>
   </div>
 </template>

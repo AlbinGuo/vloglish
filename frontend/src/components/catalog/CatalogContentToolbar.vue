@@ -12,10 +12,8 @@ import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 const props = withDefaults(
   defineProps<{
     showSubmitEntry?: boolean
-    /** 手机端由首页自行排布搜索/浏览/星级时，隐藏本工具栏中对应项 */
-    compactMobile?: boolean
   }>(),
-  { showSubmitEntry: true, compactMobile: false },
+  { showSubmitEntry: true },
 )
 
 const auth = useAuthStore()
@@ -44,16 +42,13 @@ const durationOptions: { value: Exclude<CatalogDurationFilter, ''>; label: strin
   { value: 'gt8', label: '大于8分钟' },
 ]
 
-const mobileLayout = computed(() => isMobile.value && props.compactMobile)
 const durationAsSelect = computed(() => isMobile.value)
 
 const showViewToggle = computed(
   () => auth.isLoggedIn && !isMobile.value && browseMode.value === 'all',
 )
 
-const showBrowseToggle = computed(() => !mobileLayout.value)
-const showSearch = computed(() => browseMode.value === 'all' && !mobileLayout.value)
-const showStars = computed(() => !mobileLayout.value)
+const showSearch = computed(() => browseMode.value === 'all')
 
 const showFavoriteFilter = computed(() => auth.isMember)
 const showSubmitActions = computed(() => auth.isLoggedIn && props.showSubmitEntry)
@@ -130,7 +125,6 @@ onMounted(() => {
     </div>
 
     <div
-      v-if="showBrowseToggle"
       class="inline-flex items-center gap-0.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-black/5 dark:border-white/10"
       role="group"
       aria-label="浏览方式"
@@ -181,7 +175,7 @@ onMounted(() => {
       </button>
     </div>
 
-    <div v-if="showStars" class="flex items-center" aria-label="难度">
+    <div class="flex items-center" aria-label="难度">
       <DifficultyStarsFilter
         :active-level="store.filters.stars"
         @select="store.toggleStars"

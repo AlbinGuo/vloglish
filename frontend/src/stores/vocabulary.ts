@@ -126,10 +126,23 @@ export const useVocabularyStore = defineStore('vocabulary', () => {
     if (userId) writeLocal(userId, items.value)
   }
 
+  /** 标记缓存失效并重新拉取（保留旧列表直至新数据返回，避免顶栏词数闪 0） */
   function invalidate() {
     const userId = useAuthStore().user?.id
+    loadedUserId.value = null
+    if (userId) {
+      clearLocal(userId)
+      void load({ force: true })
+      return
+    }
+    items.value = []
+  }
+
+  function clear() {
     items.value = []
     loadedUserId.value = null
+    error.value = ''
+    const userId = useAuthStore().user?.id
     if (userId) clearLocal(userId)
   }
 
@@ -141,5 +154,6 @@ export const useVocabularyStore = defineStore('vocabulary', () => {
     load,
     remove,
     invalidate,
+    clear,
   }
 })

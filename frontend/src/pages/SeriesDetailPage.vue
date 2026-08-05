@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { getSeriesDetail } from '@/api/episodes'
+import EnglishCatalogNavBar from '@/components/english/EnglishCatalogNavBar.vue'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
@@ -55,8 +56,11 @@ watch(slug, load)
 </script>
 
 <template>
-  <div class="page-container py-6">
-    <EnglishNavTabs class="mb-6" />
+  <div>
+    <EnglishCatalogNavBar />
+
+    <div class="page-container pt-3 pb-6 sm:py-6">
+    <EnglishNavTabs class="hidden sm:block mb-6" />
 
     <p v-if="loading" class="py-24 text-center text-neutral-500">加载中...</p>
 
@@ -134,5 +138,6 @@ watch(slug, load)
         </li>
       </ol>
     </template>
+    </div>
   </div>
 </template>

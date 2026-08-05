@@ -6,6 +6,7 @@ import { fetchWordLookup } from '@/composables/useWordLookupCache'
 import EntryCard from '@/components/EntryCard.vue'
 import ReadingSegmentRow from '@/components/reading/ReadingSegmentRow.vue'
 import ReadingContinuousPane from '@/components/reading/ReadingContinuousPane.vue'
+import ReadingArticleCover from '@/components/reading/ReadingArticleCover.vue'
 import ReadingIntensiveSegmentRow from '@/components/reading/ReadingIntensiveSegmentRow.vue'
 import IntensiveReadingStatsBar from '@/components/intensive/IntensiveReadingStatsBar.vue'
 import IntensiveCoreVocabPanel from '@/components/intensive/IntensiveCoreVocabPanel.vue'
@@ -30,6 +31,7 @@ import { useCoreVocabulary, type CoreVocabSource } from '@/composables/useCoreVo
 import { ARTICLE_VOCABULARY_KEY, useArticleVocabulary } from '@/composables/useArticleVocabulary'
 import { useAuthStore } from '@/stores/auth'
 import { useSourceFocusPulse } from '@/composables/useSourceFocusPulse'
+import { useWordLongPress } from '@/composables/useWordLongPress'
 import type { EntryDetail } from '@/types'
 import { resolveReadingContext } from '@/utils/readingContext'
 import { highlightVocabLinkText, parseVocabSummary, type VocabSummaryGroup, type VocabSummaryItem } from '@/utils/vocabSummary'
@@ -241,11 +243,21 @@ function resolveClickedWordSpan(target: HTMLElement, root: HTMLElement): HTMLEle
   return null
 }
 
-async function onWordClick(e: MouseEvent, segment: ArticleSegment) {
+function resolveSegmentFromEvent(e: Event): ArticleSegment | null {
+  const el = (e.target as HTMLElement).closest('[data-reading-segment-id]')
+  if (!el) return null
+  const id = Number(el.getAttribute('data-reading-segment-id'))
+  if (!Number.isFinite(id)) return null
+  return segments.value.find((s) => s.id === id) ?? null
+}
+
+function resolveReadingWordHit(e: Event, segment?: ArticleSegment | null) {
+  const seg = segment ?? resolveSegmentFromEvent(e)
+  if (!seg) return null
+
   const root = (e.target as HTMLElement).closest('.subtitle-english') as HTMLElement | null
   const plainRoot = !root ? (e.target as HTMLElement).closest('p.subtitle-english') : null
-  const container = root || plainRoot
-  if (!container) return
+  if (!root && !plainRoot) return null
 
   let word = ''
   let type: 1 | 2 = 1
@@ -258,17 +270,104 @@ async function onWordClick(e: MouseEvent, segment: ArticleSegment) {
       target.classList.contains('phrase-token') ||
       (target.classList.contains('vocab-link-hl') && /\s/.test(word))
     type = isPhrase ? 2 : 1
-    if (target.classList.contains('vocab-link-hl')) {
-      activeVocabEn.value = word
-    }
   } else if (plainRoot) {
     const selection = window.getSelection()?.toString().trim()
     word = selection || ''
     type = word.includes(' ') ? 2 : 1
   }
-  if (!word) return
+  if (!word) return null
+  return { segment: seg, word, type, target }
+}
 
-  activeSegment.value = segment
+const quickVocabToast = ref('')
+let quickVocabToastTimer: ReturnType<typeof setTimeout> | null = null
+let quickFavoriteBusy = false
+
+function flashQuickVocabToast(message: string) {
+  if (quickVocabToastTimer != null) clearTimeout(quickVocabToastTimer)
+  quickVocabToast.value = message
+  quickVocabToastTimer = setTimeout(() => {
+    quickVocabToast.value = ''
+    quickVocabToastTimer = null
+  }, 2200)
+}
+
+async function quickFavoriteFromPointer(e: PointerEvent) {
+  if (!auth.isLoggedIn || quickFavoriteBusy) return
+  const hit = resolveReadingWordHit(e)
+  if (!hit) return
+
+  quickFavoriteBusy = true
+  activeSegment.value = hit.segment
+  try {
+    const detail = await fetchWordLookup(
+      hit.word,
+      hit.type,
+      resolveReadingContext(e.target as HTMLElement),
+      {
+        article_id: articleId.value,
+        segment_id: hit.segment.id,
+      },
+    )
+    if (!detail) {
+      flashQuickVocabToast('收藏失败，请重试')
+      return
+    }
+    const already = articleVocab.isSaved(detail.id) || detail.favorite
+    if (already) {
+      flashQuickVocabToast(`「${detail.headword}」已在生词本`)
+      return
+    }
+    const saved = await articleVocab.toggle(
+      { ...detail, favorite: false },
+      {
+        segmentId: hit.segment.id,
+        tokenType: detail.category === '短语' ? 2 : 1,
+      },
+    )
+    if (saved) {
+      hit.target?.classList.add('highlight', 'token-clicked')
+      flashQuickVocabToast(`已加入生词本：${detail.headword}`)
+      try {
+        const { useVocabularyStore } = await import('@/stores/vocabulary')
+        useVocabularyStore().invalidate()
+      } catch {
+        // ignore
+      }
+    }
+  } catch {
+    flashQuickVocabToast('收藏失败，请重试')
+  } finally {
+    quickFavoriteBusy = false
+  }
+}
+
+const wordLongPress = useWordLongPress({
+  enabled: () => auth.isLoggedIn,
+  onLongPress: (e) => {
+    void quickFavoriteFromPointer(e)
+  },
+})
+
+const wordLongPressHandlers = {
+  pointerdown: wordLongPress.onPointerDown,
+  pointermove: wordLongPress.onPointerMove,
+  pointerup: wordLongPress.onPointerUp,
+  pointercancel: wordLongPress.onPointerCancel,
+  contextmenu: wordLongPress.onContextMenu,
+}
+
+async function onWordClick(e: MouseEvent, segment?: ArticleSegment) {
+  if (wordLongPress.consumeIfFired()) return
+
+  const hit = resolveReadingWordHit(e, segment)
+  if (!hit) return
+
+  if (hit.target?.classList.contains('vocab-link-hl')) {
+    activeVocabEn.value = hit.word
+  }
+
+  activeSegment.value = hit.segment
   showEntry.value = true
   entryLoading.value = true
   entryError.value = ''
@@ -276,10 +375,15 @@ async function onWordClick(e: MouseEvent, segment: ArticleSegment) {
   selectedEntry.value = null
 
   try {
-    const detail = await fetchWordLookup(word, type, resolveReadingContext(e.target as HTMLElement), {
-      article_id: articleId.value,
-      segment_id: segment.id,
-    })
+    const detail = await fetchWordLookup(
+      hit.word,
+      hit.type,
+      resolveReadingContext(e.target as HTMLElement),
+      {
+        article_id: articleId.value,
+        segment_id: hit.segment.id,
+      },
+    )
     if (!detail) {
       entryError.value = '查词失败，请稍后重试'
       return
@@ -368,6 +472,7 @@ onUnmounted(() => {
   stopReporting()
   readingTts.stop()
   document.body.style.overflow = ''
+  if (quickVocabToastTimer != null) clearTimeout(quickVocabToastTimer)
 })
 
 watch(articleId, () => {
@@ -484,6 +589,7 @@ watch(layoutMode, async () => {
                 :vocab-link-html-map="vocabLinkHtmlMap"
                 :focus-segment-id="sourceFocusId"
                 :emphasize-word="sourceFocusWord"
+                v-on="wordLongPressHandlers"
                 @activate="onActivateSegment"
                 @click="onWordClick"
               />
@@ -535,6 +641,7 @@ watch(layoutMode, async () => {
                       :active="segment.index === currentIndex"
                       :emphasize-word="isSourceFocused(segment.id) ? sourceFocusWord : ''"
                       :vocab-link-html="vocabLinkHtmlFor(segment)"
+                      v-on="wordLongPressHandlers"
                       @activate="onActivateSegment(segment.index)"
                       @click="onWordClick($event, segment)"
                     />
@@ -544,12 +651,17 @@ watch(layoutMode, async () => {
             </div>
           </div>
 
-          <!-- 手机 / 单栏：段落卡片 -->
+          <!-- 手机 / 单栏：封面 + 段落卡片 -->
           <div
             class="flex-1 min-h-0 overflow-y-auto overscroll-contain reading-scroll-hide"
             :class="useDualColumnLayout ? 'lg:hidden' : ''"
           >
             <div class="page-container py-4 max-w-5xl">
+              <ReadingArticleCover
+                class="mb-4"
+                :cover="article.cover"
+                :title="article.title"
+              />
               <div class="space-y-3">
                 <div
                   v-for="segment in article.segments"
@@ -562,6 +674,7 @@ watch(layoutMode, async () => {
                     :active="segment.index === currentIndex"
                     :emphasize-word="isSourceFocused(segment.id) ? sourceFocusWord : ''"
                     :vocab-link-html="vocabLinkHtmlFor(segment)"
+                    v-on="wordLongPressHandlers"
                     @activate="onActivateSegment(segment.index)"
                     @click="onWordClick($event, segment)"
                   />
@@ -576,6 +689,11 @@ watch(layoutMode, async () => {
           class="flex-1 min-h-0 overflow-y-auto overscroll-contain reading-scroll-hide"
         >
           <div class="page-container py-4 max-w-3xl">
+            <ReadingArticleCover
+              class="mb-4"
+              :cover="article.cover"
+              :title="article.title"
+            />
             <div class="space-y-3">
               <div
                 v-for="segment in article.segments"
@@ -587,6 +705,7 @@ watch(layoutMode, async () => {
                   :article-id="articleId"
                   :active="segment.index === currentIndex"
                   :emphasize-word="isSourceFocused(segment.id) ? sourceFocusWord : ''"
+                  v-on="wordLongPressHandlers"
                   @activate="onActivateSegment(segment.index)"
                   @click="onWordClick($event, segment)"
                 />
@@ -627,6 +746,20 @@ watch(layoutMode, async () => {
       @close="closeEntryPanel"
       @toggle-vocabulary="toggleVocabulary"
     />
+
+    <Teleport to="body">
+      <div
+        v-if="quickVocabToast"
+        class="fixed inset-x-0 bottom-24 z-[420] flex justify-center pointer-events-none px-4"
+        role="status"
+      >
+        <div
+          class="rounded-full bg-neutral-900/90 dark:bg-neutral-100/95 text-white dark:text-neutral-900 text-sm px-4 py-2 shadow-lg max-w-sm text-center"
+        >
+          {{ quickVocabToast }}
+        </div>
+      </div>
+    </Teleport>
 
     <ReadingSettingsPanel v-if="showSettings" @close="showSettings = false" />
     <AiReadingQaSheet

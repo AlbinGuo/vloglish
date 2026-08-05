@@ -3,7 +3,6 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import LearningHeatmapChart from '@/components/charts/LearningHeatmapChart.vue'
 import LearningStatCard from '@/components/learning/LearningStatCard.vue'
-import DailyPathCard from '@/components/ai/DailyPathCard.vue'
 import { useIsPhone } from '@/composables/useBreakpoint'
 import {
   getLearningCalendar,
@@ -191,8 +190,6 @@ onMounted(async () => {
         生词本
       </RouterLink>
     </div>
-
-    <DailyPathCard />
 
     <div v-if="loading" class="text-neutral-500 text-sm">加载中...</div>
 

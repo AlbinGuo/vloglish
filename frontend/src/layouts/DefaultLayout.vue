@@ -17,6 +17,7 @@ import { useCatalogMobileHeaderHide } from '@/composables/useCatalogMobileHeader
 import { useAuthStore } from '@/stores/auth'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 import { useNotificationStore } from '@/stores/notifications'
+import { useVocabularyStore } from '@/stores/vocabulary'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const route = useRoute()
@@ -24,7 +25,12 @@ const router = useRouter()
 const auth = useAuthStore()
 const notifications = useNotificationStore()
 const corpusBadge = useMyCorpusBadgeStore()
+const vocabulary = useVocabularyStore()
 const feedbackOpen = ref(false)
+
+const vocabCount = computed(() => vocabulary.items.length)
+const vocabBadgeLabel = computed(() => (vocabCount.value > 99 ? '99+' : String(vocabCount.value)))
+const vocabNavActive = computed(() => route.path.startsWith('/english/vocabulary'))
 
 type PopupUnit =
   | { kind: 'single'; item: EpisodePublishedPopupItem }
@@ -184,6 +190,7 @@ async function handleLogout() {
   await auth.logout()
   notifications.clear()
   corpusBadge.clear()
+  vocabulary.clear()
   await router.replace('/english')
 }
 
@@ -191,6 +198,7 @@ onMounted(() => {
   if (auth.ready && auth.isLoggedIn) {
     sendHeartbeat()
     refreshUnreadCount()
+    void vocabulary.load()
     startPopupPolling()
   }
   pollTimer = setInterval(() => {
@@ -212,10 +220,12 @@ watch(
     if (ready && loggedIn) {
       sendHeartbeat()
       refreshUnreadCount()
+      void vocabulary.load()
       startPopupPolling()
     } else if (ready) {
       notifications.clear()
       corpusBadge.clear()
+      vocabulary.clear()
       stopPopupPolling()
     }
   },
@@ -258,7 +268,7 @@ watch(
           </span>
         </RouterLink>
 
-        <div class="flex items-center gap-3 text-sm shrink-0">
+        <div class="flex items-center gap-1 sm:gap-3 text-sm shrink-0">
           <ThemeToggle />
           <template v-if="auth.isLoggedIn">
             <RouterLink
@@ -280,6 +290,40 @@ watch(
               学习统计
             </RouterLink>
             <RouterLink
+              to="/english/vocabulary"
+              class="relative inline-flex items-center gap-1.5 rounded-lg transition"
+              :class="[
+                vocabNavActive
+                  ? 'text-amber-800 bg-amber-50 dark:text-amber-200 dark:bg-amber-950/50'
+                  : 'text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800',
+                'p-2 sm:px-2 sm:py-1.5',
+              ]"
+              aria-label="生词本"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                class="w-5 h-5 shrink-0"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z"
+                />
+              </svg>
+              <span class="hidden sm:inline">生词本</span>
+              <span
+                v-if="vocabCount > 0"
+                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none"
+              >
+                {{ vocabBadgeLabel }}
+              </span>
+            </RouterLink>
+            <RouterLink
               to="/english/notifications"
               class="relative p-2 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition"
               aria-label="通知"
@@ -299,38 +343,29 @@ watch(
                 {{ notifications.unreadCount > 99 ? '99+' : notifications.unreadCount }}
               </span>
             </RouterLink>
-            <button
-              type="button"
-              class="hidden sm:inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition"
-              @click="feedbackOpen = true"
-            >
-              反馈
-            </button>
-            <button
-              type="button"
-              class="sm:hidden p-2 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition"
-              aria-label="意见反馈"
-              @click="feedbackOpen = true"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" class="w-5 h-5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 9.75h7.5m-7.5 3h4.5M4.5 19.5l2.25-2.25H18a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 18 4.5H6A2.25 2.25 0 0 0 3.75 6.75v10.5c0 .621.504 1.125 1.125 1.125H4.5Z" />
-              </svg>
-            </button>
-            <span
-              v-if="auth.isMember"
-              class="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300"
-            >
-              会员
-            </span>
+            <!-- 非会员：开通入口；会员身份在头像菜单内展示 -->
             <RouterLink
-              v-else
+              v-if="!auth.isMember"
               to="/pricing"
-              class="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition"
+              class="inline-flex items-center justify-center rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition p-2 sm:px-3 sm:py-1.5"
+              aria-label="开通会员"
+              title="开通会员"
             >
-              开通会员
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                class="w-5 h-5 sm:hidden"
+                aria-hidden="true"
+              >
+                <path d="M5 16 3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5Zm0 2h14v2H5v-2Z" />
+              </svg>
+              <span class="hidden sm:inline text-sm font-medium">开通会员</span>
             </RouterLink>
-            <ContinueLearningDropdown />
-            <button type="button" class="text-neutral-600 hover:text-black dark:text-neutral-400 dark:hover:text-white" @click="handleLogout">退出</button>
+            <ContinueLearningDropdown
+              @logout="handleLogout"
+              @feedback="feedbackOpen = true"
+            />
           </template>
           <template v-else>
             <RouterLink to="/login" class="text-neutral-600 hover:text-black dark:text-neutral-400 dark:hover:text-white">登录</RouterLink>

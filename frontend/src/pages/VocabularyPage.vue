@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import type { VocabularyItem } from '@/api/learning'
 import { aiVocabReview, type VocabReviewCard } from '@/api/aiCoach'
 import { useVocabularyStore } from '@/stores/vocabulary'
+import { playWordPronunciation, stopSpeaking, warmSpeechVoices } from '@/utils/speakWord'
 
 interface VocabSourceGroup {
   key: string
@@ -29,6 +30,9 @@ const hasCachedReview = ref(false)
 const fromCacheHint = ref('')
 const highlightReview = ref(false)
 const reviewBtnRef = ref<HTMLElement | null>(null)
+/** 当前正在朗读的词（用于按钮高亮） */
+const speakingKey = ref('')
+let speakingClearTimer: ReturnType<typeof setTimeout> | null = null
 
 const primaryReviewLabel = computed(() => {
   if (reviewLoading.value) return '处理中...'
@@ -152,6 +156,32 @@ function nextCard() {
   }
 }
 
+function speakWord(word: string | undefined | null) {
+  const text = (word || '').trim()
+  if (!text) return
+  if (speakingClearTimer != null) clearTimeout(speakingClearTimer)
+  speakingKey.value = text.toLowerCase()
+  const ok = playWordPronunciation(text)
+  if (!ok) {
+    speakingKey.value = ''
+    return
+  }
+  // 单词朗读一般很短，用定时清状态作视觉反馈
+  speakingClearTimer = setTimeout(() => {
+    speakingKey.value = ''
+    speakingClearTimer = null
+  }, 1800)
+}
+
+function isSpeaking(word: string | undefined | null) {
+  return Boolean(word && speakingKey.value === word.trim().toLowerCase())
+}
+
+function revealReviewAnswer() {
+  showAnswer.value = true
+  speakWord(reviewCards.value[reviewIndex.value]?.answer)
+}
+
 function sourcePath(item: VocabularyItem) {
   const ref = (item.source_video_id || '').trim()
   if (!ref) return ''
@@ -197,11 +227,17 @@ async function focusReviewEntry() {
 }
 
 onMounted(async () => {
+  warmSpeechVoices()
   await vocabStore.load()
   await peekCache()
   if (route.query.review === '1' && items.value.length) {
     await focusReviewEntry()
   }
+})
+
+onUnmounted(() => {
+  if (speakingClearTimer != null) clearTimeout(speakingClearTimer)
+  stopSpeaking()
 })
 </script>
 
@@ -253,9 +289,26 @@ onMounted(async () => {
         复习 {{ reviewIndex + 1 }} / {{ reviewCards.length }}
       </p>
       <p class="text-sm font-medium">{{ reviewCards[reviewIndex]?.prompt }}</p>
-      <p v-if="showAnswer" class="text-lg font-semibold text-amber-800 dark:text-amber-300">
-        {{ reviewCards[reviewIndex]?.answer }}
-      </p>
+      <div v-if="showAnswer" class="flex items-center gap-2 min-w-0">
+        <p class="text-lg font-semibold text-amber-800 dark:text-amber-300 break-words">
+          {{ reviewCards[reviewIndex]?.answer }}
+        </p>
+        <button
+          type="button"
+          class="shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full transition"
+          :class="
+            isSpeaking(reviewCards[reviewIndex]?.answer)
+              ? 'bg-amber-500 text-white shadow-sm'
+              : 'bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-200 dark:hover:bg-amber-900/70'
+          "
+          aria-label="朗读答案"
+          @click="speakWord(reviewCards[reviewIndex]?.answer)"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
+          </svg>
+        </button>
+      </div>
       <p v-if="showAnswer && reviewCards[reviewIndex]?.example" class="text-sm text-neutral-600 dark:text-neutral-300">
         {{ reviewCards[reviewIndex]?.example }}
         <span v-if="reviewCards[reviewIndex]?.example_zh" class="block text-xs text-neutral-400 mt-1">
@@ -267,7 +320,7 @@ onMounted(async () => {
           v-if="!showAnswer"
           type="button"
           class="px-3 py-1.5 rounded-lg text-sm bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
-          @click="showAnswer = true"
+          @click="revealReviewAnswer"
         >
           看答案
         </button>
@@ -323,9 +376,31 @@ onMounted(async () => {
             :key="item.id"
             class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-3 flex flex-col min-h-[7.25rem]"
           >
-            <p class="font-medium text-[15px] leading-snug text-neutral-900 dark:text-neutral-100 break-words">
-              {{ item.word }}
-            </p>
+            <div class="flex items-start gap-2 min-w-0">
+              <button
+                type="button"
+                class="min-w-0 flex-1 text-left font-medium text-[15px] leading-snug text-neutral-900 dark:text-neutral-100 break-words hover:text-amber-800 dark:hover:text-amber-300 transition-colors"
+                :aria-label="`朗读 ${item.word}`"
+                @click="speakWord(item.word)"
+              >
+                {{ item.word }}
+              </button>
+              <button
+                type="button"
+                class="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full transition"
+                :class="
+                  isSpeaking(item.word)
+                    ? 'bg-amber-500 text-white shadow-sm scale-105'
+                    : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/80 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-800/60 dark:hover:bg-amber-900/50'
+                "
+                aria-label="朗读"
+                @click.stop="speakWord(item.word)"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
+                </svg>
+              </button>
+            </div>
             <p v-if="item.ipa" class="mt-0.5 text-[11px] text-neutral-400 font-serif truncate">
               {{ item.ipa }}
             </p>

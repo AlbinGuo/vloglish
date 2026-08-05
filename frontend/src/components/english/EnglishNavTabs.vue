@@ -4,6 +4,14 @@ import { RouterLink, useRoute } from 'vue-router'
 import { getEnglishNavCounts, getEnglishNavNew } from '@/api/episodes'
 import { useAuthStore } from '@/stores/auth'
 
+withDefaults(
+  defineProps<{
+    /** 手机首页：占满一行并均分三个 Tab */
+    stretch?: boolean
+  }>(),
+  { stretch: false },
+)
+
 const route = useRoute()
 const auth = useAuthStore()
 
@@ -46,17 +54,19 @@ watch(
 
 <template>
   <nav
-    class="flex items-center gap-1 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-black/5 dark:border-white/10 w-fit"
+    class="flex items-center gap-1 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-black/5 dark:border-white/10"
+    :class="stretch ? 'w-full' : 'w-fit'"
     aria-label="内容类型"
   >
     <RouterLink
       to="/english"
       class="relative px-4 py-2 pr-5 rounded-lg text-sm font-medium transition-colors"
-      :class="
+      :class="[
+        stretch ? 'flex-1 text-center' : '',
         active === 'videos'
           ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm'
-          : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
-      "
+          : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
+      ]"
     >
       视频
       <span
@@ -74,11 +84,12 @@ watch(
     <RouterLink
       to="/english/series"
       class="relative px-4 py-2 pr-5 rounded-lg text-sm font-medium transition-colors"
-      :class="
+      :class="[
+        stretch ? 'flex-1 text-center' : '',
         active === 'series'
           ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm'
-          : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
-      "
+          : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
+      ]"
     >
       合集
       <span
@@ -91,11 +102,12 @@ watch(
     <RouterLink
       to="/english/reading"
       class="relative px-4 py-2 pr-5 rounded-lg text-sm font-medium transition-colors"
-      :class="
+      :class="[
+        stretch ? 'flex-1 text-center' : '',
         active === 'reading'
           ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm'
-          : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
-      "
+          : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
+      ]"
     >
       文章
       <span

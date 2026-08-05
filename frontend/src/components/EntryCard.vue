@@ -34,6 +34,10 @@ const showVocabViewLink = computed(
   () => props.vocabNoticeType === 'ok' && Boolean(props.entry?.favorite) && Boolean(props.vocabNotice),
 )
 
+const vocabActionLabel = computed(() =>
+  props.entry?.favorite ? '已在生词本' : '加入生词本',
+)
+
 watch(
   () => [props.vocabNotice, props.vocabNoticeType] as const,
   ([notice, type]) => {
@@ -111,7 +115,7 @@ function onToggleVocabulary() {
 
       <!-- Content -->
       <template v-else-if="entry">
-        <header class="shrink-0 px-5 pt-2 pb-4 pr-12">
+        <header class="shrink-0 px-5 pt-2 pb-3 pr-12">
           <div class="flex items-start justify-between gap-3">
             <div class="flex items-center gap-2 min-w-0">
               <button
@@ -187,9 +191,37 @@ function onToggleVocabulary() {
               <span v-else class="text-neutral-500">朗读</span>
             </button>
           </div>
+
+          <!-- 桌面：词头下方主按钮，更易发现 -->
+          <button
+            v-if="canSaveVocabulary"
+            type="button"
+            class="hidden sm:inline-flex mt-4 items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+            :class="
+              entry.favorite
+                ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
+                : 'bg-neutral-900 text-white dark:bg-amber-500 dark:text-neutral-900'
+            "
+            @click="onToggleVocabulary"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              :fill="entry.favorite ? 'currentColor' : 'none'"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+            {{ vocabActionLabel }}
+          </button>
         </header>
 
-        <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-6 space-y-3">
+        <div
+          class="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 space-y-3"
+          :class="canSaveVocabulary ? 'pb-3 sm:pb-6' : 'pb-6'"
+        >
           <article
             v-for="def in entry.definitions"
             :key="def.id"
@@ -220,6 +252,35 @@ function onToggleVocabulary() {
               <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed">{{ ex.example_cn }}</p>
             </div>
           </article>
+        </div>
+
+        <!-- 手机：底部固定收藏，拇指区可达 -->
+        <div
+          v-if="canSaveVocabulary"
+          class="sm:hidden shrink-0 border-t border-black/5 dark:border-white/10 bg-[#FDF8F1]/95 dark:bg-neutral-900/95 backdrop-blur-sm px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        >
+          <button
+            type="button"
+            class="w-full inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-sm font-semibold transition-colors"
+            :class="
+              entry.favorite
+                ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
+                : 'bg-neutral-900 text-white dark:bg-amber-500 dark:text-neutral-900'
+            "
+            @click="onToggleVocabulary"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              :fill="entry.favorite ? 'currentColor' : 'none'"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+            {{ vocabActionLabel }}
+          </button>
         </div>
       </template>
     </div>
