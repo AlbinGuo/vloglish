@@ -30,9 +30,11 @@ const emit = defineEmits<{
 
 const speedOpen = ref(false)
 const speedRoot = ref<HTMLElement | null>(null)
+const speedPopoverEl = ref<HTMLElement | null>(null)
 const speedMenuPos = ref<{ top: number; left: number } | null>(null)
 const loopOpen = ref(false)
 const loopRoot = ref<HTMLElement | null>(null)
+const loopPopoverEl = ref<HTMLElement | null>(null)
 const loopMenuPos = ref<{ top: number; left: number } | null>(null)
 const moreOpen = ref(false)
 const isFullscreen = ref(false)
@@ -79,6 +81,27 @@ function anchorMenu(el: HTMLElement | null) {
   if (!el) return null
   const r = el.getBoundingClientRect()
   return { top: r.top - 8, left: r.left + r.width / 2 }
+}
+
+/** 弹窗以 left 为水平中心、translate(-50%,-100%) 向上展开；贴边时钳制，避免裁掉左侧选项 */
+async function clampCenteredPopover(
+  getEl: () => HTMLElement | null,
+  pos: { top: number; left: number },
+): Promise<{ top: number; left: number }> {
+  await nextTick()
+  const popover = getEl()
+  if (!popover) return pos
+  const rect = popover.getBoundingClientRect()
+  const pad = 8
+  const halfW = rect.width / 2
+  const minLeft = pad + halfW
+  const maxLeft = Math.max(minLeft, window.innerWidth - pad - halfW)
+  const nextLeft = Math.min(maxLeft, Math.max(minLeft, pos.left))
+  let nextTop = pos.top
+  if (rect.top < pad) {
+    nextTop = Math.min(window.innerHeight - pad, pos.top + (pad - rect.top))
+  }
+  return { top: nextTop, left: nextLeft }
 }
 
 function onDocClick(e: MouseEvent) {
@@ -166,7 +189,7 @@ function toggleIpa() {
   emit('update:showIpa', !props.showIpa)
 }
 
-function toggleSpeedMenu() {
+async function toggleSpeedMenu() {
   if (speedOpen.value) {
     speedOpen.value = false
     speedMenuPos.value = null
@@ -178,9 +201,12 @@ function toggleSpeedMenu() {
     speedMenuPos.value = anchorMenu(speedRoot.value)
   }
   speedOpen.value = true
+  if (speedMenuPos.value) {
+    speedMenuPos.value = await clampCenteredPopover(() => speedPopoverEl.value, speedMenuPos.value)
+  }
 }
 
-function toggleLoopMenu() {
+async function toggleLoopMenu() {
   if (loopOpen.value) {
     loopOpen.value = false
     loopMenuPos.value = null
@@ -193,6 +219,9 @@ function toggleLoopMenu() {
     loopMenuPos.value = anchorMenu(loopRoot.value)
   }
   loopOpen.value = true
+  if (loopMenuPos.value) {
+    loopMenuPos.value = await clampCenteredPopover(() => loopPopoverEl.value, loopMenuPos.value)
+  }
 }
 
 function selectRate(rate: number) {
@@ -642,12 +671,13 @@ function handleMainAction() {
 
       <div
         v-if="speedOpen && speedMenuPos"
+        ref="speedPopoverEl"
         data-player-popover
-        class="fixed z-[300] p-2 bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-black/10 dark:border-white/10 min-w-[9rem]"
+        class="fixed z-[300] p-2 bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-black/10 dark:border-white/10 min-w-[11rem]"
         :style="{
           top: `${speedMenuPos.top}px`,
           left: `${speedMenuPos.left}px`,
-          transform: compact ? 'translate(-50%, -100%)' : 'translate(-50%, -100%)',
+          transform: 'translate(-50%, -100%)',
         }"
         @click.stop
       >
@@ -672,6 +702,7 @@ function handleMainAction() {
 
       <div
         v-if="loopOpen && loopMenuPos"
+        ref="loopPopoverEl"
         data-player-popover
         class="fixed z-[300] p-2 bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-black/10 dark:border-white/10 min-w-[12rem]"
         :style="{

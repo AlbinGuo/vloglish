@@ -11,7 +11,7 @@ defineEmits<{ close: [] }>()
 const { wordHighlightStyle, layoutMode, ttsRate, autoAdvance, autoScrollOnTts, showChinese, setWordHighlightStyle, setLayoutMode, setTtsRate, setShowChinese } = useReadingSettings()
 const { intensiveMode, setIntensiveMode } = useIntensiveReadingMode()
 
-const rateOptions = [0.75, 1, 1.25] as const
+const rateOptions = [0.5, 0.75, 1, 1.25] as const
 
 const highlightOptions: { key: ReadingWordHighlightStyle; label: string; desc: string }[] = [
   { key: 'color', label: '纯文字颜色', desc: '仅改变词汇文字颜色，不加下划线' },

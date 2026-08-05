@@ -2,7 +2,7 @@ import { computed, ref, watch } from 'vue'
 
 export type ReadingWordHighlightStyle = 'color' | 'color-underline' | 'background'
 export type ReadingLayoutMode = 'dual' | 'single'
-export type ReadingTtsRate = 0.75 | 1 | 1.25
+export type ReadingTtsRate = 0.5 | 0.75 | 1 | 1.25
 
 const WORD_HIGHLIGHT_KEY = 'reading-word-highlight-style'
 const LAYOUT_MODE_KEY = 'reading-layout-mode'
@@ -34,7 +34,7 @@ function loadLayoutMode(): ReadingLayoutMode {
 function loadTtsRate(): ReadingTtsRate {
   try {
     const stored = Number(localStorage.getItem(TTS_RATE_KEY))
-    if (stored === 0.75 || stored === 1 || stored === 1.25) return stored
+    if (stored === 0.5 || stored === 0.75 || stored === 1 || stored === 1.25) return stored
   } catch {
     /* ignore */
   }

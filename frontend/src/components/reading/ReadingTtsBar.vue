@@ -15,7 +15,7 @@ const hasAudio = computed(() => tts?.hasAudio.value ?? false)
 const isPlaying = computed(() => tts?.isPlaying.value ?? false)
 const playingIndex = computed(() => tts?.playingIndex.value ?? null)
 
-const rateOptions = [0.75, 1, 1.25] as const
+const rateOptions = [0.5, 0.75, 1, 1.25] as const
 
 const progressLabel = computed(() => {
   if (props.segmentCount <= 0) return ''
