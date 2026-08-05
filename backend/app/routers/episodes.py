@@ -116,7 +116,7 @@ def episode_list(
     if author_id is not None:
         q = q.filter(Episode.author_id == author_id)
     if series_id is not None or (series_slug and series_slug.strip()):
-        if not can_access_series_content(user):
+        if not can_access_series_content(db, user):
             raise HTTPException(status_code=403, detail="需要开通会员才能查看合集内容")
         if series_id is not None:
             q = q.filter(Episode.series_id == series_id)
@@ -167,7 +167,7 @@ def episode_list(
     q = q.order_by(Episode.is_pinned.desc(), order_map.get(ordering, Episode.created_at.desc()))
 
     # 普通用户也返回完整目录；不可播放项与 can_access_episode 对齐，标记 requires_membership
-    free_ids = None if user_is_member(user) else get_visible_episode_ids(db, user)
+    free_ids = None if get_episode_limit(db, user) is None else get_visible_episode_ids(db, user)
     start = offset if offset is not None else (page - 1) * page_size
     total = q.count()
     items = q.offset(start).limit(page_size).all()
@@ -356,7 +356,7 @@ def series_list(
                 "covers": covers,
                 "episode_count": len(episodes),
                 "sort_order": series.sort_order or 0,
-                "requires_membership": not can_access_series_content(user),
+                "requires_membership": not can_access_series_content(db, user),
                 "published_at": fmt_dt(series.published_at or series.created_at),
                 "latest_content_at": fmt_dt(latest),
                 "is_new": content_is_new(latest),
@@ -381,7 +381,7 @@ def series_detail(
         raise HTTPException(status_code=404, detail="合集不存在")
 
     episodes = list_series_episodes(db, series.id, published_only=True)
-    if not can_access_series_content(user):
+    if not can_access_series_content(db, user):
         raise HTTPException(status_code=403, detail="需要开通会员才能查看合集内容")
 
     # 列表按上传/发布时间倒序；上一集/下一集导航仍按 series_index（list_series_episodes）
@@ -447,9 +447,9 @@ def get_episode_detail(
         published_visibility_filter(user),
     )
     total = total_q.count()
-    if not user_is_member(user):
-        limit = get_episode_limit(user) or 0
-        total = limit
+    ep_limit = get_episode_limit(db, user)
+    if ep_limit is not None:
+        total = ep_limit
     return episode_detail(episode, total, series_nav=series_nav_for_episode(db, episode))
 
 

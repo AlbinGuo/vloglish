@@ -1382,3 +1382,17 @@ class AdminMembershipOrderOut(BaseModel):
 class AdminMembershipOrderListOut(BaseModel):
     count: int
     results: list[AdminMembershipOrderOut]
+
+
+class SiteConfigOut(BaseModel):
+    """公开站点配置（前端用于隐藏内容限量引导等）。"""
+
+    membership_gate_enabled: bool = True
+
+
+class AdminSiteSettingsOut(BaseModel):
+    membership_gate_enabled: bool = True
+
+
+class AdminSiteSettingsPatchIn(BaseModel):
+    membership_gate_enabled: bool

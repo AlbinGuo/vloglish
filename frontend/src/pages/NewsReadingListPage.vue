@@ -9,9 +9,11 @@ import {
 import EnglishCatalogNavBar from '@/components/english/EnglishCatalogNavBar.vue'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useSiteConfigStore } from '@/stores/siteConfig'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
 
 const auth = useAuthStore()
+const siteConfig = useSiteConfigStore()
 
 const loading = ref(true)
 const loadingMore = ref(false)
@@ -32,8 +34,12 @@ const filterOptions = ref<{ sources: string[]; topics: string[] }>({ sources: []
 
 const previewBanner = computed(() => {
   if (auth.isMember) return null
+  // 关门槛期间登录用户文章不限量
+  if (auth.isLoggedIn && !siteConfig.isContentGated) return null
   if (!auth.isLoggedIn) {
-    return '未登录可试读 3 篇文章，登录后每月可读 5 篇。'
+    return siteConfig.isContentGated
+      ? '未登录可试读 3 篇文章，登录后每月可读 5 篇。'
+      : '未登录可试读 3 篇文章；登录后可阅读全部文章。'
   }
   if (quota.value && quota.value.remaining != null && quota.value.remaining <= 1) {
     return `本月还可读 ${quota.value.remaining} 篇文章，开通会员可读全部。`

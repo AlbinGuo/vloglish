@@ -12,7 +12,7 @@ from sqlalchemy import inspect, text
 from .database import DATABASE_URL, Base, SessionLocal, engine, is_postgresql
 from .models import ActivationCode
 from .schemas import AuthTokensOut
-from .routers import ai_coach, auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles
+from .routers import ai_coach, auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, site_config
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import auth as admin_auth
@@ -26,6 +26,7 @@ from .routers.admin import feedback as admin_feedback
 from .routers.admin import membership_orders as admin_membership_orders
 from .routers.admin import notifications as admin_notifications
 from .routers.admin import presence as admin_presence
+from .routers.admin import site_settings as admin_site_settings
 from .routers.admin import tags as admin_tags
 from .routers.admin import series as admin_series
 from .routers.admin import teco_import as admin_teco_import
@@ -43,6 +44,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(site_config.router)
 app.include_router(demo.router)
 app.include_router(episodes.router)
 app.include_router(episode_submit.router)
@@ -56,6 +58,7 @@ app.include_router(membership.router)
 app.include_router(ai_coach.router)
 app.include_router(admin_auth.router)
 app.include_router(admin_dashboard.router)
+app.include_router(admin_site_settings.router)
 app.include_router(admin_activation_codes.router)
 app.include_router(admin_membership_orders.router)
 app.include_router(admin_users.router)

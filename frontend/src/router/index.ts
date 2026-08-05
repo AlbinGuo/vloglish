@@ -3,6 +3,7 @@ import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import { useAdminAuthStore } from '@/stores/adminAuth'
 import { useAuthStore } from '@/stores/auth'
+import { useSiteConfigStore } from '@/stores/siteConfig'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -287,8 +288,12 @@ router.beforeEach(async (to) => {
   }
 
   const auth = useAuthStore()
+  const siteConfig = useSiteConfigStore()
   if (!auth.ready) {
     await auth.hydrate()
+  }
+  if (!siteConfig.ready) {
+    await siteConfig.hydrate()
   }
 
   if (to.meta.requiresAuth && !auth.isLoggedIn) {

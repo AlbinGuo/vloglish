@@ -8,6 +8,7 @@ import { useCatalogViewMode } from '@/composables/useCatalogViewMode'
 import { useIsMobile } from '@/composables/useBreakpoint'
 import { useAuthStore } from '@/stores/auth'
 import { CARD_INITIAL_SIZE, LIST_INITIAL_SIZE, useCatalogStore } from '@/stores/catalog'
+import { useSiteConfigStore } from '@/stores/siteConfig'
 import EnglishCatalogNavBar from '@/components/english/EnglishCatalogNavBar.vue'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import EnglishHotTagsBar from '@/components/english/EnglishHotTagsBar.vue'
@@ -24,6 +25,7 @@ defineOptions({ name: 'HomePage' })
 
 const store = useCatalogStore()
 const auth = useAuthStore()
+const siteConfig = useSiteConfigStore()
 const { viewMode } = useCatalogViewMode()
 const { browseMode } = useCatalogBrowseMode()
 const isMobile = useIsMobile()
@@ -74,6 +76,8 @@ const membershipPromoText = computed(() => {
 
 const previewBanner = computed(() => {
   if (!auth.isLoggedIn || auth.isMember) return null
+  // 关会员内容门槛期间：已登录即可看全部视频/合集，不展示限量引导
+  if (!siteConfig.isContentGated) return null
   return {
     text: '当前为普通用户，可观看最新 8 个独立视频；会员可观看全部内容及合集。',
     showLogin: false,
@@ -144,6 +148,7 @@ async function loadCatalogContent() {
 }
 
 onMounted(async () => {
+  await siteConfig.hydrate()
   await store.loadFilters()
   store.setListViewMode(displayViewMode.value)
   if (browseMode.value === 'author') {
@@ -223,7 +228,7 @@ function episodePath(ep: { video_id: string; requires_membership?: boolean }) {
 }
 
 watch(
-  () => [auth.isMember, auth.isLoggedIn],
+  () => [auth.isMember, auth.isLoggedIn, siteConfig.isContentGated],
   () => {
     loadCatalogContent()
   },

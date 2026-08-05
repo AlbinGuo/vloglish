@@ -6,7 +6,9 @@ import UserGeoBarChart from '@/components/charts/UserGeoBarChart.vue'
 import {
   adminFetchDashboard,
   adminFetchOnlineUsers,
+  adminFetchSiteSettings,
   adminFetchUserGeoStats,
+  adminPatchSiteSettings,
   type AdminUserGeoStats,
   type DashboardStats,
 } from '@/api/admin'
@@ -18,6 +20,11 @@ const onlineUsers = ref(0)
 const onlineMembers = ref(0)
 const onlineFree = ref(0)
 const onlineWindowSec = ref(90)
+
+const membershipGateEnabled = ref(true)
+const gateSaving = ref(false)
+const gateError = ref('')
+const gateSavedHint = ref('')
 
 let onlinePollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -33,14 +40,40 @@ async function refreshOnlineUsers() {
   }
 }
 
+async function toggleMembershipGate() {
+  if (gateSaving.value) return
+  const next = !membershipGateEnabled.value
+  const confirmMsg = next
+    ? '开启后：非会员立即恢复视频/合集/文章限量；关开关期间注册并获赠的会员不受影响。确认开启？'
+    : '关闭后：已登录用户可看全部视频、合集与文章；AI 仍限量。期间新注册用户永久获赠会员。确认关闭？'
+  if (!window.confirm(confirmMsg)) return
+
+  gateSaving.value = true
+  gateError.value = ''
+  gateSavedHint.value = ''
+  try {
+    const data = await adminPatchSiteSettings({ membership_gate_enabled: next })
+    membershipGateEnabled.value = data.membership_gate_enabled
+    gateSavedHint.value = data.membership_gate_enabled
+      ? '已开启会员内容限制'
+      : '已关闭会员内容限制（登录用户内容全开；AI 仍限）'
+  } catch {
+    gateError.value = '保存失败，请重试'
+  } finally {
+    gateSaving.value = false
+  }
+}
+
 onMounted(async () => {
   try {
-    const [dashboard, geo] = await Promise.all([
+    const [dashboard, geo, site] = await Promise.all([
       adminFetchDashboard(),
       adminFetchUserGeoStats().catch(() => null),
+      adminFetchSiteSettings().catch(() => null),
     ])
     stats.value = dashboard
     geoStats.value = geo
+    if (site) membershipGateEnabled.value = site.membership_gate_enabled
     onlineUsers.value = dashboard.online_users_now
     onlineMembers.value = dashboard.online_members_now ?? 0
     onlineFree.value = dashboard.online_free_now ?? 0
@@ -83,6 +116,48 @@ function barWidth(rate: number) {
 <template>
   <div v-if="loading" class="text-neutral-500">加载中...</div>
   <div v-else-if="stats" class="space-y-4">
+    <section
+      class="rounded-xl border p-5 shadow-sm"
+      :class="
+        membershipGateEnabled
+          ? 'border-amber-200 bg-gradient-to-br from-amber-50 to-white'
+          : 'border-sky-200 bg-gradient-to-br from-sky-50 to-white'
+      "
+    >
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="min-w-0 flex-1">
+          <h2 class="font-medium text-neutral-900">会员内容限制</h2>
+          <p class="mt-1 text-sm text-neutral-600 leading-relaxed max-w-2xl">
+            开启时按 Freemium：非会员视频/合集/文章限量，AI 每日限额。关闭时：已登录可看全部视频、合集与文章，AI 仍限；关闭期间新注册用户永久获赠会员。
+          </p>
+          <p class="mt-2 text-sm font-medium" :class="membershipGateEnabled ? 'text-amber-800' : 'text-sky-800'">
+            当前：{{ membershipGateEnabled ? '已开启（内容限量）' : '已关闭（登录用户内容全开）' }}
+          </p>
+          <p v-if="gateSavedHint" class="mt-1 text-xs text-emerald-700">{{ gateSavedHint }}</p>
+          <p v-if="gateError" class="mt-1 text-xs text-red-600">{{ gateError }}</p>
+        </div>
+        <button
+          type="button"
+          class="shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50"
+          :class="
+            membershipGateEnabled
+              ? 'bg-sky-700 text-white hover:bg-sky-800'
+              : 'bg-amber-700 text-white hover:bg-amber-800'
+          "
+          :disabled="gateSaving"
+          @click="toggleMembershipGate"
+        >
+          {{
+            gateSaving
+              ? '保存中…'
+              : membershipGateEnabled
+                ? '关闭限制（开放内容）'
+                : '开启限制（恢复 Freemium）'
+          }}
+        </button>
+      </div>
+    </section>
+
     <div
       class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm"
     >

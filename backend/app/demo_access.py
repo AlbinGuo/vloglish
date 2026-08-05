@@ -3,6 +3,7 @@ import os
 
 from .models import DemoCode, Episode
 from .episode_visibility import can_view_published_episode, published_visibility_filter
+from .services.site_settings import content_access_unlocked
 
 # 普通用户（含未登录按「无会员」处理时）首页单集列表可见数量；会员为不限
 DEFAULT_FREE_EPISODE_LIMIT = 8
@@ -22,9 +23,11 @@ def user_is_member(user) -> bool:
     return user is not None and user.is_member
 
 
-def get_episode_limit(user) -> int | None:
-    """会员不限；非会员（含游客）返回免费额度。"""
+def get_episode_limit(db: Session, user) -> int | None:
+    """会员不限；关门槛期间登录用户不限；其余返回免费额度。"""
     if user_is_member(user):
+        return None
+    if content_access_unlocked(db, user):
         return None
     return free_episode_limit()
 
@@ -42,7 +45,7 @@ def episode_order(ordering: str):
 
 
 def get_visible_episode_ids(db: Session, user, ordering: str = "created_at") -> set[int]:
-    limit = get_episode_limit(user)
+    limit = get_episode_limit(db, user)
     if limit is None:
         return set()
     rows = (
@@ -79,7 +82,7 @@ def get_demo_episodes(db: Session) -> list[Episode]:
 
 def get_visible_demo_episodes(db: Session, user) -> list[Episode]:
     episodes = sorted(get_demo_episodes(db), key=lambda e: e.index, reverse=True)
-    limit = get_episode_limit(user)
+    limit = get_episode_limit(db, user)
     if limit is None:
         return episodes
     return episodes[:limit]
@@ -98,6 +101,8 @@ def can_access_episode(db: Session, episode: Episode, user, ordering: str = "cre
         return True
     if user_is_member(user):
         return True
+    if content_access_unlocked(db, user):
+        return True
     # 合集内容仅会员可看
     if episode.series_id is not None:
         return False
@@ -108,5 +113,7 @@ def can_access_episode(db: Session, episode: Episode, user, ordering: str = "cre
     return episode.id in get_visible_episode_ids(db, user, ordering)
 
 
-def can_access_series_content(user) -> bool:
-    return user_is_member(user)
+def can_access_series_content(db: Session, user) -> bool:
+    if user_is_member(user):
+        return True
+    return content_access_unlocked(db, user)

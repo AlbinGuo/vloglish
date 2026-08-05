@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..demo_access import user_is_member
 from ..models import Article, User, UserArticleOpen, UserArticleProgress
+from .site_settings import content_access_unlocked
 
 GUEST_ARTICLE_LIMIT = 3
 NON_MEMBER_MONTHLY_LIMIT = 5
@@ -23,7 +24,7 @@ def opened_article_ids_this_period(
     user: User | None,
     device_id: str,
 ) -> set[int]:
-    if user_is_member(user):
+    if user_is_member(user) or content_access_unlocked(db, user):
         return set()
 
     if user:
@@ -72,6 +73,8 @@ def can_access_article(db: Session, article: Article, user: User | None, device_
         return False
     if user_is_member(user):
         return True
+    if content_access_unlocked(db, user):
+        return True
     if has_opened_article(db, user=user, device_id=device_id, article_id=article.id):
         return True
     opened = opened_article_ids_this_period(db, user=user, device_id=device_id)
@@ -96,6 +99,14 @@ def get_article_quota(db: Session, user: User | None, device_id: str) -> dict:
     if user_is_member(user):
         return {
             "is_member": True,
+            "monthly_limit": None,
+            "opened_this_month": 0,
+            "remaining": None,
+        }
+    # 关门槛期间登录用户文章不限量；is_member 仍为 False（AI 配额照旧）
+    if content_access_unlocked(db, user):
+        return {
+            "is_member": False,
             "monthly_limit": None,
             "opened_this_month": 0,
             "remaining": None,

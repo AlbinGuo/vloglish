@@ -236,6 +236,20 @@ export async function adminFetchDashboard() {
   return data
 }
 
+export interface AdminSiteSettings {
+  membership_gate_enabled: boolean
+}
+
+export async function adminFetchSiteSettings() {
+  const { data } = await adminApi.get<AdminSiteSettings>('/api/admin/site-settings/')
+  return data
+}
+
+export async function adminPatchSiteSettings(payload: { membership_gate_enabled: boolean }) {
+  const { data } = await adminApi.patch<AdminSiteSettings>('/api/admin/site-settings/', payload)
+  return data
+}
+
 export async function adminFetchOnlineUsers() {
   const { data } = await adminApi.get<AdminPresenceOnline>('/api/admin/presence/online/')
   return data

@@ -498,6 +498,16 @@ class UserArticleOpen(Base):
     opened_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class SiteSetting(Base):
+    """站点级键值配置（如会员内容门槛总开关）。"""
+
+    __tablename__ = "site_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class MembershipOrder(Base):
     """站内自助购买永久会员订单（支付宝）。"""
 
