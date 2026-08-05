@@ -32,9 +32,36 @@ export async function fetchOralEvalStatus() {
   return data
 }
 
+function apiDetail(error: unknown, fallback: string): string {
+  const err = error as {
+    response?: { data?: { detail?: unknown }; status?: number }
+    message?: string
+  }
+  const detail = err.response?.data?.detail
+  if (typeof detail === 'string' && detail.trim()) return detail.trim()
+  if (Array.isArray(detail)) {
+    const first = detail.find((x) => typeof x === 'string' || (x && typeof x === 'object'))
+    if (typeof first === 'string' && first.trim()) return first.trim()
+    if (first && typeof first === 'object' && 'msg' in first) {
+      const msg = (first as { msg?: unknown }).msg
+      if (typeof msg === 'string' && msg.trim()) return msg.trim()
+    }
+  }
+  if (typeof err.message === 'string' && err.message.trim()) {
+    // 把 axios 通用 502 文案换成更可读的提示
+    if (/status code 502/i.test(err.message)) return fallback
+    return err.message.trim()
+  }
+  return fallback
+}
+
 export async function fetchOralEvalWarrant() {
-  const { data } = await api.post<OralEvalWarrant>('/api/ai/oral-eval/warrant/')
-  return data
+  try {
+    const { data } = await api.post<OralEvalWarrant>('/api/ai/oral-eval/warrant/')
+    return data
+  } catch (e) {
+    throw new Error(apiDetail(e, '口语评测授权失败，请稍后重试'))
+  }
 }
 
 export async function aiShadowingOralFeedback(
@@ -42,12 +69,16 @@ export async function aiShadowingOralFeedback(
   subtitleId: number,
   oralResult: Record<string, unknown>,
 ) {
-  const { data } = await api.post<AiShadowingResult>('/api/ai/shadowing-oral-feedback/', {
-    video_id: videoId,
-    subtitle_id: subtitleId,
-    oral_result: oralResult,
-  })
-  return data
+  try {
+    const { data } = await api.post<AiShadowingResult>('/api/ai/shadowing-oral-feedback/', {
+      video_id: videoId,
+      subtitle_id: subtitleId,
+      oral_result: oralResult,
+    })
+    return data
+  } catch (e) {
+    throw new Error(apiDetail(e, '口语评测结果提交失败'))
+  }
 }
 
 export async function aiOralEvalFeedback(
@@ -55,12 +86,16 @@ export async function aiOralEvalFeedback(
   oralResult: Record<string, unknown>,
   coreType: OralCoreType,
 ) {
-  const { data } = await api.post<AiShadowingResult>('/api/ai/oral-eval/feedback/', {
-    ref_text: refText,
-    oral_result: oralResult,
-    core_type: coreType,
-  })
-  return data
+  try {
+    const { data } = await api.post<AiShadowingResult>('/api/ai/oral-eval/feedback/', {
+      ref_text: refText,
+      oral_result: oralResult,
+      core_type: coreType,
+    })
+    return data
+  } catch (e) {
+    throw new Error(apiDetail(e, '口语评测结果提交失败'))
+  }
 }
 
 export async function aiShadowingTextFeedback(target: string, transcript: string) {

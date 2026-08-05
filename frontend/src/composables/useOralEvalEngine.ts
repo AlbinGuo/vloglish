@@ -75,11 +75,38 @@ function streamIsLive(stream: MediaStream | null | undefined): stream is MediaSt
   return Boolean(stream && typeof stream.getTracks === 'function' && stream.getTracks().some((t) => t.readyState === 'live'))
 }
 
+function b64ChunksToObjectUrl(chunks: string[]): string | null {
+  if (!chunks.length || typeof window === 'undefined') return null
+  try {
+    const parts = chunks.map((b64) => {
+      const bin = window.atob(b64)
+      const bytes = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+      return bytes
+    })
+    const total = parts.reduce((n, a) => n + a.length, 0)
+    const merged = new Uint8Array(total)
+    let offset = 0
+    for (const part of parts) {
+      merged.set(part, offset)
+      offset += part.length
+    }
+    // saveAudio=1 默认返回压缩 ogg 分片
+    const blob = new Blob([merged], { type: 'audio/ogg' })
+    if (blob.size <= 0) return null
+    return URL.createObjectURL(blob)
+  } catch {
+    return null
+  }
+}
+
 export function useOralEvalEngine() {
   const available = ref(false)
   const ready = ref(false)
   const volume = ref(0)
   const evaluating = ref(false)
+  /** 本次评测本地回听地址（blob:），优先于云端 http 音频 */
+  const localAudioUrl = ref<string | null>(null)
 
   let engine: EngineInstance | null = null
   /** SDK 在构造时异步申请麦克风；未就绪时 startRecord 会报 createMediaStreamSource 错 */
@@ -87,6 +114,18 @@ export function useOralEvalEngine() {
   let accent = 'am'
   let applicationId = ''
   let userId = ''
+  let audioChunkSink: ((data: unknown) => void) | null = null
+
+  function revokeLocalAudio() {
+    if (localAudioUrl.value?.startsWith('blob:')) {
+      try {
+        URL.revokeObjectURL(localAudioUrl.value)
+      } catch {
+        /* ignore */
+      }
+    }
+    localAudioUrl.value = null
+  }
 
   async function probe() {
     try {
@@ -116,6 +155,7 @@ export function useOralEvalEngine() {
     }
     engine = null
     micReadyPromise = null
+    audioChunkSink = null
   }
 
   async function ensureEngine(): Promise<EngineInstance> {
@@ -128,7 +168,6 @@ export function useOralEvalEngine() {
     const Ctor = window.EngineEvaluat
     if (!Ctor) throw new Error('口语评测 SDK 不可用')
 
-    // 已有实例但麦克风流已失效 → 重建
     const existingStream = (engine as unknown as { _audio?: { stream?: MediaStream } } | null)?._audio?.stream
     if (engine && existingStream != null && !streamIsLive(existingStream)) {
       resetEngine()
@@ -169,6 +208,9 @@ export function useOralEvalEngine() {
             micVolumeCallback: (data: number) => {
               volume.value = Number(data) || 0
             },
+            audioDataCallback: (data: unknown) => {
+              audioChunkSink?.(data)
+            },
             JSSDKNotSupport: () => finishErr('当前浏览器不支持口语评测'),
             noNetwork: () => undefined,
             engineFirstInitDone: () => undefined,
@@ -201,13 +243,19 @@ export function useOralEvalEngine() {
 
     return new Promise((resolve, reject) => {
       let settled = false
+      const chunks: string[] = []
+
       const finishOk = (msg: string) => {
         if (settled) return
         settled = true
         evaluating.value = false
+        audioChunkSink = null
         try {
-          const parsed = typeof msg === 'string' ? JSON.parse(msg) : msg
-          resolve((parsed || {}) as Record<string, unknown>)
+          const parsed = (typeof msg === 'string' ? JSON.parse(msg) : msg) || {}
+          revokeLocalAudio()
+          const local = b64ChunksToObjectUrl(chunks)
+          if (local) localAudioUrl.value = local
+          resolve(parsed as Record<string, unknown>)
         } catch {
           reject(new Error('评测结果解析失败'))
         }
@@ -216,13 +264,13 @@ export function useOralEvalEngine() {
         if (settled) return
         settled = true
         evaluating.value = false
+        audioChunkSink = null
         const detail =
           typeof msg === 'string'
             ? msg
             : msg && typeof msg === 'object'
               ? JSON.stringify(msg)
               : '口语评测失败'
-        // MediaStream 类错误更友好
         const textMsg = detail.slice(0, 200)
         if (/MediaStream|createMediaStreamSource/i.test(textMsg)) {
           reject(new Error('麦克风未就绪，请允许权限后重试'))
@@ -234,8 +282,12 @@ export function useOralEvalEngine() {
       void (async () => {
         try {
           evaluating.value = true
+          revokeLocalAudio()
           const inst = await ensureEngine()
           const warrant = await getWarrant()
+          audioChunkSink = (data) => {
+            if (typeof data === 'string' && data) chunks.push(data)
+          }
           const params: Record<string, unknown> = {
             coreType,
             refText: text,
@@ -243,6 +295,8 @@ export function useOralEvalEngine() {
             rank: 100,
             precision: 0.5,
             attachAudioUrl: 1,
+            /** 开启后 audioDataCallback 返回压缩音频分片，供本地回听 */
+            saveAudio: 1,
             outputPhones: coreType === 'en.word.score' ? 1 : 0,
             accent,
             evalTime: defaultEvalTimeMs(text, coreType),
@@ -275,6 +329,7 @@ export function useOralEvalEngine() {
       /* ignore */
     }
     evaluating.value = false
+    audioChunkSink = null
   }
 
   return {
@@ -282,11 +337,13 @@ export function useOralEvalEngine() {
     ready,
     volume,
     evaluating,
+    localAudioUrl,
     probe,
     evaluate,
     evaluateSentence,
     stop,
     cancel,
     resetEngine,
+    revokeLocalAudio,
   }
 }

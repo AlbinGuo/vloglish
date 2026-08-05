@@ -2,7 +2,7 @@ import json
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -12,6 +12,7 @@ from ..deps import get_client_ip, get_current_user, get_current_user_optional, g
 from ..models import User
 from ..services import ai_coach as coach
 from ..services import practice_tts as practice_tts_svc
+from ..services import oral_eval as oral_eval_svc
 
 router = APIRouter(prefix="/api/ai", tags=["ai-coach"])
 
@@ -150,6 +151,25 @@ def oral_eval_warrant(
 ):
     """服务端代理申请 warrant_id，密钥不下发前端。"""
     return coach.oral_eval_warrant_for_user(user, client_ip=get_client_ip(request))
+
+
+@router.get("/oral-eval/audio/")
+def oral_eval_audio(
+    url: str = Query(min_length=8, max_length=1000),
+    _user: User = Depends(get_current_user),
+):
+    """代理拉取口语评测云端录音（解决 HTTPS 页无法播 http 音频）。"""
+    try:
+        data, content_type = oral_eval_svc.fetch_oral_audio_bytes(url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
 
 
 @router.post("/shadowing-oral-feedback/")

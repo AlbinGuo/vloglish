@@ -9,6 +9,7 @@ import {
   type OralPracticeMode,
 } from '@/api/oralEval'
 import { fetchPracticeTts, type PracticeTtsVoice } from '@/api/practiceTts'
+import { fetchOralRemoteAudio } from '@/api/oralEvalAudio'
 import { useOralEvalEngine } from '@/composables/useOralEvalEngine'
 import { playWordPronunciation, stopSpeaking } from '@/utils/speakWord'
 
@@ -60,6 +61,15 @@ type DemoVoice = 'original' | PracticeTtsVoice
 const demoVoice = ref<DemoVoice>('original')
 const demoLoading = ref(false)
 const demoPlaying = ref(false)
+/** 结果页回听地址（本地 blob 或代理后的 blob） */
+const playbackUrl = ref('')
+const playbackError = ref(false)
+const playbackLoading = ref(false)
+const playbackPlaying = ref(false)
+const playbackProgress = ref(0)
+const playbackCurrentLabel = ref('0:00')
+const playbackDurationLabel = ref('')
+const playbackAudioEl = ref<HTMLAudioElement | null>(null)
 
 const oral = useOralEvalEngine()
 
@@ -290,12 +300,119 @@ function stopDemoAudio() {
   }
 }
 
+function formatPlaybackTime(sec: number) {
+  if (!Number.isFinite(sec) || sec < 0) return '0:00'
+  const s = Math.floor(sec)
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  return `${m}:${String(r).padStart(2, '0')}`
+}
+
+function clearPlayback() {
+  const el = playbackAudioEl.value
+  if (el) {
+    try {
+      el.pause()
+      el.removeAttribute('src')
+      el.load()
+    } catch {
+      /* ignore */
+    }
+  }
+  if (playbackUrl.value.startsWith('blob:') && playbackUrl.value !== oral.localAudioUrl.value) {
+    try {
+      URL.revokeObjectURL(playbackUrl.value)
+    } catch {
+      /* ignore */
+    }
+  }
+  playbackUrl.value = ''
+  playbackError.value = false
+  playbackLoading.value = false
+  playbackPlaying.value = false
+  playbackProgress.value = 0
+  playbackCurrentLabel.value = '0:00'
+  playbackDurationLabel.value = ''
+}
+
+function onPlaybackTimeUpdate() {
+  const el = playbackAudioEl.value
+  if (!el || !el.duration) return
+  playbackProgress.value = Math.min(100, (el.currentTime / el.duration) * 100)
+  playbackCurrentLabel.value = formatPlaybackTime(el.currentTime)
+}
+
+function onPlaybackLoaded() {
+  const el = playbackAudioEl.value
+  if (!el) return
+  if (Number.isFinite(el.duration) && el.duration > 0) {
+    playbackDurationLabel.value = formatPlaybackTime(el.duration)
+  }
+}
+
+function onPlaybackEnded() {
+  playbackPlaying.value = false
+  playbackProgress.value = 0
+  playbackCurrentLabel.value = '0:00'
+  const el = playbackAudioEl.value
+  if (el) el.currentTime = 0
+}
+
+async function togglePlayback() {
+  if (!playbackUrl.value || playbackLoading.value || playbackError.value) return
+  const el = playbackAudioEl.value
+  if (!el) return
+  stopSpeaking()
+  stopDemoAudio()
+  try {
+    if (playbackPlaying.value) {
+      el.pause()
+      playbackPlaying.value = false
+      return
+    }
+    if (!el.src || el.src !== playbackUrl.value) {
+      el.src = playbackUrl.value
+    }
+    await el.play()
+    playbackPlaying.value = true
+  } catch {
+    playbackPlaying.value = false
+    playbackError.value = true
+  }
+}
+
+async function resolvePlayback(remoteUrl?: string | null) {
+  clearPlayback()
+  const local = oral.localAudioUrl.value
+  if (local) {
+    playbackUrl.value = local
+    return
+  }
+  const remote = (remoteUrl || '').trim()
+  if (!remote) return
+  if (remote.startsWith('blob:')) {
+    playbackUrl.value = remote
+    return
+  }
+  playbackLoading.value = true
+  try {
+    const blob = await fetchOralRemoteAudio(remote)
+    playbackUrl.value = URL.createObjectURL(blob)
+  } catch {
+    playbackError.value = true
+  } finally {
+    playbackLoading.value = false
+  }
+}
+
 function resetState() {
   clearAutoPlay()
   stopListening(true)
   oral.cancel()
+  oral.revokeLocalAudio()
   stopSpeaking()
   stopDemoAudio()
+  clearPlayback()
   step.value = 'listen'
   transcript.value = ''
   result.value = null
@@ -447,6 +564,7 @@ async function startOralRecording() {
     transcript.value = result.value.transcript || ''
     step.value = 'result'
     showTips.value = Boolean(result.value.issues?.length || result.value.tips?.length)
+    await resolvePlayback(result.value.audio_url)
     await nextTick()
   } catch (e: unknown) {
     listening.value = false
@@ -646,8 +764,10 @@ onUnmounted(() => {
   clearAutoPlay()
   stopListening(true)
   oral.cancel()
+  oral.revokeLocalAudio()
   stopSpeaking()
   stopDemoAudio()
+  clearPlayback()
   if (typeof document !== 'undefined') document.body.style.overflow = ''
 })
 </script>
@@ -1156,13 +1276,151 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <audio
-              v-if="result.audio_url"
-              class="w-full h-10"
-              controls
-              preload="none"
-              :src="result.audio_url"
-            />
+            <div v-if="playbackUrl || playbackLoading || playbackError" class="space-y-1.5">
+              <audio
+                ref="playbackAudioEl"
+                class="hidden"
+                preload="metadata"
+                :src="playbackUrl || undefined"
+                @timeupdate="onPlaybackTimeUpdate"
+                @loadedmetadata="onPlaybackLoaded"
+                @ended="onPlaybackEnded"
+                @pause="playbackPlaying = false"
+                @play="playbackPlaying = true"
+                @error="playbackError = true"
+              />
+
+              <button
+                type="button"
+                class="group relative w-full overflow-hidden rounded-[1.35rem] border text-left transition duration-200 active:scale-[0.985] disabled:opacity-60"
+                :class="
+                  playbackError
+                    ? 'border-rose-200 bg-rose-50/80 dark:border-rose-900/50 dark:bg-rose-950/30'
+                    : playbackPlaying
+                      ? 'border-emerald-300/80 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-[0_10px_28px_rgba(16,185,129,0.16)] dark:border-emerald-700/50 dark:from-emerald-950/40 dark:to-teal-950/30'
+                      : 'border-black/[0.06] bg-white hover:border-emerald-200 hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-neutral-900 dark:hover:border-emerald-800/60'
+                "
+                :disabled="playbackLoading || playbackError || !playbackUrl"
+                @click="togglePlayback"
+              >
+                <span
+                  class="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-emerald-100 dark:bg-emerald-950/80"
+                  aria-hidden="true"
+                >
+                  <span
+                    class="block h-full bg-emerald-500 transition-[width] duration-150 ease-linear"
+                    :style="{ width: `${playbackProgress}%` }"
+                  />
+                </span>
+
+                <span class="flex items-center gap-3.5 px-4 py-3.5">
+                  <span
+                    class="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white transition"
+                    :class="
+                      playbackLoading
+                        ? 'bg-emerald-400'
+                        : playbackPlaying
+                          ? 'bg-emerald-500 shadow-[0_0_0_6px_rgba(16,185,129,0.2)]'
+                          : 'bg-emerald-600 group-hover:bg-emerald-500 group-hover:scale-105'
+                    "
+                  >
+                    <span
+                      v-if="playbackPlaying"
+                      class="absolute inset-0 rounded-full bg-emerald-400/35 animate-ping"
+                      aria-hidden="true"
+                    />
+                    <svg
+                      v-if="playbackLoading"
+                      class="relative animate-spin"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
+                    </svg>
+                    <svg
+                      v-else-if="playbackPlaying"
+                      class="relative"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <rect x="6" y="5" width="4" height="14" rx="1" />
+                      <rect x="14" y="5" width="4" height="14" rx="1" />
+                    </svg>
+                    <svg
+                      v-else
+                      class="relative ml-0.5"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path d="M8 5v14l11-7L8 5z" />
+                    </svg>
+                  </span>
+
+                  <span class="min-w-0 flex-1">
+                    <span class="block text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">
+                      {{
+                        playbackError
+                          ? '录音暂无法播放'
+                          : playbackLoading
+                            ? '正在加载录音…'
+                            : playbackPlaying
+                              ? '正在回听'
+                              : '回听自己的录音'
+                      }}
+                    </span>
+                    <span class="mt-0.5 block text-xs text-neutral-500 dark:text-neutral-400 tabular-nums">
+                      <template v-if="playbackError">可再练一次后重试</template>
+                      <template v-else-if="playbackLoading">请稍候</template>
+                      <template v-else-if="playbackPlaying">
+                        {{ playbackCurrentLabel
+                        }}{{ playbackDurationLabel ? ` / ${playbackDurationLabel}` : '' }}
+                        · 再点暂停
+                      </template>
+                      <template v-else>
+                        {{ playbackDurationLabel ? `时长 ${playbackDurationLabel} · ` : '' }}听听自己的发音
+                      </template>
+                    </span>
+                  </span>
+
+                  <span
+                    class="flex items-end gap-[3px] h-7 shrink-0 pr-0.5"
+                    :class="playbackPlaying ? 'opacity-100' : 'opacity-30 group-hover:opacity-70'"
+                    aria-hidden="true"
+                  >
+                    <span
+                      class="w-[3px] rounded-full bg-emerald-500"
+                      :class="playbackPlaying ? 'h-3 animate-[pulse_0.7s_ease-in-out_infinite]' : 'h-2'"
+                    />
+                    <span
+                      class="w-[3px] rounded-full bg-emerald-500"
+                      :class="playbackPlaying ? 'h-6 animate-[pulse_0.85s_ease-in-out_infinite]' : 'h-4'"
+                      style="animation-delay: 0.12s"
+                    />
+                    <span
+                      class="w-[3px] rounded-full bg-emerald-500"
+                      :class="playbackPlaying ? 'h-4 animate-[pulse_0.65s_ease-in-out_infinite]' : 'h-3'"
+                      style="animation-delay: 0.24s"
+                    />
+                    <span
+                      class="w-[3px] rounded-full bg-emerald-500"
+                      :class="playbackPlaying ? 'h-5 animate-[pulse_0.9s_ease-in-out_infinite]' : 'h-2.5'"
+                      style="animation-delay: 0.08s"
+                    />
+                  </span>
+                </span>
+              </button>
+            </div>
 
             <div
               v-if="result.issues?.length || result.tips?.length"

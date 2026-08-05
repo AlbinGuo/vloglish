@@ -22,9 +22,17 @@ CORE_SENT = "en.sent.score"
 CORE_PASSAGE = "en.pred.score"
 
 
+def _clean_env(value: str | None) -> str:
+    """去掉首尾空白与成对引号，避免 .env 误写导致签名失败。"""
+    text = (value or "").strip()
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
+        text = text[1:-1].strip()
+    return text
+
+
 def oral_eval_configured() -> bool:
-    app_id = (os.getenv("ORAL_EVAL_APP_ID") or "").strip()
-    secret = (os.getenv("ORAL_EVAL_APP_SECRET") or "").strip()
+    app_id = _clean_env(os.getenv("ORAL_EVAL_APP_ID"))
+    secret = _clean_env(os.getenv("ORAL_EVAL_APP_SECRET"))
     if not app_id or not secret:
         return False
     flag = (os.getenv("ORAL_EVAL_ENABLED") or "true").strip().lower()
@@ -32,7 +40,7 @@ def oral_eval_configured() -> bool:
 
 
 def oral_eval_app_id() -> str:
-    return (os.getenv("ORAL_EVAL_APP_ID") or "").strip()
+    return _clean_env(os.getenv("ORAL_EVAL_APP_ID"))
 
 
 def oral_eval_sdk_url() -> str:
@@ -89,14 +97,28 @@ def _multipart_body(fields: dict[str, str]) -> tuple[bytes, str]:
     return b"".join(lines), f"multipart/form-data; boundary={boundary}"
 
 
+def _normalize_client_ip(raw: str | None) -> str:
+    ip = (raw or "").strip()
+    # X-Forwarded-For 已在上游取首个；此处再去掉端口 / IPv6 括号
+    if ip.startswith("[") and "]" in ip:
+        ip = ip[1 : ip.index("]")]
+    if ip.count(":") == 1 and "." in ip:
+        # 形如 1.2.3.4:12345
+        ip = ip.split(":", 1)[0]
+    # 本地调试时用公网占位，避免部分网关对 127.0.0.1 / ::1 校验异常
+    if ip in {"", "127.0.0.1", "::1", "localhost"}:
+        ip = "8.8.8.8"
+    return ip[:64] or "8.8.8.8"
+
+
 def request_warrant(*, user_id: str, user_client_ip: str) -> dict[str, Any]:
     if not oral_eval_configured():
         raise RuntimeError("口语评测未配置（缺少 ORAL_EVAL_APP_ID / ORAL_EVAL_APP_SECRET）")
 
     app_id = oral_eval_app_id()
-    app_secret = (os.getenv("ORAL_EVAL_APP_SECRET") or "").strip()
+    app_secret = _clean_env(os.getenv("ORAL_EVAL_APP_SECRET"))
     timestamp = str(int(time.time()))
-    ip = (user_client_ip or "127.0.0.1").strip()[:64] or "127.0.0.1"
+    ip = _normalize_client_ip(user_client_ip)
     uid = (user_id or "anonymous").strip()[:128] or "anonymous"
     sign = generate_signature(
         app_id=app_id,
@@ -168,6 +190,12 @@ def request_warrant(*, user_id: str, user_client_ip: str) -> dict[str, Any]:
             code_i = -1
         if code_i != 0:
             last_err = str(data.get("msg") or data.get("message") or f"code={code}")
+            # 签名错误时给出可操作提示（常见于 AppSecret 配错/多空格）
+            if code_i == 430008 or "request_sign" in last_err.lower():
+                raise RuntimeError(
+                    "口语评测密钥校验失败：请到智能科教控制台核对并更新 "
+                    "ORAL_EVAL_APP_ID / ORAL_EVAL_APP_SECRET 后重启后端"
+                )
             continue
 
         payload = data.get("data") or {}
@@ -189,7 +217,84 @@ def request_warrant(*, user_id: str, user_client_ip: str) -> dict[str, Any]:
             "accent": oral_eval_accent(),
         }
 
+    if "request_sign" in last_err.lower():
+        raise RuntimeError(
+            "口语评测密钥校验失败：请到智能科教控制台核对并更新 "
+            "ORAL_EVAL_APP_ID / ORAL_EVAL_APP_SECRET 后重启后端"
+        )
     raise RuntimeError(f"口语评测授权失败：{last_err}")
+
+
+# 口语录音云端域名（attachAudioUrl 返回的地址，可能是 http / 带端口）
+ORAL_AUDIO_HOST_SUFFIXES = (
+    "cloud.ssapi.cn",
+    "ssapi.cn",
+)
+
+
+def is_allowed_oral_audio_url(url: str) -> bool:
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse((url or "").strip())
+    except Exception:
+        return False
+    if parsed.scheme not in ("http", "https"):
+        return False
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return False
+    return any(host == suf or host.endswith("." + suf) for suf in ORAL_AUDIO_HOST_SUFFIXES)
+
+
+def _extract_audio_url(payload: dict[str, Any]) -> str:
+    """从评测回包中取出可播放的 audioUrl（勿自行拼错误 .mp3 路径）。"""
+    candidates: list[Any] = [
+        payload.get("audioUrl"),
+        payload.get("audio_url"),
+    ]
+    result = payload.get("result")
+    if isinstance(result, dict):
+        candidates.extend([result.get("audioUrl"), result.get("audio_url")])
+    for raw in candidates:
+        url = str(raw or "").strip()
+        if url.startswith("http://") or url.startswith("https://"):
+            return url
+    return ""
+
+
+def fetch_oral_audio_bytes(url: str) -> tuple[bytes, str]:
+    """服务端拉取口语云端录音，供前端在 HTTPS 下安全回放。"""
+    cleaned = (url or "").strip()
+    if not is_allowed_oral_audio_url(cleaned):
+        raise ValueError("录音地址不在允许范围内")
+
+    req = urllib.request.Request(
+        cleaned,
+        headers={"User-Agent": "vloglish-oral-audio/1.0", "Accept": "*/*"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = resp.read()
+            ctype = (resp.headers.get("Content-Type") or "").split(";")[0].strip()
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"录音下载失败 ({exc.code})") from exc
+    except Exception as exc:
+        raise RuntimeError(f"录音下载失败：{exc}") from exc
+
+    if not data:
+        raise RuntimeError("录音文件为空")
+    if not ctype or ctype == "application/octet-stream":
+        # 文档示例多为 ogg/无扩展名；浏览器可按字节嗅探，缺省给 ogg
+        lower = cleaned.lower()
+        if lower.endswith(".mp3"):
+            ctype = "audio/mpeg"
+        elif lower.endswith(".wav"):
+            ctype = "audio/wav"
+        else:
+            ctype = "audio/ogg"
+    return data, ctype
 
 
 def _level_from_score(score: int) -> str:
@@ -327,12 +432,7 @@ def build_feedback_from_oral_result(
     if not tips:
         tips.append("对照示范再跟读一次。")
 
-    audio_url = str(payload.get("audioUrl") or payload.get("audio_url") or "").strip()
-    if not audio_url:
-        app_id = str(payload.get("applicationId") or "").strip()
-        record_id = str(payload.get("recordId") or "").strip()
-        if app_id and record_id:
-            audio_url = f"https://files.cloud.ssapi.cn/{app_id}/{record_id}.mp3"
+    audio_url = _extract_audio_url(payload)
 
     out: dict[str, Any] = {
         "score": overall,
