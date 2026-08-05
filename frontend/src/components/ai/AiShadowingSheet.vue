@@ -70,6 +70,10 @@ const playbackProgress = ref(0)
 const playbackCurrentLabel = ref('0:00')
 const playbackDurationLabel = ref('')
 const playbackAudioEl = ref<HTMLAudioElement | null>(null)
+/** 最近一次评测的云端录音地址，供本地 blob 解码失败时回退 */
+const playbackRemoteUrl = ref('')
+let playbackIgnoreError = false
+let playbackRemoteTried = false
 
 const oral = useOralEvalEngine()
 
@@ -309,6 +313,7 @@ function formatPlaybackTime(sec: number) {
 }
 
 function clearPlayback() {
+  playbackIgnoreError = true
   const el = playbackAudioEl.value
   if (el) {
     try {
@@ -327,12 +332,18 @@ function clearPlayback() {
     }
   }
   playbackUrl.value = ''
+  playbackRemoteUrl.value = ''
   playbackError.value = false
   playbackLoading.value = false
   playbackPlaying.value = false
   playbackProgress.value = 0
   playbackCurrentLabel.value = '0:00'
   playbackDurationLabel.value = ''
+  playbackRemoteTried = false
+  // load() 的 error 事件可能异步到来
+  window.setTimeout(() => {
+    playbackIgnoreError = false
+  }, 0)
 }
 
 function onPlaybackTimeUpdate() {
@@ -345,6 +356,7 @@ function onPlaybackTimeUpdate() {
 function onPlaybackLoaded() {
   const el = playbackAudioEl.value
   if (!el) return
+  playbackError.value = false
   if (Number.isFinite(el.duration) && el.duration > 0) {
     playbackDurationLabel.value = formatPlaybackTime(el.duration)
   }
@@ -358,8 +370,62 @@ function onPlaybackEnded() {
   if (el) el.currentTime = 0
 }
 
+async function loadRemotePlayback(remote: string): Promise<boolean> {
+  const url = remote.trim()
+  if (!url || url.startsWith('blob:')) return false
+  playbackLoading.value = true
+  playbackError.value = false
+  try {
+    const blob = await fetchOralRemoteAudio(url)
+    if (playbackUrl.value.startsWith('blob:') && playbackUrl.value !== oral.localAudioUrl.value) {
+      try {
+        URL.revokeObjectURL(playbackUrl.value)
+      } catch {
+        /* ignore */
+      }
+    }
+    playbackUrl.value = URL.createObjectURL(blob)
+    playbackRemoteTried = true
+    return true
+  } catch {
+    return false
+  } finally {
+    playbackLoading.value = false
+  }
+}
+
+async function onPlaybackAudioError() {
+  if (playbackIgnoreError || !playbackUrl.value) return
+  // 本地分片常无法直接解码：自动改走云端代理
+  if (!playbackRemoteTried && playbackRemoteUrl.value) {
+    const ok = await loadRemotePlayback(playbackRemoteUrl.value)
+    if (ok) return
+  }
+  playbackPlaying.value = false
+  playbackError.value = true
+}
+
 async function togglePlayback() {
-  if (!playbackUrl.value || playbackLoading.value || playbackError.value) return
+  if (playbackLoading.value) return
+  // 出错时允许再点一次重试拉取
+  if (playbackError.value) {
+    playbackError.value = false
+    playbackRemoteTried = false
+    if (playbackRemoteUrl.value) {
+      const ok = await loadRemotePlayback(playbackRemoteUrl.value)
+      if (!ok && !oral.localAudioUrl.value) {
+        playbackError.value = true
+        return
+      }
+      if (!ok && oral.localAudioUrl.value) playbackUrl.value = oral.localAudioUrl.value
+    } else if (oral.localAudioUrl.value) {
+      playbackUrl.value = oral.localAudioUrl.value
+    } else {
+      playbackError.value = true
+      return
+    }
+  }
+  if (!playbackUrl.value) return
   const el = playbackAudioEl.value
   if (!el) return
   stopSpeaking()
@@ -370,39 +436,38 @@ async function togglePlayback() {
       playbackPlaying.value = false
       return
     }
-    if (!el.src || el.src !== playbackUrl.value) {
+    if (el.getAttribute('src') !== playbackUrl.value) {
       el.src = playbackUrl.value
     }
     await el.play()
     playbackPlaying.value = true
   } catch {
     playbackPlaying.value = false
-    playbackError.value = true
+    // 交给 onPlaybackAudioError 做云端回退
+    await onPlaybackAudioError()
   }
 }
 
 async function resolvePlayback(remoteUrl?: string | null) {
   clearPlayback()
+  const remote = (remoteUrl || '').trim()
   const local = oral.localAudioUrl.value
+  playbackRemoteUrl.value = remote.startsWith('http') ? remote : ''
+
+  // 优先云端完整音频（本地 saveAudio 分片经常不是可播容器）
+  if (playbackRemoteUrl.value) {
+    const ok = await loadRemotePlayback(playbackRemoteUrl.value)
+    if (ok) return
+  }
   if (local) {
     playbackUrl.value = local
     return
   }
-  const remote = (remoteUrl || '').trim()
-  if (!remote) return
   if (remote.startsWith('blob:')) {
     playbackUrl.value = remote
     return
   }
-  playbackLoading.value = true
-  try {
-    const blob = await fetchOralRemoteAudio(remote)
-    playbackUrl.value = URL.createObjectURL(blob)
-  } catch {
-    playbackError.value = true
-  } finally {
-    playbackLoading.value = false
-  }
+  // 没有任何可用来源时不展示错误块
 }
 
 function resetState() {
@@ -560,15 +625,14 @@ async function startOralRecording() {
     const oralRaw = await oral.evaluate(targetText.value, coreType.value)
     listening.value = false
     loading.value = true
+    const remoteFromSdk = String(oralRaw.audioUrl || oralRaw.audio_url || '').trim()
     result.value = await submitOralResult(oralRaw)
     transcript.value = result.value.transcript || ''
     step.value = 'result'
     showTips.value = Boolean(result.value.issues?.length || result.value.tips?.length)
-    await resolvePlayback(result.value.audio_url)
+    await resolvePlayback(result.value.audio_url || remoteFromSdk)
     await nextTick()
   } catch (e: unknown) {
-    listening.value = false
-    loading.value = false
     engineMode.value = 'llm'
     const detail = e instanceof Error ? e.message.trim() : ''
     fallbackHint.value = detail
@@ -578,6 +642,8 @@ async function startOralRecording() {
     void startListening()
   } finally {
     autoSubmitArmed.value = false
+    listening.value = false
+    loading.value = false
   }
 }
 
@@ -669,12 +735,16 @@ function toggleMic() {
 }
 
 function retry() {
+  if (loading.value || listening.value) return
   result.value = null
   error.value = ''
   transcript.value = ''
   showTips.value = false
   autoSubmitArmed.value = false
   fallbackHint.value = ''
+  clearPlayback()
+  loading.value = false
+  listening.value = false
   step.value = 'record'
   if (useOral.value) void startOralRecording()
   else void startListening()
@@ -1276,7 +1346,7 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div v-if="playbackUrl || playbackLoading || playbackError" class="space-y-1.5">
+            <div v-if="playbackUrl || playbackLoading || playbackError || playbackRemoteUrl" class="space-y-1.5">
               <audio
                 ref="playbackAudioEl"
                 class="hidden"
@@ -1287,7 +1357,7 @@ onUnmounted(() => {
                 @ended="onPlaybackEnded"
                 @pause="playbackPlaying = false"
                 @play="playbackPlaying = true"
-                @error="playbackError = true"
+                @error="onPlaybackAudioError"
               />
 
               <button
@@ -1300,7 +1370,7 @@ onUnmounted(() => {
                       ? 'border-emerald-300/80 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-[0_10px_28px_rgba(16,185,129,0.16)] dark:border-emerald-700/50 dark:from-emerald-950/40 dark:to-teal-950/30'
                       : 'border-black/[0.06] bg-white hover:border-emerald-200 hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-neutral-900 dark:hover:border-emerald-800/60'
                 "
-                :disabled="playbackLoading || playbackError || !playbackUrl"
+                :disabled="playbackLoading || (!playbackUrl && !playbackRemoteUrl && !playbackError)"
                 @click="togglePlayback"
               >
                 <span
@@ -1380,7 +1450,7 @@ onUnmounted(() => {
                       }}
                     </span>
                     <span class="mt-0.5 block text-xs text-neutral-500 dark:text-neutral-400 tabular-nums">
-                      <template v-if="playbackError">可再练一次后重试</template>
+                      <template v-if="playbackError">点此重试加载录音</template>
                       <template v-else-if="playbackLoading">请稍候</template>
                       <template v-else-if="playbackPlaying">
                         {{ playbackCurrentLabel
@@ -1505,7 +1575,7 @@ onUnmounted(() => {
               type="button"
               class="flex-1 h-11 rounded-2xl text-sm border border-black/10 dark:border-white/15 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
               :disabled="loading || listening"
-              @click="retry"
+              @click.stop="retry"
             >
               再试一次
             </button>
