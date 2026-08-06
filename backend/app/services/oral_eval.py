@@ -247,7 +247,7 @@ def is_allowed_oral_audio_url(url: str) -> bool:
     return any(host == suf or host.endswith("." + suf) for suf in ORAL_AUDIO_HOST_SUFFIXES)
 
 
-def _extract_audio_url(payload: dict[str, Any]) -> str:
+def extract_audio_url(payload: dict[str, Any]) -> str:
     """从评测回包中取出可播放的 audioUrl（勿自行拼错误 .mp3 路径）。"""
     candidates: list[Any] = [
         payload.get("audioUrl"),
@@ -432,7 +432,7 @@ def build_feedback_from_oral_result(
     if not tips:
         tips.append("对照示范再跟读一次。")
 
-    audio_url = _extract_audio_url(payload)
+    audio_url = extract_audio_url(payload)
 
     out: dict[str, Any] = {
         "score": overall,

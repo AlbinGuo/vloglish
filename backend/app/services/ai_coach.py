@@ -32,6 +32,7 @@ from .oral_eval import (
     CORE_SENT,
     CORE_WORD,
     build_feedback_from_oral_result,
+    extract_audio_url,
     oral_eval_accent,
     oral_eval_app_id,
     oral_eval_configured,
@@ -419,6 +420,7 @@ def shadowing_from_oral_result(
         target=sub.english or "",
         core_type=CORE_SENT,
     )
+    remote_audio = extract_audio_url(oral_payload or {}) or str(feedback.get("audio_url") or "")
     payload = {
         "video_id": video_id,
         "subtitle_id": subtitle_id,
@@ -439,6 +441,7 @@ def shadowing_from_oral_result(
             subtitle_id=subtitle_id,
             title=title,
             ref_text=sub.english or "",
+            remote_audio_url=remote_audio,
         )
         payload["practice_record_id"] = record.id
         payload["practice_audio_url"] = record.audio_url or ""
@@ -477,6 +480,7 @@ def oral_eval_feedback(
     mode = mode_from_core_type(ct)
     quota = check_and_consume(db, user, action="oral_feedback")
     feedback = build_feedback_from_oral_result(oral_payload or {}, target=text, core_type=ct)
+    remote_audio = extract_audio_url(oral_payload or {}) or str(feedback.get("audio_url") or "")
     src = (source_type or "other").strip() or "other"
     if article_id:
         src = "article"
@@ -505,6 +509,7 @@ def oral_eval_feedback(
             segment_id=segment_id,
             title=title,
             ref_text=text,
+            remote_audio_url=remote_audio,
         )
         payload["practice_record_id"] = record.id
         payload["practice_audio_url"] = record.audio_url or ""

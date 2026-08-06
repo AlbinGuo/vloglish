@@ -85,7 +85,7 @@ type DemoVoice = 'original' | PracticeTtsVoice
 const demoVoice = ref<DemoVoice>('original')
 const demoLoading = ref(false)
 const demoPlaying = ref(false)
-/** 结果页回听地址（本地 blob 或代理后的 blob） */
+/** 结果页可播放地址（优先七牛 https；http 口语云会代理成 blob） */
 const playbackUrl = ref('')
 const playbackError = ref(false)
 const playbackLoading = ref(false)
@@ -93,11 +93,11 @@ const playbackPlaying = ref(false)
 const playbackProgress = ref(0)
 const playbackCurrentLabel = ref('0:00')
 const playbackDurationLabel = ref('')
-const playbackAudioEl = ref<HTMLAudioElement | null>(null)
-/** 最近一次评测的云端录音地址，供本地 blob 解码失败时回退 */
+/** 原始远程地址（http/https），供重试 */
 const playbackRemoteUrl = ref('')
-let playbackIgnoreError = false
-let playbackRemoteTried = false
+/** 与学习列表相同：用 JS Audio 直链播放，避免 hidden <audio :src> 预加载误报 error */
+let playbackAudio: HTMLAudioElement | null = null
+let playbackObjectUrl: string | null = null
 
 /** 结果点评 TTS（Katerina） */
 const FEEDBACK_TTS_MUTE_KEY = 'vloglish_feedback_tts_muted'
@@ -426,15 +426,7 @@ async function playFeedbackTts(r?: AiShadowingResult | null) {
   // 互斥：点评播报时停示范音 / 回听
   stopSpeaking()
   stopDemoAudio()
-  const playbackEl = playbackAudioEl.value
-  if (playbackEl && !playbackEl.paused) {
-    try {
-      playbackEl.pause()
-    } catch {
-      /* ignore */
-    }
-    playbackPlaying.value = false
-  }
+  stopPlaybackAudio()
 
   const token = ++feedbackToken
   feedbackTtsLoading.value = true
@@ -570,97 +562,87 @@ function formatPlaybackTime(sec: number) {
   return `${m}:${String(r).padStart(2, '0')}`
 }
 
+function stopPlaybackAudio() {
+  if (playbackAudio) {
+    try {
+      playbackAudio.pause()
+      playbackAudio.onended = null
+      playbackAudio.onerror = null
+      playbackAudio.ontimeupdate = null
+      playbackAudio.onloadedmetadata = null
+    } catch {
+      /* ignore */
+    }
+    playbackAudio = null
+  }
+  playbackPlaying.value = false
+}
+
+function revokePlaybackObjectUrl() {
+  if (playbackObjectUrl) {
+    try {
+      URL.revokeObjectURL(playbackObjectUrl)
+    } catch {
+      /* ignore */
+    }
+    playbackObjectUrl = null
+  }
+}
+
 function clearPlayback() {
-  playbackIgnoreError = true
-  const el = playbackAudioEl.value
-  if (el) {
-    try {
-      el.pause()
-      el.removeAttribute('src')
-      el.load()
-    } catch {
-      /* ignore */
-    }
-  }
-  if (playbackUrl.value.startsWith('blob:') && playbackUrl.value !== oral.localAudioUrl.value) {
-    try {
-      URL.revokeObjectURL(playbackUrl.value)
-    } catch {
-      /* ignore */
-    }
-  }
+  stopPlaybackAudio()
+  revokePlaybackObjectUrl()
   playbackUrl.value = ''
   playbackRemoteUrl.value = ''
   playbackError.value = false
   playbackLoading.value = false
-  playbackPlaying.value = false
   playbackProgress.value = 0
   playbackCurrentLabel.value = '0:00'
   playbackDurationLabel.value = ''
-  playbackRemoteTried = false
-  // load() 的 error 事件可能异步到来
-  window.setTimeout(() => {
-    playbackIgnoreError = false
-  }, 0)
 }
 
-function onPlaybackTimeUpdate() {
-  const el = playbackAudioEl.value
-  if (!el || !el.duration) return
-  playbackProgress.value = Math.min(100, (el.currentTime / el.duration) * 100)
-  playbackCurrentLabel.value = formatPlaybackTime(el.currentTime)
-}
-
-function onPlaybackLoaded() {
-  const el = playbackAudioEl.value
-  if (!el) return
-  playbackError.value = false
-  if (Number.isFinite(el.duration) && el.duration > 0) {
-    playbackDurationLabel.value = formatPlaybackTime(el.duration)
+function normalizePlayableUrl(raw: string): string {
+  const url = (raw || '').trim()
+  if (!url) return ''
+  if (url.startsWith('//')) return `https:${url}`
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) return url
+  // 七牛域名有时未带协议
+  if (/^[\w.-]+\.[a-z]{2,}\//i.test(url) || /^[\w.-]+\.[a-z]{2,}$/i.test(url)) {
+    return `https://${url.replace(/^\/+/, '')}`
   }
-}
-
-function onPlaybackEnded() {
-  playbackPlaying.value = false
-  playbackProgress.value = 0
-  playbackCurrentLabel.value = '0:00'
-  const el = playbackAudioEl.value
-  if (el) el.currentTime = 0
-}
-
-function revokeOwnedPlaybackBlob() {
-  if (playbackUrl.value.startsWith('blob:') && playbackUrl.value !== oral.localAudioUrl.value) {
-    try {
-      URL.revokeObjectURL(playbackUrl.value)
-    } catch {
-      /* ignore */
-    }
-  }
+  return url
 }
 
 /**
- * 加载远程回听地址。
- * - https（含练习记录转存的七牛）：audio 可直链，勿走口语代理（代理仅允许 ssapi.cn）
- * - http 口语云：须后端代理，否则 HTTPS 页会被混合内容拦截
+ * 解析为可播 URL：
+ * - https / 补全协议后的 https：直链（与学习列表一致）
+ * - http 口语云：后端代理成 blob（避免混合内容）
  */
+async function preparePlaybackUrl(remote: string): Promise<string | null> {
+  const url = normalizePlayableUrl(remote)
+  if (!url || url.startsWith('blob:')) return url || null
+
+  if (url.startsWith('https://')) return url
+
+  if (url.startsWith('http://')) {
+    const blob = await fetchOralRemoteAudio(url)
+    revokePlaybackObjectUrl()
+    const obj = URL.createObjectURL(blob)
+    playbackObjectUrl = obj
+    return obj
+  }
+  return null
+}
+
 async function loadRemotePlayback(remote: string): Promise<boolean> {
-  const url = remote.trim()
-  if (!url || url.startsWith('blob:')) return false
+  const raw = (remote || '').trim()
+  if (!raw || raw.startsWith('blob:')) return false
   playbackLoading.value = true
   playbackError.value = false
   try {
-    if (url.startsWith('https://')) {
-      revokeOwnedPlaybackBlob()
-      playbackUrl.value = url
-      playbackRemoteTried = true
-      return true
-    }
-    if (!url.startsWith('http://')) return false
-
-    const blob = await fetchOralRemoteAudio(url)
-    revokeOwnedPlaybackBlob()
-    playbackUrl.value = URL.createObjectURL(blob)
-    playbackRemoteTried = true
+    const playable = await preparePlaybackUrl(raw)
+    if (!playable) return false
+    playbackUrl.value = playable
     return true
   } catch {
     return false
@@ -669,70 +651,106 @@ async function loadRemotePlayback(remote: string): Promise<boolean> {
   }
 }
 
-async function onPlaybackAudioError() {
-  if (playbackIgnoreError || !playbackUrl.value) return
-  // 本地分片常无法直接解码：自动改走云端代理
-  if (!playbackRemoteTried && playbackRemoteUrl.value) {
-    const ok = await loadRemotePlayback(playbackRemoteUrl.value)
-    if (ok) return
-  }
-  playbackPlaying.value = false
-  playbackError.value = true
-}
-
 async function togglePlayback() {
   if (playbackLoading.value) return
-  // 出错时允许再点一次重试拉取
-  if (playbackError.value) {
+
+  if (playbackPlaying.value) {
+    stopPlaybackAudio()
+    playbackProgress.value = 0
+    playbackCurrentLabel.value = '0:00'
+    return
+  }
+
+  // 出错或尚无地址时重新解析远程源
+  if (playbackError.value || !playbackUrl.value) {
     playbackError.value = false
-    playbackRemoteTried = false
+    let ok = false
     if (playbackRemoteUrl.value) {
-      const ok = await loadRemotePlayback(playbackRemoteUrl.value)
-      if (!ok && !oral.localAudioUrl.value) {
+      ok = await loadRemotePlayback(playbackRemoteUrl.value)
+    }
+    if (!ok) {
+      const local = oral.localAudioUrl.value
+      if (local) {
+        playbackUrl.value = local
+      } else {
         playbackError.value = true
         return
       }
-      if (!ok && oral.localAudioUrl.value) playbackUrl.value = oral.localAudioUrl.value
-    } else if (oral.localAudioUrl.value) {
-      playbackUrl.value = oral.localAudioUrl.value
-    } else {
-      playbackError.value = true
-      return
     }
   }
-  if (!playbackUrl.value) return
-  const el = playbackAudioEl.value
-  if (!el) return
+
+  const url = playbackUrl.value
+  if (!url) {
+    playbackError.value = true
+    return
+  }
+
   stopSpeaking()
   stopDemoAudio()
   stopFeedbackTts()
+  stopPlaybackAudio()
+
+  const audio = new Audio(url)
+  playbackAudio = audio
+  audio.ontimeupdate = () => {
+    if (!audio.duration) return
+    playbackProgress.value = Math.min(100, (audio.currentTime / audio.duration) * 100)
+    playbackCurrentLabel.value = formatPlaybackTime(audio.currentTime)
+  }
+  audio.onloadedmetadata = () => {
+    playbackError.value = false
+    if (Number.isFinite(audio.duration) && audio.duration > 0) {
+      playbackDurationLabel.value = formatPlaybackTime(audio.duration)
+    }
+  }
+  audio.onended = () => {
+    playbackPlaying.value = false
+    playbackProgress.value = 0
+    playbackCurrentLabel.value = '0:00'
+    playbackAudio = null
+  }
+  audio.onerror = () => {
+    playbackPlaying.value = false
+    playbackAudio = null
+    // https 直链失败时再尝试远程/本地兜底一次
+    void (async () => {
+      if (playbackRemoteUrl.value && playbackUrl.value !== playbackRemoteUrl.value) {
+        const ok = await loadRemotePlayback(playbackRemoteUrl.value)
+        if (ok) {
+          playbackError.value = false
+          return
+        }
+      }
+      const local = oral.localAudioUrl.value
+      if (local && playbackUrl.value !== local) {
+        playbackUrl.value = local
+        playbackError.value = false
+        return
+      }
+      playbackError.value = true
+    })()
+  }
+
   try {
-    if (playbackPlaying.value) {
-      el.pause()
-      playbackPlaying.value = false
-      return
-    }
-    if (el.getAttribute('src') !== playbackUrl.value) {
-      el.src = playbackUrl.value
-    }
-    await el.play()
+    await audio.play()
     playbackPlaying.value = true
+    playbackError.value = false
   } catch {
     playbackPlaying.value = false
-    // 交给 onPlaybackAudioError 做云端回退
-    await onPlaybackAudioError()
+    playbackAudio = null
+    playbackError.value = true
   }
 }
 
 async function resolvePlayback(remoteUrl?: string | null) {
   clearPlayback()
-  const remote = (remoteUrl || '').trim()
+  const remote = normalizePlayableUrl(remoteUrl || '')
   const local = oral.localAudioUrl.value
-  // 保留原始远程地址供失败回退；https/http 均可
-  playbackRemoteUrl.value = remote.startsWith('http://') || remote.startsWith('https://') ? remote : ''
+  if (remote.startsWith('http://') || remote.startsWith('https://')) {
+    playbackRemoteUrl.value = remote
+  }
 
-  // 优先完整远程音频（转存七牛 https，或口语云 http→代理）
-  // 本地 saveAudio 分片经常不是可播容器，只作最后兜底
+  // 优先完整远程（七牛 https / 口语 http）；本地分片仅兜底
   if (playbackRemoteUrl.value) {
     const ok = await loadRemotePlayback(playbackRemoteUrl.value)
     if (ok) return
@@ -743,9 +761,7 @@ async function resolvePlayback(remoteUrl?: string | null) {
   }
   if (remote.startsWith('blob:')) {
     playbackUrl.value = remote
-    return
   }
-  // 没有任何可用来源时不展示错误块
 }
 
 function resetState() {
@@ -1128,10 +1144,13 @@ async function startOralRecording() {
     step.value = 'result'
     showTips.value = Boolean(result.value.issues?.length || result.value.tips?.length)
     await maybeUploadLocalPracticeAudio(result.value)
-    // 优先练习记录转存后的 https（与学习页同一地址）；勿只用口语临时链
-    await resolvePlayback(
-      result.value.practice_audio_url || result.value.audio_url || remoteFromSdk,
-    )
+    // 与学习列表同一优先序：转存后的七牛地址 > 接口 audio_url > SDK 临时链
+    const bestAudio =
+      result.value.practice_audio_url ||
+      result.value.audio_url ||
+      remoteFromSdk ||
+      ''
+    await resolvePlayback(bestAudio)
     await nextTick()
     scheduleFeedbackTts(result.value)
   } catch (e: unknown) {
@@ -2003,19 +2022,6 @@ onUnmounted(() => {
             </div>
 
             <div v-if="playbackUrl || playbackLoading || playbackError || playbackRemoteUrl" class="space-y-1.5">
-              <audio
-                ref="playbackAudioEl"
-                class="hidden"
-                preload="metadata"
-                :src="playbackUrl || undefined"
-                @timeupdate="onPlaybackTimeUpdate"
-                @loadedmetadata="onPlaybackLoaded"
-                @ended="onPlaybackEnded"
-                @pause="playbackPlaying = false"
-                @play="playbackPlaying = true"
-                @error="onPlaybackAudioError"
-              />
-
               <button
                 type="button"
                 class="group relative w-full overflow-hidden rounded-[1.35rem] border text-left transition duration-200 active:scale-[0.985] disabled:opacity-60"
