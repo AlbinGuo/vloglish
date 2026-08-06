@@ -3,6 +3,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { fetchPracticeTts } from '@/api/practiceTts'
 import { getPracticeRecord, type PracticeRecord } from '@/api/practiceRecords'
+import { useAudioDuration } from '@/composables/useAudioDuration'
 import { buildPracticeFeedbackSpeech } from '@/utils/practiceFeedbackSpeech'
 
 const props = defineProps<{
@@ -74,6 +75,11 @@ const dimensionItems = computed(() => {
 const issues = computed(() => (Array.isArray(detail.value?.issues) ? detail.value!.issues! : []).filter(Boolean))
 const tips = computed(() => (Array.isArray(detail.value?.tips) ? detail.value!.tips! : []).filter(Boolean))
 const words = computed(() => (Array.isArray(detail.value?.words) ? detail.value!.words! : []))
+
+const detailAudioUrl = computed(() =>
+  detail.value?.has_audio ? (detail.value.audio_url || '').trim() : '',
+)
+const { label: durationLabel } = useAudioDuration(detailAudioUrl)
 
 function wordToneClass(score: number) {
   if (score >= 80) return 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200'
@@ -495,6 +501,10 @@ function onRemove() {
                   </svg>
                 </span>
                 <span class="relative">{{ playing ? '正在播放…' : '听一听自己的发音' }}</span>
+                <span
+                  v-if="durationLabel"
+                  class="relative tabular-nums text-white/90 font-medium"
+                >{{ durationLabel }}</span>
               </button>
               <div class="flex items-center gap-2">
                 <RouterLink

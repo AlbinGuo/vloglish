@@ -16,6 +16,7 @@ import { READING_TTS_KEY } from '@/composables/useReadingTts'
 import { useOralEvalEngine } from '@/composables/useOralEvalEngine'
 import { playWordPronunciation, stopSpeaking } from '@/utils/speakWord'
 import { buildPracticeFeedbackSpeech } from '@/utils/practiceFeedbackSpeech'
+import { formatAudioClock, probeAudioDuration } from '@/utils/audioDuration'
 import { highlightVocabLinkText, type VocabSummaryGroup } from '@/utils/vocabSummary'
 
 /** 篇章评测：按段落展示，播放中随语音切换浅底 */
@@ -558,11 +559,7 @@ function resumeDemoAudio() {
 }
 
 function formatPlaybackTime(sec: number) {
-  if (!Number.isFinite(sec) || sec < 0) return '0:00'
-  const s = Math.floor(sec)
-  const m = Math.floor(s / 60)
-  const r = s % 60
-  return `${m}:${String(r).padStart(2, '0')}`
+  return formatAudioClock(sec)
 }
 
 function stopPlaybackAudio() {
@@ -661,11 +658,20 @@ async function loadRemotePlayback(remote: string): Promise<boolean> {
     const playable = await preparePlaybackUrl(raw)
     if (!playable) return false
     playbackUrl.value = playable
+    void probePlaybackDuration(playable)
     return true
   } catch {
     return false
   } finally {
     playbackLoading.value = false
+  }
+}
+
+async function probePlaybackDuration(url: string) {
+  if (playbackDurationLabel.value) return
+  const sec = await probeAudioDuration(url)
+  if (sec != null && !playbackDurationLabel.value) {
+    playbackDurationLabel.value = formatPlaybackTime(sec)
   }
 }
 
@@ -823,11 +829,13 @@ async function resolvePlayback(remoteUrl?: string | null) {
   // 3) 本地分片（常不可播）：有练习记录时直接提示去学习页
   if (local) {
     playbackUrl.value = local
+    void probePlaybackDuration(local)
     if (result.value?.practice_record_id) playbackError.value = true
     return
   }
   if (remote.startsWith('blob:')) {
     playbackUrl.value = remote
+    void probePlaybackDuration(remote)
     if (result.value?.practice_record_id) playbackError.value = true
     return
   }
@@ -2187,15 +2195,16 @@ onUnmounted(() => {
 
                   <span class="min-w-0 flex-1">
                     <span class="block text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">
-                      {{
-                        playbackError
-                          ? '弹窗内暂无法回听'
-                          : playbackLoading
-                            ? '正在加载录音…'
-                            : playbackPlaying
-                              ? '正在回听'
-                              : '回听自己的录音'
-                      }}
+                      <template v-if="playbackError">弹窗内暂无法回听</template>
+                      <template v-else-if="playbackLoading">正在加载录音…</template>
+                      <template v-else-if="playbackPlaying">正在回听</template>
+                      <template v-else>
+                        回听自己的录音
+                        <span
+                          v-if="playbackDurationLabel"
+                          class="ml-1.5 inline-flex align-middle tabular-nums text-[13px] font-semibold text-emerald-700 dark:text-emerald-300"
+                        >{{ playbackDurationLabel }}</span>
+                      </template>
                     </span>
                     <span class="mt-0.5 block text-xs text-neutral-500 dark:text-neutral-400 tabular-nums">
                       <template v-if="playbackError">点此重试，或到练习记录播放</template>
@@ -2205,9 +2214,7 @@ onUnmounted(() => {
                         }}{{ playbackDurationLabel ? ` / ${playbackDurationLabel}` : '' }}
                         · 再点暂停
                       </template>
-                      <template v-else>
-                        {{ playbackDurationLabel ? `时长 ${playbackDurationLabel} · ` : '' }}听听自己的发音
-                      </template>
+                      <template v-else>听听自己的发音</template>
                     </span>
                   </span>
 

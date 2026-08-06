@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { PracticeRecord } from '@/api/practiceRecords'
+import { useAudioDuration } from '@/composables/useAudioDuration'
 
 const props = defineProps<{
   item: PracticeRecord
   playing?: boolean
   deleting?: boolean
   sourcePath?: string
+  /** 父组件已探测到的时长（秒），可避免重复探测 */
+  durationSec?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -42,6 +45,19 @@ const placeholderClass = computed(() => {
   }
   return 'bg-gradient-to-br from-amber-100 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30'
 })
+
+const audioUrl = computed(() =>
+  props.item.has_audio ? (props.item.audio_url || '').trim() : '',
+)
+const { label: durationLabel, setKnownDuration } = useAudioDuration(audioUrl)
+
+watch(
+  () => props.durationSec,
+  (sec) => {
+    if (sec != null) setKnownDuration(sec)
+  },
+  { immediate: true },
+)
 
 function formatTime(iso: string | null) {
   if (!iso) return ''
@@ -137,8 +153,12 @@ function formatTime(iso: string | null) {
               ? 'bg-emerald-600 text-white shadow-[0_6px_16px_rgba(16,185,129,0.35)]'
               : 'bg-emerald-500 text-white shadow-[0_6px_14px_rgba(16,185,129,0.28)] hover:bg-emerald-400 hover:shadow-[0_8px_18px_rgba(16,185,129,0.38)]'
           "
-          :aria-label="playing ? '停止回听' : '听一听自己的发音'"
-          :title="playing ? '停止' : '听一听'"
+          :aria-label="
+            playing
+              ? `停止回听${durationLabel ? `，时长 ${durationLabel}` : ''}`
+              : `听一听自己的发音${durationLabel ? `，时长 ${durationLabel}` : ''}`
+          "
+          :title="playing ? '停止' : durationLabel ? `听一听 · ${durationLabel}` : '听一听'"
           @click="emit('play')"
         >
           <span
@@ -158,7 +178,13 @@ function formatTime(iso: string | null) {
               <path d="M8 5v14l11-7L8 5z" />
             </svg>
           </span>
-          <span class="relative">{{ playing ? '播放中' : '听一听' }}</span>
+          <span class="relative inline-flex items-baseline gap-1">
+            <span>{{ playing ? '播放中' : '听一听' }}</span>
+            <span
+              v-if="durationLabel"
+              class="tabular-nums font-medium opacity-90"
+            >{{ durationLabel }}</span>
+          </span>
         </button>
         <span v-else class="text-[11px] text-neutral-400">暂无录音</span>
 

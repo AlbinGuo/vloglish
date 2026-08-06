@@ -42,6 +42,8 @@ const deletingIds = ref<Set<number>>(new Set())
 const playingId = ref<number | null>(null)
 const detailOpen = ref(false)
 const detailRecordId = ref<number | null>(null)
+/** 已探测到的录音时长（秒），播放时回填给卡片 */
+const practiceDurationById = ref<Record<number, number>>({})
 let practiceAudio: HTMLAudioElement | null = null
 
 const practiceHasMore = computed(
@@ -181,6 +183,14 @@ function togglePracticeAudio(item: PracticeRecord) {
   const audio = new Audio(item.audio_url)
   practiceAudio = audio
   playingId.value = item.id
+  audio.onloadedmetadata = () => {
+    if (Number.isFinite(audio.duration) && audio.duration > 0) {
+      practiceDurationById.value = {
+        ...practiceDurationById.value,
+        [item.id]: audio.duration,
+      }
+    }
+  }
   audio.onended = () => {
     if (playingId.value === item.id) playingId.value = null
     practiceAudio = null
@@ -409,6 +419,7 @@ onUnmounted(() => {
               :playing="playingId === item.id"
               :deleting="deletingIds.has(item.id)"
               :source-path="practiceSourcePath(item)"
+              :duration-sec="practiceDurationById[item.id] ?? null"
               @open="openPracticeDetail(item)"
               @play="togglePracticeAudio(item)"
               @remove="removePractice(item)"
