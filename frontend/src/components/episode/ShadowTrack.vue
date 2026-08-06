@@ -16,6 +16,11 @@ const emit = defineEmits<{
   playReference: []
 }>()
 
+/** 固定伪波形，看起来像语音条而非进度块 */
+const WAVE_HEIGHTS = [
+  35, 62, 48, 78, 40, 70, 55, 88, 45, 72, 58, 82, 38, 66, 50, 90, 42, 74, 60, 84, 36, 68, 52, 76, 44, 80, 56, 64,
+]
+
 const playing = ref(false)
 const aligning = ref(false)
 const progress = ref(0)
@@ -33,6 +38,11 @@ const displayDuration = computed(() => {
   if (durationLabel.value) return durationLabel.value
   if (props.sentenceDurationSec > 0) return formatAudioClock(props.sentenceDurationSec)
   return ''
+})
+
+const playedBars = computed(() => {
+  const n = WAVE_HEIGHTS.length
+  return Math.round((Math.min(100, Math.max(0, progress.value)) / 100) * n)
 })
 
 function stopAudio() {
@@ -166,94 +176,92 @@ onUnmounted(() => {
 <template>
   <div
     ref="rootEl"
-    class="relative mt-1.5 rounded-xl border border-emerald-200/60 bg-emerald-50/70 dark:border-emerald-800/40 dark:bg-emerald-950/30"
+    class="mt-1 rounded-lg border border-emerald-200/50 bg-emerald-50/50 dark:border-emerald-800/35 dark:bg-emerald-950/25"
     @click.stop
   >
-    <div class="flex items-center gap-1.5 px-2 py-1.5">
+    <div class="flex items-center gap-1 px-1.5 py-1">
       <button
         type="button"
-        class="shrink-0 flex h-9 w-9 items-center justify-center rounded-full text-white transition active:scale-95 touch-manipulation disabled:opacity-50"
+        class="shrink-0 flex h-7 w-7 items-center justify-center rounded-full text-white transition active:scale-95 touch-manipulation disabled:opacity-50"
         :class="playing ? 'bg-emerald-600' : 'bg-emerald-500'"
         :disabled="uploading || !audioUrl"
         :aria-label="playing ? '暂停' : '播放我的跟读'"
         @click="togglePlay"
       >
-        <svg v-if="playing" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <svg v-if="playing" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <rect x="6" y="5" width="4" height="14" rx="1" />
           <rect x="14" y="5" width="4" height="14" rx="1" />
         </svg>
-        <svg v-else class="ml-0.5" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <svg v-else class="ml-px" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M8 5v14l11-7L8 5z" />
         </svg>
       </button>
 
+      <!-- 音轨波形进度 -->
       <div
-        class="relative flex-1 h-8 rounded-lg bg-emerald-100/80 dark:bg-emerald-900/35 overflow-hidden touch-manipulation select-none"
+        class="relative flex-1 h-6 flex items-center touch-manipulation select-none"
         role="slider"
         :aria-valuenow="Math.round(progress)"
         aria-valuemin="0"
         aria-valuemax="100"
         aria-label="跟读进度"
-        :class="uploading || !audioUrl ? 'opacity-50 pointer-events-none' : ''"
+        :class="uploading || !audioUrl ? 'opacity-40 pointer-events-none' : ''"
         @pointerdown="onTrackPointerDown"
         @pointermove="onTrackPointerMove"
         @pointerup="onTrackPointerUp"
         @pointercancel="onTrackPointerUp"
       >
-        <div
-          class="absolute inset-y-0 left-0 bg-emerald-400/40 dark:bg-emerald-500/30 pointer-events-none"
-          :style="{ width: `${progress}%` }"
-        />
-        <div
-          class="absolute top-1.5 bottom-1.5 w-0.5 rounded-full bg-emerald-800 dark:bg-emerald-100 pointer-events-none"
-          :style="{ left: `calc(${Math.min(97, Math.max(1, progress))}% - 1px)` }"
-        />
+        <div class="absolute inset-x-0 inset-y-0.5 flex items-center gap-px" aria-hidden="true">
+          <span
+            v-for="(h, i) in WAVE_HEIGHTS"
+            :key="i"
+            class="flex-1 min-w-[2px] max-w-[3px] rounded-full transition-colors duration-75"
+            :class="
+              i < playedBars
+                ? 'bg-emerald-600 dark:bg-emerald-400'
+                : 'bg-emerald-300/70 dark:bg-emerald-700/70'
+            "
+            :style="{ height: `${h}%` }"
+          />
+        </div>
       </div>
 
       <span
-        v-if="uploading"
-        class="shrink-0 text-[10px] font-medium text-emerald-700 dark:text-emerald-300 animate-pulse w-12 text-right"
+        class="shrink-0 text-[10px] font-medium tabular-nums text-emerald-800/85 dark:text-emerald-200/85 min-w-[1.75rem] text-right leading-none"
       >
-        上传中
-      </span>
-      <span
-        v-else-if="aligning && !playing"
-        class="shrink-0 text-[10px] font-medium text-emerald-700 dark:text-emerald-300 w-12 text-right"
-      >
-        对齐中
-      </span>
-      <span
-        v-else-if="displayDuration"
-        class="shrink-0 text-[11px] font-semibold tabular-nums text-emerald-800 dark:text-emerald-200 w-10 text-right"
-      >
-        {{ displayDuration }}
+        <template v-if="uploading">…</template>
+        <template v-else-if="aligning && !playing">对齐</template>
+        <template v-else>{{ displayDuration || '—' }}</template>
       </span>
 
       <button
         type="button"
-        class="shrink-0 min-h-9 min-w-9 inline-flex items-center justify-center rounded-lg text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/50 touch-manipulation disabled:opacity-50"
+        class="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-md text-emerald-800/80 dark:text-emerald-200/80 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 touch-manipulation disabled:opacity-50"
         aria-label="更多操作"
         :aria-expanded="menuOpen"
         :disabled="uploading"
         @click="menuOpen = !menuOpen"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <circle cx="5" cy="12" r="1.6" />
-          <circle cx="12" cy="12" r="1.6" />
-          <circle cx="19" cy="12" r="1.6" />
+        <svg v-if="menuOpen" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round" />
+        </svg>
+        <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <circle cx="5" cy="12" r="1.5" />
+          <circle cx="12" cy="12" r="1.5" />
+          <circle cx="19" cy="12" r="1.5" />
         </svg>
       </button>
     </div>
 
     <div
       v-if="menuOpen"
-      class="absolute right-1.5 top-full mt-0.5 z-20 min-w-[8.5rem] rounded-xl border border-emerald-200/80 bg-white py-1 shadow-lg dark:border-emerald-800 dark:bg-neutral-900"
+      class="grid grid-cols-3 gap-0.5 px-1.5 pb-1.5"
       role="menu"
     >
       <button
         type="button"
         role="menuitem"
-        class="w-full px-3 py-2.5 text-left text-[12px] font-semibold text-emerald-950 hover:bg-emerald-50 dark:text-emerald-50 dark:hover:bg-emerald-950/50 touch-manipulation disabled:opacity-50"
+        class="min-h-8 rounded-md text-[10px] font-semibold text-emerald-900 bg-white/80 border border-emerald-200/60 dark:text-emerald-100 dark:bg-neutral-900/60 dark:border-emerald-800 touch-manipulation disabled:opacity-50"
         :disabled="aligning"
         @click="onAlignReference"
       >
@@ -262,7 +270,7 @@ onUnmounted(() => {
       <button
         type="button"
         role="menuitem"
-        class="w-full px-3 py-2.5 text-left text-[12px] font-semibold text-emerald-950 hover:bg-emerald-50 dark:text-emerald-50 dark:hover:bg-emerald-950/50 touch-manipulation"
+        class="min-h-8 rounded-md text-[10px] font-semibold text-emerald-900 bg-white/80 border border-emerald-200/60 dark:text-emerald-100 dark:bg-neutral-900/60 dark:border-emerald-800 touch-manipulation"
         @click="onRerecord"
       >
         重录
@@ -270,7 +278,7 @@ onUnmounted(() => {
       <button
         type="button"
         role="menuitem"
-        class="w-full px-3 py-2.5 text-left text-[12px] font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/50 touch-manipulation"
+        class="min-h-8 rounded-md text-[10px] font-semibold text-white bg-emerald-600 touch-manipulation"
         @click="onScore"
       >
         去打分

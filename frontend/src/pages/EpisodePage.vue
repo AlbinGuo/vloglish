@@ -590,6 +590,20 @@ function sentenceDurationSec(sub: Subtitle) {
   return Math.max(0.4, (sub.end || 0) - (sub.start || 0))
 }
 
+/** 原声播完后再留 delay + 余量，避免半拍/一拍句尾被掐 */
+const SHADOW_END_GRACE_SEC = 0.4
+
+function scheduleShadowFinishAfterReference() {
+  if (!shadowSessionRunning.value && !shadowEndWatching) return
+  shadowEndWatching = false
+  clearShadowSafetyTimer()
+  const graceSec = Math.max(0, shadowDelaySec.value) + SHADOW_END_GRACE_SEC
+  shadowSafetyTimer = setTimeout(() => {
+    shadowSafetyTimer = null
+    void finishShadowTake()
+  }, graceSec * 1000)
+}
+
 async function startShadowTake() {
   const sub = shadowActiveSub.value
   if (!sub || shadowSessionRunning.value) return
@@ -602,14 +616,20 @@ async function startShadowTake() {
     player.setRate(shadowRate.value)
     player.playSentenceOnce(sub)
     await armAfterReferenceStart(shadowDelaySec.value)
-    const windowSec =
-      sentenceDurationSec(sub) / Math.max(0.5, shadowRate.value) + shadowDelaySec.value + 1.2
+    // 句末检测失败时的兜底：原声时长 + 延迟 + 余量 + 缓冲
+    const fallbackSec =
+      sentenceDurationSec(sub) / Math.max(0.5, shadowRate.value) +
+      Math.max(0, shadowDelaySec.value) +
+      SHADOW_END_GRACE_SEC +
+      1.5
     shadowSafetyTimer = setTimeout(() => {
+      shadowSafetyTimer = null
       void finishShadowTake()
-    }, windowSec * 1000)
+    }, fallbackSec * 1000)
   } catch {
     shadowSessionRunning.value = false
     shadowEndWatching = false
+    clearShadowSafetyTimer()
   } finally {
     shadowBusy.value = false
   }
@@ -617,7 +637,7 @@ async function startShadowTake() {
 
 async function finishShadowTake() {
   if (shadowFinishing) return
-  if (!shadowSessionRunning.value && !shadowEndWatching) return
+  if (!shadowSessionRunning.value) return
   shadowFinishing = true
   clearShadowSafetyTimer()
   shadowEndWatching = false
@@ -628,6 +648,8 @@ async function finishShadowTake() {
     shadowFinishing = false
     return
   }
+  const subId = sub.id
+  const micOn = shadowMicEnabled.value
   shadowBusy.value = true
   try {
     const blob = await stopShadowRecorder()
@@ -636,19 +658,28 @@ async function finishShadowTake() {
       player.setRate(shadowRateBeforeSession)
       shadowRateBeforeSession = null
     }
-    if (!blob || !shadowMicEnabled.value) return
+    releaseShadowMic()
 
-    shadowUploadId.value = sub.id
+    if (!blob || !micOn) {
+      // 只听不录：收起会话条
+      shadowActiveSubId.value = null
+      return
+    }
+
+    // 先收起会话条并露出迷你音轨（上传中）
+    shadowActiveSubId.value = null
+    shadowUploadId.value = subId
+
     const row = await upsertShadowRecord({
       video_id: props.videoId,
-      subtitle_id: sub.id,
+      subtitle_id: subId,
       title: episode.value?.short_title || '',
       ref_text: sub.english || '',
     })
     const uploaded = await uploadPracticeAudio(row.id, blob)
     shadowTracks.value = {
       ...shadowTracks.value,
-      [sub.id]: {
+      [subId]: {
         ...row,
         audio_url: uploaded.audio_url,
         has_audio: true,
@@ -656,7 +687,8 @@ async function finishShadowTake() {
       },
     }
   } catch {
-    /* 上传失败时保留会话，用户可重试 */
+    /* 上传失败：重新打开会话条便于重试 */
+    shadowActiveSubId.value = subId
   } finally {
     shadowUploadId.value = null
     shadowBusy.value = false
@@ -688,8 +720,9 @@ watch(
   ([playing, t]) => {
     if (!shadowEndWatching || !shadowActiveSub.value) return
     const sub = shadowActiveSub.value
+    // 原声句播完 → 再等 delay+余量后停录（半拍跟读不截尾）
     if (!playing && t >= sub.end - 0.2) {
-      void finishShadowTake()
+      scheduleShadowFinishAfterReference()
     }
   },
 )
@@ -2274,7 +2307,12 @@ function subtitleRowClass(index: number) {
                 @click.stop="onSubtitleClick"
               />
               <div
-                v-if="!adminPreview && (shadowActiveSubId === sub.id || shadowTracks[sub.id]?.audio_url)"
+                v-if="
+                  !adminPreview &&
+                  (shadowActiveSubId === sub.id ||
+                    shadowTracks[sub.id]?.audio_url ||
+                    shadowUploadId === sub.id)
+                "
                 :data-shadow-anchor="sub.id"
                 class="mt-0.5"
               >
@@ -2291,8 +2329,11 @@ function subtitleRowClass(index: number) {
                   @close="closeShadowSession"
                 />
                 <ShadowTrack
-                  v-if="shadowActiveSubId !== sub.id && shadowTracks[sub.id]?.audio_url"
-                  :audio-url="shadowTracks[sub.id].audio_url"
+                  v-if="
+                    shadowActiveSubId !== sub.id &&
+                    (shadowTracks[sub.id]?.audio_url || shadowUploadId === sub.id)
+                  "
+                  :audio-url="shadowTracks[sub.id]?.audio_url || ''"
                   :sentence-duration-sec="sentenceDurationSec(sub)"
                   :uploading="shadowUploadId === sub.id"
                   @rerecord="rerecordShadow(sub)"
