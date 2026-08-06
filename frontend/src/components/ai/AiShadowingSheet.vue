@@ -14,6 +14,7 @@ import { uploadPracticeAudio } from '@/api/practiceRecords'
 import { READING_TTS_KEY } from '@/composables/useReadingTts'
 import { useOralEvalEngine } from '@/composables/useOralEvalEngine'
 import { playWordPronunciation, stopSpeaking } from '@/utils/speakWord'
+import { buildPracticeFeedbackSpeech } from '@/utils/practiceFeedbackSpeech'
 import { highlightVocabLinkText, type VocabSummaryGroup } from '@/utils/vocabSummary'
 
 /** 篇章评测：按段落展示，播放中随语音切换浅底 */
@@ -97,6 +98,18 @@ const playbackAudioEl = ref<HTMLAudioElement | null>(null)
 const playbackRemoteUrl = ref('')
 let playbackIgnoreError = false
 let playbackRemoteTried = false
+
+/** 结果点评 TTS（Katerina） */
+const FEEDBACK_TTS_MUTE_KEY = 'vloglish_feedback_tts_muted'
+const feedbackTtsMuted = ref(
+  typeof localStorage !== 'undefined' && localStorage.getItem(FEEDBACK_TTS_MUTE_KEY) === '1',
+)
+const feedbackTtsPlaying = ref(false)
+const feedbackTtsLoading = ref(false)
+let feedbackAudio: HTMLAudioElement | null = null
+let feedbackObjectUrl: string | null = null
+let feedbackAutoTimer: ReturnType<typeof setTimeout> | null = null
+let feedbackToken = 0
 
 const oral = useOralEvalEngine()
 
@@ -364,6 +377,128 @@ function endDemoSession() {
   ttsSeqWaitPause = null
 }
 
+function clearFeedbackAutoTimer() {
+  if (feedbackAutoTimer != null) {
+    clearTimeout(feedbackAutoTimer)
+    feedbackAutoTimer = null
+  }
+}
+
+function stopFeedbackTts() {
+  clearFeedbackAutoTimer()
+  feedbackToken += 1
+  feedbackTtsPlaying.value = false
+  feedbackTtsLoading.value = false
+  if (feedbackAudio) {
+    try {
+      feedbackAudio.pause()
+      feedbackAudio.onended = null
+      feedbackAudio.onerror = null
+      feedbackAudio.removeAttribute('src')
+      feedbackAudio.load()
+    } catch {
+      /* ignore */
+    }
+    feedbackAudio = null
+  }
+  if (feedbackObjectUrl) {
+    URL.revokeObjectURL(feedbackObjectUrl)
+    feedbackObjectUrl = null
+  }
+}
+
+function setFeedbackTtsMuted(muted: boolean) {
+  feedbackTtsMuted.value = muted
+  try {
+    localStorage.setItem(FEEDBACK_TTS_MUTE_KEY, muted ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+  if (muted) stopFeedbackTts()
+}
+
+async function playFeedbackTts(r?: AiShadowingResult | null) {
+  const target = r || result.value
+  if (!target) return
+  const speech = buildPracticeFeedbackSpeech(target).trim()
+  if (!speech) return
+
+  // 互斥：点评播报时停示范音 / 回听
+  stopSpeaking()
+  stopDemoAudio()
+  const playbackEl = playbackAudioEl.value
+  if (playbackEl && !playbackEl.paused) {
+    try {
+      playbackEl.pause()
+    } catch {
+      /* ignore */
+    }
+    playbackPlaying.value = false
+  }
+
+  const token = ++feedbackToken
+  feedbackTtsLoading.value = true
+  try {
+    const blob = await fetchPracticeTts(speech, 'Katerina', 'sentence')
+    if (token !== feedbackToken || !props.open || step.value !== 'result') return
+    if (feedbackObjectUrl) {
+      URL.revokeObjectURL(feedbackObjectUrl)
+      feedbackObjectUrl = null
+    }
+    if (feedbackAudio) {
+      try {
+        feedbackAudio.pause()
+      } catch {
+        /* ignore */
+      }
+      feedbackAudio = null
+    }
+    const url = URL.createObjectURL(blob)
+    feedbackObjectUrl = url
+    const audio = new Audio(url)
+    feedbackAudio = audio
+    audio.onended = () => {
+      if (token === feedbackToken) {
+        feedbackTtsPlaying.value = false
+        feedbackAudio = null
+      }
+    }
+    audio.onerror = () => {
+      if (token === feedbackToken) {
+        feedbackTtsPlaying.value = false
+        feedbackAudio = null
+      }
+    }
+    feedbackTtsPlaying.value = true
+    await audio.play()
+  } catch {
+    if (token === feedbackToken) {
+      feedbackTtsPlaying.value = false
+    }
+  } finally {
+    if (token === feedbackToken) feedbackTtsLoading.value = false
+  }
+}
+
+function toggleFeedbackTts() {
+  if (feedbackTtsLoading.value) return
+  if (feedbackTtsPlaying.value) {
+    stopFeedbackTts()
+    return
+  }
+  void playFeedbackTts()
+}
+
+function scheduleFeedbackTts(r: AiShadowingResult) {
+  clearFeedbackAutoTimer()
+  if (feedbackTtsMuted.value) return
+  feedbackAutoTimer = setTimeout(() => {
+    feedbackAutoTimer = null
+    if (!props.open || step.value !== 'result' || !result.value) return
+    void playFeedbackTts(r)
+  }, 420)
+}
+
 function stopDemoAudio() {
   clearDemoPlayingTimer()
   endDemoSession()
@@ -553,6 +688,7 @@ async function togglePlayback() {
   if (!el) return
   stopSpeaking()
   stopDemoAudio()
+  stopFeedbackTts()
   try {
     if (playbackPlaying.value) {
       el.pause()
@@ -600,6 +736,7 @@ function resetState() {
   oral.revokeLocalAudio()
   stopSpeaking()
   stopDemoAudio()
+  stopFeedbackTts()
   clearPlayback()
   step.value = 'listen'
   transcript.value = ''
@@ -795,6 +932,7 @@ async function playTtsDemo(voice: PracticeTtsVoice) {
 
 async function playDemo() {
   error.value = ''
+  stopFeedbackTts()
 
   // 播放中 → 暂停；已暂停 → 继续
   if (demoPlaying.value) {
@@ -973,6 +1111,7 @@ async function startOralRecording() {
     await maybeUploadLocalPracticeAudio(result.value)
     await resolvePlayback(result.value.audio_url || remoteFromSdk)
     await nextTick()
+    scheduleFeedbackTts(result.value)
   } catch (e: unknown) {
     engineMode.value = 'llm'
     const detail = e instanceof Error ? e.message.trim() : ''
@@ -1110,6 +1249,7 @@ async function submitFeedback() {
     step.value = 'result'
     showTips.value = Boolean(result.value.issues?.length || result.value.tips?.length)
     await nextTick()
+    scheduleFeedbackTts(result.value)
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
     error.value = typeof msg === 'string' ? msg : '点评失败，请稍后重试'
@@ -1216,6 +1356,7 @@ onUnmounted(() => {
   oral.revokeLocalAudio()
   stopSpeaking()
   stopDemoAudio()
+  stopFeedbackTts()
   clearPlayback()
   if (typeof document !== 'undefined') document.body.style.overflow = ''
 })
@@ -1735,6 +1876,76 @@ onUnmounted(() => {
                     {{ result.praise }}
                   </p>
                 </div>
+              </div>
+
+              <!-- 点评播报：Katerina 精简口播 -->
+              <div class="mt-3.5 flex items-center gap-2">
+                <button
+                  type="button"
+                  class="relative inline-flex items-center gap-1.5 h-9 pl-1.5 pr-3 rounded-full text-[12px] font-semibold transition active:scale-[0.97] touch-manipulation disabled:opacity-60"
+                  :class="
+                    feedbackTtsPlaying
+                      ? 'bg-violet-600 text-white shadow-[0_6px_16px_rgba(124,58,237,0.3)]'
+                      : 'bg-violet-500 text-white shadow-[0_6px_14px_rgba(124,58,237,0.22)] hover:bg-violet-400'
+                  "
+                  :disabled="feedbackTtsLoading"
+                  :aria-label="feedbackTtsPlaying ? '停止点评播报' : '听点评'"
+                  @click="toggleFeedbackTts"
+                >
+                  <span
+                    class="relative flex h-6 w-6 items-center justify-center rounded-full bg-white/20"
+                    aria-hidden="true"
+                  >
+                    <svg
+                      v-if="feedbackTtsLoading"
+                      class="animate-spin"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                    >
+                      <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
+                    </svg>
+                    <svg
+                      v-else-if="feedbackTtsPlaying"
+                      width="11"
+                      height="11"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <rect x="6" y="5" width="4" height="14" rx="1" />
+                      <rect x="14" y="5" width="4" height="14" rx="1" />
+                    </svg>
+                    <svg v-else class="ml-0.5" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7L8 5z" />
+                    </svg>
+                  </span>
+                  <span>
+                    {{
+                      feedbackTtsLoading
+                        ? '合成中…'
+                        : feedbackTtsPlaying
+                          ? '播报中'
+                          : '听点评'
+                    }}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="h-9 px-2.5 rounded-full text-[11px] font-medium transition touch-manipulation"
+                  :class="
+                    feedbackTtsMuted
+                      ? 'text-neutral-500 bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-400'
+                      : 'text-violet-700 bg-violet-50 dark:bg-violet-950/40 dark:text-violet-300'
+                  "
+                  :aria-label="feedbackTtsMuted ? '开启自动播报' : '关闭自动播报'"
+                  :title="feedbackTtsMuted ? '已静音自动播报' : '自动播报已开'"
+                  @click="setFeedbackTtsMuted(!feedbackTtsMuted)"
+                >
+                  {{ feedbackTtsMuted ? '已静音' : 'Katerina' }}
+                </button>
               </div>
 
               <div v-if="dimensionItems.length" class="mt-4 grid gap-2" :class="dimensionItems.length === 3 ? 'grid-cols-3' : 'grid-cols-2'">

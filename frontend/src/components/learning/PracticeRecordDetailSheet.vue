@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import { fetchPracticeTts } from '@/api/practiceTts'
 import { getPracticeRecord, type PracticeRecord } from '@/api/practiceRecords'
+import { buildPracticeFeedbackSpeech } from '@/utils/practiceFeedbackSpeech'
 
 const props = defineProps<{
   open: boolean
@@ -25,7 +27,12 @@ const MODE_LABEL: Record<string, string> = {
 const loading = ref(false)
 const error = ref('')
 const detail = ref<PracticeRecord | null>(null)
+const feedbackTtsPlaying = ref(false)
+const feedbackTtsLoading = ref(false)
 let loadToken = 0
+let feedbackToken = 0
+let feedbackAudio: HTMLAudioElement | null = null
+let feedbackObjectUrl: string | null = null
 
 const modeLabel = computed(() => MODE_LABEL[detail.value?.mode || ''] || detail.value?.mode || '')
 
@@ -86,7 +93,90 @@ function formatTime(iso: string | null | undefined) {
   return `${y}-${mm}-${dd} ${hh}:${mi}`
 }
 
+function stopFeedbackTts() {
+  feedbackToken += 1
+  feedbackTtsPlaying.value = false
+  feedbackTtsLoading.value = false
+  if (feedbackAudio) {
+    try {
+      feedbackAudio.pause()
+      feedbackAudio.onended = null
+      feedbackAudio.onerror = null
+      feedbackAudio.removeAttribute('src')
+      feedbackAudio.load()
+    } catch {
+      /* ignore */
+    }
+    feedbackAudio = null
+  }
+  if (feedbackObjectUrl) {
+    URL.revokeObjectURL(feedbackObjectUrl)
+    feedbackObjectUrl = null
+  }
+}
+
+async function playFeedbackTts() {
+  const target = detail.value
+  if (!target) return
+  const speech = buildPracticeFeedbackSpeech(target).trim()
+  if (!speech) return
+
+  // 与录音回听互斥
+  if (props.playing) emit('play', target)
+
+  const token = ++feedbackToken
+  feedbackTtsLoading.value = true
+  try {
+    const blob = await fetchPracticeTts(speech, 'Katerina', 'sentence')
+    if (token !== feedbackToken || !props.open) return
+    if (feedbackObjectUrl) {
+      URL.revokeObjectURL(feedbackObjectUrl)
+      feedbackObjectUrl = null
+    }
+    if (feedbackAudio) {
+      try {
+        feedbackAudio.pause()
+      } catch {
+        /* ignore */
+      }
+      feedbackAudio = null
+    }
+    const url = URL.createObjectURL(blob)
+    feedbackObjectUrl = url
+    const audio = new Audio(url)
+    feedbackAudio = audio
+    audio.onended = () => {
+      if (token === feedbackToken) {
+        feedbackTtsPlaying.value = false
+        feedbackAudio = null
+      }
+    }
+    audio.onerror = () => {
+      if (token === feedbackToken) {
+        feedbackTtsPlaying.value = false
+        feedbackAudio = null
+      }
+    }
+    feedbackTtsPlaying.value = true
+    await audio.play()
+  } catch {
+    if (token === feedbackToken) feedbackTtsPlaying.value = false
+  } finally {
+    if (token === feedbackToken) feedbackTtsLoading.value = false
+  }
+}
+
+function toggleFeedbackTts() {
+  if (feedbackTtsLoading.value) return
+  if (feedbackTtsPlaying.value) {
+    stopFeedbackTts()
+    return
+  }
+  void playFeedbackTts()
+}
+
 async function loadDetail(id: number) {
+  stopFeedbackTts()
   const token = ++loadToken
   loading.value = true
   error.value = ''
@@ -107,6 +197,7 @@ watch(
   () => [props.open, props.recordId] as const,
   ([open, id]) => {
     if (!open || id == null) {
+      stopFeedbackTts()
       detail.value = null
       error.value = ''
       loading.value = false
@@ -121,19 +212,30 @@ watch(
   (open) => {
     if (typeof document === 'undefined') return
     document.body.style.overflow = open ? 'hidden' : ''
+    if (!open) stopFeedbackTts()
+  },
+)
+
+watch(
+  () => props.playing,
+  (playing) => {
+    if (playing) stopFeedbackTts()
   },
 )
 
 onUnmounted(() => {
   loadToken += 1
+  stopFeedbackTts()
   if (typeof document !== 'undefined') document.body.style.overflow = ''
 })
 
 function onPlay() {
+  stopFeedbackTts()
   if (detail.value) emit('play', detail.value)
 }
 
 function onRemove() {
+  stopFeedbackTts()
   if (detail.value) emit('remove', detail.value)
 }
 </script>
@@ -225,6 +327,61 @@ function onRemove() {
                       {{ detail.praise }}
                     </p>
                   </div>
+                </div>
+
+                <div class="mt-3.5">
+                  <button
+                    type="button"
+                    class="relative inline-flex items-center gap-1.5 h-9 pl-1.5 pr-3 rounded-full text-[12px] font-semibold transition active:scale-[0.97] touch-manipulation disabled:opacity-60"
+                    :class="
+                      feedbackTtsPlaying
+                        ? 'bg-violet-600 text-white shadow-[0_6px_16px_rgba(124,58,237,0.3)]'
+                        : 'bg-violet-500 text-white shadow-[0_6px_14px_rgba(124,58,237,0.22)] hover:bg-violet-400'
+                    "
+                    :disabled="feedbackTtsLoading"
+                    :aria-label="feedbackTtsPlaying ? '停止点评播报' : '听点评'"
+                    @click="toggleFeedbackTts"
+                  >
+                    <span
+                      class="relative flex h-6 w-6 items-center justify-center rounded-full bg-white/20"
+                      aria-hidden="true"
+                    >
+                      <svg
+                        v-if="feedbackTtsLoading"
+                        class="animate-spin"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.2"
+                      >
+                        <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
+                      </svg>
+                      <svg
+                        v-else-if="feedbackTtsPlaying"
+                        width="11"
+                        height="11"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <rect x="6" y="5" width="4" height="14" rx="1" />
+                        <rect x="14" y="5" width="4" height="14" rx="1" />
+                      </svg>
+                      <svg v-else class="ml-0.5" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7L8 5z" />
+                      </svg>
+                    </span>
+                    <span>
+                      {{
+                        feedbackTtsLoading
+                          ? '合成中…'
+                          : feedbackTtsPlaying
+                            ? '播报中'
+                            : '听点评'
+                      }}
+                    </span>
+                  </button>
                 </div>
 
                 <div
