@@ -15,7 +15,7 @@ from typing import Any
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
-from ..models import User, UserPracticeRecord
+from ..models import Article, Episode, User, UserPracticeRecord
 from ..qiniu_storage import QiniuConfig, upload_file
 from .oral_eval import is_allowed_oral_audio_url
 
@@ -60,7 +60,14 @@ def mode_from_core_type(core_type: str | None) -> str:
     return "sentence"
 
 
-def record_to_dict(row: UserPracticeRecord, *, include_detail: bool = False) -> dict[str, Any]:
+def record_to_dict(
+    row: UserPracticeRecord,
+    *,
+    include_detail: bool = False,
+    cover_url: str = "",
+    source_title: str = "",
+) -> dict[str, Any]:
+    title = (row.title or "").strip() or (source_title or "").strip()
     out: dict[str, Any] = {
         "id": row.id,
         "mode": row.mode,
@@ -70,7 +77,8 @@ def record_to_dict(row: UserPracticeRecord, *, include_detail: bool = False) -> 
         "subtitle_id": row.subtitle_id,
         "article_id": row.article_id or "",
         "segment_id": row.segment_id,
-        "title": row.title or "",
+        "title": title,
+        "cover_url": (cover_url or "").strip(),
         "ref_text": row.ref_text or "",
         "transcript": row.transcript or "",
         "score": int(row.score or 0),
@@ -102,6 +110,39 @@ def record_to_dict(row: UserPracticeRecord, *, include_detail: bool = False) -> 
             out["result"] = json.loads(row.result_json or "{}")
         except json.JSONDecodeError:
             out["result"] = {}
+    return out
+
+
+def covers_for_records(db: Session, rows: list[UserPracticeRecord]) -> dict[int, tuple[str, str]]:
+    """返回 {record_id: (cover_url, source_title)}。"""
+    video_ids = sorted({(r.video_id or "").strip() for r in rows if (r.video_id or "").strip()})
+    article_ids = sorted({(r.article_id or "").strip() for r in rows if (r.article_id or "").strip()})
+
+    ep_map: dict[str, Episode] = {}
+    if video_ids:
+        for ep in db.query(Episode).filter(Episode.video_id.in_(video_ids)).all():
+            ep_map[ep.video_id] = ep
+
+    art_map: dict[str, Article] = {}
+    if article_ids:
+        for art in db.query(Article).filter(Article.article_id.in_(article_ids)).all():
+            art_map[art.article_id] = art
+
+    out: dict[int, tuple[str, str]] = {}
+    for row in rows:
+        cover = ""
+        title = ""
+        vid = (row.video_id or "").strip()
+        aid = (row.article_id or "").strip()
+        if vid and vid in ep_map:
+            ep = ep_map[vid]
+            cover = (ep.thumbnail_url or ep.cover or "").strip()
+            title = (ep.short_title or ep.video_id or "").strip()
+        elif aid and aid in art_map:
+            art = art_map[aid]
+            cover = (art.cover or "").strip()
+            title = (art.title or art.article_id or "").strip()
+        out[row.id] = (cover, title)
     return out
 
 
@@ -342,11 +383,16 @@ def list_practice_records(
             _ensure_table(db)
             return {"count": 0, "page": page, "page_size": page_size, "results": []}
         raise
+    covers = covers_for_records(db, rows)
+    results = []
+    for r in rows:
+        cover, source_title = covers.get(r.id, ("", ""))
+        results.append(record_to_dict(r, cover_url=cover, source_title=source_title))
     return {
         "count": total,
         "page": page,
         "page_size": page_size,
-        "results": [record_to_dict(r) for r in rows],
+        "results": results,
     }
 
 

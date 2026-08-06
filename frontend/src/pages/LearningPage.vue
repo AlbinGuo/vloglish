@@ -3,6 +3,8 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import LearningHeatmapChart from '@/components/charts/LearningHeatmapChart.vue'
 import LearningStatCard from '@/components/learning/LearningStatCard.vue'
+import PracticeRecordCard from '@/components/learning/PracticeRecordCard.vue'
+import PracticeRecordDetailSheet from '@/components/learning/PracticeRecordDetailSheet.vue'
 import { useIsPhone } from '@/composables/useBreakpoint'
 import {
   getLearningCalendar,
@@ -29,13 +31,22 @@ const savingIds = ref<Set<number>>(new Set())
 const saveError = ref('')
 
 const practiceLoading = ref(false)
+const practiceLoadingMore = ref(false)
 const practiceError = ref('')
 const practiceFilter = ref<'' | PracticeMode>('')
 const practiceRecords = ref<PracticeRecord[]>([])
 const practiceTotal = ref(0)
+const practicePage = ref(1)
+const PRACTICE_PAGE_SIZE = 12
 const deletingIds = ref<Set<number>>(new Set())
 const playingId = ref<number | null>(null)
+const detailOpen = ref(false)
+const detailRecordId = ref<number | null>(null)
 let practiceAudio: HTMLAudioElement | null = null
+
+const practiceHasMore = computed(
+  () => practiceRecords.value.length < practiceTotal.value,
+)
 
 const LOOKUP_DISPLAY_LIMIT = 12
 
@@ -132,27 +143,6 @@ function lookupSourcePath(item: WordLookupRecord) {
   return `/english/episode/${videoId}?${new URLSearchParams(query).toString()}`
 }
 
-const MODE_LABEL: Record<string, string> = {
-  word: '单词',
-  sentence: '句子',
-  passage: '篇章',
-}
-
-function modeLabel(mode: string) {
-  return MODE_LABEL[mode] || mode
-}
-
-function formatPracticeTime(iso: string | null) {
-  if (!iso) return ''
-  const d = new Date(iso.endsWith('Z') ? iso : `${iso}Z`)
-  if (Number.isNaN(d.getTime())) return ''
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mi = String(d.getMinutes()).padStart(2, '0')
-  return `${mm}-${dd} ${hh}:${mi}`
-}
-
 function practiceSourcePath(item: PracticeRecord) {
   const query: Record<string, string> = { from: 'learning' }
   if (item.article_id) {
@@ -165,6 +155,13 @@ function practiceSourcePath(item: PracticeRecord) {
   }
   return ''
 }
+
+const detailSourcePath = computed(() => {
+  const id = detailRecordId.value
+  if (id == null) return ''
+  const item = practiceRecords.value.find((r) => r.id === id)
+  return item ? practiceSourcePath(item) : ''
+})
 
 function stopPracticeAudio() {
   if (practiceAudio) {
@@ -198,25 +195,47 @@ function togglePracticeAudio(item: PracticeRecord) {
   })
 }
 
-async function loadPracticeRecords() {
-  practiceLoading.value = true
+async function loadPracticeRecords(reset = true) {
+  if (reset) {
+    practiceLoading.value = true
+    practicePage.value = 1
+  } else {
+    if (practiceLoadingMore.value || !practiceHasMore.value) return
+    practiceLoadingMore.value = true
+  }
   practiceError.value = ''
+  const page = reset ? 1 : practicePage.value + 1
   try {
     const data = await listPracticeRecords({
       mode: practiceFilter.value || undefined,
-      page: 1,
-      page_size: 20,
+      page,
+      page_size: PRACTICE_PAGE_SIZE,
     })
-    practiceRecords.value = data.results
+    practiceRecords.value = reset ? data.results : [...practiceRecords.value, ...data.results]
     practiceTotal.value = data.count
+    practicePage.value = page
   } catch (e: unknown) {
     const msg = e instanceof Error && e.message.trim() ? e.message.trim() : ''
     practiceError.value = msg ? `练习记录加载失败：${msg}` : '练习记录加载失败'
-    practiceRecords.value = []
-    practiceTotal.value = 0
+    if (reset) {
+      practiceRecords.value = []
+      practiceTotal.value = 0
+      practicePage.value = 1
+    }
   } finally {
     practiceLoading.value = false
+    practiceLoadingMore.value = false
   }
+}
+
+function openPracticeDetail(item: PracticeRecord) {
+  detailRecordId.value = item.id
+  detailOpen.value = true
+}
+
+function closePracticeDetail() {
+  detailOpen.value = false
+  detailRecordId.value = null
 }
 
 async function removePractice(item: PracticeRecord) {
@@ -229,6 +248,7 @@ async function removePractice(item: PracticeRecord) {
     if (playingId.value === item.id) stopPracticeAudio()
     practiceRecords.value = practiceRecords.value.filter((r) => r.id !== item.id)
     practiceTotal.value = Math.max(0, practiceTotal.value - 1)
+    if (detailRecordId.value === item.id) closePracticeDetail()
   } catch {
     practiceError.value = '删除失败，请重试'
   } finally {
@@ -341,16 +361,19 @@ onUnmounted(() => {
         <LearningHeatmapChart :days="calendar" :range-days="90" theme="amber" height="220px" />
       </section>
 
-      <section class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-5">
-        <div class="flex items-start justify-between gap-3 mb-3">
+      <section class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 sm:p-5">
+        <div class="flex flex-col gap-3 mb-3 sm:flex-row sm:items-start sm:justify-between">
           <div class="min-w-0">
             <h2 class="font-medium">练习记录</h2>
             <p class="text-xs text-neutral-400 mt-1">
-              跟读 / 单词打分 / 篇章评测历史，可回听录音
-              <span v-if="practiceTotal"> · 共 {{ practiceTotal }} 条</span>
+              <span class="sm:hidden">可回听录音<span v-if="practiceTotal"> · {{ practiceTotal }} 条</span></span>
+              <span class="hidden sm:inline">
+                跟读 / 单词打分 / 篇章评测历史，可回听录音
+                <span v-if="practiceTotal"> · 共 {{ practiceTotal }} 条</span>
+              </span>
             </p>
           </div>
-          <div class="flex shrink-0 gap-1 text-xs">
+          <div class="flex gap-1 text-xs overflow-x-auto -mx-1 px-1 pb-0.5 scrollbar-none">
             <button
               v-for="opt in [
                 { value: '', label: '全部' },
@@ -360,7 +383,7 @@ onUnmounted(() => {
               ]"
               :key="opt.value || 'all'"
               type="button"
-              class="px-2 py-1 rounded-md transition-colors"
+              class="shrink-0 min-h-8 px-2.5 py-1.5 rounded-lg transition-colors"
               :class="
                 practiceFilter === opt.value
                   ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
@@ -378,68 +401,46 @@ onUnmounted(() => {
         <div v-else-if="!practiceRecords.length" class="text-sm text-neutral-400 text-center py-6">
           暂无练习记录，去跟读一句试试看
         </div>
-        <ul v-else class="space-y-2.5">
-          <li
-            v-for="item in practiceRecords"
-            :key="item.id"
-            class="rounded-xl border border-black/5 dark:border-white/10 bg-neutral-50/80 dark:bg-neutral-950/40 px-3.5 py-3"
-          >
-            <div class="flex items-start gap-3">
-              <div
-                class="shrink-0 w-11 h-11 rounded-full flex items-center justify-center text-sm font-semibold tabular-nums"
-                :class="
-                  item.score >= 80
-                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
-                    : item.score >= 60
-                      ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
-                      : 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200'
-                "
-              >
-                {{ item.score }}
-              </div>
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2 flex-wrap text-[11px] text-neutral-400">
-                  <span>{{ modeLabel(item.mode) }}</span>
-                  <span v-if="item.level">· {{ item.level }}</span>
-                  <span v-if="formatPracticeTime(item.created_at)">· {{ formatPracticeTime(item.created_at) }}</span>
-                  <span v-if="item.title" class="truncate max-w-[10rem]" :title="item.title">· {{ item.title }}</span>
-                </div>
-                <p class="mt-1 text-sm text-neutral-800 dark:text-neutral-100 line-clamp-2 leading-relaxed">
-                  {{ item.ref_text }}
-                </p>
-                <p v-if="item.praise" class="mt-1 text-xs text-neutral-500 dark:text-neutral-400 line-clamp-1">
-                  {{ item.praise }}
-                </p>
-                <div class="mt-2 flex items-center gap-3">
-                  <button
-                    v-if="item.has_audio"
-                    type="button"
-                    class="text-[11px] font-medium text-emerald-700 dark:text-emerald-300 hover:underline"
-                    @click="togglePracticeAudio(item)"
-                  >
-                    {{ playingId === item.id ? '停止' : '回听' }}
-                  </button>
-                  <RouterLink
-                    v-if="practiceSourcePath(item)"
-                    :to="practiceSourcePath(item)"
-                    class="text-[11px] text-neutral-500 dark:text-neutral-400 hover:text-amber-700 dark:hover:text-amber-400 hover:underline"
-                  >
-                    回看
-                  </RouterLink>
-                  <button
-                    type="button"
-                    class="text-[11px] text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 disabled:opacity-50"
-                    :disabled="deletingIds.has(item.id)"
-                    @click="removePractice(item)"
-                  >
-                    {{ deletingIds.has(item.id) ? '删除中…' : '删除' }}
-                  </button>
-                </div>
-              </div>
-            </div>
+        <!-- 手机单列：横条卡片需要足够宽度；平板 2 列 / 桌面 3 列 -->
+        <ul v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
+          <li v-for="item in practiceRecords" :key="item.id">
+            <PracticeRecordCard
+              :item="item"
+              :playing="playingId === item.id"
+              :deleting="deletingIds.has(item.id)"
+              :source-path="practiceSourcePath(item)"
+              @open="openPracticeDetail(item)"
+              @play="togglePracticeAudio(item)"
+              @remove="removePractice(item)"
+            />
           </li>
         </ul>
+        <div v-if="practiceRecords.length" class="mt-4 flex flex-col items-center gap-1.5">
+          <p class="text-[11px] text-neutral-400">
+            已显示 {{ practiceRecords.length }} / {{ practiceTotal }}
+          </p>
+          <button
+            v-if="practiceHasMore"
+            type="button"
+            class="min-h-10 px-4 rounded-xl text-sm font-medium text-amber-800 bg-amber-50 border border-amber-200/80 hover:bg-amber-100 dark:text-amber-200 dark:bg-amber-950/40 dark:border-amber-800/50 dark:hover:bg-amber-950/60 disabled:opacity-50 touch-manipulation"
+            :disabled="practiceLoadingMore"
+            @click="loadPracticeRecords(false)"
+          >
+            {{ practiceLoadingMore ? '加载中…' : '加载更多' }}
+          </button>
+          <p v-else class="text-[11px] text-neutral-400">没有更多了</p>
+        </div>
       </section>
+
+      <PracticeRecordDetailSheet
+        :open="detailOpen"
+        :record-id="detailRecordId"
+        :source-path="detailSourcePath"
+        :playing="detailRecordId != null && playingId === detailRecordId"
+        @close="closePracticeDetail"
+        @play="togglePracticeAudio"
+        @remove="removePractice"
+      />
 
       <section class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-5">
         <div class="flex items-start justify-between gap-3 mb-1">

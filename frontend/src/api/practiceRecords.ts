@@ -12,6 +12,8 @@ export interface PracticeRecord {
   article_id: string
   segment_id: number | null
   title: string
+  /** 视频缩略图 / 文章封面 */
+  cover_url?: string
   ref_text: string
   transcript: string
   score: number

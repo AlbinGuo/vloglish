@@ -271,7 +271,11 @@ def get_practice_record(
     row = practice_records_svc.get_practice_record(db, user, record_id)
     if not row:
         raise HTTPException(status_code=404, detail="练习记录不存在")
-    return practice_records_svc.record_to_dict(row, include_detail=True)
+    covers = practice_records_svc.covers_for_records(db, [row])
+    cover, source_title = covers.get(row.id, ("", ""))
+    return practice_records_svc.record_to_dict(
+        row, include_detail=True, cover_url=cover, source_title=source_title
+    )
 
 
 @router.delete("/practice-records/{record_id}/")
