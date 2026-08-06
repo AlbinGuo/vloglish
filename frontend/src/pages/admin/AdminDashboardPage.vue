@@ -6,9 +6,11 @@ import UserGeoBarChart from '@/components/charts/UserGeoBarChart.vue'
 import {
   adminFetchDashboard,
   adminFetchOnlineUsers,
+  adminFetchPageDwellStats,
   adminFetchSiteSettings,
   adminFetchUserGeoStats,
   adminPatchSiteSettings,
+  type AdminPageDwellStats,
   type AdminUserGeoStats,
   type DashboardStats,
 } from '@/api/admin'
@@ -16,6 +18,7 @@ import {
 const loading = ref(true)
 const stats = ref<DashboardStats | null>(null)
 const geoStats = ref<AdminUserGeoStats | null>(null)
+const pageDwell = ref<AdminPageDwellStats | null>(null)
 const onlineUsers = ref(0)
 const onlineMembers = ref(0)
 const onlineFree = ref(0)
@@ -64,15 +67,31 @@ async function toggleMembershipGate() {
   }
 }
 
+function formatDwell(sec: number) {
+  const s = Math.max(0, Math.floor(sec || 0))
+  if (s < 60) return `${s} 秒`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m} 分钟`
+  const h = Math.floor(m / 60)
+  const rm = m % 60
+  return rm ? `${h} 小时 ${rm} 分` : `${h} 小时`
+}
+
+const pageDwellMax = computed(() =>
+  Math.max(1, ...(pageDwell.value?.pages.map((p) => p.dwell_seconds) ?? [1])),
+)
+
 onMounted(async () => {
   try {
-    const [dashboard, geo, site] = await Promise.all([
+    const [dashboard, geo, site, dwell] = await Promise.all([
       adminFetchDashboard(),
       adminFetchUserGeoStats().catch(() => null),
       adminFetchSiteSettings().catch(() => null),
+      adminFetchPageDwellStats(7, 8).catch(() => null),
     ])
     stats.value = dashboard
     geoStats.value = geo
+    pageDwell.value = dwell
     if (site) membershipGateEnabled.value = site.membership_gate_enabled
     onlineUsers.value = dashboard.online_users_now
     onlineMembers.value = dashboard.online_members_now ?? 0
@@ -102,6 +121,8 @@ const cards = [
   { key: 'learning_active_7d', label: '7 日活跃学习用户' },
   { key: 'learning_completions_total', label: '累计学完期数' },
   { key: 'learning_lookups_total', label: '累计查词次数' },
+  { key: 'ai_calls_today', label: '今日 AI 调用' },
+  { key: 'ai_billed_today', label: '今日 AI 计费' },
 ] as const
 
 const dauTrend = computed(() => stats.value?.dau_trend ?? [])
@@ -302,9 +323,51 @@ function barWidth(rate: number) {
         class="rounded-xl border border-black/5 bg-white p-5 shadow-sm"
       >
         <p class="text-sm text-neutral-500 mb-2">{{ card.label }}</p>
-        <p class="text-3xl font-semibold tabular-nums">{{ stats[card.key] }}</p>
+        <p class="text-3xl font-semibold tabular-nums">{{ stats[card.key] ?? 0 }}</p>
       </div>
     </div>
+
+    <p class="text-sm text-neutral-500">
+      AI 用量明细见
+      <RouterLink to="/gnadmin/ai-usage" class="text-amber-700 hover:underline">AI 用量</RouterLink>
+    </p>
+
+    <section class="rounded-xl border border-black/5 bg-white p-5 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div>
+          <h2 class="font-medium">页面停留 Top</h2>
+          <p class="text-xs text-neutral-400 mt-1">
+            近 7 日累计停留（由登录用户心跳估算，约 ±1 分钟精度）
+            <template v-if="pageDwell">
+              · Top 合计 {{ formatDwell(pageDwell.total_dwell_seconds) }}
+            </template>
+          </p>
+        </div>
+        <RouterLink to="/gnadmin/users" class="text-sm text-amber-700 hover:underline">
+          按用户查看
+        </RouterLink>
+      </div>
+      <div v-if="!pageDwell?.pages.length" class="py-6 text-center text-sm text-neutral-400">
+        暂无停留数据（用户登录浏览后开始累计）
+      </div>
+      <ul v-else class="space-y-3">
+        <li v-for="p in pageDwell.pages" :key="p.page_key" class="space-y-1">
+          <div class="flex items-baseline justify-between gap-3 text-sm">
+            <span class="font-medium text-neutral-800">{{ p.label }}</span>
+            <span class="tabular-nums text-neutral-600 shrink-0">
+              {{ formatDwell(p.dwell_seconds) }}
+              <span class="text-neutral-400 text-xs ml-1">{{ p.users }} 人</span>
+            </span>
+          </div>
+          <div class="h-1.5 rounded-full bg-neutral-100 overflow-hidden">
+            <div
+              class="h-full rounded-full bg-sky-500/80"
+              :style="{ width: `${Math.max(4, (p.dwell_seconds / pageDwellMax) * 100)}%` }"
+            />
+          </div>
+        </li>
+      </ul>
+    </section>
 
     <section
       v-if="geoStats?.by_region.length"

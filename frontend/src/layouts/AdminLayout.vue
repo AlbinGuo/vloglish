@@ -33,6 +33,7 @@ const nav = [
   { to: '/gnadmin/users', label: '用户' },
   { to: '/gnadmin/geo', label: '地区分布' },
   { to: '/gnadmin/learning', label: '学习统计' },
+  { to: '/gnadmin/ai-usage', label: 'AI 用量' },
   { to: '/gnadmin/notifications', label: '通知' },
   { to: '/gnadmin/feedback', label: '用户反馈' },
 ]
@@ -52,6 +53,7 @@ const pageTitle = computed(() => {
   if (route.path.startsWith('/gnadmin/feedback')) return '用户反馈'
   if (route.path.startsWith('/gnadmin/geo')) return '地区分布'
   if (route.path.startsWith('/gnadmin/learning')) return '学习统计'
+  if (route.path.startsWith('/gnadmin/ai-usage')) return 'AI 用量'
   if (route.path.startsWith('/gnadmin/activation-codes')) return '激活码'
   if (route.path.startsWith('/gnadmin/membership-orders')) return '会员订单'
   const item = nav.find((n) => route.path.startsWith(n.to))

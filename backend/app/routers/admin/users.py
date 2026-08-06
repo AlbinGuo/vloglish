@@ -11,12 +11,14 @@ from ...schemas import (
     AdminUserListItemOut,
     AdminUserListOut,
     AdminUserOut,
+    AdminUserPageDwellOut,
     AdminUserSegmentOut,
     AdminUserSegmentsOut,
     AdminUserUpdateIn,
     AdminVisitHourlyStatsOut,
 )
 from ...services.daily_visits import visit_hourly_stats, visit_stats_for_users
+from ...services.page_dwell import top_pages_for_users, user_page_dwell_top
 from ...services.presence import is_user_online
 from ...services.user_geo import user_geo_stats
 from ...services.user_segments import (
@@ -35,7 +37,13 @@ def _fmt_dt(value: datetime | None) -> str | None:
     return value.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _user_item(user: User, stats: dict, *, activation_code: str | None = None) -> AdminUserListItemOut:
+def _user_item(
+    user: User,
+    stats: dict,
+    *,
+    activation_code: str | None = None,
+    top_pages: list | None = None,
+) -> AdminUserListItemOut:
     last_active = stats.get("last_active_at")
     return AdminUserListItemOut(
         id=user.id,
@@ -61,6 +69,7 @@ def _user_item(user: User, stats: dict, *, activation_code: str | None = None) -
         signup_country=user.signup_country,
         signup_region=user.signup_region,
         signup_city=user.signup_city,
+        top_pages=top_pages or [],
     )
 
 
@@ -127,6 +136,7 @@ def list_users(
     user_ids = [row[0].id for row in rows]
     code_map = _activation_codes_by_user(db, user_ids)
     visit_map = visit_stats_for_users(db, user_ids)
+    page_map = top_pages_for_users(db, user_ids, days=30, limit=3)
     results = []
     for row in rows:
         user = row[0]
@@ -143,8 +153,29 @@ def list_users(
                 },
             )
         )
-        results.append(_user_item(user, stats, activation_code=code_map.get(user.id)))
+        results.append(
+            _user_item(
+                user,
+                stats,
+                activation_code=code_map.get(user.id),
+                top_pages=page_map.get(user.id, []),
+            )
+        )
     return AdminUserListOut(count=total, results=results)
+
+
+@router.get("/{user_id}/page-dwell/", response_model=AdminUserPageDwellOut)
+def get_user_page_dwell(
+    user_id: int,
+    days: int = Query(30, ge=1, le=90),
+    limit: int = Query(5, ge=1, le=20),
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    return AdminUserPageDwellOut(**user_page_dwell_top(db, user_id, days=days, limit=limit))
 
 
 @router.get("/{user_id}/", response_model=AdminUserOut)

@@ -246,6 +246,23 @@ class UserVisitSession(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 
+class UserPageDwell(Base):
+    """用户按自然日（东八区）× 页面的停留秒数聚合（来自心跳间隔）。"""
+
+    __tablename__ = "user_page_dwells"
+    __table_args__ = (
+        UniqueConstraint("user_id", "visit_date", "page_key", name="uq_user_page_dwell"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    visit_date: Mapped[date] = mapped_column(Date, index=True)
+    page_key: Mapped[str] = mapped_column(String(64), index=True)
+    dwell_seconds: Mapped[int] = mapped_column(Integer, default=0)
+    hit_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"
 
@@ -538,6 +555,23 @@ class UserPracticeRecord(Base):
     result_json: Mapped[str] = mapped_column(Text, default="{}")
     audio_url: Mapped[str] = mapped_column(Text, default="")
     audio_source: Mapped[str] = mapped_column(String(16), default="")  # remote|upload|""
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+class AiUsageEvent(Base):
+    """AI / 外部语音能力调用计量（含缓存命中；供配额与运营看板）。"""
+
+    __tablename__ = "ai_usage_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(32), index=True)
+    provider: Mapped[str] = mapped_column(String(32), default="")
+    billed: Mapped[bool] = mapped_column(Boolean, default=True)
+    cache_hit: Mapped[bool] = mapped_column(Boolean, default=False)
+    counts_quota: Mapped[bool] = mapped_column(Boolean, default=False)
+    usage_date: Mapped[date] = mapped_column(Date, index=True)
+    meta_json: Mapped[str] = mapped_column(Text, default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 

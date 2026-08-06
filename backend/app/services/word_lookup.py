@@ -14,8 +14,10 @@ from .entry_lookup import merged_exam_tags
 logger = logging.getLogger(__name__)
 
 
-def resolve_word_lookup(db: Session, word: str, token_type: int, context: str) -> dict:
-    """返回词条详情 dict（含 exam_tags）。优先读共享 LookupCache，未命中再调 DeepSeek。"""
+def resolve_word_lookup(
+    db: Session, word: str, token_type: int, context: str
+) -> tuple[dict, bool]:
+    """返回 (词条详情 dict, from_cache)。优先读共享 LookupCache，未命中再调 DeepSeek。"""
     word = word.strip()
     context = (context or "").strip()
     if not word:
@@ -32,7 +34,7 @@ def resolve_word_lookup(db: Session, word: str, token_type: int, context: str) -
             logger.debug("cache_entry skipped on cache hit word=%r", word, exc_info=True)
         cached["exam_tags"] = merged_exam_tags(db, cached.get("id", entry_id))
         cached["favorite"] = False
-        return cached
+        return cached, True
 
     result = lookup_with_deepseek(word, token_type, context, entry_id)
     save_lookup_cache(db, cache_key, word, token_type, context, entry_id, result)
@@ -44,4 +46,4 @@ def resolve_word_lookup(db: Session, word: str, token_type: int, context: str) -
     eid = result.get("id", entry_id)
     result["exam_tags"] = merged_exam_tags(db, eid)
     result["favorite"] = False
-    return result
+    return result, False

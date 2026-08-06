@@ -165,6 +165,8 @@ class AdminDashboardOut(BaseModel):
     learning_active_7d: int = 0
     learning_completions_total: int = 0
     learning_lookups_total: int = 0
+    ai_calls_today: int = 0
+    ai_billed_today: int = 0
     online_users_now: int = 0
     online_members_now: int = 0
     online_free_now: int = 0
@@ -179,6 +181,35 @@ class AdminPresenceOnlineOut(BaseModel):
     online_members: int = 0
     online_free: int = 0
     window_sec: int
+
+
+class AdminPageDwellItemOut(BaseModel):
+    page_key: str
+    label: str
+    dwell_seconds: int
+    users: int = 0
+    hits: int = 0
+
+
+class AdminPageDwellStatsOut(BaseModel):
+    days: int
+    limit: int
+    total_dwell_seconds: int
+    pages: list[AdminPageDwellItemOut]
+
+
+class AdminUserPageDwellItemOut(BaseModel):
+    page_key: str
+    label: str
+    dwell_seconds: int
+    hits: int = 0
+
+
+class AdminUserPageDwellOut(BaseModel):
+    user_id: int
+    days: int
+    limit: int
+    pages: list[AdminUserPageDwellItemOut]
 
 
 class AdminActivationCodeOut(BaseModel):
@@ -227,6 +258,7 @@ class AdminUserListItemOut(BaseModel):
     signup_country: str | None = None
     signup_region: str | None = None
     signup_city: str | None = None
+    top_pages: list[AdminUserPageDwellItemOut] = []
 
 
 class AdminVisitHourBucketOut(BaseModel):
@@ -1042,6 +1074,40 @@ class AdminLearningStatsOut(BaseModel):
     total_vocabulary_items: int
     top_episodes: list[dict]
     daily_activity: list[dict]
+
+
+class AdminAiUsageActionOut(BaseModel):
+    action: str
+    label: str
+    total: int
+    billed: int
+
+
+class AdminAiUsageUserOut(BaseModel):
+    user_id: int
+    email: str
+    total: int
+    billed: int
+
+
+class AdminAiUsageDayOut(BaseModel):
+    date: str
+    total: int
+    billed: int
+
+
+class AdminAiUsageStatsOut(BaseModel):
+    days: int
+    today: str
+    today_total: int
+    today_billed: int
+    period_total: int
+    period_billed: int
+    free_quota_used_today: int
+    free_daily_limit: int
+    by_action: list[AdminAiUsageActionOut]
+    top_users: list[AdminAiUsageUserOut]
+    daily: list[AdminAiUsageDayOut]
 
 
 class AdminTecoAuthStatusOut(BaseModel):

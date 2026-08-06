@@ -4,17 +4,23 @@ from sqlalchemy.orm import Session
 
 from ..models import User
 from .daily_visits import record_daily_visit
+from .page_dwell import add_page_dwell, dwell_delta_seconds, normalize_page_key
 
 # 最近 N 秒内有心跳视为在线
 ONLINE_WINDOW_SEC = 90
 
 
-def touch_presence(db: Session, user: User) -> None:
+def touch_presence(db: Session, user: User, *, page_key: str | None = None) -> None:
     if user.is_staff:
         return
     now = datetime.utcnow()
+    delta = dwell_delta_seconds(user.last_seen_at, now)
+    key = normalize_page_key(page_key)
+
     user.last_seen_at = now
     record_daily_visit(db, user, now_utc=now)
+    if key and delta > 0:
+        add_page_dwell(db, user.id, key, delta, now_utc=now)
     db.commit()
 
 

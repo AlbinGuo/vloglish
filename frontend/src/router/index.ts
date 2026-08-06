@@ -72,6 +72,11 @@ const router = createRouter({
           component: () => import('@/pages/admin/AdminLearningPage.vue'),
         },
         {
+          path: 'ai-usage',
+          name: 'AdminAiUsage',
+          component: () => import('@/pages/admin/AdminAiUsagePage.vue'),
+        },
+        {
           path: 'episodes',
           name: 'AdminEpisodes',
           component: () => import('@/pages/admin/AdminEpisodesPage.vue'),

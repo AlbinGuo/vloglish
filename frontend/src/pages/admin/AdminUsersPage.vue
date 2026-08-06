@@ -156,6 +156,16 @@ function formatWatchTime(sec: number) {
   return `${m} 分钟`
 }
 
+function formatDwellShort(sec: number) {
+  const s = Math.max(0, Math.floor(sec || 0))
+  if (s < 60) return `${s}s`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m`
+  const h = Math.floor(m / 60)
+  const rm = m % 60
+  return rm ? `${h}h${rm}m` : `${h}h`
+}
+
 function formatSignupLocation(user: UserRow) {
   if (!user.signup_region && !user.signup_country) return '未知'
   const parts: string[] = []
@@ -298,6 +308,9 @@ onUnmounted(() => {
             <th class="text-right px-4 py-3 font-medium whitespace-nowrap">7 日学习</th>
             <th class="text-right px-4 py-3 font-medium whitespace-nowrap">学完</th>
             <th class="text-right px-4 py-3 font-medium whitespace-nowrap">查词</th>
+            <th class="text-left px-4 py-3 font-medium whitespace-nowrap" title="近 30 日停留最长的前 3 个页面">
+              常停留
+            </th>
             <th class="text-left px-4 py-3 font-medium whitespace-nowrap">注册时间</th>
             <th class="text-left px-4 py-3 font-medium whitespace-nowrap">激活时间</th>
             <th class="text-right px-4 py-3 font-medium">操作</th>
@@ -371,6 +384,21 @@ onUnmounted(() => {
             </td>
             <td class="px-4 py-3 text-right tabular-nums">{{ user.completed_episodes }}</td>
             <td class="px-4 py-3 text-right tabular-nums">{{ user.lookup_count }}</td>
+            <td class="px-4 py-3 text-xs text-neutral-600 min-w-[8rem]">
+              <template v-if="user.top_pages?.length">
+                <div
+                  v-for="p in user.top_pages"
+                  :key="p.page_key"
+                  class="flex justify-between gap-2 whitespace-nowrap"
+                >
+                  <span class="truncate">{{ p.label }}</span>
+                  <span class="tabular-nums text-neutral-400 shrink-0">{{
+                    formatDwellShort(p.dwell_seconds)
+                  }}</span>
+                </div>
+              </template>
+              <span v-else class="text-neutral-400">—</span>
+            </td>
             <td class="px-4 py-3 whitespace-nowrap">{{ user.created_at }}</td>
             <td class="px-4 py-3 whitespace-nowrap">{{ user.member_activated_at || '—' }}</td>
             <td class="px-4 py-3 text-right space-x-2 whitespace-nowrap">
@@ -394,7 +422,7 @@ onUnmounted(() => {
             </td>
           </tr>
           <tr v-if="!rows.length">
-            <td colspan="14" class="px-4 py-8 text-center text-neutral-500">暂无数据</td>
+            <td colspan="15" class="px-4 py-8 text-center text-neutral-500">暂无数据</td>
           </tr>
         </tbody>
       </table>

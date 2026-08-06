@@ -1,10 +1,11 @@
 import os
 from datetime import datetime, timedelta
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from ..models import ActivationCode, Episode, User, UserEpisodeProgress, UserWordLookup
+from ..models import ActivationCode, AiUsageEvent, Episode, User, UserEpisodeProgress, UserWordLookup
+from .daily_visits import visit_date_now
 from .ops_metrics import ops_health_block
 from .presence import online_presence_breakdown
 
@@ -67,7 +68,27 @@ def dashboard_stats(db: Session) -> dict:
         .filter(UserEpisodeProgress.is_completed.is_(True))
         .count(),
         "learning_lookups_total": db.query(UserWordLookup).count(),
+        "ai_calls_today": 0,
+        "ai_billed_today": 0,
     }
+    try:
+        today = visit_date_now()
+        stats["ai_calls_today"] = int(
+            db.query(func.count(AiUsageEvent.id)).filter(AiUsageEvent.usage_date == today).scalar()
+            or 0
+        )
+        stats["ai_billed_today"] = int(
+            db.query(func.count(AiUsageEvent.id))
+            .filter(
+                AiUsageEvent.usage_date == today,
+                AiUsageEvent.billed.is_(True),
+                AiUsageEvent.cache_hit.is_(False),
+            )
+            .scalar()
+            or 0
+        )
+    except Exception:
+        pass
     presence = online_presence_breakdown(db)
     stats["online_users_now"] = presence["online_users"]
     stats["online_members_now"] = presence["online_members"]

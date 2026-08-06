@@ -247,7 +247,9 @@ def _build_cards(db: Session, episode: Episode, tokens: list[dict]) -> list[dict
     cards: list[dict] = []
     for token in tokens:
         try:
-            entry = resolve_word_lookup(db, token["word"], token["type"], token["context"])
+            entry, _from_cache = resolve_word_lookup(
+                db, token["word"], token["type"], token["context"]
+            )
         except Exception:
             logger.exception(
                 "word card lookup failed episode=%s word=%r",

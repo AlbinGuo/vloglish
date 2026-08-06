@@ -48,7 +48,7 @@ def lookup(
         raise HTTPException(status_code=400, detail="word is required")
 
     try:
-        result = resolve_word_lookup(db, word, type, context)
+        result, from_cache = resolve_word_lookup(db, word, type, context)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except RuntimeError as e:
@@ -59,6 +59,20 @@ def lookup(
         raise HTTPException(status_code=500, detail=f"查词失败: {e}") from e
 
     entry_id = int(result.get("id") or 0)
+
+    if user and not from_cache:
+        from ..services.ai_quota import record_usage
+
+        record_usage(
+            db,
+            user,
+            action="lookup_deepseek",
+            provider="deepseek",
+            billed=True,
+            cache_hit=False,
+            counts_quota=False,
+            meta={"word": word[:64]},
+        )
 
     if user:
         ep_id = episode_id

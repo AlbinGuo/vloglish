@@ -80,6 +80,17 @@ class ReadingQaIn(BaseModel):
     question: str = ""
 
 
+@router.get("/quota/")
+def ai_quota(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """今日 AI 免费额度剩余（不消耗）。"""
+    from ..services.ai_quota import get_quota_status
+
+    return get_quota_status(db, user)
+
+
 @router.post("/explain-subtitle/")
 def explain_subtitle(
     body: ExplainIn,
@@ -163,9 +174,10 @@ def oral_eval_status(_user: User | None = Depends(get_current_user_optional)):
 def oral_eval_warrant(
     request: Request,
     user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """服务端代理申请 warrant_id，密钥不下发前端。"""
-    return coach.oral_eval_warrant_for_user(user, client_ip=get_client_ip(request))
+    return coach.oral_eval_warrant_for_user(db, user, client_ip=get_client_ip(request))
 
 
 @router.get("/oral-eval/audio/")
@@ -319,13 +331,26 @@ async def upload_practice_audio(
 @router.post("/practice-tts/")
 def practice_tts(
     body: PracticeTtsIn,
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """跟读/单词打分示范音（Ryan / Katerina）。不计入 AI 日额度；本地磁盘缓存。"""
+    from ..services.ai_quota import record_usage
+
     audio, cache_hit = practice_tts_svc.synthesize_practice_tts(
         text=body.text,
         voice=body.voice,
         mode=body.mode,
+    )
+    record_usage(
+        db,
+        user,
+        action="practice_tts",
+        provider="dashscope",
+        billed=not cache_hit,
+        cache_hit=cache_hit,
+        counts_quota=False,
+        meta={"voice": body.voice, "mode": body.mode},
     )
     return Response(
         content=audio,

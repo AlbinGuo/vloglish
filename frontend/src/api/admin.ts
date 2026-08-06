@@ -126,6 +126,8 @@ export interface DashboardStats {
   learning_active_7d: number
   learning_completions_total: number
   learning_lookups_total: number
+  ai_calls_today?: number
+  ai_billed_today?: number
   online_users_now: number
   online_members_now?: number
   online_free_now?: number
@@ -133,6 +135,20 @@ export interface DashboardStats {
   dau_trend?: DashboardDauPoint[]
   funnel_register_learn?: DashboardFunnelRegisterLearn | null
   funnel_member?: DashboardFunnelMember | null
+}
+
+export interface AdminAiUsageStats {
+  days: number
+  today: string
+  today_total: number
+  today_billed: number
+  period_total: number
+  period_billed: number
+  free_quota_used_today: number
+  free_daily_limit: number
+  by_action: { action: string; label: string; total: number; billed: number }[]
+  top_users: { user_id: number; email: string; total: number; billed: number }[]
+  daily: { date: string; total: number; billed: number }[]
 }
 
 export interface AdminPresenceOnline {
@@ -190,6 +206,21 @@ export interface UserRow {
   signup_country: string | null
   signup_region: string | null
   signup_city: string | null
+  /** 近 30 日停留最长的前几个页面 */
+  top_pages?: { page_key: string; label: string; dwell_seconds: number; hits?: number }[]
+}
+
+export interface AdminPageDwellStats {
+  days: number
+  limit: number
+  total_dwell_seconds: number
+  pages: {
+    page_key: string
+    label: string
+    dwell_seconds: number
+    users: number
+    hits: number
+  }[]
 }
 
 export interface AdminUserGeoStats {
@@ -255,8 +286,22 @@ export async function adminFetchOnlineUsers() {
   return data
 }
 
+export async function adminFetchPageDwellStats(days = 7, limit = 10) {
+  const { data } = await adminApi.get<AdminPageDwellStats>('/api/admin/presence/page-dwell/', {
+    params: { days, limit },
+  })
+  return data
+}
+
 export async function adminFetchLearningStats() {
   const { data } = await adminApi.get<AdminLearningStats>('/api/admin/learning/stats/')
+  return data
+}
+
+export async function adminFetchAiUsageStats(days = 7) {
+  const { data } = await adminApi.get<AdminAiUsageStats>('/api/admin/ai-usage/stats/', {
+    params: { days },
+  })
   return data
 }
 

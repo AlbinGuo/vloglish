@@ -9,6 +9,12 @@ export interface AiQuota {
   remaining: number | null
 }
 
+/** 查询今日 AI 免费额度（不消耗） */
+export async function fetchAiQuota() {
+  const { data } = await api.get<AiQuota>('/api/ai/quota/')
+  return data
+}
+
 export interface AiExplainResult {
   video_id: string
   subtitle_id: number

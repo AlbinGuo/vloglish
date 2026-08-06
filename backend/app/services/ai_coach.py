@@ -106,7 +106,7 @@ def explain_subtitle(
                 "from_cache": True,
             }
 
-    quota = check_and_consume(db, user, action="ai")
+    quota = check_and_consume(db, user, action="explain")
     try:
         result = explain_subtitle_sentence(
             english=sub.english or "",
@@ -190,7 +190,7 @@ def explain_subtitle_stream(
             return
 
     try:
-        quota = check_and_consume(db, user, action="ai")
+        quota = check_and_consume(db, user, action="explain")
     except HTTPException as exc:
         detail = exc.detail if isinstance(exc.detail, str) else "今日 AI 次数已用完"
         yield {"type": "error", "detail": detail}
@@ -283,7 +283,7 @@ def cloze_for_subtitle(
                 "from_cache": True,
             }
 
-    quota = check_and_consume(db, user, action="ai")
+    quota = check_and_consume(db, user, action="cloze")
     try:
         cloze = generate_cloze(english)
     except RuntimeError as exc:
@@ -333,7 +333,7 @@ def shadowing_for_subtitle(
 ) -> dict:
     _, sub = _load_subtitle_for_user(db, user, video_id=video_id, subtitle_id=subtitle_id)
 
-    quota = check_and_consume(db, user, action="ai")
+    quota = check_and_consume(db, user, action="shadowing_llm")
     try:
         feedback = shadowing_feedback(target=sub.english or "", said=transcript or "")
     except RuntimeError as exc:
@@ -382,13 +382,24 @@ def oral_eval_status() -> dict:
     }
 
 
-def oral_eval_warrant_for_user(user: User, *, client_ip: str | None) -> dict:
+def oral_eval_warrant_for_user(db: Session, user: User, *, client_ip: str | None) -> dict:
     if not oral_eval_configured():
         raise HTTPException(status_code=503, detail="口语评测未启用")
     try:
-        return request_warrant(user_id=f"u{user.id}", user_client_ip=client_ip or "127.0.0.1")
+        result = request_warrant(user_id=f"u{user.id}", user_client_ip=client_ip or "127.0.0.1")
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    from .ai_quota import record_usage
+
+    record_usage(
+        db,
+        user,
+        action="oral_warrant",
+        provider="oral_eval",
+        billed=True,
+        counts_quota=False,
+    )
+    return result
 
 
 def shadowing_from_oral_result(
@@ -402,7 +413,7 @@ def shadowing_from_oral_result(
 ) -> dict:
     """口语评测成功后：消耗 AI 额度并返回统一点评结构（规则生成建议）。"""
     _, sub = _load_subtitle_for_user(db, user, video_id=video_id, subtitle_id=subtitle_id)
-    quota = check_and_consume(db, user, action="ai")
+    quota = check_and_consume(db, user, action="oral_feedback")
     feedback = build_feedback_from_oral_result(
         oral_payload or {},
         target=sub.english or "",
@@ -464,7 +475,7 @@ def oral_eval_feedback(
     if ct not in (CORE_WORD, CORE_SENT, CORE_PASSAGE):
         ct = CORE_SENT
     mode = mode_from_core_type(ct)
-    quota = check_and_consume(db, user, action="ai")
+    quota = check_and_consume(db, user, action="oral_feedback")
     feedback = build_feedback_from_oral_result(oral_payload or {}, target=text, core_type=ct)
     src = (source_type or "other").strip() or "other"
     if article_id:
@@ -529,7 +540,7 @@ def shadowing_for_text(
     practice_mode = (mode or "sentence").strip()
     if practice_mode not in ("word", "sentence", "passage"):
         practice_mode = "sentence"
-    quota = check_and_consume(db, user, action="ai")
+    quota = check_and_consume(db, user, action="shadowing_text")
     try:
         feedback = shadowing_feedback(target=text, said=transcript or "")
     except RuntimeError as exc:
@@ -698,7 +709,7 @@ def article_qa(
         english = "\n".join(s.english or "" for s in segs)
         chinese = "\n".join(s.chinese or "" for s in segs)
 
-    quota = check_and_consume(db, user, action="ai")
+    quota = check_and_consume(db, user, action="reading_qa")
     try:
         result = reading_qa(
             english=english,
@@ -827,7 +838,7 @@ def build_vocab_review(db: Session, user: User, *, force: bool = False) -> dict:
                 "message": "已复用今日复习卡（未消耗 AI 额度）",
             }
 
-    quota = check_and_consume(db, user, action="ai")
+    quota = check_and_consume(db, user, action="vocab_review")
     try:
         result = vocab_review_cards(words)
     except RuntimeError as exc:

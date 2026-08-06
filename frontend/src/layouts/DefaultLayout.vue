@@ -7,7 +7,7 @@ import {
   getPendingPopups,
   type EpisodePublishedPopup as EpisodePublishedPopupItem,
 } from '@/api/notifications'
-import { sendPresenceHeartbeat } from '@/api/presence'
+import { normalizePresencePageKey, sendPresenceHeartbeat } from '@/api/presence'
 import BrandLogo from '@/components/BrandLogo.vue'
 import ContinueLearningDropdown from '@/components/ContinueLearningDropdown.vue'
 import EpisodePublishedPopup from '@/components/EpisodePublishedPopup.vue'
@@ -83,14 +83,25 @@ const { headerVisible: catalogHeaderVisible, catalogHeaderAutoHide } = useCatalo
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let popupPollTimer: ReturnType<typeof setInterval> | null = null
+let currentPageKey = normalizePresencePageKey(route.name)
 
-async function sendHeartbeat() {
+async function sendHeartbeat(pageKey?: string | null) {
   if (!auth.isLoggedIn) return
+  // 后台标签不计页面停留，仍可跳过本次（回到前台后会补一次）
+  if (typeof document !== 'undefined' && document.hidden && pageKey === undefined) {
+    return
+  }
+  const key = pageKey === undefined ? currentPageKey : pageKey
   try {
-    await sendPresenceHeartbeat()
+    await sendPresenceHeartbeat(key)
   } catch {
     // 静默失败，下次轮询再试
   }
+}
+
+function onVisibilityChange() {
+  if (typeof document === 'undefined' || document.hidden) return
+  if (auth.isLoggedIn) void sendHeartbeat()
 }
 
 async function refreshUnreadCount() {
@@ -195,6 +206,9 @@ async function handleLogout() {
 }
 
 onMounted(() => {
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', onVisibilityChange)
+  }
   if (auth.ready && auth.isLoggedIn) {
     sendHeartbeat()
     refreshUnreadCount()
@@ -212,12 +226,29 @@ onMounted(() => {
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
   stopPopupPolling()
+  if (typeof document !== 'undefined') {
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+  }
 })
+
+watch(
+  () => route.name,
+  (name, prevName) => {
+    const nextKey = normalizePresencePageKey(name)
+    const prevKey = normalizePresencePageKey(prevName)
+    if (prevKey && prevKey !== nextKey && auth.isLoggedIn) {
+      void sendHeartbeat(prevKey)
+    }
+    currentPageKey = nextKey
+    if (nextKey && auth.isLoggedIn) void sendHeartbeat(nextKey)
+  },
+)
 
 watch(
   () => [auth.ready, auth.isLoggedIn] as const,
   ([ready, loggedIn]) => {
     if (ready && loggedIn) {
+      currentPageKey = normalizePresencePageKey(route.name)
       sendHeartbeat()
       refreshUnreadCount()
       void vocabulary.load()

@@ -10,11 +10,12 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import inspect, text
 
 from .database import DATABASE_URL, Base, SessionLocal, engine, is_postgresql
-from .models import ActivationCode, UserPracticeRecord
+from .models import ActivationCode, AiUsageEvent, UserPageDwell, UserPracticeRecord
 from .schemas import AuthTokensOut
 from .routers import ai_coach, auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, site_config
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
+from .routers.admin import ai_usage as admin_ai_usage
 from .routers.admin import auth as admin_auth
 from .routers.admin import authors as admin_authors
 from .routers.admin import articles as admin_articles
@@ -73,6 +74,7 @@ app.include_router(admin_series.router)
 app.include_router(admin_notifications.router)
 app.include_router(admin_feedback.router)
 app.include_router(admin_learning.router)
+app.include_router(admin_ai_usage.router)
 app.include_router(admin_presence.router)
 app.add_api_route(
     "/api/token/refresh/",
@@ -136,6 +138,16 @@ def _migrate_schema():
     if "user_practice_records" not in insp.get_table_names():
         UserPracticeRecord.__table__.create(bind=engine, checkfirst=True)
         print("[vloglish] created table user_practice_records")
+        insp = inspect(engine)
+
+    if "ai_usage_events" not in insp.get_table_names():
+        AiUsageEvent.__table__.create(bind=engine, checkfirst=True)
+        print("[vloglish] created table ai_usage_events")
+        insp = inspect(engine)
+
+    if "user_page_dwells" not in insp.get_table_names():
+        UserPageDwell.__table__.create(bind=engine, checkfirst=True)
+        print("[vloglish] created table user_page_dwells")
         insp = inspect(engine)
 
     # 早期版本 article_id 为 INTEGER，需改为文章对外 ID（VARCHAR）
