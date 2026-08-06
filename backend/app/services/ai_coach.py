@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from collections.abc import Iterator
 from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from ..demo_access import can_access_episode
 from ..dict.ai_learning import (
@@ -360,7 +363,11 @@ def shadowing_for_subtitle(
         payload["practice_record_id"] = record.id
         payload["practice_audio_url"] = record.audio_url or ""
     except Exception:
-        pass
+        logger.exception("保存练习记录失败 (shadowing_for_subtitle user=%s)", user.id)
+        try:
+            db.rollback()
+        except Exception:
+            pass
     return payload
 
 
@@ -427,7 +434,11 @@ def shadowing_from_oral_result(
         if record.audio_url:
             payload["audio_url"] = record.audio_url
     except Exception:
-        pass
+        logger.exception("保存练习记录失败 (shadowing_from_oral_result user=%s)", user.id)
+        try:
+            db.rollback()
+        except Exception:
+            pass
     return payload
 
 
@@ -489,7 +500,11 @@ def oral_eval_feedback(
         if record.audio_url:
             payload["audio_url"] = record.audio_url
     except Exception:
-        pass
+        logger.exception("保存练习记录失败 (oral_eval_feedback user=%s)", user.id)
+        try:
+            db.rollback()
+        except Exception:
+            pass
     return payload
 
 
@@ -553,7 +568,11 @@ def shadowing_for_text(
         payload["practice_record_id"] = record.id
         payload["practice_audio_url"] = record.audio_url or ""
     except Exception:
-        pass
+        logger.exception("保存练习记录失败 (shadowing_for_text user=%s)", user.id)
+        try:
+            db.rollback()
+        except Exception:
+            pass
     return payload
 
 

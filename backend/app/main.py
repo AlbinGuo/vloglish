@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import inspect, text
 
 from .database import DATABASE_URL, Base, SessionLocal, engine, is_postgresql
-from .models import ActivationCode
+from .models import ActivationCode, UserPracticeRecord
 from .schemas import AuthTokensOut
 from .routers import ai_coach, auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, site_config
 from .routers.admin import learning as admin_learning
@@ -131,6 +131,44 @@ def _migrate_schema():
     insp = inspect(engine)
     if "users" not in insp.get_table_names():
         return
+
+    # 练习记录表：create_all 偶发未建时补建（旧进程未重启也会在下次启动补齐）
+    if "user_practice_records" not in insp.get_table_names():
+        UserPracticeRecord.__table__.create(bind=engine, checkfirst=True)
+        print("[vloglish] created table user_practice_records")
+        insp = inspect(engine)
+
+    # 早期版本 article_id 为 INTEGER，需改为文章对外 ID（VARCHAR）
+    if "user_practice_records" in insp.get_table_names():
+        upr_cols = {c["name"]: c for c in insp.get_columns("user_practice_records")}
+        article_col = upr_cols.get("article_id")
+        if article_col is not None:
+            col_type = str(article_col.get("type") or "").lower()
+            if "int" in col_type and "varchar" not in col_type and "char" not in col_type:
+                with engine.begin() as conn:
+                    if is_postgresql():
+                        conn.execute(
+                            text(
+                                "ALTER TABLE user_practice_records "
+                                "ALTER COLUMN article_id TYPE VARCHAR(32) "
+                                "USING CASE WHEN article_id IS NULL THEN '' ELSE article_id::text END"
+                            )
+                        )
+                        conn.execute(
+                            text(
+                                "ALTER TABLE user_practice_records "
+                                "ALTER COLUMN article_id SET DEFAULT ''"
+                            )
+                        )
+                    else:
+                        conn.execute(
+                            text(
+                                "ALTER TABLE user_practice_records "
+                                "ALTER COLUMN article_id TYPE VARCHAR(32)"
+                            )
+                        )
+                print("[vloglish] migrated user_practice_records.article_id → VARCHAR(32)")
+                insp = inspect(engine)
 
     bool_default = "false" if is_postgresql() else "0"
     datetime_type = "TIMESTAMP" if is_postgresql() else "DATETIME"

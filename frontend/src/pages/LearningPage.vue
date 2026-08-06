@@ -209,8 +209,9 @@ async function loadPracticeRecords() {
     })
     practiceRecords.value = data.results
     practiceTotal.value = data.count
-  } catch {
-    practiceError.value = '练习记录加载失败'
+  } catch (e: unknown) {
+    const msg = e instanceof Error && e.message.trim() ? e.message.trim() : ''
+    practiceError.value = msg ? `练习记录加载失败：${msg}` : '练习记录加载失败'
     practiceRecords.value = []
     practiceTotal.value = 0
   } finally {

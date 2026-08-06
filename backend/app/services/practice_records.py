@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import tempfile
 import urllib.error
@@ -11,15 +12,27 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from ..models import User, UserPracticeRecord
 from ..qiniu_storage import QiniuConfig, upload_file
 from .oral_eval import is_allowed_oral_audio_url
 
+logger = logging.getLogger(__name__)
+
 MAX_RECORDS_PER_USER = int(os.getenv("PRACTICE_RECORD_MAX", "100") or "100")
 MAX_AUDIO_RECORDS_PER_USER = int(os.getenv("PRACTICE_AUDIO_MAX", "50") or "50")
 MAX_AUDIO_BYTES = int(os.getenv("PRACTICE_AUDIO_MAX_BYTES", str(3 * 1024 * 1024)) or str(3 * 1024 * 1024))
+
+
+def _ensure_table(db: Session) -> None:
+    """表不存在时补建（兼容未重启 / create_all 未跑到的环境）。"""
+    try:
+        bind = db.get_bind()
+        UserPracticeRecord.__table__.create(bind=bind, checkfirst=True)
+    except Exception:
+        logger.exception("补建 user_practice_records 失败")
 
 
 def _json_dumps(value: Any) -> str:
@@ -224,55 +237,71 @@ def create_practice_record(
     remote_audio_url: str = "",
 ) -> UserPracticeRecord:
     text = (ref_text or feedback.get("english") or feedback.get("ref_text") or feedback.get("target") or "").strip()
-    row = UserPracticeRecord(
-        user_id=user.id,
-        mode=(mode or "sentence").strip()[:16] or "sentence",
-        engine=(engine or "oral").strip()[:16] or "oral",
-        source_type=(source_type or "other").strip()[:16] or "other",
-        video_id=(video_id or "").strip()[:32],
-        subtitle_id=subtitle_id,
-        article_id=(article_id or "").strip()[:32],
-        segment_id=segment_id,
-        title=(title or "").strip()[:256],
-        ref_text=text[:8000],
-        transcript=str(feedback.get("transcript") or "")[:8000],
-        score=max(0, min(100, _as_int(feedback.get("score")) or 0)),
-        level=str(feedback.get("level") or "")[:32],
-        accuracy=_as_int(feedback.get("accuracy")),
-        fluency=_as_int(feedback.get("fluency")),
-        rhythm=_as_int(feedback.get("rhythm")),
-        integrity=_as_int(feedback.get("integrity")),
-        praise=str(feedback.get("praise") or "")[:2000],
-        issues_json=_json_dumps(feedback.get("issues") or []),
-        tips_json=_json_dumps(feedback.get("tips") or []),
-        words_json=_json_dumps(feedback.get("words") or []),
-        result_json=_json_dumps(
-            {
-                k: feedback.get(k)
-                for k in (
-                    "score",
-                    "level",
-                    "praise",
-                    "issues",
-                    "tips",
-                    "words",
-                    "accuracy",
-                    "fluency",
-                    "rhythm",
-                    "integrity",
-                    "engine",
-                    "mode",
-                    "core_type",
-                    "audio_url",
-                )
-            }
-        ),
-        audio_url="",
-        audio_source="",
-        created_at=datetime.utcnow(),
-    )
+
+    def _build_row() -> UserPracticeRecord:
+        return UserPracticeRecord(
+            user_id=user.id,
+            mode=(mode or "sentence").strip()[:16] or "sentence",
+            engine=(engine or "oral").strip()[:16] or "oral",
+            source_type=(source_type or "other").strip()[:16] or "other",
+            video_id=(video_id or "").strip()[:32],
+            subtitle_id=subtitle_id,
+            article_id=(article_id or "").strip()[:32],
+            segment_id=segment_id,
+            title=(title or "").strip()[:256],
+            ref_text=text[:8000],
+            transcript=str(feedback.get("transcript") or "")[:8000],
+            score=max(0, min(100, _as_int(feedback.get("score")) or 0)),
+            level=str(feedback.get("level") or "")[:32],
+            accuracy=_as_int(feedback.get("accuracy")),
+            fluency=_as_int(feedback.get("fluency")),
+            rhythm=_as_int(feedback.get("rhythm")),
+            integrity=_as_int(feedback.get("integrity")),
+            praise=str(feedback.get("praise") or "")[:2000],
+            issues_json=_json_dumps(feedback.get("issues") or []),
+            tips_json=_json_dumps(feedback.get("tips") or []),
+            words_json=_json_dumps(feedback.get("words") or []),
+            result_json=_json_dumps(
+                {
+                    k: feedback.get(k)
+                    for k in (
+                        "score",
+                        "level",
+                        "praise",
+                        "issues",
+                        "tips",
+                        "words",
+                        "accuracy",
+                        "fluency",
+                        "rhythm",
+                        "integrity",
+                        "engine",
+                        "mode",
+                        "core_type",
+                        "audio_url",
+                    )
+                }
+            ),
+            audio_url="",
+            audio_source="",
+            created_at=datetime.utcnow(),
+        )
+
+    row = _build_row()
     db.add(row)
-    db.commit()
+    try:
+        db.commit()
+    except (ProgrammingError, OperationalError) as exc:
+        db.rollback()
+        # 常见原因：表尚未创建
+        if "user_practice_records" in str(exc).lower() or "does not exist" in str(exc).lower():
+            logger.warning("user_practice_records 不存在，尝试补建后重试")
+            _ensure_table(db)
+            row = _build_row()
+            db.add(row)
+            db.commit()
+        else:
+            raise
     db.refresh(row)
 
     remote = (remote_audio_url or str(feedback.get("audio_url") or "")).strip()
@@ -294,18 +323,25 @@ def list_practice_records(
     page: int = 1,
     page_size: int = 20,
 ) -> dict[str, Any]:
-    q = db.query(UserPracticeRecord).filter(UserPracticeRecord.user_id == user.id)
-    if mode and mode.strip() in {"word", "sentence", "passage"}:
-        q = q.filter(UserPracticeRecord.mode == mode.strip())
-    total = q.count()
     page = max(1, page)
     page_size = max(1, min(50, page_size))
-    rows = (
-        q.order_by(UserPracticeRecord.created_at.desc(), UserPracticeRecord.id.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
-        .all()
-    )
+    try:
+        q = db.query(UserPracticeRecord).filter(UserPracticeRecord.user_id == user.id)
+        if mode and mode.strip() in {"word", "sentence", "passage"}:
+            q = q.filter(UserPracticeRecord.mode == mode.strip())
+        total = q.count()
+        rows = (
+            q.order_by(UserPracticeRecord.created_at.desc(), UserPracticeRecord.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+            .all()
+        )
+    except (ProgrammingError, OperationalError) as exc:
+        db.rollback()
+        if "user_practice_records" in str(exc).lower() or "does not exist" in str(exc).lower():
+            _ensure_table(db)
+            return {"count": 0, "page": page, "page_size": page_size, "results": []}
+        raise
     return {
         "count": total,
         "page": page,
