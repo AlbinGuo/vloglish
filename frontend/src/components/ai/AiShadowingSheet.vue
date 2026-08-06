@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onUnmounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { aiShadowingFeedback, type AiShadowingResult } from '@/api/aiCoach'
 import {
   aiOralEvalFeedback,
@@ -10,7 +11,7 @@ import {
 } from '@/api/oralEval'
 import { fetchPracticeTts, type PracticeTtsVoice } from '@/api/practiceTts'
 import { fetchOralRemoteAudio } from '@/api/oralEvalAudio'
-import { uploadPracticeAudio } from '@/api/practiceRecords'
+import { getPracticeRecord, uploadPracticeAudio } from '@/api/practiceRecords'
 import { READING_TTS_KEY } from '@/composables/useReadingTts'
 import { useOralEvalEngine } from '@/composables/useOralEvalEngine'
 import { playWordPronunciation, stopSpeaking } from '@/utils/speakWord'
@@ -63,6 +64,8 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{ close: []; play: [rate: number]; next: [] }>()
+
+const router = useRouter()
 
 type Step = 'listen' | 'record' | 'result'
 type EngineMode = 'oral' | 'llm' | 'unknown'
@@ -651,6 +654,42 @@ async function loadRemotePlayback(remote: string): Promise<boolean> {
   }
 }
 
+/** 与学习记录列表同源：拉取已落库的 audio_url（最可靠） */
+async function loadPlaybackFromPracticeRecord(retries = 2): Promise<boolean> {
+  const id = result.value?.practice_record_id
+  if (!id) return false
+  playbackLoading.value = true
+  playbackError.value = false
+  try {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        const row = await getPracticeRecord(id)
+        const url = normalizePlayableUrl(row.audio_url || '')
+        if (url) {
+          if (url.startsWith('http://') || url.startsWith('https://')) {
+            playbackRemoteUrl.value = url
+          }
+          const ok = await loadRemotePlayback(url)
+          if (ok) return true
+        }
+      } catch {
+        /* 下一轮重试 */
+      }
+      if (i < retries) await new Promise((r) => setTimeout(r, 450))
+    }
+    return false
+  } finally {
+    playbackLoading.value = false
+  }
+}
+
+function goLearningRecords() {
+  stopPlaybackAudio()
+  stopFeedbackTts()
+  emit('close')
+  void router.push('/english/learning')
+}
+
 async function togglePlayback() {
   if (playbackLoading.value) return
 
@@ -661,18 +700,17 @@ async function togglePlayback() {
     return
   }
 
-  // 出错或尚无地址时重新解析远程源
+  // 出错或尚无地址：先对齐学习列表的落库地址，再回退其它源
   if (playbackError.value || !playbackUrl.value) {
     playbackError.value = false
-    let ok = false
-    if (playbackRemoteUrl.value) {
+    let ok = await loadPlaybackFromPracticeRecord(1)
+    if (!ok && playbackRemoteUrl.value) {
       ok = await loadRemotePlayback(playbackRemoteUrl.value)
     }
     if (!ok) {
       const local = oral.localAudioUrl.value
-      if (local) {
-        playbackUrl.value = local
-      } else {
+      if (local) playbackUrl.value = local
+      else {
         playbackError.value = true
         return
       }
@@ -712,18 +750,9 @@ async function togglePlayback() {
   audio.onerror = () => {
     playbackPlaying.value = false
     playbackAudio = null
-    // https 直链失败时再尝试远程/本地兜底一次
     void (async () => {
-      if (playbackRemoteUrl.value && playbackUrl.value !== playbackRemoteUrl.value) {
-        const ok = await loadRemotePlayback(playbackRemoteUrl.value)
-        if (ok) {
-          playbackError.value = false
-          return
-        }
-      }
-      const local = oral.localAudioUrl.value
-      if (local && playbackUrl.value !== local) {
-        playbackUrl.value = local
+      const fromRecord = await loadPlaybackFromPracticeRecord(1)
+      if (fromRecord) {
         playbackError.value = false
         return
       }
@@ -738,7 +767,8 @@ async function togglePlayback() {
   } catch {
     playbackPlaying.value = false
     playbackAudio = null
-    playbackError.value = true
+    const fromRecord = await loadPlaybackFromPracticeRecord(1)
+    if (!fromRecord) playbackError.value = true
   }
 }
 
@@ -750,19 +780,41 @@ async function resolvePlayback(remoteUrl?: string | null) {
     playbackRemoteUrl.value = remote
   }
 
-  // 优先完整远程（七牛 https / 口语 http）；本地分片仅兜底
+  // 1) 学习记录落库地址（与列表「听一听」同源，优先）
+  if (await loadPlaybackFromPracticeRecord(2)) return
+
+  // 2) 接口/SDK 返回的远程地址
   if (playbackRemoteUrl.value) {
     const ok = await loadRemotePlayback(playbackRemoteUrl.value)
     if (ok) return
   }
+
+  // 3) 本地分片（常不可播）：有练习记录时直接提示去学习页
   if (local) {
     playbackUrl.value = local
+    if (result.value?.practice_record_id) playbackError.value = true
     return
   }
   if (remote.startsWith('blob:')) {
     playbackUrl.value = remote
+    if (result.value?.practice_record_id) playbackError.value = true
+    return
+  }
+  if (result.value?.practice_record_id) {
+    playbackError.value = true
   }
 }
+
+const showPlaybackBlock = computed(
+  () =>
+    Boolean(
+      playbackUrl.value ||
+        playbackLoading.value ||
+        playbackError.value ||
+        playbackRemoteUrl.value ||
+        result.value?.practice_record_id,
+    ),
+)
 
 function resetState() {
   clearAutoPlay()
@@ -2021,7 +2073,7 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div v-if="playbackUrl || playbackLoading || playbackError || playbackRemoteUrl" class="space-y-1.5">
+            <div v-if="showPlaybackBlock" class="space-y-1.5">
               <button
                 type="button"
                 class="group relative w-full overflow-hidden rounded-[1.35rem] border text-left transition duration-200 active:scale-[0.985] disabled:opacity-60"
@@ -2032,7 +2084,10 @@ onUnmounted(() => {
                       ? 'border-emerald-300/80 bg-gradient-to-br from-emerald-50 to-teal-50 shadow-[0_10px_28px_rgba(16,185,129,0.16)] dark:border-emerald-700/50 dark:from-emerald-950/40 dark:to-teal-950/30'
                       : 'border-black/[0.06] bg-white hover:border-emerald-200 hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-neutral-900 dark:hover:border-emerald-800/60'
                 "
-                :disabled="playbackLoading || (!playbackUrl && !playbackRemoteUrl && !playbackError)"
+                :disabled="
+                  playbackLoading ||
+                  (!playbackUrl && !playbackRemoteUrl && !playbackError && !result?.practice_record_id)
+                "
                 @click="togglePlayback"
               >
                 <span
@@ -2103,7 +2158,7 @@ onUnmounted(() => {
                     <span class="block text-[15px] font-semibold text-neutral-900 dark:text-neutral-50">
                       {{
                         playbackError
-                          ? '录音暂无法播放'
+                          ? '弹窗内暂无法回听'
                           : playbackLoading
                             ? '正在加载录音…'
                             : playbackPlaying
@@ -2112,7 +2167,7 @@ onUnmounted(() => {
                       }}
                     </span>
                     <span class="mt-0.5 block text-xs text-neutral-500 dark:text-neutral-400 tabular-nums">
-                      <template v-if="playbackError">点此重试加载录音</template>
+                      <template v-if="playbackError">点此重试，或到练习记录播放</template>
                       <template v-else-if="playbackLoading">请稍候</template>
                       <template v-else-if="playbackPlaying">
                         {{ playbackCurrentLabel
@@ -2152,6 +2207,25 @@ onUnmounted(() => {
                   </span>
                 </span>
               </button>
+
+              <div
+                v-if="playbackError"
+                class="rounded-xl border border-rose-200/80 bg-rose-50/90 px-3.5 py-2.5 dark:border-rose-900/40 dark:bg-rose-950/30"
+              >
+                <p class="text-[13px] text-rose-800 dark:text-rose-200 leading-relaxed">
+                  评分已保存。弹窗里暂时播不了这次录音，可到
+                  <span class="font-medium">学习 → 练习记录</span>
+                  用「听一听」回放（那里通常正常）。
+                </p>
+                <button
+                  type="button"
+                  class="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-rose-700 hover:text-rose-900 dark:text-rose-300 dark:hover:text-rose-100"
+                  @click="goLearningRecords"
+                >
+                  去练习记录播放
+                  <span aria-hidden="true">→</span>
+                </button>
+              </div>
             </div>
 
             <div
