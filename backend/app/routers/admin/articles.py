@@ -35,7 +35,10 @@ from ...services.article_admin import (
 )
 from ...services.article_cover import normalize_image_url, upload_article_cover_from_url
 from ...services.article_tts import generate_article_tts
-from ...services.user_notifications import maybe_notify_article_release
+from ...services.user_notifications import (
+    maybe_notify_article_release,
+    maybe_notify_article_submitter_on_status_change,
+)
 
 router = APIRouter(prefix="/api/admin/articles", tags=["admin-articles"])
 
@@ -46,7 +49,13 @@ def _fmt_dt(value: datetime | None) -> str:
     return value.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _article_list_item(article: Article) -> dict:
+def _get_submitter(db: Session, user_id: int | None) -> User | None:
+    if not user_id:
+        return None
+    return db.query(User).filter(User.id == user_id).first()
+
+
+def _article_list_item(article: Article, submitter: User | None = None) -> dict:
     return {
         "id": article.id,
         "article_id": article.article_id,
@@ -59,7 +68,9 @@ def _article_list_item(article: Article) -> dict:
         "status": article.status,
         "published_at": _fmt_dt(article.published_at),
         "created_at": _fmt_dt(article.created_at),
-        "tts_status": article.tts_status or "none",
+        "is_user_submitted": article.submitted_by_user_id is not None,
+        "is_catalog_public": bool(getattr(article, "is_catalog_public", False)),
+        "submitted_by_email": (submitter.email if submitter else ""),
     }
 
 
@@ -70,27 +81,69 @@ def _require_article(db: Session, ref: str) -> Article:
     return article
 
 
+def _admin_article_detail(db: Session, article: Article) -> AdminArticleDetailOut:
+    loaded = (
+        db.query(Article)
+        .options(joinedload(Article.segments))
+        .filter(Article.id == article.id)
+        .first()
+    )
+    segments = loaded.segments if loaded else []
+    data = article_detail(article, segments)
+    data["id"] = article.id
+    data["status"] = article.status
+    data["tts_status"] = article.tts_status or "none"
+    submitter = _get_submitter(db, article.submitted_by_user_id)
+    data["is_user_submitted"] = article.submitted_by_user_id is not None
+    data["is_catalog_public"] = bool(getattr(article, "is_catalog_public", False))
+    data["submitted_by_user_id"] = article.submitted_by_user_id
+    data["submitted_by_email"] = submitter.email if submitter else ""
+    data["submitted_by_nickname"] = (submitter.nickname or "") if submitter else ""
+    data["rejection_reason"] = article.rejection_reason or ""
+    data["submit_body"] = article.submit_body or ""
+    data["remark"] = article.remark or ""
+    return AdminArticleDetailOut(**data)
+
+
 @router.get("/", response_model=AdminArticleListOut)
 def admin_list_articles(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status: str | None = None,
     q: str | None = None,
+    user_submitted: bool | None = Query(
+        None,
+        description="True=仅用户投稿，False=仅官方，空=全部",
+    ),
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
     query = db.query(Article)
     if status:
         query = query.filter(Article.status == status)
+    if user_submitted is True:
+        query = query.filter(Article.submitted_by_user_id.isnot(None))
+    elif user_submitted is False:
+        query = query.filter(Article.submitted_by_user_id.is_(None))
     if q and q.strip():
         term = f"%{q.strip()}%"
         query = query.filter(Article.title.ilike(term))
     query = query.order_by(Article.created_at.desc())
     total = query.count()
     rows = query.offset((page - 1) * page_size).limit(page_size).all()
+    submitter_ids = {a.submitted_by_user_id for a in rows if a.submitted_by_user_id}
+    submitters = {}
+    if submitter_ids:
+        submitters = {
+            u.id: u
+            for u in db.query(User).filter(User.id.in_(submitter_ids)).all()
+        }
     return AdminArticleListOut(
         count=total,
-        results=[_article_list_item(a) for a in rows],
+        results=[
+            _article_list_item(a, submitters.get(a.submitted_by_user_id))
+            for a in rows
+        ],
     )
 
 
@@ -119,11 +172,7 @@ def admin_create_article(
     db.add(article)
     db.commit()
     db.refresh(article)
-    data = article_detail(article, [])
-    data["id"] = article.id
-    data["status"] = article.status
-    data["tts_status"] = article.tts_status or "none"
-    return AdminArticleDetailOut(**data)
+    return _admin_article_detail(db, article)
 
 
 @router.get("/{ref}/", response_model=AdminArticleDetailOut)
@@ -133,18 +182,7 @@ def admin_get_article(
     _admin: User = Depends(get_current_admin),
 ):
     article = _require_article(db, ref)
-    segments = (
-        db.query(Article)
-        .options(joinedload(Article.segments))
-        .filter(Article.id == article.id)
-        .first()
-        .segments
-    )
-    data = article_detail(article, segments)
-    data["id"] = article.id
-    data["status"] = article.status
-    data["tts_status"] = article.tts_status or "none"
-    return AdminArticleDetailOut(**data)
+    return _admin_article_detail(db, article)
 
 
 @router.patch("/{ref}/", response_model=AdminArticleDetailOut)
@@ -155,6 +193,19 @@ def admin_update_article(
     _admin: User = Depends(get_current_admin),
 ):
     article = _require_article(db, ref)
+    old_status = article.status
+    data = body.model_dump(exclude_unset=True)
+
+    next_status = data.get("status", article.status)
+    if next_status == "rejected":
+        reason = data.get("rejection_reason")
+        if reason is None:
+            reason = article.rejection_reason
+        if not (reason and str(reason).strip()):
+            raise HTTPException(status_code=400, detail="驳回时需填写原因")
+
+    catalog_public = data.pop("is_catalog_public", None)
+
     for field in (
         "title",
         "summary",
@@ -165,32 +216,51 @@ def admin_update_article(
         "stars",
         "status",
         "published_at",
+        "rejection_reason",
     ):
-        value = getattr(body, field, None)
-        if value is not None:
-            if field == "status" and value not in VALID_STATUSES:
-                raise HTTPException(status_code=400, detail="无效状态")
-            setattr(article, field, value)
-    if body.vocab_summary is not None:
-        article.vocab_summary = body.vocab_summary or ""
-    if body.status == "published" and not article.published_at:
-        article.published_at = datetime.utcnow()
+        if field not in data:
+            continue
+        value = data[field]
+        if field == "status" and value not in VALID_STATUSES:
+            raise HTTPException(status_code=400, detail="无效状态")
+        if field == "rejection_reason":
+            article.rejection_reason = (value or "").strip()
+            continue
+        setattr(article, field, value)
+
+    if "vocab_summary" in data:
+        article.vocab_summary = data["vocab_summary"] or ""
+
     if article.status == "published":
-        maybe_notify_article_release(db, article)
+        if article.segment_count <= 0:
+            raise HTTPException(status_code=400, detail="请先导入段落再发布")
+        if not article.published_at:
+            article.published_at = datetime.utcnow()
+        article.rejection_reason = ""
+
+    maybe_notify_article_submitter_on_status_change(
+        db,
+        article,
+        old_status=old_status,
+        new_status=article.status,
+        rejection_reason=article.rejection_reason,
+    )
+
+    if catalog_public is not None and article.submitted_by_user_id is not None:
+        want_public = bool(catalog_public)
+        if want_public and article.status != "published":
+            raise HTTPException(status_code=400, detail="请先发布后再设为全站可见")
+        article.is_catalog_public = want_public
+    elif article.submitted_by_user_id is None:
+        article.is_catalog_public = False
+
+    if article.status in ("rejected", "archived", "draft"):
+        article.is_catalog_public = False
+
+    maybe_notify_article_release(db, article)
     db.commit()
     db.refresh(article)
-    segments = (
-        db.query(Article)
-        .options(joinedload(Article.segments))
-        .filter(Article.id == article.id)
-        .first()
-        .segments
-    )
-    data = article_detail(article, segments)
-    data["id"] = article.id
-    data["status"] = article.status
-    data["tts_status"] = article.tts_status or "none"
-    return AdminArticleDetailOut(**data)
+    return _admin_article_detail(db, article)
 
 
 @router.delete("/{ref}/")
@@ -392,9 +462,18 @@ def admin_publish(
     article = _require_article(db, ref)
     if article.segment_count <= 0:
         raise HTTPException(status_code=400, detail="请先导入段落再发布")
+    old_status = article.status
     article.status = "published"
+    article.rejection_reason = ""
     if not article.published_at:
         article.published_at = datetime.utcnow()
+    maybe_notify_article_submitter_on_status_change(
+        db,
+        article,
+        old_status=old_status,
+        new_status=article.status,
+        rejection_reason=article.rejection_reason,
+    )
     maybe_notify_article_release(db, article)
     db.commit()
     return {"success": True, "status": article.status}

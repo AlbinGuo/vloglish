@@ -12,7 +12,7 @@ from sqlalchemy import inspect, text
 from .database import DATABASE_URL, Base, SessionLocal, engine, is_postgresql
 from .models import ActivationCode, AiUsageEvent, UserPageDwell, UserPracticeRecord
 from .schemas import AuthTokensOut
-from .routers import ai_coach, auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, site_config
+from .routers import ai_coach, article_submit, auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, site_config
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import ai_usage as admin_ai_usage
@@ -53,6 +53,7 @@ app.include_router(notifications.router)
 app.include_router(feedback.router)
 app.include_router(learning.router)
 app.include_router(entries.router)
+app.include_router(article_submit.router)
 app.include_router(articles.router)
 app.include_router(presence.router)
 app.include_router(membership.router)
@@ -339,6 +340,25 @@ def _migrate_schema():
                 conn.execute(
                     text(f"ALTER TABLE articles ADD COLUMN release_notified_at {datetime_type}")
                 )
+        if "submitted_by_user_id" not in art_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE articles ADD COLUMN submitted_by_user_id INTEGER"))
+        if "is_catalog_public" not in art_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        f"ALTER TABLE articles ADD COLUMN is_catalog_public BOOLEAN NOT NULL DEFAULT {bool_default}"
+                    )
+                )
+        if "rejection_reason" not in art_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE articles ADD COLUMN rejection_reason TEXT NOT NULL DEFAULT ''"))
+        if "submit_body" not in art_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE articles ADD COLUMN submit_body TEXT NOT NULL DEFAULT ''"))
+        if "remark" not in art_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE articles ADD COLUMN remark TEXT NOT NULL DEFAULT ''"))
     if "article_segments" in insp.get_table_names():
         seg_cols = {c["name"] for c in insp.get_columns("article_segments")}
         if "audio_url" not in seg_cols:

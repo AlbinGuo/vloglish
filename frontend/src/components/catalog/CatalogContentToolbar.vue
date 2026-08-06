@@ -53,6 +53,7 @@ const showSearch = computed(() => browseMode.value === 'all')
 const showFavoriteFilter = computed(() => auth.isMember)
 const showSubmitActions = computed(() => auth.isLoggedIn && props.showSubmitEntry)
 const submitLink = computed(() => (auth.isMember ? '/english/submit' : '/pricing'))
+const submitArticleLink = computed(() => (auth.isMember ? '/english/submit-article' : '/pricing'))
 const mySubmissionsLink = computed(() => (auth.isMember ? '/english/my-submissions' : '/pricing'))
 
 const durationSelectValue = computed({
@@ -216,6 +217,12 @@ onMounted(() => {
           上传视频
         </RouterLink>
         <RouterLink
+          :to="submitArticleLink"
+          class="inline-flex items-center gap-1 rounded-lg border border-amber-500/80 text-amber-700 dark:text-amber-400 text-xs font-medium px-2.5 py-1.5 transition whitespace-nowrap hover:bg-amber-50 dark:hover:bg-amber-950/40"
+        >
+          上传文章
+        </RouterLink>
+        <RouterLink
           :to="mySubmissionsLink"
           class="relative inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 transition whitespace-nowrap"
         >
@@ -267,6 +274,12 @@ onMounted(() => {
           <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
         </svg>
         上传视频
+      </RouterLink>
+      <RouterLink
+        :to="submitArticleLink"
+        class="inline-flex items-center gap-1 rounded-lg border border-amber-500/80 text-amber-700 dark:text-amber-400 text-xs font-medium px-2.5 py-1.5 transition hover:bg-amber-50 dark:hover:bg-amber-950/40"
+      >
+        上传文章
       </RouterLink>
       <RouterLink
         :to="mySubmissionsLink"

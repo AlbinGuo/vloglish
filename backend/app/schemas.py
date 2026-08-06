@@ -640,6 +640,39 @@ class UserCorpusBadgeOut(BaseModel):
     has_new: bool
 
 
+class UserArticleSubmitIn(BaseModel):
+    """用户投稿：文章链接与/或英文正文（至少一项）。"""
+
+    source_url: str = Field(default="", max_length=2000)
+    body: str = Field(default="", max_length=50000)
+    note: str = Field(default="", max_length=500)
+
+
+class UserArticleSubmitOut(BaseModel):
+    article_id: str
+    title: str
+    status: str
+    message: str = "提交成功，文章将在管理员审核通过后入库，预计1-2个小时出审核结果~"
+
+
+class UserArticleSubmissionItemOut(BaseModel):
+    article_id: str
+    title: str
+    source_url: str = ""
+    has_submit_body: bool = False
+    status: str
+    rejection_reason: str = ""
+    created_at: str
+    has_content: bool = False
+    cover: str = ""
+    source: str = ""
+
+
+class UserArticleSubmissionListOut(BaseModel):
+    count: int
+    results: list[UserArticleSubmissionItemOut]
+
+
 class AdminTagOut(BaseModel):
     id: int
     name: str
@@ -1192,7 +1225,7 @@ class AdminTecoSyncDbFromQiniuIn(BaseModel):
     force_update: bool = False
 
 
-ARTICLE_STATUS_PATTERN = "^(draft|published|archived)$"
+ARTICLE_STATUS_PATTERN = "^(draft|published|archived|rejected)$"
 
 
 class ArticleProgressUpdateIn(BaseModel):
@@ -1263,6 +1296,8 @@ class AdminArticleUpdateIn(BaseModel):
     status: str | None = Field(default=None, pattern=ARTICLE_STATUS_PATTERN)
     published_at: datetime | None = None
     vocab_summary: str | None = None
+    is_catalog_public: bool | None = None
+    rejection_reason: str | None = None
 
 
 class AdminArticleListItemOut(BaseModel):
@@ -1277,6 +1312,9 @@ class AdminArticleListItemOut(BaseModel):
     status: str
     published_at: str
     created_at: str
+    is_user_submitted: bool = False
+    is_catalog_public: bool = False
+    submitted_by_email: str = ""
 
 
 class AdminArticleListOut(BaseModel):
@@ -1303,6 +1341,14 @@ class AdminArticleDetailOut(BaseModel):
     vocab_summary_text: str = ""
     segments: list[AdminArticleSegmentIn]
     progress: ArticleProgressOut | None = None
+    is_user_submitted: bool = False
+    is_catalog_public: bool = False
+    submitted_by_user_id: int | None = None
+    submitted_by_email: str = ""
+    submitted_by_nickname: str = ""
+    rejection_reason: str = ""
+    submit_body: str = ""
+    remark: str = ""
 
 
 class AdminArticleUploadCoverIn(BaseModel):

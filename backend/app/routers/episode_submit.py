@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
 from ..deps import get_current_member
-from ..models import Episode, User
+from ..models import Article, Episode, User
 from ..schemas import (
     UserCorpusBadgeOut,
     UserEpisodeSubmitIn,
@@ -68,21 +68,32 @@ def my_corpus_badge(
     user: User = Depends(get_current_member),
     db: Session = Depends(get_db),
 ):
-    count = (
+    ep_count = (
         db.query(Episode)
         .filter(Episode.submitted_by_user_id == user.id)
         .count()
     )
+    art_count = (
+        db.query(Article)
+        .filter(Article.submitted_by_user_id == user.id)
+        .count()
+    )
     seen_at = getattr(user, "my_corpus_seen_at", None)
-    new_q = db.query(Episode.id).filter(
+    new_ep = db.query(Episode.id).filter(
         Episode.submitted_by_user_id == user.id,
         Episode.status == "published",
         Episode.published_at.isnot(None),
     )
+    new_art = db.query(Article.id).filter(
+        Article.submitted_by_user_id == user.id,
+        Article.status == "published",
+        Article.published_at.isnot(None),
+    )
     if seen_at is not None:
-        new_q = new_q.filter(Episode.published_at > seen_at)
-    has_new = new_q.limit(1).first() is not None
-    return UserCorpusBadgeOut(count=count, has_new=has_new)
+        new_ep = new_ep.filter(Episode.published_at > seen_at)
+        new_art = new_art.filter(Article.published_at > seen_at)
+    has_new = new_ep.limit(1).first() is not None or new_art.limit(1).first() is not None
+    return UserCorpusBadgeOut(count=ep_count + art_count, has_new=has_new)
 
 
 @router.post("/seen/")

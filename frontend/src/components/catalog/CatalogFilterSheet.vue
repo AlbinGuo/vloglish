@@ -37,6 +37,7 @@ const durationOptions: { value: CatalogDurationFilter; label: string }[] = [
 const showFavorite = computed(() => auth.isMember)
 const showSubmitActions = computed(() => auth.isLoggedIn && props.showSubmitEntry)
 const submitLink = computed(() => (auth.isMember ? '/english/submit' : '/pricing'))
+const submitArticleLink = computed(() => (auth.isMember ? '/english/submit-article' : '/pricing'))
 const mySubmissionsLink = computed(() => (auth.isMember ? '/english/my-submissions' : '/pricing'))
 
 const segmentIdle =
@@ -185,6 +186,13 @@ async function onReset() {
                   <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
                 </svg>
                 上传视频
+              </RouterLink>
+              <RouterLink
+                :to="submitArticleLink"
+                class="inline-flex items-center gap-1 rounded-lg border border-amber-500/80 text-amber-700 dark:text-amber-400 text-xs font-medium px-3 py-2 transition"
+                @click="onClose"
+              >
+                上传文章
               </RouterLink>
               <RouterLink
                 :to="mySubmissionsLink"

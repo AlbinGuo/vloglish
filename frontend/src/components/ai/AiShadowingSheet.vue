@@ -616,10 +616,21 @@ function normalizePlayableUrl(raw: string): string {
   return url
 }
 
+/** 口语云临时候选地址（后端代理白名单仅 ssapi）；七牛转存不在此列 */
+function isOralCloudAudioUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase()
+    return host === 'ssapi.cn' || host.endsWith('.ssapi.cn')
+  } catch {
+    return false
+  }
+}
+
 /**
  * 解析为可播 URL：
- * - https / 补全协议后的 https：直链（与学习列表一致）
- * - http 口语云：后端代理成 blob（避免混合内容）
+ * - https：直链
+ * - http 口语云（ssapi）：后端代理成 blob（避免混合内容被拦）
+ * - 其它 http（七牛转存等）：与学习记录页一致，直链播
  */
 async function preparePlaybackUrl(remote: string): Promise<string | null> {
   const url = normalizePlayableUrl(remote)
@@ -628,6 +639,10 @@ async function preparePlaybackUrl(remote: string): Promise<string | null> {
   if (url.startsWith('https://')) return url
 
   if (url.startsWith('http://')) {
+    if (!isOralCloudAudioUrl(url)) {
+      // 学习页：new Audio(item.audio_url) 原样播七牛 http，此处对齐
+      return url
+    }
     const blob = await fetchOralRemoteAudio(url)
     revokePlaybackObjectUrl()
     const obj = URL.createObjectURL(blob)
@@ -690,6 +705,68 @@ function goLearningRecords() {
   void router.push('/english/learning')
 }
 
+async function startPlaybackFromUrl(url: string, allowRecordFallback = true): Promise<boolean> {
+  stopSpeaking()
+  stopDemoAudio()
+  stopFeedbackTts()
+  stopPlaybackAudio()
+
+  const audio = new Audio(url)
+  playbackAudio = audio
+  audio.ontimeupdate = () => {
+    if (!audio.duration) return
+    playbackProgress.value = Math.min(100, (audio.currentTime / audio.duration) * 100)
+    playbackCurrentLabel.value = formatPlaybackTime(audio.currentTime)
+  }
+  audio.onloadedmetadata = () => {
+    playbackError.value = false
+    if (Number.isFinite(audio.duration) && audio.duration > 0) {
+      playbackDurationLabel.value = formatPlaybackTime(audio.duration)
+    }
+  }
+  audio.onended = () => {
+    playbackPlaying.value = false
+    playbackProgress.value = 0
+    playbackCurrentLabel.value = '0:00'
+    playbackAudio = null
+  }
+  audio.onerror = () => {
+    playbackPlaying.value = false
+    playbackAudio = null
+    if (!allowRecordFallback) {
+      playbackError.value = true
+      return
+    }
+    void (async () => {
+      const fromRecord = await loadPlaybackFromPracticeRecord(1)
+      if (fromRecord && playbackUrl.value) {
+        playbackError.value = false
+        const ok = await startPlaybackFromUrl(playbackUrl.value, false)
+        if (!ok) playbackError.value = true
+        return
+      }
+      playbackError.value = true
+    })()
+  }
+
+  try {
+    await audio.play()
+    playbackPlaying.value = true
+    playbackError.value = false
+    return true
+  } catch {
+    playbackPlaying.value = false
+    playbackAudio = null
+    if (!allowRecordFallback) return false
+    const fromRecord = await loadPlaybackFromPracticeRecord(1)
+    if (fromRecord && playbackUrl.value) {
+      return startPlaybackFromUrl(playbackUrl.value, false)
+    }
+    playbackError.value = true
+    return false
+  }
+}
+
 async function togglePlayback() {
   if (playbackLoading.value) return
 
@@ -723,53 +800,7 @@ async function togglePlayback() {
     return
   }
 
-  stopSpeaking()
-  stopDemoAudio()
-  stopFeedbackTts()
-  stopPlaybackAudio()
-
-  const audio = new Audio(url)
-  playbackAudio = audio
-  audio.ontimeupdate = () => {
-    if (!audio.duration) return
-    playbackProgress.value = Math.min(100, (audio.currentTime / audio.duration) * 100)
-    playbackCurrentLabel.value = formatPlaybackTime(audio.currentTime)
-  }
-  audio.onloadedmetadata = () => {
-    playbackError.value = false
-    if (Number.isFinite(audio.duration) && audio.duration > 0) {
-      playbackDurationLabel.value = formatPlaybackTime(audio.duration)
-    }
-  }
-  audio.onended = () => {
-    playbackPlaying.value = false
-    playbackProgress.value = 0
-    playbackCurrentLabel.value = '0:00'
-    playbackAudio = null
-  }
-  audio.onerror = () => {
-    playbackPlaying.value = false
-    playbackAudio = null
-    void (async () => {
-      const fromRecord = await loadPlaybackFromPracticeRecord(1)
-      if (fromRecord) {
-        playbackError.value = false
-        return
-      }
-      playbackError.value = true
-    })()
-  }
-
-  try {
-    await audio.play()
-    playbackPlaying.value = true
-    playbackError.value = false
-  } catch {
-    playbackPlaying.value = false
-    playbackAudio = null
-    const fromRecord = await loadPlaybackFromPracticeRecord(1)
-    if (!fromRecord) playbackError.value = true
-  }
+  await startPlaybackFromUrl(url, true)
 }
 
 async function resolvePlayback(remoteUrl?: string | null) {

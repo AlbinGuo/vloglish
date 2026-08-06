@@ -1052,6 +1052,9 @@ export interface AdminArticleListItem {
   status: string
   published_at: string
   created_at: string
+  is_user_submitted?: boolean
+  is_catalog_public?: boolean
+  submitted_by_email?: string
 }
 
 export interface AdminArticleSegment {
@@ -1080,6 +1083,14 @@ export interface AdminArticleDetail {
   vocab_summary?: import('@/utils/vocabSummary').VocabSummaryGroup[]
   vocab_summary_text?: string
   segments: AdminArticleSegment[]
+  is_user_submitted?: boolean
+  is_catalog_public?: boolean
+  submitted_by_user_id?: number | null
+  submitted_by_email?: string
+  submitted_by_nickname?: string
+  rejection_reason?: string
+  submit_body?: string
+  remark?: string
 }
 
 export async function adminListArticles(params: {
@@ -1087,6 +1098,7 @@ export async function adminListArticles(params: {
   page_size?: number
   status?: string
   q?: string
+  user_submitted?: boolean
 } = {}) {
   const { data } = await adminApi.get<{ count: number; results: AdminArticleListItem[] }>(
     '/api/admin/articles/',

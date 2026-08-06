@@ -451,6 +451,12 @@ class Article(Base):
     is_free_preview: Mapped[bool] = mapped_column(Boolean, default=False)
     tts_status: Mapped[str] = mapped_column(String(16), default="none")
     vocab_summary: Mapped[str] = mapped_column(Text, default="")
+    # 用户投稿：链接 + 可选正文；默认仅投稿者可见，管理员可开全站
+    submitted_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    is_catalog_public: Mapped[bool] = mapped_column(Boolean, default=False)
+    rejection_reason: Mapped[str] = mapped_column(Text, default="")
+    submit_body: Mapped[str] = mapped_column(Text, default="")
+    remark: Mapped[str] = mapped_column(Text, default="")
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     release_notified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

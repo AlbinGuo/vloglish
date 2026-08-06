@@ -17,14 +17,18 @@ from ..services.article_access import (
     record_article_open,
     update_article_progress,
 )
+from ..article_visibility import (
+    can_view_published_article,
+    catalog_visibility_filter,
+)
 from ..services.article_admin import get_article_by_ref
 
 router = APIRouter(prefix="/api/articles", tags=["articles"])
 
 
-def _get_published_article(db: Session, article_id: str) -> Article:
+def _get_published_article(db: Session, article_id: str, user: User | None = None) -> Article:
     article = get_article_by_ref(db, article_id)
-    if not article or article.status != "published":
+    if not article or not can_view_published_article(article, user):
         raise HTTPException(status_code=404, detail="文章不存在")
     return article
 
@@ -34,7 +38,7 @@ def article_filters(db: Session = Depends(get_db)):
     sources = [
         r[0]
         for r in db.query(Article.source)
-        .filter(Article.status == "published", Article.source != "")
+        .filter(Article.status == "published", catalog_visibility_filter(), Article.source != "")
         .distinct()
         .order_by(Article.source.asc())
         .all()
@@ -42,7 +46,7 @@ def article_filters(db: Session = Depends(get_db)):
     topics = [
         r[0]
         for r in db.query(Article.topic)
-        .filter(Article.status == "published", Article.topic != "")
+        .filter(Article.status == "published", catalog_visibility_filter(), Article.topic != "")
         .distinct()
         .order_by(Article.topic.asc())
         .all()
@@ -64,7 +68,7 @@ def list_articles(
     device_id: str = Depends(get_device_id),
     user: User | None = Depends(get_current_user_optional),
 ):
-    query = db.query(Article).filter(Article.status == "published")
+    query = db.query(Article).filter(Article.status == "published", catalog_visibility_filter())
 
     if source:
         query = query.filter(Article.source == source)
@@ -142,7 +146,7 @@ def continue_reading(
     results = []
     for row in rows:
         article = articles.get(row.article_id)
-        if not article:
+        if not article or not can_view_published_article(article, user):
             continue
         results.append(
             {
@@ -164,7 +168,7 @@ def get_article(
     device_id: str = Depends(get_device_id),
     user: User | None = Depends(get_current_user_optional),
 ):
-    article = _get_published_article(db, article_id)
+    article = _get_published_article(db, article_id, user)
     if not can_access_article(db, article, user, device_id):
         quota = get_article_quota(db, user, device_id)
         raise HTTPException(
@@ -206,7 +210,7 @@ def patch_progress(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    article = _get_published_article(db, article_id)
+    article = _get_published_article(db, article_id, user)
     row = update_article_progress(
         db,
         user,

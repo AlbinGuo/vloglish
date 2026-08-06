@@ -71,6 +71,11 @@ def has_opened_article(
 def can_access_article(db: Session, article: Article, user: User | None, device_id: str) -> bool:
     if article.status != "published":
         return False
+    # 用户投稿未转全站：仅投稿者可看（不占免费额度）
+    if article.submitted_by_user_id is not None and not bool(
+        getattr(article, "is_catalog_public", False)
+    ):
+        return user is not None and user.id == article.submitted_by_user_id
     if user_is_member(user):
         return True
     if content_access_unlocked(db, user):

@@ -132,3 +132,41 @@ export async function lookupWordInArticle(
   if (!entry) throw new Error('查词失败')
   return entry
 }
+
+export interface SubmitArticlePayload {
+  source_url?: string
+  body?: string
+  note?: string
+}
+
+export interface SubmitArticleResult {
+  article_id: string
+  title: string
+  status: string
+  message: string
+}
+
+export interface UserArticleSubmissionItem {
+  article_id: string
+  title: string
+  source_url: string
+  has_submit_body: boolean
+  status: string
+  rejection_reason: string
+  created_at: string
+  has_content: boolean
+  cover: string
+  source: string
+}
+
+export async function submitUserArticle(payload: SubmitArticlePayload) {
+  const { data } = await api.post<SubmitArticleResult>('/api/articles/submit/', payload)
+  return data
+}
+
+export async function listMyArticleSubmissions() {
+  const { data } = await api.get<{ count: number; results: UserArticleSubmissionItem[] }>(
+    '/api/articles/submit/',
+  )
+  return data
+}

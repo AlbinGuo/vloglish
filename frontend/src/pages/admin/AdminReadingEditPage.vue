@@ -46,6 +46,16 @@ const ttsVoice = ref('Ryan')
 const ttsForceRegenerate = ref(false)
 const englishText = ref('')
 const article = ref<AdminArticleDetail | null>(null)
+const isCatalogPublic = ref(false)
+const rejectionReason = ref('')
+
+const isUserSubmitted = computed(() => Boolean(article.value?.is_user_submitted))
+const submitterLabel = computed(() => {
+  const nick = (article.value?.submitted_by_nickname || '').trim()
+  const email = (article.value?.submitted_by_email || '').trim()
+  if (nick && email) return `${nick}（${email}）`
+  return nick || email || ''
+})
 
 const vocabSummaryPreview = computed(() => parseVocabSummary(form.value.vocab_summary || ''))
 const vocabSummaryCount = computed(() => countVocabSummaryItems(vocabSummaryPreview.value))
@@ -55,14 +65,20 @@ const ttsVoiceOptions = [
   { value: 'Katerina', label: 'Katerina（女声）' },
 ]
 
-const statusOptions = [
-  { value: 'draft', label: '草稿' },
-  { value: 'published', label: '已发布' },
-  { value: 'archived', label: '已下架' },
-]
+const statusOptions = computed(() => {
+  const base = [
+    { value: 'draft', label: '草稿' },
+    { value: 'published', label: '已发布' },
+    { value: 'archived', label: '已下架' },
+  ]
+  if (isUserSubmitted.value || form.value.status === 'rejected') {
+    return [...base, { value: 'rejected', label: '驳回' }]
+  }
+  return base
+})
 
 const statusLabel = computed(() => {
-  const hit = statusOptions.find((o) => o.value === (article.value?.status || form.value.status))
+  const hit = statusOptions.value.find((o) => o.value === (article.value?.status || form.value.status))
   return hit?.label || article.value?.status || form.value.status
 })
 
@@ -82,6 +98,11 @@ async function load() {
       stars: article.value.stars,
       status: article.value.status,
       vocab_summary: article.value.vocab_summary_text || '',
+    }
+    isCatalogPublic.value = Boolean(article.value.is_catalog_public)
+    rejectionReason.value = article.value.rejection_reason || ''
+    if ((article.value.submit_body || '').trim() && !englishText.value.trim()) {
+      englishText.value = article.value.submit_body || ''
     }
   } catch {
     error.value = '加载失败'
@@ -108,15 +129,26 @@ async function saveMeta() {
         error.value = '请先导入段落再设为「已发布」'
         return
       }
+      if (form.value.status === 'rejected' && !rejectionReason.value.trim()) {
+        error.value = '驳回时需填写原因'
+        return
+      }
       const parsed = parseVocabSummary(form.value.vocab_summary || '')
       const n = countVocabSummaryItems(parsed)
-      article.value = await adminUpdateArticle(refId.value, {
+      const payload: Record<string, unknown> = {
         ...form.value,
         vocab_summary: form.value.vocab_summary || '',
-      })
+      }
+      if (isUserSubmitted.value) {
+        payload.is_catalog_public = isCatalogPublic.value
+        payload.rejection_reason = rejectionReason.value
+      }
+      article.value = await adminUpdateArticle(refId.value, payload)
       form.value.status = article.value.status
       form.value.vocab_summary = article.value.vocab_summary_text || form.value.vocab_summary
-      const statusText = statusOptions.find((o) => o.value === article.value?.status)?.label || article.value.status
+      isCatalogPublic.value = Boolean(article.value.is_catalog_public)
+      rejectionReason.value = article.value.rejection_reason || ''
+      const statusText = statusOptions.value.find((o) => o.value === article.value?.status)?.label || article.value.status
       if ((form.value.vocab_summary || '').trim() && n === 0) {
         message.value = `已保存（${statusText}），但汇总文本未能解析出词条，请检查格式`
       } else if (n > 0) {
@@ -385,6 +417,34 @@ onMounted(load)
         <div v-if="message" class="text-sm text-emerald-700">{{ message }}</div>
         <div v-if="error" class="text-sm text-red-600">{{ error }}</div>
 
+        <div
+          v-if="isUserSubmitted"
+          class="rounded-xl border border-violet-200 bg-violet-50 px-5 py-4 space-y-3 text-sm"
+        >
+          <div class="space-y-2">
+            <p class="font-medium text-violet-900">用户投稿</p>
+            <p class="text-violet-800">
+              投稿者：{{ submitterLabel || '未知' }}。勾选「全站可见」后所有用户可在读报目录看到；不勾选则仅投稿者可见，并保留在「我的语料库」。
+            </p>
+            <p v-if="form.source_url" class="break-all">
+              原链接：
+              <a :href="form.source_url" target="_blank" rel="noopener noreferrer" class="underline text-violet-900">
+                {{ form.source_url }}
+              </a>
+            </p>
+            <p v-if="article.remark" class="text-xs text-violet-700 whitespace-pre-wrap">{{ article.remark }}</p>
+          </div>
+          <label class="flex items-start gap-2.5 cursor-pointer rounded-lg border border-violet-200 bg-white/70 px-3 py-2.5">
+            <input v-model="isCatalogPublic" type="checkbox" class="mt-0.5 rounded" />
+            <span>
+              <span class="font-medium text-violet-900">全站可见</span>
+              <span class="block text-violet-700 text-xs mt-0.5 leading-relaxed">
+                勾选：所有用户可在读报目录看到。不勾选：仅投稿者可见。设为全站可见前请先将状态设为「已发布」。
+              </span>
+            </span>
+          </label>
+        </div>
+
         <div class="rounded-xl border bg-white p-6 space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 class="font-semibold">基本信息</h2>
@@ -401,6 +461,15 @@ onMounted(load)
                 <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
               </select>
               <span class="mt-1 block text-xs text-neutral-400">改为「已发布」后用户端可见；「已下架」会从前台隐藏</span>
+            </label>
+            <label v-if="form.status === 'rejected'" class="block text-sm sm:col-span-2">
+              <span class="text-neutral-500">驳回原因 *</span>
+              <textarea
+                v-model="rejectionReason"
+                rows="3"
+                placeholder="请说明驳回原因，用户将在通知中看到"
+                class="mt-1 w-full rounded-lg border px-3 py-2"
+              />
             </label>
             <label class="block text-sm">
               <span class="text-neutral-500">难度 (1-5)</span>
@@ -500,6 +569,9 @@ onMounted(load)
           <h2 class="font-semibold">导入英文原文</h2>
           <p class="text-sm text-neutral-500">
             粘贴后会<strong>快速分句入库</strong>（不调 AI）。导入成功后即可发布；译文与词汇高亮请点上方「AI 增强段落」。
+          </p>
+          <p v-if="isUserSubmitted && (article.submit_body || '').trim()" class="text-xs text-violet-700">
+            下方已预填用户投稿正文，可直接导入或编辑后再导入。
           </p>
           <textarea v-model="englishText" rows="10" class="w-full rounded-lg border px-3 py-2 text-sm font-mono" placeholder="Paste English article text here..." />
           <button

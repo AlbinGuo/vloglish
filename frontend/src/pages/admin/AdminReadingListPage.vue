@@ -11,6 +11,7 @@ const page = ref(1)
 const pageSize = 20
 const search = ref('')
 const status = ref('')
+const sourceFilter = ref<'all' | 'user' | 'official'>('all')
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 
@@ -18,6 +19,7 @@ const statusLabel: Record<string, string> = {
   draft: '草稿',
   published: '已发布',
   archived: '已下架',
+  rejected: '已驳回',
 }
 
 async function load() {
@@ -29,6 +31,8 @@ async function load() {
       page_size: pageSize,
       status: status.value || undefined,
       q: search.value.trim() || undefined,
+      user_submitted:
+        sourceFilter.value === 'user' ? true : sourceFilter.value === 'official' ? false : undefined,
     })
     rows.value = data.results
     total.value = data.count
@@ -63,11 +67,17 @@ onMounted(load)
         新建文章
       </RouterLink>
       <div class="flex flex-wrap gap-2">
+        <select v-model="sourceFilter" class="rounded-lg border px-3 py-2 text-sm" @change="doSearch">
+          <option value="all">全部来源</option>
+          <option value="user">用户投稿</option>
+          <option value="official">官方录入</option>
+        </select>
         <select v-model="status" class="rounded-lg border px-3 py-2 text-sm" @change="doSearch">
           <option value="">全部状态</option>
           <option value="draft">草稿</option>
           <option value="published">已发布</option>
           <option value="archived">已下架</option>
+          <option value="rejected">已驳回</option>
         </select>
         <input v-model="search" type="search" placeholder="搜索标题" class="rounded-lg border px-3 py-2 text-sm" @keydown.enter="doSearch" />
         <button type="button" class="rounded-lg border px-3 py-2 text-sm" @click="doSearch">搜索</button>
@@ -90,7 +100,13 @@ onMounted(load)
         </thead>
         <tbody>
           <tr v-for="row in rows" :key="row.id" class="border-t">
-            <td class="px-4 py-3 font-medium">{{ row.title }}</td>
+            <td class="px-4 py-3">
+              <div class="font-medium">{{ row.title }}</div>
+              <p v-if="row.is_user_submitted" class="mt-0.5 text-xs text-violet-700">
+                用户投稿 · {{ row.is_catalog_public ? '全站可见' : '仅投稿者可见' }}
+                <span v-if="row.submitted_by_email"> · {{ row.submitted_by_email }}</span>
+              </p>
+            </td>
             <td class="px-4 py-3">{{ row.source || '—' }}</td>
             <td class="px-4 py-3">{{ row.segment_count }} / {{ row.word_count }}词</td>
             <td class="px-4 py-3">{{ statusLabel[row.status] || row.status }}</td>

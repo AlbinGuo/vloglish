@@ -54,11 +54,20 @@ def maybe_notify_catalog_release(db: Session, ep: Episode) -> int:
     return notify_catalog_episode_released(db, ep)
 
 
+def is_catalog_published_article(article: Article) -> bool:
+    """官方内容或已设为全站可见的投稿，且已发布。"""
+    if article.status != "published":
+        return False
+    if article.submitted_by_user_id is None:
+        return True
+    return bool(getattr(article, "is_catalog_public", False))
+
+
 def notify_catalog_article_released(db: Session, article: Article) -> int:
-    """文章首次发布：给所有活跃用户写弹窗通知。返回触达人数。"""
+    """全站可见文章首次上线：给所有活跃用户写弹窗通知。返回触达人数。"""
     if getattr(article, "release_notified_at", None):
         return 0
-    if article.status != "published":
+    if not is_catalog_published_article(article):
         return 0
 
     users = db.query(User).filter(User.is_active.is_(True)).all()
@@ -155,3 +164,78 @@ def maybe_notify_submitter_on_status_change(
         notify_episode_published(db, ep, user_id)
     elif old_status != "rejected" and new_status == "rejected":
         notify_episode_rejected(db, ep, user_id, rejection_reason or "")
+
+
+def notify_staff_article_submitted(db: Session, article: Article, submitter: User) -> None:
+    staff_rows = (
+        db.query(User)
+        .filter(User.is_staff.is_(True), User.is_active.is_(True))
+        .all()
+    )
+    if not staff_rows:
+        return
+    nick = (submitter.nickname or "").strip()
+    who = f"{nick}（{submitter.email}）" if nick else submitter.email
+    body = f"{who} 提交了文章投稿，请尽快审核。"
+    url = (article.source_url or "").strip()
+    if url:
+        body += f"\n链接：{url}"
+    if (article.submit_body or "").strip():
+        body += "\n含用户粘贴的英文正文。"
+    for staff in staff_rows:
+        db.add(
+            UserNotification(
+                user_id=staff.id,
+                type="article_submitted",
+                title="新文章投稿待审核",
+                body=body,
+                article_id=article.id,
+            )
+        )
+
+
+def notify_article_published(db: Session, article: Article, user_id: int) -> None:
+    db.add(
+        UserNotification(
+            user_id=user_id,
+            type="article_published",
+            title="文章投稿已通过审核",
+            body=(
+                f"您投稿的文章「{_article_title(article)}」已通过审核并发布，"
+                "现在可在个人语料库中阅读（仅你可见）。"
+            ),
+            article_id=article.id,
+        )
+    )
+
+
+def notify_article_rejected(db: Session, article: Article, user_id: int, reason: str) -> None:
+    body = f"您投稿的文章「{_article_title(article)}」未通过审核。"
+    if reason.strip():
+        body += f"\n驳回原因：{reason.strip()}"
+    db.add(
+        UserNotification(
+            user_id=user_id,
+            type="article_rejected",
+            title="文章投稿未通过审核",
+            body=body,
+            article_id=article.id,
+        )
+    )
+
+
+def maybe_notify_article_submitter_on_status_change(
+    db: Session,
+    article: Article,
+    *,
+    old_status: str,
+    new_status: str,
+    rejection_reason: str | None,
+) -> None:
+    user_id = article.submitted_by_user_id
+    if not user_id:
+        return
+    if old_status != "published" and new_status == "published":
+        notify_article_published(db, article, user_id)
+    elif old_status != "rejected" and new_status == "rejected":
+        notify_article_rejected(db, article, user_id, rejection_reason or "")

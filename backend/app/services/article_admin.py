@@ -16,7 +16,7 @@ from ..models import (
 from .article_split import count_words_in_segments
 from .subtitle_analyze import analyze_subtitles_with_deepseek
 
-VALID_STATUSES = {"draft", "published", "archived"}
+VALID_STATUSES = {"draft", "published", "archived", "rejected"}
 
 
 def generate_article_id() -> str:

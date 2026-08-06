@@ -11,6 +11,7 @@ export const TRACKED_PAGE_KEYS = new Set([
   'EpisodePage',
   'DemoEpisode',
   'SubmitEpisode',
+  'SubmitArticle',
   'MySubmissions',
   'Notifications',
   'Learning',

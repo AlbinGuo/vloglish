@@ -239,6 +239,12 @@ const router = createRouter({
           meta: { requiresAuth: true, requiresMember: true },
         },
         {
+          path: 'english/submit-article',
+          name: 'SubmitArticle',
+          component: () => import('@/pages/SubmitArticlePage.vue'),
+          meta: { requiresAuth: true, requiresMember: true },
+        },
+        {
           path: 'english/my-submissions',
           name: 'MySubmissions',
           component: () => import('@/pages/MySubmissionsPage.vue'),
