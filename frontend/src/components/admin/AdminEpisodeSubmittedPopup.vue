@@ -14,12 +14,28 @@ const emit = defineEmits<{
 
 const open = computed(() => Boolean(props.item))
 
+const isArticle = computed(() => props.item?.submission_type === 'article_submitted')
+
 const submitterLabel = computed(() => {
   if (!props.item) return ''
   const nick = (props.item.submitter_nickname || '').trim()
   const email = (props.item.submitter_email || '').trim()
   if (nick && email) return `${nick}（${email}）`
   return nick || email || '用户'
+})
+
+const contentHint = computed(() => {
+  if (!props.item || !isArticle.value) return ''
+  const parts: string[] = []
+  if ((props.item.source_url || '').trim()) parts.push('原文链接')
+  if (props.item.has_submit_body) parts.push('英文正文')
+  return parts.length ? `已提供：${parts.join('、')}` : ''
+})
+
+const canReview = computed(() => {
+  if (!props.item) return false
+  if (isArticle.value) return Boolean(props.item.article_id)
+  return Boolean(props.item.episode_id)
 })
 
 function onKeydown(e: KeyboardEvent) {
@@ -47,7 +63,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           <div>
             <p class="text-xs font-medium text-amber-700 mb-1">待审核</p>
             <h2 id="admin-episode-submitted-popup-title" class="text-base font-semibold leading-snug">
-              收到新的用户投稿
+              {{ isArticle ? '收到新的文章投稿' : '收到新的用户投稿' }}
             </h2>
           </div>
           <button
@@ -65,10 +81,28 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           <span class="font-medium text-neutral-800">{{ submitterLabel }}</span>
           于
           <span class="font-medium text-neutral-800">{{ item.submitted_at || '刚刚' }}</span>
-          提交了视频链接，请尽快审核处理。
+          {{ isArticle ? '提交了文章，请尽快审核处理。' : '提交了视频链接，请尽快审核处理。' }}
         </p>
         <p
-          v-if="item.original_video_url"
+          v-if="isArticle && item.article_title"
+          class="mt-2 text-sm font-medium text-neutral-800 line-clamp-2"
+        >
+          {{ item.article_title }}
+        </p>
+        <p
+          v-if="isArticle && contentHint"
+          class="mt-1 text-xs text-neutral-500"
+        >
+          {{ contentHint }}
+        </p>
+        <p
+          v-if="isArticle && item.source_url"
+          class="mt-2 text-xs text-neutral-500 break-all leading-relaxed"
+        >
+          {{ item.source_url }}
+        </p>
+        <p
+          v-else-if="!isArticle && item.original_video_url"
           class="mt-2 text-xs text-neutral-500 break-all leading-relaxed"
         >
           {{ item.original_video_url }}
@@ -84,7 +118,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
             知道了
           </button>
           <button
-            v-if="item.episode_id"
+            v-if="canReview"
             type="button"
             class="px-4 py-2.5 rounded-xl text-sm font-medium bg-neutral-900 text-white hover:bg-neutral-800 transition disabled:opacity-50"
             :disabled="busy"

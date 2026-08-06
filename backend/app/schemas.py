@@ -927,12 +927,20 @@ class AdminReleasePopupStatsOut(BaseModel):
 
 
 class AdminEpisodeSubmittedPopupOut(BaseModel):
+    """管理端投稿待审弹窗（视频 / 文章共用）。"""
+
     id: int
     title: str
     body: str
+    # episode_submitted | article_submitted
+    submission_type: str = "episode_submitted"
     episode_id: int | None = None
     episode_title: str = ""
     original_video_url: str = ""
+    article_id: int | None = None
+    article_title: str = ""
+    source_url: str = ""
+    has_submit_body: bool = False
     submitter_email: str = ""
     submitter_nickname: str = ""
     submitted_at: str = ""

@@ -121,9 +121,14 @@ async function dismissSubmittedPopup() {
 }
 
 async function reviewSubmittedPopup() {
-  const episodeId = currentPopup.value?.episode_id
+  const item = currentPopup.value
+  const isArticle = item?.submission_type === 'article_submitted'
+  const episodeId = item?.episode_id
+  const articleId = item?.article_id
   await ackCurrentPopup()
-  if (episodeId) {
+  if (isArticle && articleId) {
+    await router.push(`/gnadmin/reading/${articleId}`)
+  } else if (episodeId) {
     await router.push(`/gnadmin/episodes/${episodeId}`)
   }
 }

@@ -1017,9 +1017,15 @@ export interface AdminEpisodeSubmittedPopup {
   id: number
   title: string
   body: string
+  /** episode_submitted | article_submitted */
+  submission_type?: 'episode_submitted' | 'article_submitted' | string
   episode_id: number | null
   episode_title: string
   original_video_url: string
+  article_id?: number | null
+  article_title?: string
+  source_url?: string
+  has_submit_body?: boolean
   submitter_email: string
   submitter_nickname: string
   submitted_at: string
