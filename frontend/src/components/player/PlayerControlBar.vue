@@ -167,13 +167,25 @@ function onFullscreenChange() {
   isFullscreen.value = Boolean(document.fullscreenElement)
 }
 
-function toggleFullscreen() {
+async function toggleFullscreen() {
   const el = props.videoPanelRef
-  if (!el) return
-  if (document.fullscreenElement) {
-    void document.exitFullscreen()
-  } else {
-    void el.requestFullscreen()
+  try {
+    const current = document.fullscreenElement
+    // 已在全屏：优先退出（不依赖 panel ref，避免 ref 异常时无法退出）
+    if (current) {
+      if (el && current !== el) {
+        // 其它元素占着全屏时先退出再进入视频面板
+        await document.exitFullscreen()
+        if (el.isConnected) await el.requestFullscreen()
+      } else {
+        await document.exitFullscreen()
+      }
+      return
+    }
+    if (!el || !el.isConnected) return
+    await el.requestFullscreen()
+  } catch (err) {
+    console.warn('[PlayerControlBar] fullscreen toggle failed', err)
   }
 }
 

@@ -1381,7 +1381,8 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
 .video-panel.video-panel--fullscreen .video-panel__subtitle {
   flex: 0 0 auto !important;
   width: 100%;
-  min-height: 6.75rem;
+  /* !important：盖过 Tailwind min-h-0，避免绝对定位字幕内容把高度压成 0 */
+  min-height: 6.75rem !important;
   max-height: min(32vh, 15rem);
   display: flex;
   flex-direction: column;
@@ -1390,7 +1391,7 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
 .video-panel:fullscreen .video-panel__subtitle .current-subtitle-bar,
 .video-panel.video-panel--fullscreen .video-panel__subtitle .current-subtitle-bar {
   flex: 1 1 auto;
-  min-height: 6.75rem;
+  min-height: 6.75rem !important;
   max-height: min(32vh, 15rem);
   background: rgb(23 23 23);
   border-color: rgb(255 255 255 / 0.12);

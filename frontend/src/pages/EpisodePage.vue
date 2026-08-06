@@ -999,12 +999,23 @@ useSwipeNavigation(dynamicFocusRef, {
 
 const displaySub = computed(() => resolveDisplaySub(sortedSubs.value, player.currentTime.value))
 
-const showCurrentSubtitleBar = computed(
-  () =>
-    !subtitlesHidden.value &&
-    Boolean(displaySub.value) &&
-    (!isPhone.value || isVideoPanelFullscreen.value),
+/** 当前句字幕条是否应挂载（全屏下保持挂载，仅用 v-show 显隐，避免卸载 Teleport 扰乱 Fullscreen） */
+const mountCurrentSubtitleBar = computed(
+  () => Boolean(displaySub.value) && (!isPhone.value || isVideoPanelFullscreen.value),
 )
+
+/** 当前句字幕条是否可见 */
+const showCurrentSubtitleBar = computed(
+  () => mountCurrentSubtitleBar.value && !subtitlesHidden.value,
+)
+
+/** 非全屏时的视频栏宽度/观影布局；全屏期间不切换，避免改全屏元素 class 导致 API 状态异常 */
+const videoPanelLayoutClass = computed(() => {
+  if (isVideoPanelFullscreen.value) return ''
+  return subtitlesHidden.value
+    ? 'video-panel--cinema flex-1 min-w-0 max-lg:landscape:flex-1 max-lg:landscape:min-w-0 lg:justify-center'
+    : 'lg:w-[46%] xl:w-[44%] max-lg:landscape:w-[42%] max-lg:landscape:shrink-0'
+})
 
 const playbackTime = computed(() => player.currentTime.value)
 
@@ -1899,9 +1910,7 @@ function subtitleRowClass(index: number) {
         :class="[
           mobileVideoImmersive ? 'max-lg:!p-0 max-lg:!gap-0 max-lg:!rounded-none' : '',
           isVideoPanelFullscreen ? 'video-panel--fullscreen' : '',
-          subtitlesHidden
-            ? 'video-panel--cinema flex-1 min-w-0 max-lg:landscape:flex-1 max-lg:landscape:min-w-0 lg:justify-center'
-            : 'lg:w-[46%] xl:w-[44%] max-lg:landscape:w-[42%] max-lg:landscape:shrink-0',
+          videoPanelLayoutClass,
         ]"
       >
         <VideoPlayer
@@ -1937,40 +1946,45 @@ function subtitleRowClass(index: number) {
         >
           字幕已隐藏 · 点击显示
         </button>
-        <SubtitleWordTooltipHost
-          v-if="showCurrentSubtitleBar && displaySub"
+        <div
+          v-if="mountCurrentSubtitleBar && displaySub"
+          v-show="showCurrentSubtitleBar"
           class="min-h-0 flex flex-col"
           :class="isVideoPanelFullscreen ? 'video-panel__subtitle shrink-0' : 'flex-1 min-h-0'"
-          :context="displaySub.english"
-          :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
-          :teleport-to="subtitleTooltipTeleport"
-          @word-hover-start="onSubtitleWordHoverStart"
-          @word-hover-end="onSubtitleWordHoverEnd"
         >
-          <CurrentSubtitleBar
-            class="w-full"
-            :class="isPhone && !isVideoPanelFullscreen ? '' : 'min-h-0 flex-1'"
-            :compact="isPhone && !isVideoPanelFullscreen"
-            :top-align="isPad && !isVideoPanelFullscreen"
-            :intensive="intensiveMode"
+          <SubtitleWordTooltipHost
+            class="min-h-0 flex flex-col flex-1"
+            :context="displaySub.english"
             :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
-            :sub="displaySub"
-            :current-time="playbackTime"
-            :subtitle-mode="isVideoPanelFullscreen ? 'both' : subtitleMode"
-            :show-ipa="showIpa && !isVideoPanelFullscreen"
-            :english-html="renderHtml(displaySub.english_html)"
-            :dictation-frost="isDictationFrost(displaySub.id)"
-            :data-subtitle-context="displaySub.english"
-            @seek="player.seekTo(displaySub)"
-            v-on="wordLongPressHandlers"
-            @click="onSubtitleClick"
-          />
-        </SubtitleWordTooltipHost>
+            :teleport-to="subtitleTooltipTeleport"
+            @word-hover-start="onSubtitleWordHoverStart"
+            @word-hover-end="onSubtitleWordHoverEnd"
+          >
+            <CurrentSubtitleBar
+              class="w-full"
+              :class="isPhone && !isVideoPanelFullscreen ? '' : 'min-h-0 flex-1'"
+              :compact="isPhone && !isVideoPanelFullscreen"
+              :top-align="isPad && !isVideoPanelFullscreen"
+              :intensive="intensiveMode"
+              :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
+              :sub="displaySub"
+              :current-time="playbackTime"
+              :subtitle-mode="isVideoPanelFullscreen ? 'both' : subtitleMode"
+              :show-ipa="showIpa && !isVideoPanelFullscreen"
+              :english-html="renderHtml(displaySub.english_html)"
+              :dictation-frost="isDictationFrost(displaySub.id)"
+              :data-subtitle-context="displaySub.english"
+              @seek="player.seekTo(displaySub)"
+              v-on="wordLongPressHandlers"
+              @click="onSubtitleClick"
+            />
+          </SubtitleWordTooltipHost>
+        </div>
       </aside>
 
-      <!-- 字幕区 -->
+      <!-- 字幕区：全屏时侧栏不可见且勿强行 v-show，避免牵动全屏元素所在 flex 布局 -->
       <section
-        v-show="!subtitlesHidden"
+        v-show="!subtitlesHidden && !isVideoPanelFullscreen"
         class="subtitle-panel flex-1 min-h-0 flex overflow-hidden bg-neutral-50 dark:bg-neutral-900 border-t lg:border-t-0 border-black/5 dark:border-white/10 max-lg:min-h-0"
       >
         <div class="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden">
@@ -2361,7 +2375,7 @@ function subtitleRowClass(index: number) {
       </section>
 
       <IntensiveCoreVocabMobile
-        v-if="intensiveMode && contentView === 'subtitles' && !subtitlesHidden"
+        v-if="intensiveMode && contentView === 'subtitles' && !subtitlesHidden && !isVideoPanelFullscreen"
         :items="coreVocabItems"
         :loading="coreVocabLoading"
       />
