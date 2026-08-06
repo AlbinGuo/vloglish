@@ -378,7 +378,7 @@ onUnmounted(() => {
             <p class="text-xs text-neutral-400 mt-1">
               <span class="sm:hidden">可回听录音<span v-if="practiceTotal"> · {{ practiceTotal }} 条</span></span>
               <span class="hidden sm:inline">
-                跟读 / 单词打分 / 篇章评测历史，可回听录音
+                跟读 / 影子 / 单词打分 / 篇章评测历史，可回听录音
                 <span v-if="practiceTotal"> · 共 {{ practiceTotal }} 条</span>
               </span>
             </p>
@@ -390,6 +390,7 @@ onUnmounted(() => {
                 { value: 'word', label: '单词' },
                 { value: 'sentence', label: '句子' },
                 { value: 'passage', label: '篇章' },
+                { value: 'shadow', label: '影子' },
               ]"
               :key="opt.value || 'all'"
               type="button"

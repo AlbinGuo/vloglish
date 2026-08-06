@@ -74,6 +74,13 @@ class PracticeTtsIn(BaseModel):
     mode: str = Field(default="sentence", max_length=16)
 
 
+class ShadowTrackUpsertIn(BaseModel):
+    video_id: str = Field(min_length=1, max_length=32)
+    subtitle_id: int
+    title: str = Field(default="", max_length=256)
+    ref_text: str = Field(default="", max_length=8000)
+
+
 class ReadingQaIn(BaseModel):
     article_id: str = Field(min_length=1, max_length=32)
     segment_id: int | None = None
@@ -263,15 +270,44 @@ def shadowing_text(
 @router.get("/practice-records/")
 def list_practice_records(
     mode: str | None = Query(default=None, max_length=16),
+    video_id: str | None = Query(default=None, max_length=32),
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=50),
+    page_size: int = Query(default=20, ge=1, le=100),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """练习记录列表（查阅不扣额度）。"""
     return practice_records_svc.list_practice_records(
-        db, user, mode=mode, page=page, page_size=page_size
+        db, user, mode=mode, video_id=video_id, page=page, page_size=page_size
     )
+
+
+@router.get("/practice-records/shadow/")
+def list_shadow_tracks(
+    video_id: str = Query(..., min_length=1, max_length=32),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """某视频下影子跟读音轨（每字幕最新一条）。"""
+    return practice_records_svc.list_shadow_tracks_for_video(db, user, video_id)
+
+
+@router.post("/practice-records/shadow/")
+def upsert_shadow_record(
+    body: ShadowTrackUpsertIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """创建或覆盖某字幕的影子跟读记录（随后再上传 audio）。"""
+    row = practice_records_svc.upsert_shadow_record(
+        db,
+        user,
+        video_id=body.video_id,
+        subtitle_id=body.subtitle_id,
+        title=body.title,
+        ref_text=body.ref_text,
+    )
+    return practice_records_svc.record_to_dict(row)
 
 
 @router.get("/practice-records/{record_id}/")

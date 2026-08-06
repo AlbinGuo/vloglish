@@ -23,6 +23,7 @@ const MODE_LABEL: Record<string, string> = {
   word: '单词',
   sentence: '句子',
   passage: '篇章',
+  shadow: '影子',
 }
 
 const modeLabel = computed(() => MODE_LABEL[props.item.mode] || props.item.mode)

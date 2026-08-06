@@ -11,6 +11,8 @@ import EpisodeVideoContextPanel from '@/components/episode/EpisodeVideoContextPa
 import BlankPrintDocument from '@/components/episode/BlankPrintDocument.vue'
 import BlankPrintSheet from '@/components/episode/BlankPrintSheet.vue'
 import SentenceDictationSheet from '@/components/episode/SentenceDictationSheet.vue'
+import ShadowingSessionBar from '@/components/episode/ShadowingSessionBar.vue'
+import ShadowTrack from '@/components/episode/ShadowTrack.vue'
 import AiExplainSheet from '@/components/ai/AiExplainSheet.vue'
 import AiShadowingSheet from '@/components/ai/AiShadowingSheet.vue'
 import AiClozeSheet from '@/components/ai/AiClozeSheet.vue'
@@ -55,6 +57,13 @@ import {
   type WordCardItem,
 } from '@/composables/useEpisodeWordCards'
 import { usePlayerControls } from '@/composables/usePlayerControls'
+import { useShadowingRecorder } from '@/composables/useShadowingRecorder'
+import {
+  listShadowTracks,
+  upsertShadowRecord,
+  uploadPracticeAudio,
+  type PracticeRecord,
+} from '@/api/practiceRecords'
 import type { BlankPrintOptions } from '@/utils/blankPrint'
 import type { WordCardPrintOptions } from '@/utils/wordCardPrint'
 import { parseVocabSummary } from '@/utils/vocabSummary'
@@ -434,6 +443,7 @@ function closeAiExplain() {
 function startAiShadowing(sub: Subtitle, e?: Event) {
   e?.stopPropagation()
   pauseForDictationSheet()
+  closeShadowSession()
   aiShadowSub.value = sub
   aiShadowOpen.value = true
 }
@@ -483,6 +493,214 @@ function nextAiShadowing() {
   player.seekTo(next)
   aiShadowSub.value = next
 }
+
+/* —— 影子跟读（句下音轨） —— */
+const shadowRecorder = useShadowingRecorder()
+const {
+  phase: shadowPhase,
+  error: shadowRecError,
+  micEnabled: shadowMicEnabled,
+  ensureMic: ensureShadowMic,
+  cancel: cancelShadowRecorder,
+  releaseMic: releaseShadowMic,
+  armAfterReferenceStart,
+  stop: stopShadowRecorder,
+} = shadowRecorder
+const shadowActiveSubId = ref<number | null>(null)
+const shadowDelaySec = ref(0.5)
+const shadowRate = ref(1)
+const shadowBusy = ref(false)
+const shadowUploadId = ref<number | null>(null)
+const shadowTracks = ref<Record<number, PracticeRecord>>({})
+const shadowSessionRunning = ref(false)
+let shadowSafetyTimer: ReturnType<typeof setTimeout> | null = null
+let shadowRateBeforeSession: number | null = null
+let shadowEndWatching = false
+let shadowFinishing = false
+
+const shadowActiveSub = computed(
+  () => sortedSubs.value.find((s) => s.id === shadowActiveSubId.value) ?? null,
+)
+
+function clearShadowSafetyTimer() {
+  if (shadowSafetyTimer) {
+    clearTimeout(shadowSafetyTimer)
+    shadowSafetyTimer = null
+  }
+}
+
+async function loadShadowTracks() {
+  if (props.adminPreview || !auth.isLoggedIn) {
+    shadowTracks.value = {}
+    return
+  }
+  try {
+    const data = await listShadowTracks(props.videoId)
+    const map: Record<number, PracticeRecord> = {}
+    for (const row of data.results) {
+      if (row.subtitle_id != null && row.audio_url) map[row.subtitle_id] = row
+    }
+    shadowTracks.value = map
+  } catch {
+    /* 静默 */
+  }
+}
+
+function closeShadowSession() {
+  clearShadowSafetyTimer()
+  shadowEndWatching = false
+  shadowSessionRunning.value = false
+  shadowFinishing = false
+  cancelShadowRecorder()
+  releaseShadowMic()
+  if (shadowRateBeforeSession != null) {
+    player.setRate(shadowRateBeforeSession)
+    shadowRateBeforeSession = null
+  }
+  shadowActiveSubId.value = null
+  shadowBusy.value = false
+}
+
+function startShadowPractice(sub: Subtitle, e?: Event) {
+  e?.stopPropagation()
+  if (!auth.isLoggedIn) {
+    void router.push({ path: '/login', query: { next: `/english/episode/${props.videoId}` } })
+    return
+  }
+  pauseForDictationSheet()
+  aiShadowOpen.value = false
+  // 再点一次同一句：收起面板
+  if (shadowActiveSubId.value === sub.id) {
+    if (!shadowSessionRunning.value) closeShadowSession()
+    return
+  }
+  closeShadowSession()
+  shadowActiveSubId.value = sub.id
+  shadowMicEnabled.value = true
+  void ensureShadowMic()
+  nextTick(() => {
+    // 手机端视频区 sticky，把面板滚到可视区中部，避免被顶栏挡住
+    document
+      .querySelector(`[data-shadow-anchor="${sub.id}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
+}
+
+function sentenceDurationSec(sub: Subtitle) {
+  return Math.max(0.4, (sub.end || 0) - (sub.start || 0))
+}
+
+async function startShadowTake() {
+  const sub = shadowActiveSub.value
+  if (!sub || shadowSessionRunning.value) return
+  clearShadowSafetyTimer()
+  shadowBusy.value = true
+  shadowSessionRunning.value = true
+  shadowEndWatching = true
+  try {
+    if (shadowRateBeforeSession == null) shadowRateBeforeSession = player.playbackRate.value
+    player.setRate(shadowRate.value)
+    player.playSentenceOnce(sub)
+    await armAfterReferenceStart(shadowDelaySec.value)
+    const windowSec =
+      sentenceDurationSec(sub) / Math.max(0.5, shadowRate.value) + shadowDelaySec.value + 1.2
+    shadowSafetyTimer = setTimeout(() => {
+      void finishShadowTake()
+    }, windowSec * 1000)
+  } catch {
+    shadowSessionRunning.value = false
+    shadowEndWatching = false
+  } finally {
+    shadowBusy.value = false
+  }
+}
+
+async function finishShadowTake() {
+  if (shadowFinishing) return
+  if (!shadowSessionRunning.value && !shadowEndWatching) return
+  shadowFinishing = true
+  clearShadowSafetyTimer()
+  shadowEndWatching = false
+  shadowSessionRunning.value = false
+  const sub = shadowActiveSub.value
+  if (!sub) {
+    cancelShadowRecorder()
+    shadowFinishing = false
+    return
+  }
+  shadowBusy.value = true
+  try {
+    const blob = await stopShadowRecorder()
+    pauseForDictationSheet()
+    if (shadowRateBeforeSession != null) {
+      player.setRate(shadowRateBeforeSession)
+      shadowRateBeforeSession = null
+    }
+    if (!blob || !shadowMicEnabled.value) return
+
+    shadowUploadId.value = sub.id
+    const row = await upsertShadowRecord({
+      video_id: props.videoId,
+      subtitle_id: sub.id,
+      title: episode.value?.short_title || '',
+      ref_text: sub.english || '',
+    })
+    const uploaded = await uploadPracticeAudio(row.id, blob)
+    shadowTracks.value = {
+      ...shadowTracks.value,
+      [sub.id]: {
+        ...row,
+        audio_url: uploaded.audio_url,
+        has_audio: true,
+        audio_source: 'upload',
+      },
+    }
+  } catch {
+    /* 上传失败时保留会话，用户可重试 */
+  } finally {
+    shadowUploadId.value = null
+    shadowBusy.value = false
+    shadowFinishing = false
+  }
+}
+
+function stopShadowTake() {
+  void finishShadowTake()
+}
+
+function rerecordShadow(sub: Subtitle) {
+  startShadowPractice(sub)
+}
+
+function scoreShadow(sub: Subtitle) {
+  closeShadowSession()
+  startAiShadowing(sub)
+}
+
+function playShadowReference(sub: Subtitle) {
+  if (shadowRateBeforeSession == null) shadowRateBeforeSession = player.playbackRate.value
+  player.setRate(1)
+  player.playSentenceOnce(sub)
+}
+
+watch(
+  () => [player.isPlaying.value, player.currentTime.value] as const,
+  ([playing, t]) => {
+    if (!shadowEndWatching || !shadowActiveSub.value) return
+    const sub = shadowActiveSub.value
+    if (!playing && t >= sub.end - 0.2) {
+      void finishShadowTake()
+    }
+  },
+)
+
+watch(
+  () => auth.isLoggedIn,
+  (ok) => {
+    if (ok) void loadShadowTracks()
+    else shadowTracks.value = {}
+  },
+)
 
 async function startAiCloze(sub: Subtitle, e?: Event, force = false) {
   e?.stopPropagation()
@@ -825,6 +1043,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  closeShadowSession()
   if (continuousFinishedTimer) clearTimeout(continuousFinishedTimer)
   if (listScrollAnim) cancelAnimationFrame(listScrollAnim)
   if (quickVocabToastTimer != null) clearTimeout(quickVocabToastTimer)
@@ -1020,6 +1239,7 @@ async function load() {
     if (!props.adminPreview && auth.isLoggedIn) {
       await initLearning()
       void loadLookupHistory()
+      void loadShadowTracks()
       try {
         const rows = await getSubtitleProgress(props.videoId)
         learnedSubtitleIds.value = new Set(
@@ -1959,7 +2179,7 @@ function subtitleRowClass(index: number) {
               </button>
               <div
                 v-else-if="!adminPreview"
-                class="absolute top-1.5 right-1.5 z-10 flex flex-wrap justify-end gap-1 max-w-[min(100%,22rem)]"
+                class="absolute top-1.5 right-1.5 z-10 flex flex-wrap justify-end gap-1 max-w-[min(100%,28rem)]"
               >
                 <button
                   type="button"
@@ -1981,6 +2201,28 @@ function subtitleRowClass(index: number) {
                   >
                     评分
                   </span>
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 px-2.5 min-h-8 h-7 rounded-full text-[11px] font-medium border transition touch-manipulation bg-white/90 border-black/10 text-neutral-600 hover:border-teal-400 hover:text-teal-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300 dark:hover:border-teal-500 dark:hover:text-teal-300"
+                  :class="
+                    shadowActiveSubId === sub.id
+                      ? 'border-teal-500 bg-teal-50 text-teal-800 ring-2 ring-teal-400/30 dark:border-teal-500 dark:bg-teal-950/50 dark:text-teal-200'
+                      : shadowTracks[sub.id]?.audio_url
+                        ? 'border-teal-300/80 text-teal-700 dark:border-teal-700 dark:text-teal-300'
+                        : ''
+                  "
+                  title="影子跟读：边听边说"
+                  :aria-pressed="shadowActiveSubId === sub.id"
+                  @click="startShadowPractice(sub, $event)"
+                >
+                  <span class="sm:hidden">影子</span>
+                  <span class="hidden sm:inline">影子跟读</span>
+                  <span
+                    v-if="shadowTracks[sub.id]?.audio_url"
+                    class="w-1.5 h-1.5 rounded-full bg-teal-500"
+                    aria-hidden="true"
+                  />
                 </button>
                 <button
                   type="button"
@@ -2031,6 +2273,33 @@ function subtitleRowClass(index: number) {
                 v-on="wordLongPressHandlers"
                 @click.stop="onSubtitleClick"
               />
+              <div
+                v-if="!adminPreview && (shadowActiveSubId === sub.id || shadowTracks[sub.id]?.audio_url)"
+                :data-shadow-anchor="sub.id"
+                class="mt-0.5"
+              >
+                <ShadowingSessionBar
+                  v-if="shadowActiveSubId === sub.id"
+                  v-model:delay-sec="shadowDelaySec"
+                  v-model:rate="shadowRate"
+                  v-model:mic-enabled="shadowMicEnabled"
+                  :phase="shadowPhase"
+                  :error="shadowRecError"
+                  :busy="shadowBusy"
+                  @start="startShadowTake"
+                  @stop="stopShadowTake"
+                  @close="closeShadowSession"
+                />
+                <ShadowTrack
+                  v-if="shadowTracks[sub.id]?.audio_url"
+                  :audio-url="shadowTracks[sub.id].audio_url"
+                  :sentence-duration-sec="sentenceDurationSec(sub)"
+                  :uploading="shadowUploadId === sub.id"
+                  @rerecord="rerecordShadow(sub)"
+                  @score="scoreShadow(sub)"
+                  @play-reference="playShadowReference(sub)"
+                />
+              </div>
               <!-- 听写中：单词区毛玻璃遮罩，关闭弹窗后消失 -->
               <div
                 v-if="isDictationFrost(sub.id)"

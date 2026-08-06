@@ -361,15 +361,20 @@ def list_practice_records(
     user: User,
     *,
     mode: str | None = None,
+    video_id: str | None = None,
     page: int = 1,
     page_size: int = 20,
 ) -> dict[str, Any]:
     page = max(1, page)
-    page_size = max(1, min(50, page_size))
+    page_size = max(1, min(100, page_size))
+    allowed_modes = {"word", "sentence", "passage", "shadow"}
     try:
         q = db.query(UserPracticeRecord).filter(UserPracticeRecord.user_id == user.id)
-        if mode and mode.strip() in {"word", "sentence", "passage"}:
+        if mode and mode.strip() in allowed_modes:
             q = q.filter(UserPracticeRecord.mode == mode.strip())
+        vid = (video_id or "").strip()
+        if vid:
+            q = q.filter(UserPracticeRecord.video_id == vid[:32])
         total = q.count()
         rows = (
             q.order_by(UserPracticeRecord.created_at.desc(), UserPracticeRecord.id.desc())
@@ -394,6 +399,111 @@ def list_practice_records(
         "page_size": page_size,
         "results": results,
     }
+
+
+def list_shadow_tracks_for_video(
+    db: Session,
+    user: User,
+    video_id: str,
+) -> dict[str, Any]:
+    """某集影子跟读音轨：每个 subtitle_id 只返回最新一条有录音的记录。"""
+    vid = (video_id or "").strip()
+    if not vid:
+        return {"video_id": "", "results": []}
+    try:
+        rows = (
+            db.query(UserPracticeRecord)
+            .filter(
+                UserPracticeRecord.user_id == user.id,
+                UserPracticeRecord.mode == "shadow",
+                UserPracticeRecord.video_id == vid[:32],
+                UserPracticeRecord.audio_url != "",
+                UserPracticeRecord.subtitle_id.isnot(None),
+            )
+            .order_by(UserPracticeRecord.created_at.desc(), UserPracticeRecord.id.desc())
+            .all()
+        )
+    except (ProgrammingError, OperationalError) as exc:
+        db.rollback()
+        if "user_practice_records" in str(exc).lower() or "does not exist" in str(exc).lower():
+            _ensure_table(db)
+            return {"video_id": vid, "results": []}
+        raise
+
+    seen: set[int] = set()
+    results: list[dict[str, Any]] = []
+    for row in rows:
+        sid = row.subtitle_id
+        if sid is None or sid in seen:
+            continue
+        seen.add(sid)
+        results.append(record_to_dict(row))
+    return {"video_id": vid, "results": results}
+
+
+def upsert_shadow_record(
+    db: Session,
+    user: User,
+    *,
+    video_id: str,
+    subtitle_id: int,
+    title: str = "",
+    ref_text: str = "",
+) -> UserPracticeRecord:
+    """同一用户同一字幕只保留一条影子记录（重录覆盖）。"""
+    vid = (video_id or "").strip()[:32]
+    existing = (
+        db.query(UserPracticeRecord)
+        .filter(
+            UserPracticeRecord.user_id == user.id,
+            UserPracticeRecord.mode == "shadow",
+            UserPracticeRecord.video_id == vid,
+            UserPracticeRecord.subtitle_id == subtitle_id,
+        )
+        .order_by(UserPracticeRecord.created_at.desc(), UserPracticeRecord.id.desc())
+        .first()
+    )
+    text = (ref_text or "").strip()[:8000]
+    if existing:
+        # 删掉同字幕多余旧记录，只留这一条
+        extras = (
+            db.query(UserPracticeRecord)
+            .filter(
+                UserPracticeRecord.user_id == user.id,
+                UserPracticeRecord.mode == "shadow",
+                UserPracticeRecord.video_id == vid,
+                UserPracticeRecord.subtitle_id == subtitle_id,
+                UserPracticeRecord.id != existing.id,
+            )
+            .all()
+        )
+        for extra in extras:
+            db.delete(extra)
+        existing.title = (title or existing.title or "").strip()[:256]
+        if text:
+            existing.ref_text = text
+        existing.engine = "shadow"
+        existing.source_type = "video"
+        existing.audio_url = ""
+        existing.audio_source = ""
+        existing.created_at = datetime.utcnow()
+        db.add(existing)
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    return create_practice_record(
+        db,
+        user,
+        feedback={},
+        mode="shadow",
+        engine="shadow",
+        source_type="video",
+        video_id=vid,
+        subtitle_id=subtitle_id,
+        title=title,
+        ref_text=text,
+    )
 
 
 def get_practice_record(db: Session, user: User, record_id: int) -> UserPracticeRecord | None:
