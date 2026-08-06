@@ -628,20 +628,37 @@ function onPlaybackEnded() {
   if (el) el.currentTime = 0
 }
 
+function revokeOwnedPlaybackBlob() {
+  if (playbackUrl.value.startsWith('blob:') && playbackUrl.value !== oral.localAudioUrl.value) {
+    try {
+      URL.revokeObjectURL(playbackUrl.value)
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/**
+ * 加载远程回听地址。
+ * - https（含练习记录转存的七牛）：audio 可直链，勿走口语代理（代理仅允许 ssapi.cn）
+ * - http 口语云：须后端代理，否则 HTTPS 页会被混合内容拦截
+ */
 async function loadRemotePlayback(remote: string): Promise<boolean> {
   const url = remote.trim()
   if (!url || url.startsWith('blob:')) return false
   playbackLoading.value = true
   playbackError.value = false
   try {
-    const blob = await fetchOralRemoteAudio(url)
-    if (playbackUrl.value.startsWith('blob:') && playbackUrl.value !== oral.localAudioUrl.value) {
-      try {
-        URL.revokeObjectURL(playbackUrl.value)
-      } catch {
-        /* ignore */
-      }
+    if (url.startsWith('https://')) {
+      revokeOwnedPlaybackBlob()
+      playbackUrl.value = url
+      playbackRemoteTried = true
+      return true
     }
+    if (!url.startsWith('http://')) return false
+
+    const blob = await fetchOralRemoteAudio(url)
+    revokeOwnedPlaybackBlob()
     playbackUrl.value = URL.createObjectURL(blob)
     playbackRemoteTried = true
     return true
@@ -711,9 +728,11 @@ async function resolvePlayback(remoteUrl?: string | null) {
   clearPlayback()
   const remote = (remoteUrl || '').trim()
   const local = oral.localAudioUrl.value
-  playbackRemoteUrl.value = remote.startsWith('http') ? remote : ''
+  // 保留原始远程地址供失败回退；https/http 均可
+  playbackRemoteUrl.value = remote.startsWith('http://') || remote.startsWith('https://') ? remote : ''
 
-  // 优先云端完整音频（本地 saveAudio 分片经常不是可播容器）
+  // 优先完整远程音频（转存七牛 https，或口语云 http→代理）
+  // 本地 saveAudio 分片经常不是可播容器，只作最后兜底
   if (playbackRemoteUrl.value) {
     const ok = await loadRemotePlayback(playbackRemoteUrl.value)
     if (ok) return
@@ -1109,7 +1128,10 @@ async function startOralRecording() {
     step.value = 'result'
     showTips.value = Boolean(result.value.issues?.length || result.value.tips?.length)
     await maybeUploadLocalPracticeAudio(result.value)
-    await resolvePlayback(result.value.audio_url || remoteFromSdk)
+    // 优先练习记录转存后的 https（与学习页同一地址）；勿只用口语临时链
+    await resolvePlayback(
+      result.value.practice_audio_url || result.value.audio_url || remoteFromSdk,
+    )
     await nextTick()
     scheduleFeedbackTts(result.value)
   } catch (e: unknown) {
