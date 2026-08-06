@@ -2291,7 +2291,7 @@ function subtitleRowClass(index: number) {
                   @close="closeShadowSession"
                 />
                 <ShadowTrack
-                  v-if="shadowTracks[sub.id]?.audio_url"
+                  v-if="shadowActiveSubId !== sub.id && shadowTracks[sub.id]?.audio_url"
                   :audio-url="shadowTracks[sub.id].audio_url"
                   :sentence-duration-sec="sentenceDurationSec(sub)"
                   :uploading="shadowUploadId === sub.id"
