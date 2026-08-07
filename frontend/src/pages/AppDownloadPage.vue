@@ -84,7 +84,11 @@ onMounted(async () => {
             <div>
               <h2 class="text-base font-semibold">Android</h2>
               <p class="text-xs text-neutral-500">
-                <template v-if="data.android_version">版本 {{ data.android_version }}</template>
+                <template v-if="data.android_version">
+                  版本 {{ data.android_version }}
+                  <template v-if="data.android_version_code">（{{ data.android_version_code }}）</template>
+                </template>
+                <template v-else-if="data.android_version_code">版本码 {{ data.android_version_code }}</template>
                 <template v-else>APK 安装包</template>
               </p>
             </div>

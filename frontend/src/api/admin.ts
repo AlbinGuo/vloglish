@@ -1285,8 +1285,11 @@ export async function adminUpdateFeedback(
 export interface AdminAppRelease {
   enabled: boolean
   android_version: string
+  android_version_code: number
   android_apk_url: string
   android_changelog: string
+  force_update: boolean
+  min_supported_version_code: number
   ios_note: string
   ios_link: string
 }

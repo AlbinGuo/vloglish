@@ -18,11 +18,22 @@ def _default_payload() -> dict[str, Any]:
     return {
         "enabled": True,
         "android_version": "",
+        "android_version_code": 0,
         "android_apk_url": "",
         "android_changelog": "",
+        "force_update": False,
+        "min_supported_version_code": 0,
         "ios_note": DEFAULT_IOS_NOTE,
         "ios_link": "",
     }
+
+
+def _as_int(value: Any, default: int = 0) -> int:
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(0, n)
 
 
 def get_app_release(db: Session) -> dict[str, Any]:
@@ -41,8 +52,11 @@ def get_app_release(db: Session) -> dict[str, Any]:
             data[key] = parsed[key]
     data["enabled"] = bool(data.get("enabled", True))
     data["android_version"] = str(data.get("android_version") or "").strip()[:64]
+    data["android_version_code"] = _as_int(data.get("android_version_code"), 0)
     data["android_apk_url"] = str(data.get("android_apk_url") or "").strip()[:1024]
     data["android_changelog"] = str(data.get("android_changelog") or "").strip()[:4000]
+    data["force_update"] = bool(data.get("force_update", False))
+    data["min_supported_version_code"] = _as_int(data.get("min_supported_version_code"), 0)
     data["ios_note"] = str(data.get("ios_note") or DEFAULT_IOS_NOTE).strip()[:1000] or DEFAULT_IOS_NOTE
     data["ios_link"] = str(data.get("ios_link") or "").strip()[:1024]
     return data
@@ -53,12 +67,14 @@ def save_app_release(db: Session, patch: dict[str, Any]) -> dict[str, Any]:
     for key in current:
         if key in patch and patch[key] is not None:
             current[key] = patch[key]
-    # 规范化
     current = {
         "enabled": bool(current.get("enabled", True)),
         "android_version": str(current.get("android_version") or "").strip()[:64],
+        "android_version_code": _as_int(current.get("android_version_code"), 0),
         "android_apk_url": str(current.get("android_apk_url") or "").strip()[:1024],
         "android_changelog": str(current.get("android_changelog") or "").strip()[:4000],
+        "force_update": bool(current.get("force_update", False)),
+        "min_supported_version_code": _as_int(current.get("min_supported_version_code"), 0),
         "ios_note": str(current.get("ios_note") or DEFAULT_IOS_NOTE).strip()[:1000] or DEFAULT_IOS_NOTE,
         "ios_link": str(current.get("ios_link") or "").strip()[:1024],
     }
@@ -74,9 +90,37 @@ def public_app_download(db: Session) -> dict[str, Any]:
     return {
         "enabled": enabled,
         "android_version": data.get("android_version") or "",
+        "android_version_code": int(data.get("android_version_code") or 0) if enabled else 0,
         "android_apk_url": apk,
         "android_changelog": data.get("android_changelog") or "" if enabled else "",
+        "force_update": bool(data.get("force_update")) if enabled else False,
+        "min_supported_version_code": int(data.get("min_supported_version_code") or 0) if enabled else 0,
         "ios_note": data.get("ios_note") or DEFAULT_IOS_NOTE,
         "ios_link": data.get("ios_link") or "" if enabled else "",
         "has_android": bool(apk),
+    }
+
+
+def check_app_version(db: Session, *, current_version_code: int) -> dict[str, Any]:
+    """App 内检查更新。"""
+    data = get_app_release(db)
+    enabled = bool(data.get("enabled"))
+    latest_code = _as_int(data.get("android_version_code"), 0)
+    min_code = _as_int(data.get("min_supported_version_code"), 0)
+    apk = str(data.get("android_apk_url") or "").strip()
+    current = max(0, int(current_version_code or 0))
+
+    has_update = bool(enabled and apk and latest_code > current)
+    force = False
+    if has_update:
+        force = bool(data.get("force_update")) or (min_code > 0 and current < min_code)
+
+    return {
+        "has_update": has_update,
+        "force_update": force,
+        "latest_version": data.get("android_version") or "" if has_update else "",
+        "latest_version_code": latest_code if has_update else 0,
+        "android_apk_url": apk if has_update else "",
+        "android_changelog": (data.get("android_changelog") or "") if has_update else "",
+        "download_page_path": "/download",
     }

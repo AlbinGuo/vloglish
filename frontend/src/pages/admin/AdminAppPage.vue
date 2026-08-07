@@ -18,8 +18,11 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const form = ref<AdminAppRelease>({
   enabled: true,
   android_version: '',
+  android_version_code: 1,
   android_apk_url: '',
   android_changelog: '',
+  force_update: false,
+  min_supported_version_code: 0,
   ios_note: 'iOS 版尚未上架 App Store，敬请期待。',
   ios_link: '',
 })
@@ -44,7 +47,18 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    form.value = await adminGetAppRelease()
+    const data = await adminGetAppRelease()
+    form.value = {
+      enabled: data.enabled ?? true,
+      android_version: data.android_version || '',
+      android_version_code: data.android_version_code || 1,
+      android_apk_url: data.android_apk_url || '',
+      android_changelog: data.android_changelog || '',
+      force_update: Boolean(data.force_update),
+      min_supported_version_code: data.min_supported_version_code || 0,
+      ios_note: data.ios_note || 'iOS 版尚未上架 App Store，敬请期待。',
+      ios_link: data.ios_link || '',
+    }
     await refreshQr()
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -59,11 +73,20 @@ async function save() {
   error.value = ''
   success.value = ''
   try {
+    const code = Number(form.value.android_version_code) || 0
+    if (code < 1) {
+      error.value = '请填写有效的版本码 versionCode（正整数，需与 APK 内一致）'
+      saving.value = false
+      return
+    }
     form.value = await adminPatchAppRelease({
       enabled: form.value.enabled,
       android_version: form.value.android_version.trim(),
+      android_version_code: code,
       android_apk_url: form.value.android_apk_url.trim(),
       android_changelog: form.value.android_changelog.trim(),
+      force_update: form.value.force_update,
+      min_supported_version_code: Math.max(0, Number(form.value.min_supported_version_code) || 0),
       ios_note: form.value.ios_note.trim(),
       ios_link: form.value.ios_link.trim(),
     })
@@ -215,14 +238,28 @@ onMounted(() => {
 
         <div class="grid sm:grid-cols-2 gap-3">
           <label class="block text-xs space-y-1">
-            <span class="text-neutral-500">版本号</span>
+            <span class="text-neutral-500">版本名 versionName</span>
             <input
               v-model="form.android_version"
               type="text"
-              placeholder="例如 1.0.2"
+              placeholder="例如 1.0.2（与 build.gradle 一致）"
               class="w-full rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-3 py-2 text-sm"
             />
           </label>
+          <label class="block text-xs space-y-1">
+            <span class="text-neutral-500">版本码 versionCode</span>
+            <input
+              v-model.number="form.android_version_code"
+              type="number"
+              min="1"
+              step="1"
+              placeholder="例如 2（每次发版 +1）"
+              class="w-full rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-3 py-2 text-sm"
+            />
+          </label>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-3">
           <div class="block text-xs space-y-1">
             <span class="text-neutral-500">安装包</span>
             <div class="flex gap-2">
@@ -237,7 +274,26 @@ onMounted(() => {
               </button>
             </div>
           </div>
+          <label class="block text-xs space-y-1">
+            <span class="text-neutral-500">最低支持版本码（可选）</span>
+            <input
+              v-model.number="form.min_supported_version_code"
+              type="number"
+              min="0"
+              step="1"
+              placeholder="0 表示不限制；低于此码强制更新"
+              class="w-full rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-3 py-2 text-sm"
+            />
+          </label>
         </div>
+
+        <label class="flex items-start gap-2.5 rounded-xl border border-black/8 dark:border-white/10 px-3 py-2.5 cursor-pointer">
+          <input v-model="form.force_update" type="checkbox" class="mt-0.5 rounded border-neutral-300" />
+          <span class="min-w-0">
+            <span class="block text-sm font-medium text-neutral-900 dark:text-neutral-50">强制更新</span>
+            <span class="block text-[11px] text-neutral-500 mt-0.5">开启后，旧版 App 只能去更新，无法关闭弹窗</span>
+          </span>
+        </label>
 
         <label class="block text-xs space-y-1">
           <span class="text-neutral-500">APK 下载地址</span>
