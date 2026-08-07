@@ -36,6 +36,7 @@ const nav = [
   { to: '/gnadmin/ai-usage', label: 'AI 用量' },
   { to: '/gnadmin/notifications', label: '通知' },
   { to: '/gnadmin/feedback', label: '用户反馈' },
+  { to: '/gnadmin/app', label: 'App 管理' },
 ]
 
 const pageTitle = computed(() => {
@@ -51,6 +52,7 @@ const pageTitle = computed(() => {
   if (route.path.startsWith('/gnadmin/tags')) return '标签'
   if (route.path.startsWith('/gnadmin/notifications')) return '通知'
   if (route.path.startsWith('/gnadmin/feedback')) return '用户反馈'
+  if (route.path.startsWith('/gnadmin/app')) return 'App 管理'
   if (route.path.startsWith('/gnadmin/geo')) return '地区分布'
   if (route.path.startsWith('/gnadmin/learning')) return '学习统计'
   if (route.path.startsWith('/gnadmin/ai-usage')) return 'AI 用量'

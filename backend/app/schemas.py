@@ -1516,3 +1516,37 @@ class AdminSiteSettingsOut(BaseModel):
 
 class AdminSiteSettingsPatchIn(BaseModel):
     membership_gate_enabled: bool
+
+
+class AppReleaseOut(BaseModel):
+    """管理端 / 公开 App 发布信息。"""
+
+    enabled: bool = True
+    android_version: str = ""
+    android_apk_url: str = ""
+    android_changelog: str = ""
+    ios_note: str = ""
+    ios_link: str = ""
+
+
+class AppReleasePatchIn(BaseModel):
+    enabled: bool | None = None
+    android_version: str | None = None
+    android_apk_url: str | None = None
+    android_changelog: str | None = None
+    ios_note: str | None = None
+    ios_link: str | None = None
+
+
+class AppApkUploadOut(BaseModel):
+    android_apk_url: str
+
+
+class PublicAppDownloadOut(BaseModel):
+    enabled: bool = True
+    android_version: str = ""
+    android_apk_url: str = ""
+    android_changelog: str = ""
+    ios_note: str = ""
+    ios_link: str = ""
+    has_android: bool = False

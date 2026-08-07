@@ -2,6 +2,7 @@
 import { nextTick, ref, watch } from 'vue'
 import type { EpisodeSummary } from '@/types'
 import type { WordLookupRecord } from '@/api/learning'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
 
 const props = defineProps<{
   tab: 'related' | 'lookup'
@@ -124,7 +125,7 @@ watch(
           @click="emit('selectEpisode', ep.video_id)"
         >
           <div class="relative w-20 shrink-0 aspect-video rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-700">
-            <img :src="ep.cover" :alt="ep.short_title" class="w-full h-full object-cover" loading="lazy" />
+            <img :src="resolveMediaUrl(ep.cover)" :alt="ep.short_title" class="w-full h-full object-cover" loading="lazy" />
             <span class="absolute bottom-0.5 right-0.5 text-[9px] text-white bg-black/60 px-1 rounded">
               {{ formatDuration(ep.clip_length) }}
             </span>

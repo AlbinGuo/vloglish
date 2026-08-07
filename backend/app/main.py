@@ -12,10 +12,11 @@ from sqlalchemy import inspect, text
 from .database import DATABASE_URL, Base, SessionLocal, engine, is_postgresql
 from .models import ActivationCode, AiUsageEvent, UserPageDwell, UserPracticeRecord
 from .schemas import AuthTokensOut
-from .routers import ai_coach, article_submit, auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, site_config
+from .routers import ai_coach, app_download, article_submit, auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, site_config
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import ai_usage as admin_ai_usage
+from .routers.admin import app_release as admin_app_release
 from .routers.admin import auth as admin_auth
 from .routers.admin import authors as admin_authors
 from .routers.admin import articles as admin_articles
@@ -46,6 +47,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(site_config.router)
+app.include_router(app_download.router)
 app.include_router(demo.router)
 app.include_router(episodes.router)
 app.include_router(episode_submit.router)
@@ -61,6 +63,7 @@ app.include_router(ai_coach.router)
 app.include_router(admin_auth.router)
 app.include_router(admin_dashboard.router)
 app.include_router(admin_site_settings.router)
+app.include_router(admin_app_release.router)
 app.include_router(admin_activation_codes.router)
 app.include_router(admin_membership_orders.router)
 app.include_router(admin_users.router)

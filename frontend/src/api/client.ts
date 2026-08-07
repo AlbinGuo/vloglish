@@ -8,10 +8,16 @@ import {
   setRemoteLoginNotice,
 } from '@/api/tokens'
 import { randomUUID } from '@/utils/randomId'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
+import { isMobileAppBuild } from '@/utils/platform'
 
 const DEVICE_KEY = 'device_id'
 const DEMO_CODE_KEY = 'demo_code'
 const DEMO_VERIFIED_KEY = 'demo_code_verified'
+
+/** App 构建走绝对 API；Web 生产同域反代时保持空字符串 */
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const useAbsoluteApi = Boolean(API_BASE_URL)
 
 export function getDeviceId(): string {
   let id = localStorage.getItem(DEVICE_KEY)
@@ -37,9 +43,10 @@ export function setDemoVerified(code: string, affiliateCode?: string | null) {
 }
 
 const api = axios.create({
-  baseURL: '',
+  baseURL: API_BASE_URL,
   timeout: 30000,
-  withCredentials: true,
+  // 跨域 App 请求不要带 cookie；JWT 已在 Authorization
+  withCredentials: !useAbsoluteApi,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -48,6 +55,9 @@ api.interceptors.request.use((config) => {
   config.headers['X-Device-Id'] = getDeviceId()
   config.headers['X-Timestamp'] = String(Math.floor(Date.now() / 1000))
   config.headers['X-Nonce'] = randomUUID()
+  if (useAbsoluteApi) {
+    config.headers['X-Client'] = import.meta.env.VITE_APP_TARGET === 'mobile' ? 'app' : 'web'
+  }
 
   // FormData 需由浏览器自动带 multipart boundary，不能沿用默认 application/json
   if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
@@ -71,14 +81,37 @@ async function handleForcedLogout() {
   clearTokens()
   const { useAuthStore } = await import('@/stores/auth')
   useAuthStore().clearSession()
-  const path = window.location.pathname
+  const { default: router } = await import('@/router')
+  const path = router.currentRoute.value.path
   if (!path.startsWith('/login') && !path.startsWith('/signup') && !path.startsWith('/gnadmin')) {
-    window.location.href = '/login?reason=remote'
+    await router.replace({ path: '/login', query: { reason: 'remote' } })
   }
 }
 
+/** App WebView 为 https，把接口里的 http 媒体链升级为 https，避免图片/视频被混合内容拦截 */
+function upgradeMediaUrlsInData(data: unknown): unknown {
+  if (typeof data === 'string') {
+    if (data.startsWith('http://') || data.startsWith('//')) return resolveMediaUrl(data)
+    return data
+  }
+  if (Array.isArray(data)) return data.map((item) => upgradeMediaUrlsInData(item))
+  if (data && typeof data === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+      out[key] = upgradeMediaUrlsInData(value)
+    }
+    return out
+  }
+  return data
+}
+
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (isMobileAppBuild() && response.data != null) {
+      response.data = upgradeMediaUrlsInData(response.data)
+    }
+    return response
+  },
   async (error) => {
     const original = error.config
     const detail = getErrorDetail(error)
@@ -142,4 +175,4 @@ api.interceptors.response.use(
 
 export default api
 
-export { DEVICE_KEY, DEMO_CODE_KEY, DEMO_VERIFIED_KEY }
+export { DEVICE_KEY, DEMO_CODE_KEY, DEMO_VERIFIED_KEY, API_BASE_URL }

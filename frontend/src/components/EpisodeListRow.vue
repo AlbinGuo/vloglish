@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import type { EpisodeSummary } from '@/types'
 import { displayLearnerCount } from '@/utils/displayLearnerCount'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
 
 const props = defineProps<{
   episode: EpisodeSummary
@@ -41,7 +42,7 @@ function learnerLabel() {
     <RouterLink :to="to" class="flex flex-1 min-w-0 items-center gap-3 py-3 pr-2 cursor-pointer" @click="requestEpisodeAutoplay">
       <div class="relative w-28 sm:w-32 shrink-0 aspect-video rounded-lg overflow-hidden bg-neutral-200 dark:bg-neutral-800">
         <img
-          :src="episode.cover"
+          :src="resolveMediaUrl(episode.cover)"
           :alt="episode.short_title"
           class="w-full h-full object-cover"
           loading="lazy"

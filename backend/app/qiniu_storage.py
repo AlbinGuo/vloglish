@@ -85,6 +85,19 @@ class QiniuConfig:
                 "Missing Qiniu config. Set QINIU_ACCESS_KEY, QINIU_SECRET_KEY, "
                 "QINIU_BUCKET, QINIU_DOMAIN in backend/.env"
             )
+        placeholder_keys = {
+            "your_access_key",
+            "your_secret_key",
+            "changeme",
+            "xxx",
+            "ak",
+            "sk",
+        }
+        if access_key.lower() in placeholder_keys or secret_key.lower() in placeholder_keys:
+            raise RuntimeError(
+                "七牛 AK/SK 仍是占位符。请在 backend/.env 填入七牛控制台的 "
+                "QINIU_ACCESS_KEY / QINIU_SECRET_KEY 后重启后端"
+            )
         return cls(
             access_key=access_key,
             secret_key=secret_key,
@@ -139,8 +152,14 @@ def upload_file(cfg: QiniuConfig, local_path: Path, key: str) -> str:
     if info.status_code != 200:
         body = getattr(info, "text_body", "") or str(info)
         hint = ""
-        if "no such bucket" in body:
+        body_l = body.lower()
+        if "no such bucket" in body_l:
             hint = f" (bucket `{cfg.bucket}` 不存在或 AK/SK 无权限，请在七牛控制台确认)"
+        if "accesskey is not found" in body_l or info.status_code == 612:
+            hint += (
+                "（七牛 AccessKey 无效或不存在：请核对 backend/.env 的 "
+                "QINIU_ACCESS_KEY / QINIU_SECRET_KEY，保存后重启后端）"
+            )
         if "127.0.0.1" in body and "timed out" in body.lower():
             hint += "（检测到本机代理，已尝试绕过；若仍失败请关闭 VPN/系统代理或增大 QINIU_UPLOAD_TIMEOUT）"
         raise RuntimeError(f"Qiniu upload failed ({info.status_code}): {body}{hint}")

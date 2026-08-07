@@ -6,6 +6,7 @@ import { useCatalogBrowseMode, type CatalogBrowseMode } from '@/composables/useC
 import { useAuthStore } from '@/stores/auth'
 import { useCatalogStore, type CatalogDurationFilter } from '@/stores/catalog'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
+import { isMobileAppBuild } from '@/utils/platform'
 
 const props = withDefaults(
   defineProps<{
@@ -35,7 +36,9 @@ const durationOptions: { value: CatalogDurationFilter; label: string }[] = [
 ]
 
 const showFavorite = computed(() => auth.isMember)
-const showSubmitActions = computed(() => auth.isLoggedIn && props.showSubmitEntry)
+const showSubmitActions = computed(
+  () => auth.isLoggedIn && props.showSubmitEntry && !isMobileAppBuild(),
+)
 const submitLink = computed(() => (auth.isMember ? '/english/submit' : '/pricing'))
 const submitArticleLink = computed(() => (auth.isMember ? '/english/submit-article' : '/pricing'))
 const mySubmissionsLink = computed(() => (auth.isMember ? '/english/my-submissions' : '/pricing'))

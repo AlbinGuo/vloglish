@@ -34,6 +34,7 @@ import { useSourceFocusPulse } from '@/composables/useSourceFocusPulse'
 import { useWordLongPress } from '@/composables/useWordLongPress'
 import { useAuthStore } from '@/stores/auth'
 import type { EntryDetail, EpisodeDetail, EpisodeSummary, Subtitle } from '@/types'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
 import EntryCard from '@/components/EntryCard.vue'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import PlayerControls from '@/components/PlayerControls.vue'
@@ -858,8 +859,8 @@ learningBridge.tickWatchTime = (delta) => {
 const playbackSrc = computed(() => {
   const media = episode.value?.media
   if (!media) return ''
-  if (videoHidden.value && media.audio_url) return media.audio_url
-  return media.video_url
+  if (videoHidden.value && media.audio_url) return resolveMediaUrl(media.audio_url)
+  return resolveMediaUrl(media.video_url)
 })
 
 const isChineseOnly = computed(() => modeIsChineseOnly(subtitleMode.value))

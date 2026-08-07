@@ -1281,3 +1281,33 @@ export async function adminUpdateFeedback(
   const { data } = await adminApi.patch<AdminFeedback>(`/api/admin/feedback/${id}/`, payload)
   return data
 }
+
+export interface AdminAppRelease {
+  enabled: boolean
+  android_version: string
+  android_apk_url: string
+  android_changelog: string
+  ios_note: string
+  ios_link: string
+}
+
+export async function adminGetAppRelease() {
+  const { data } = await adminApi.get<AdminAppRelease>('/api/admin/app-release/')
+  return data
+}
+
+export async function adminPatchAppRelease(payload: Partial<AdminAppRelease>) {
+  const { data } = await adminApi.patch<AdminAppRelease>('/api/admin/app-release/', payload)
+  return data
+}
+
+export async function adminUploadAppApk(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await adminApi.post<{ android_apk_url: string }>(
+    '/api/admin/app-release/upload-apk/',
+    form,
+    { timeout: 600000 },
+  )
+  return data
+}

@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import type { EpisodeSummary } from '@/types'
 import { displayLearnerCount } from '@/utils/displayLearnerCount'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
 
 const props = defineProps<{ episode: EpisodeSummary; to: string }>()
 
@@ -33,7 +34,7 @@ function learnerLabel() {
     <article class="rounded-xl overflow-hidden border border-black/5 dark:border-white/10 shadow-sm hover:shadow-md transition bg-white dark:bg-neutral-900 h-full">
       <div class="relative aspect-video bg-neutral-200 dark:bg-neutral-800">
         <img
-          :src="episode.cover"
+          :src="resolveMediaUrl(episode.cover)"
           :alt="episode.short_title"
           class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
           loading="lazy"

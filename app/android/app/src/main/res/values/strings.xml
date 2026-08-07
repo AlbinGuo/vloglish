@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Vloglish</string>
+    <string name="title_activity_main">Vloglish</string>
+    <string name="package_name">cc.vloglish.app</string>
+    <string name="custom_url_scheme">cc.vloglish.app</string>
+</resources>

@@ -27,8 +27,19 @@ async function submit() {
     const next = typeof route.query.next === 'string' ? route.query.next : '/english'
     await router.replace(next)
   } catch (e: unknown) {
-    const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-    error.value = msg || '登录失败，请重试'
+    const err = e as {
+      response?: { data?: { detail?: string }; status?: number }
+      code?: string
+      message?: string
+    }
+    const detail = err.response?.data?.detail
+    if (typeof detail === 'string' && detail.trim()) {
+      error.value = detail
+    } else if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
+      error.value = '无法连接服务器，请检查网络后重试'
+    } else {
+      error.value = '登录失败，请重试'
+    }
   } finally {
     loading.value = false
   }

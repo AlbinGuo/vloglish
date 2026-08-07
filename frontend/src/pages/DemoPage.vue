@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useDemoStore } from '@/stores/demo'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
 
 const router = useRouter()
 const store = useDemoStore()
@@ -80,7 +81,7 @@ function openEpisode(videoId: string) {
         >
           <div class="rounded-2xl overflow-hidden border border-black/5 dark:border-white/10 shadow-sm hover:opacity-90 transition">
             <div class="relative aspect-video bg-neutral-200 dark:bg-neutral-800">
-              <img :src="ep.cover" :alt="ep.short_title" class="w-full h-full object-cover" loading="lazy" />
+              <img :src="resolveMediaUrl(ep.cover)" :alt="ep.short_title" class="w-full h-full object-cover" loading="lazy" />
               <span class="absolute bottom-2 right-2 text-white text-xs bg-black/60 px-2 py-0.5 rounded">
                 {{ formatDuration(ep.clip_length) }}
               </span>

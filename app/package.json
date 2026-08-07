@@ -1,0 +1,27 @@
+{
+  "name": "vloglish-app",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Vloglish Capacitor 原生壳（iOS / Android）",
+  "scripts": {
+    "build:web": "npm --prefix ../frontend run build:app-assets",
+    "sync": "npm run build:web && npx cap sync",
+    "build:apk": "npm run sync && cd android && gradlew.bat assembleDebug && cd .. && node -e \"require('fs').mkdirSync('dist',{recursive:true});require('fs').copyFileSync('android/app/build/outputs/apk/debug/app-debug.apk','dist/vloglish-debug.apk');console.log('APK -> dist/vloglish-debug.apk')\"",
+    "open:android": "npx cap open android",
+    "open:ios": "npx cap open ios",
+    "add:android": "npx cap add android",
+    "add:ios": "npx cap add ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/app": "^7.1.0",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/ios": "^7.4.3",
+    "@capacitor/splash-screen": "^7.0.3",
+    "@capacitor/status-bar": "^7.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3",
+    "typescript": "~5.7.2"
+  }
+}

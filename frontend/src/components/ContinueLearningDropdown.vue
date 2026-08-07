@@ -196,7 +196,7 @@ watch(
                   <div class="relative w-[4.5rem] aspect-video rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 shrink-0">
                     <img
                       v-if="item.cover"
-                      :src="item.cover"
+                      :src="resolveMediaUrl(item.cover)"
                       :alt="item.short_title"
                       class="w-full h-full object-cover"
                       loading="lazy"
