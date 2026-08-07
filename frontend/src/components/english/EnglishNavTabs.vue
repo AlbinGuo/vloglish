@@ -15,7 +15,7 @@ withDefaults(
 const route = useRoute()
 const auth = useAuthStore()
 
-const videoCount = ref<number | null>(null)
+const counts = ref<{ videos: number; series: number; articles: number } | null>(null)
 /** 2 天内是否有新上架内容（进列表不清除） */
 const hasNew = ref<{ series: boolean; articles: boolean }>({ series: false, articles: false })
 
@@ -25,12 +25,22 @@ const active = computed(() => {
   return 'videos'
 })
 
+function badgeClass(isActive: boolean) {
+  return isActive
+    ? 'bg-amber-500 text-white'
+    : 'bg-neutral-300/90 text-neutral-700 dark:bg-neutral-600 dark:text-neutral-100'
+}
+
 async function refresh() {
   try {
-    const counts = await getEnglishNavCounts()
-    videoCount.value = counts.videos
+    const data = await getEnglishNavCounts()
+    counts.value = {
+      videos: data.videos,
+      series: data.series,
+      articles: data.articles,
+    }
   } catch {
-    videoCount.value = null
+    counts.value = null
   }
   try {
     const data = await getEnglishNavNew()
@@ -70,15 +80,11 @@ watch(
     >
       视频
       <span
-        v-if="videoCount != null"
+        v-if="counts"
         class="absolute top-0.5 right-0.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full text-[10px] font-semibold leading-[1.1rem] text-center tabular-nums"
-        :class="
-          active === 'videos'
-            ? 'bg-amber-500 text-white'
-            : 'bg-neutral-300/90 text-neutral-700 dark:bg-neutral-600 dark:text-neutral-100'
-        "
+        :class="badgeClass(active === 'videos')"
       >
-        {{ videoCount }}
+        {{ counts.videos }}
       </span>
     </RouterLink>
     <RouterLink
@@ -93,8 +99,15 @@ watch(
     >
       合集
       <span
+        v-if="counts"
+        class="absolute top-0.5 right-0.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full text-[10px] font-semibold leading-[1.1rem] text-center tabular-nums"
+        :class="badgeClass(active === 'series')"
+      >
+        {{ counts.series }}
+      </span>
+      <span
         v-if="hasNew.series"
-        class="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-md text-xs font-bold leading-none bg-red-500 text-white shadow-sm"
+        class="absolute -top-1 -left-1 px-1.5 py-0.5 rounded-md text-xs font-bold leading-none bg-red-500 text-white shadow-sm"
       >
         新
       </span>
@@ -111,8 +124,15 @@ watch(
     >
       文章
       <span
+        v-if="counts"
+        class="absolute top-0.5 right-0.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full text-[10px] font-semibold leading-[1.1rem] text-center tabular-nums"
+        :class="badgeClass(active === 'reading')"
+      >
+        {{ counts.articles }}
+      </span>
+      <span
         v-if="hasNew.articles"
-        class="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-md text-xs font-bold leading-none bg-red-500 text-white shadow-sm"
+        class="absolute -top-1 -left-1 px-1.5 py-0.5 rounded-md text-xs font-bold leading-none bg-red-500 text-white shadow-sm"
       >
         新
       </span>

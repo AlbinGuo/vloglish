@@ -9,13 +9,20 @@
 
 ```bash
 cd app
-npm install
-npm run assets:generate   # 从 BrandLogo 生成图标/启动图（需本机 Python + pillow）
-npm run sync              # 构建 frontend → www → cap sync
-npm run build:apk         # 同步并打 debug APK（真机测试）
-npm run add:android       # 首次添加 Android 工程
-npm run open:android      # 用 Android Studio 打开
+npm install              # 首次或依赖变更后必须执行
+npm run assets:generate  # 从 BrandLogo 生成图标/启动图（需本机 Python + pillow）
+npm run sync             # 构建 frontend → www（含旧 WebView CSS 降级）→ cap sync
+npm run build:apk        # 同步并打 debug APK（真机测试）
+npm run add:android      # 首次添加 Android 工程
+npm run open:android     # 用 Android Studio 打开
 ```
+
+### 旧 Android WebView 样式兼容
+
+`npm run sync` / `build:app-assets` 会在 Vite 打包后运行
+`frontend/scripts/compatWebViewCss.mjs`，把 Tailwind v4 产物中的
+`oklch` / `@layer` / `@property` / `color-mix` 降级，避免部分国产机
+系统 WebView 过旧导致「整页没样式」。
 
 图标源文件在 `assets/`（`icon-only.png` 等），由 `scripts/generate-brand-assets.py` 写入 Android `mipmap-*` / splash。
 
@@ -28,4 +35,5 @@ Debug APK 输出：
 
 iOS 工程需在 macOS 上执行 `npm run add:ios`。
 
-> 打包需要 JDK 21。已在 `android/gradle.properties` 指向本机 Android Studio JBR。
+> 打包需要 **带 jlink 的 JDK 21**（推荐 [Temurin 21](https://adoptium.net/)）。
+> `npm run build:apk` 会自动探测；会跳过：无 jlink 的 IDE 精简 JBR、以及过新的 JDK 25（Gradle 8.11 不支持）。

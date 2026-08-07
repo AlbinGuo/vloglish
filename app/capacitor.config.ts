@@ -12,6 +12,12 @@ const config: CapacitorConfig = {
       launchAutoHide: true,
       backgroundColor: '#0f172a',
     },
+    StatusBar: {
+      // 与 frontend/src/native/shell.ts 一致：Android 不叠加，避免 header 被状态栏遮挡
+      overlaysWebView: false,
+      style: 'DARK',
+      backgroundColor: '#ffffff',
+    },
   },
 }
 
