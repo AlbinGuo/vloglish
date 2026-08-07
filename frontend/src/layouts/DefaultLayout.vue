@@ -280,7 +280,7 @@ watch(
   >
     <header
       v-if="!immersive"
-      class="z-40 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-b border-black/5 dark:border-white/10 transition-transform duration-300 ease-out will-change-transform"
+      class="z-40 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-b border-black/5 dark:border-white/10 transition-transform duration-300 ease-out will-change-transform pt-[env(safe-area-inset-top,0px)]"
       :class="[
         catalogHeaderAutoHide ? 'fixed inset-x-0 top-0' : 'sticky top-0',
         catalogHeaderVisible ? 'translate-y-0' : '-translate-y-full',
@@ -415,7 +415,7 @@ watch(
     <div
       v-if="!immersive && catalogHeaderAutoHide"
       class="shrink-0 pointer-events-none overflow-hidden transition-[height] duration-300 ease-out"
-      :class="catalogHeaderVisible ? 'h-[4.25rem]' : 'h-0'"
+      :class="catalogHeaderVisible ? 'h-[calc(4.25rem+env(safe-area-inset-top,0px))]' : 'h-0'"
       aria-hidden="true"
     />
     <main class="flex-1" :class="immersive ? 'min-h-0 overflow-hidden' : ''">

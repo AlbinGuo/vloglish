@@ -7,10 +7,12 @@ import {
   type AdminAppRelease,
 } from '@/api/admin'
 import { downloadDataUrl, makeQrDataUrl } from '@/utils/qrcodeDownload'
+import { formatFileSize } from '@/utils/formatFileSize'
 
 const loading = ref(true)
 const saving = ref(false)
 const uploading = ref(false)
+const uploadPercent = ref(0)
 const error = ref('')
 const success = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -20,9 +22,11 @@ const form = ref<AdminAppRelease>({
   android_version: '',
   android_version_code: 1,
   android_apk_url: '',
+  android_apk_bytes: 0,
   android_changelog: '',
   force_update: false,
   min_supported_version_code: 0,
+  android_download_count: 0,
   ios_note: 'iOS 版尚未上架 App Store，敬请期待。',
   ios_link: '',
 })
@@ -31,6 +35,12 @@ const landingUrl = computed(() => `${window.location.origin}/download`)
 const qrDataUrl = ref('')
 const qrBusy = ref(false)
 const copied = ref('')
+
+const apkSizeLabel = computed(() => formatFileSize(form.value.android_apk_bytes))
+const downloadCountLabel = computed(() => {
+  const n = Number(form.value.android_download_count) || 0
+  return n.toLocaleString('zh-CN')
+})
 
 async function refreshQr() {
   qrBusy.value = true
@@ -43,22 +53,27 @@ async function refreshQr() {
   }
 }
 
+function applyForm(data: AdminAppRelease) {
+  form.value = {
+    enabled: data.enabled ?? true,
+    android_version: data.android_version || '',
+    android_version_code: data.android_version_code || 1,
+    android_apk_url: data.android_apk_url || '',
+    android_apk_bytes: data.android_apk_bytes || 0,
+    android_changelog: data.android_changelog || '',
+    force_update: Boolean(data.force_update),
+    min_supported_version_code: data.min_supported_version_code || 0,
+    android_download_count: data.android_download_count || 0,
+    ios_note: data.ios_note || 'iOS 版尚未上架 App Store，敬请期待。',
+    ios_link: data.ios_link || '',
+  }
+}
+
 async function load() {
   loading.value = true
   error.value = ''
   try {
-    const data = await adminGetAppRelease()
-    form.value = {
-      enabled: data.enabled ?? true,
-      android_version: data.android_version || '',
-      android_version_code: data.android_version_code || 1,
-      android_apk_url: data.android_apk_url || '',
-      android_changelog: data.android_changelog || '',
-      force_update: Boolean(data.force_update),
-      min_supported_version_code: data.min_supported_version_code || 0,
-      ios_note: data.ios_note || 'iOS 版尚未上架 App Store，敬请期待。',
-      ios_link: data.ios_link || '',
-    }
+    applyForm(await adminGetAppRelease())
     await refreshQr()
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -79,17 +94,19 @@ async function save() {
       saving.value = false
       return
     }
-    form.value = await adminPatchAppRelease({
-      enabled: form.value.enabled,
-      android_version: form.value.android_version.trim(),
-      android_version_code: code,
-      android_apk_url: form.value.android_apk_url.trim(),
-      android_changelog: form.value.android_changelog.trim(),
-      force_update: form.value.force_update,
-      min_supported_version_code: Math.max(0, Number(form.value.min_supported_version_code) || 0),
-      ios_note: form.value.ios_note.trim(),
-      ios_link: form.value.ios_link.trim(),
-    })
+    applyForm(
+      await adminPatchAppRelease({
+        enabled: form.value.enabled,
+        android_version: form.value.android_version.trim(),
+        android_version_code: code,
+        android_apk_url: form.value.android_apk_url.trim(),
+        android_changelog: form.value.android_changelog.trim(),
+        force_update: form.value.force_update,
+        min_supported_version_code: Math.max(0, Number(form.value.min_supported_version_code) || 0),
+        ios_note: form.value.ios_note.trim(),
+        ios_link: form.value.ios_link.trim(),
+      }),
+    )
     success.value = '已保存'
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -110,13 +127,19 @@ async function onApkChange(ev: Event) {
     return
   }
   uploading.value = true
+  uploadPercent.value = 0
   error.value = ''
   success.value = ''
   try {
-    const data = await adminUploadAppApk(file)
+    const data = await adminUploadAppApk(file, (p) => {
+      uploadPercent.value = p
+    })
     form.value.android_apk_url = data.android_apk_url
+    form.value.android_apk_bytes = data.android_apk_bytes || file.size || 0
     form.value.enabled = true
-    success.value = 'APK 已上传，请填写版本号后保存'
+    uploadPercent.value = 100
+    const sizeText = formatFileSize(form.value.android_apk_bytes)
+    success.value = sizeText ? `APK 已上传（${sizeText}），请填写版本号后保存` : 'APK 已上传，请填写版本号后保存'
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
     error.value = msg || 'APK 上传失败'
@@ -232,6 +255,18 @@ onMounted(() => {
         </div>
       </section>
 
+      <!-- 下载统计 -->
+      <section class="rounded-2xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 sm:p-5">
+        <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-50">下载统计</h2>
+        <p class="mt-3 text-3xl font-semibold tracking-tight text-teal-700 dark:text-teal-300">
+          {{ downloadCountLabel }}
+          <span class="ml-1 text-sm font-medium text-neutral-500 dark:text-neutral-400">次</span>
+        </p>
+        <p class="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+          统计通过下载页按钮、页内二维码，以及 App 内「立即更新」触发的 Android 安装包下载次数。
+        </p>
+      </section>
+
       <!-- Android -->
       <section class="rounded-2xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 sm:p-5 space-y-3">
         <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-50">Android</h2>
@@ -260,7 +295,7 @@ onMounted(() => {
         </div>
 
         <div class="grid sm:grid-cols-2 gap-3">
-          <div class="block text-xs space-y-1">
+          <div class="block text-xs space-y-1.5">
             <span class="text-neutral-500">安装包</span>
             <div class="flex gap-2">
               <input ref="fileInput" type="file" accept=".apk,application/vnd.android.package-archive" class="hidden" @change="onApkChange" />
@@ -270,9 +305,22 @@ onMounted(() => {
                 :disabled="uploading"
                 @click="fileInput?.click()"
               >
-                {{ uploading ? '上传中…' : '上传 APK' }}
+                {{ uploading ? `上传中 ${uploadPercent}%` : '上传 APK' }}
               </button>
             </div>
+            <div v-if="uploading" class="space-y-1">
+              <div class="h-2 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+                <div
+                  class="h-full rounded-full bg-teal-500 transition-[width] duration-150 ease-out"
+                  :style="{ width: `${uploadPercent}%` }"
+                />
+              </div>
+              <p class="text-[11px] text-neutral-500">正在上传到服务器… {{ uploadPercent }}%</p>
+            </div>
+            <p v-else-if="apkSizeLabel" class="text-[12px] text-neutral-600 dark:text-neutral-300">
+              当前安装包体积：
+              <span class="font-semibold text-neutral-900 dark:text-neutral-50">{{ apkSizeLabel }}</span>
+            </p>
           </div>
           <label class="block text-xs space-y-1">
             <span class="text-neutral-500">最低支持版本码（可选）</span>
@@ -313,6 +361,9 @@ onMounted(() => {
               {{ copied === 'apk' ? '已复制' : '复制' }}
             </button>
           </div>
+          <p v-if="apkSizeLabel && form.android_apk_url" class="text-[11px] text-neutral-500">
+            体积 {{ apkSizeLabel }}
+          </p>
         </label>
 
         <label class="block text-xs space-y-1">

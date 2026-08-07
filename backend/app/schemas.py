@@ -1525,9 +1525,11 @@ class AppReleaseOut(BaseModel):
     android_version: str = ""
     android_version_code: int = 0
     android_apk_url: str = ""
+    android_apk_bytes: int = 0
     android_changelog: str = ""
     force_update: bool = False
     min_supported_version_code: int = 0
+    android_download_count: int = 0
     ios_note: str = ""
     ios_link: str = ""
 
@@ -1537,6 +1539,7 @@ class AppReleasePatchIn(BaseModel):
     android_version: str | None = None
     android_version_code: int | None = None
     android_apk_url: str | None = None
+    android_apk_bytes: int | None = None
     android_changelog: str | None = None
     force_update: bool | None = None
     min_supported_version_code: int | None = None
@@ -1546,6 +1549,7 @@ class AppReleasePatchIn(BaseModel):
 
 class AppApkUploadOut(BaseModel):
     android_apk_url: str
+    android_apk_bytes: int = 0
 
 
 class PublicAppDownloadOut(BaseModel):
@@ -1553,6 +1557,7 @@ class PublicAppDownloadOut(BaseModel):
     android_version: str = ""
     android_version_code: int = 0
     android_apk_url: str = ""
+    android_apk_bytes: int = 0
     android_changelog: str = ""
     force_update: bool = False
     min_supported_version_code: int = 0
@@ -1567,5 +1572,6 @@ class AppVersionCheckOut(BaseModel):
     latest_version: str = ""
     latest_version_code: int = 0
     android_apk_url: str = ""
+    android_apk_bytes: int = 0
     android_changelog: str = ""
     download_page_path: str = "/download"

@@ -49,7 +49,17 @@ async def upload_apk(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"APK 上传失败: {e}") from e
 
-    # 上传成功后写入当前发布配置
-    saved = app_release_svc.save_app_release(db, {"android_apk_url": url, "enabled": True})
+    size = len(data)
+    saved = app_release_svc.save_app_release(
+        db,
+        {
+            "android_apk_url": url,
+            "android_apk_bytes": size,
+            "enabled": True,
+        },
+    )
     _ = admin  # 鉴权用
-    return AppApkUploadOut(android_apk_url=saved["android_apk_url"])
+    return AppApkUploadOut(
+        android_apk_url=saved["android_apk_url"],
+        android_apk_bytes=int(saved.get("android_apk_bytes") or size),
+    )

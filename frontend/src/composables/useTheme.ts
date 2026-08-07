@@ -29,6 +29,9 @@ function resolveTheme(mode: ThemeMode): 'light' | 'dark' {
 
 function applyTheme(resolved: 'light' | 'dark') {
   document.documentElement.classList.toggle('dark', resolved === 'dark')
+  void import('@/native/shell')
+    .then(({ syncNativeStatusBarStyle }) => syncNativeStatusBarStyle(resolved))
+    .catch(() => {})
 }
 
 const themeMode = ref<ThemeMode>(loadThemeMode())

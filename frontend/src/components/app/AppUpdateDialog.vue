@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { AppVersionCheck } from '@/api/appDownload'
-import { resolveMediaUrl } from '@/utils/mediaUrl'
+import { getAndroidApkTrackUrl, type AppVersionCheck } from '@/api/appDownload'
+import { formatFileSize } from '@/utils/formatFileSize'
 
 const props = defineProps<{
   open: boolean
@@ -14,14 +14,14 @@ const emit = defineEmits<{
 }>()
 
 const changelog = computed(() => (props.info?.android_changelog || '').trim())
+const sizeLabel = computed(() => formatFileSize(props.info?.android_apk_bytes))
 const title = computed(() =>
   props.info?.force_update ? '需要更新后才能继续使用' : '发现新版本',
 )
 
 function onUpdate() {
-  const apk = props.info?.android_apk_url
-  if (apk) {
-    window.open(resolveMediaUrl(apk), '_blank', 'noopener')
+  if (props.info?.android_apk_url) {
+    window.open(getAndroidApkTrackUrl(), '_blank', 'noopener')
   } else {
     const path = props.info?.download_page_path || '/download'
     window.open(path, '_blank', 'noopener')
@@ -57,6 +57,7 @@ function onUpdate() {
             <span v-if="info.latest_version_code" class="text-neutral-400">
               （{{ info.latest_version_code }}）
             </span>
+            <span v-if="sizeLabel" class="text-neutral-400"> · {{ sizeLabel }}</span>
           </p>
           <p
             v-if="changelog"

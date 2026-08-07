@@ -1287,9 +1287,11 @@ export interface AdminAppRelease {
   android_version: string
   android_version_code: number
   android_apk_url: string
+  android_apk_bytes: number
   android_changelog: string
   force_update: boolean
   min_supported_version_code: number
+  android_download_count: number
   ios_note: string
   ios_link: string
 }
@@ -1304,13 +1306,26 @@ export async function adminPatchAppRelease(payload: Partial<AdminAppRelease>) {
   return data
 }
 
-export async function adminUploadAppApk(file: File) {
+export async function adminUploadAppApk(
+  file: File,
+  onProgress?: (percent: number) => void,
+) {
   const form = new FormData()
   form.append('file', file)
-  const { data } = await adminApi.post<{ android_apk_url: string }>(
+  const { data } = await adminApi.post<{ android_apk_url: string; android_apk_bytes: number }>(
     '/api/admin/app-release/upload-apk/',
     form,
-    { timeout: 600000 },
+    {
+      timeout: 600000,
+      onUploadProgress: (ev) => {
+        if (!onProgress) return
+        if (!ev.total || ev.total <= 0) {
+          onProgress(0)
+          return
+        }
+        onProgress(Math.min(100, Math.round((ev.loaded / ev.total) * 100)))
+      },
+    },
   )
   return data
 }

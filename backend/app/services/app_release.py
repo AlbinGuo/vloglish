@@ -20,9 +20,11 @@ def _default_payload() -> dict[str, Any]:
         "android_version": "",
         "android_version_code": 0,
         "android_apk_url": "",
+        "android_apk_bytes": 0,
         "android_changelog": "",
         "force_update": False,
         "min_supported_version_code": 0,
+        "android_download_count": 0,
         "ios_note": DEFAULT_IOS_NOTE,
         "ios_link": "",
     }
@@ -34,6 +36,22 @@ def _as_int(value: Any, default: int = 0) -> int:
     except (TypeError, ValueError):
         return default
     return max(0, n)
+
+
+def _normalize(data: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "enabled": bool(data.get("enabled", True)),
+        "android_version": str(data.get("android_version") or "").strip()[:64],
+        "android_version_code": _as_int(data.get("android_version_code"), 0),
+        "android_apk_url": str(data.get("android_apk_url") or "").strip()[:1024],
+        "android_apk_bytes": _as_int(data.get("android_apk_bytes"), 0),
+        "android_changelog": str(data.get("android_changelog") or "").strip()[:4000],
+        "force_update": bool(data.get("force_update", False)),
+        "min_supported_version_code": _as_int(data.get("min_supported_version_code"), 0),
+        "android_download_count": _as_int(data.get("android_download_count"), 0),
+        "ios_note": str(data.get("ios_note") or DEFAULT_IOS_NOTE).strip()[:1000] or DEFAULT_IOS_NOTE,
+        "ios_link": str(data.get("ios_link") or "").strip()[:1024],
+    }
 
 
 def get_app_release(db: Session) -> dict[str, Any]:
@@ -50,36 +68,39 @@ def get_app_release(db: Session) -> dict[str, Any]:
     for key in data:
         if key in parsed and parsed[key] is not None:
             data[key] = parsed[key]
-    data["enabled"] = bool(data.get("enabled", True))
-    data["android_version"] = str(data.get("android_version") or "").strip()[:64]
-    data["android_version_code"] = _as_int(data.get("android_version_code"), 0)
-    data["android_apk_url"] = str(data.get("android_apk_url") or "").strip()[:1024]
-    data["android_changelog"] = str(data.get("android_changelog") or "").strip()[:4000]
-    data["force_update"] = bool(data.get("force_update", False))
-    data["min_supported_version_code"] = _as_int(data.get("min_supported_version_code"), 0)
-    data["ios_note"] = str(data.get("ios_note") or DEFAULT_IOS_NOTE).strip()[:1000] or DEFAULT_IOS_NOTE
-    data["ios_link"] = str(data.get("ios_link") or "").strip()[:1024]
-    return data
+    return _normalize(data)
 
 
 def save_app_release(db: Session, patch: dict[str, Any]) -> dict[str, Any]:
     current = get_app_release(db)
+    prev_url = current.get("android_apk_url") or ""
     for key in current:
         if key in patch and patch[key] is not None:
             current[key] = patch[key]
-    current = {
-        "enabled": bool(current.get("enabled", True)),
-        "android_version": str(current.get("android_version") or "").strip()[:64],
-        "android_version_code": _as_int(current.get("android_version_code"), 0),
-        "android_apk_url": str(current.get("android_apk_url") or "").strip()[:1024],
-        "android_changelog": str(current.get("android_changelog") or "").strip()[:4000],
-        "force_update": bool(current.get("force_update", False)),
-        "min_supported_version_code": _as_int(current.get("min_supported_version_code"), 0),
-        "ios_note": str(current.get("ios_note") or DEFAULT_IOS_NOTE).strip()[:1000] or DEFAULT_IOS_NOTE,
-        "ios_link": str(current.get("ios_link") or "").strip()[:1024],
-    }
+    current = _normalize(current)
+    # 手动改安装包地址且未带新体积时，清空体积，避免显示旧包大小
+    if (
+        "android_apk_url" in patch
+        and patch.get("android_apk_url") is not None
+        and str(patch.get("android_apk_url") or "").strip() != prev_url
+        and "android_apk_bytes" not in patch
+    ):
+        current["android_apk_bytes"] = 0
     set_setting(db, APP_RELEASE_KEY, json.dumps(current, ensure_ascii=False))
     return current
+
+
+def increment_android_download(db: Session) -> str | None:
+    """计数 +1，返回直链；未开放或无包时返回 None。"""
+    data = get_app_release(db)
+    url = str(data.get("android_apk_url") or "").strip()
+    if not data.get("enabled") or not url:
+        return None
+    save_app_release(
+        db,
+        {"android_download_count": _as_int(data.get("android_download_count"), 0) + 1},
+    )
+    return url
 
 
 def public_app_download(db: Session) -> dict[str, Any]:
@@ -92,6 +113,7 @@ def public_app_download(db: Session) -> dict[str, Any]:
         "android_version": data.get("android_version") or "",
         "android_version_code": int(data.get("android_version_code") or 0) if enabled else 0,
         "android_apk_url": apk,
+        "android_apk_bytes": int(data.get("android_apk_bytes") or 0) if enabled and apk else 0,
         "android_changelog": data.get("android_changelog") or "" if enabled else "",
         "force_update": bool(data.get("force_update")) if enabled else False,
         "min_supported_version_code": int(data.get("min_supported_version_code") or 0) if enabled else 0,
@@ -121,6 +143,7 @@ def check_app_version(db: Session, *, current_version_code: int) -> dict[str, An
         "latest_version": data.get("android_version") or "" if has_update else "",
         "latest_version_code": latest_code if has_update else 0,
         "android_apk_url": apk if has_update else "",
+        "android_apk_bytes": int(data.get("android_apk_bytes") or 0) if has_update else 0,
         "android_changelog": (data.get("android_changelog") or "") if has_update else "",
         "download_page_path": "/download",
     }

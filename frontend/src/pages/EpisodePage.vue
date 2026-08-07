@@ -13,6 +13,7 @@ import BlankPrintSheet from '@/components/episode/BlankPrintSheet.vue'
 import SentenceDictationSheet from '@/components/episode/SentenceDictationSheet.vue'
 import ShadowingSessionBar from '@/components/episode/ShadowingSessionBar.vue'
 import ShadowTrack from '@/components/episode/ShadowTrack.vue'
+import SubtitlePracticeToolbar from '@/components/episode/SubtitlePracticeToolbar.vue'
 import AiExplainSheet from '@/components/ai/AiExplainSheet.vue'
 import AiShadowingSheet from '@/components/ai/AiShadowingSheet.vue'
 import AiClozeSheet from '@/components/ai/AiClozeSheet.vue'
@@ -2200,7 +2201,6 @@ function subtitleRowClass(index: number) {
             <div
               class="w-full relative transition-all duration-300 ease-out pr-2 sm:pr-4"
               :class="[
-                isPhone ? 'pt-14' : 'pt-9',
                 intensiveMode
                   ? [
                       'intensive-subtitle-card rounded-xl border p-3 sm:p-4',
@@ -2225,71 +2225,18 @@ function subtitleRowClass(index: number) {
               >
                 ✓
               </button>
-              <div
+              <SubtitlePracticeToolbar
                 v-else-if="!adminPreview"
-                class="absolute top-1.5 right-1.5 z-10 flex flex-wrap justify-end gap-1 max-w-[min(100%,28rem)]"
-              >
-                <button
-                  type="button"
-                  class="px-2 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-violet-400 hover:text-violet-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300"
-                  title="AI 讲解本句"
-                  @click="startAiExplain(sub, $event)"
-                >
-                  AI讲解
-                </button>
-                <button
-                  type="button"
-                  class="inline-flex items-center gap-1 px-2 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-sky-400 hover:text-sky-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300 dark:hover:border-sky-500 dark:hover:text-sky-300"
-                  title="AI 跟读评分"
-                  @click="startAiShadowing(sub, $event)"
-                >
-                  AI跟读
-                  <span
-                    class="px-1 py-px rounded text-[9px] font-semibold leading-none bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300"
-                  >
-                    评分
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  class="inline-flex items-center gap-1 px-2.5 min-h-8 h-7 rounded-full text-[11px] font-medium border transition touch-manipulation bg-white/90 border-black/10 text-neutral-600 hover:border-teal-400 hover:text-teal-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300 dark:hover:border-teal-500 dark:hover:text-teal-300"
-                  :class="
-                    shadowActiveSubId === sub.id
-                      ? 'border-teal-500 bg-teal-50 text-teal-800 ring-2 ring-teal-400/30 dark:border-teal-500 dark:bg-teal-950/50 dark:text-teal-200'
-                      : shadowTracks[sub.id]?.audio_url
-                        ? 'border-teal-300/80 text-teal-700 dark:border-teal-700 dark:text-teal-300'
-                        : ''
-                  "
-                  title="影子跟读：边听边说"
-                  :aria-pressed="shadowActiveSubId === sub.id"
-                  @click="startShadowPractice(sub, $event)"
-                >
-                  <span class="sm:hidden">影子</span>
-                  <span class="hidden sm:inline">影子跟读</span>
-                  <span
-                    v-if="shadowTracks[sub.id]?.audio_url"
-                    class="w-1.5 h-1.5 rounded-full bg-teal-500"
-                    aria-hidden="true"
-                  />
-                </button>
-                <button
-                  type="button"
-                  class="px-2 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-emerald-400 hover:text-emerald-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300"
-                  title="AI 挖空练习"
-                  @click="startAiCloze(sub, $event)"
-                >
-                  AI挖空
-                </button>
-                <button
-                  type="button"
-                  class="px-2 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-amber-400 hover:text-amber-700 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300 dark:hover:border-amber-500 dark:hover:text-amber-300"
-                  :class="dictationTargetId === sub.id ? 'border-amber-400 text-amber-700 dark:border-amber-500 dark:text-amber-300' : ''"
-                  title="听写本句"
-                  @click="startSubtitleDictation(sub, $event)"
-                >
-                  听写
-                </button>
-              </div>
+                :align="subtitleAlign"
+                :shadow-active="shadowActiveSubId === sub.id"
+                :has-shadow-track="Boolean(shadowTracks[sub.id]?.audio_url)"
+                :dictation-active="dictationTargetId === sub.id"
+                @explain="startAiExplain(sub, $event)"
+                @shadowing="startAiShadowing(sub, $event)"
+                @shadow="startShadowPractice(sub, $event)"
+                @cloze="startAiCloze(sub, $event)"
+                @dictation="startSubtitleDictation(sub, $event)"
+              />
               <IntensiveReadingBlock
                 v-if="intensiveMode"
                 :english-html="renderHtml(sub.english_html)"

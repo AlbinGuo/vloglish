@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { fetchAppDownload, type PublicAppDownload } from '@/api/appDownload'
-import { resolveMediaUrl } from '@/utils/mediaUrl'
+import {
+  fetchAppDownload,
+  getAndroidApkTrackUrl,
+  type PublicAppDownload,
+} from '@/api/appDownload'
+import { formatFileSize } from '@/utils/formatFileSize'
 import { makeQrDataUrl } from '@/utils/qrcodeDownload'
 
 const loading = ref(true)
@@ -12,17 +16,20 @@ const qrDataUrl = ref('')
 type Client = 'ios' | 'android' | 'other'
 const client = ref<Client>('other')
 
-const apkUrl = computed(() => {
-  const raw = data.value?.android_apk_url || ''
-  return raw ? resolveMediaUrl(raw) : ''
+/** 走后端中转，便于统计下载量 */
+const apkTrackUrl = computed(() => {
+  if (!data.value?.has_android || !data.value.android_apk_url) return ''
+  return getAndroidApkTrackUrl()
 })
+
+const apkSizeLabel = computed(() => formatFileSize(data.value?.android_apk_bytes))
 
 const iosLink = computed(() => (data.value?.ios_link || '').trim())
 
 const showAndroid = computed(() => {
   if (!data.value?.enabled) return false
   if (client.value === 'ios') return false
-  return Boolean(data.value.has_android && apkUrl.value)
+  return Boolean(data.value.has_android && apkTrackUrl.value)
 })
 
 /** iOS：仅有可点外链时展示；Android 手机不展示 iOS 区 */
@@ -47,7 +54,7 @@ const emptyHint = computed(() => {
   return ''
 })
 
-const androidQrTarget = computed(() => (showAndroid.value ? apkUrl.value : ''))
+const androidQrTarget = computed(() => (showAndroid.value ? apkTrackUrl.value : ''))
 
 async function refreshAndroidQr() {
   const target = androidQrTarget.value
@@ -122,6 +129,7 @@ onMounted(async () => {
                 </template>
                 <template v-else-if="data.android_version_code">版本码 {{ data.android_version_code }}</template>
                 <template v-else>APK 安装包</template>
+                <template v-if="apkSizeLabel"> · {{ apkSizeLabel }}</template>
               </p>
             </div>
           </div>
@@ -153,10 +161,11 @@ onMounted(async () => {
           </div>
 
           <a
-            :href="apkUrl"
+            :href="apkTrackUrl"
             class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl bg-teal-600 text-white text-[15px] font-semibold shadow-[0_8px_20px_rgba(13,148,136,0.28)] active:scale-[0.99]"
           >
             {{ client === 'android' ? '下载并安装' : '下载 Android APK' }}
+            <template v-if="apkSizeLabel">（{{ apkSizeLabel }}）</template>
           </a>
           <p class="mt-2 text-[11px] text-neutral-400 text-center leading-relaxed">
             若无法安装，请在系统设置中允许「未知来源」应用。
