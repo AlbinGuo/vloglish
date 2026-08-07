@@ -9,21 +9,45 @@ const error = ref('')
 const data = ref<PublicAppDownload | null>(null)
 const qrDataUrl = ref('')
 
+type Client = 'ios' | 'android' | 'other'
+const client = ref<Client>('other')
+
 const apkUrl = computed(() => {
   const raw = data.value?.android_apk_url || ''
   return raw ? resolveMediaUrl(raw) : ''
 })
 
-const landingUrl = computed(() => {
-  if (typeof window === 'undefined') return '/download'
-  return `${window.location.origin}/download`
+const iosLink = computed(() => (data.value?.ios_link || '').trim())
+
+const showAndroid = computed(() => {
+  if (!data.value?.enabled) return false
+  if (client.value === 'ios') return false
+  return Boolean(data.value.has_android && apkUrl.value)
 })
 
-/** Android 区二维码：有安装包则指向 APK，否则指向本落地页 */
-const androidQrTarget = computed(() => apkUrl.value || landingUrl.value)
+/** iOS：仅有可点外链时展示；Android 手机不展示 iOS 区 */
+const showIos = computed(() => {
+  if (!data.value?.enabled) return false
+  if (client.value === 'android') return false
+  return Boolean(iosLink.value)
+})
 
-const isAndroid = computed(() => /android/i.test(navigator.userAgent))
-const isIOS = computed(() => /iphone|ipad|ipod/i.test(navigator.userAgent))
+const emptyHint = computed(() => {
+  if (!data.value) return ''
+  if (!data.value.enabled) return '下载暂未开放，请稍后再来。'
+  if (client.value === 'ios' && !showIos.value) {
+    return data.value.ios_note || 'iOS 版尚未上架，敬请期待。可先使用网页版学习。'
+  }
+  if (client.value === 'android' && !showAndroid.value) {
+    return 'Android 安装包尚未上线，请稍后再来，或先使用网页版。'
+  }
+  if (!showAndroid.value && !showIos.value) {
+    return '当前暂无可下载的安装包，请稍后再来，或先使用网页版。'
+  }
+  return ''
+})
+
+const androidQrTarget = computed(() => (showAndroid.value ? apkUrl.value : ''))
 
 async function refreshAndroidQr() {
   const target = androidQrTarget.value
@@ -43,6 +67,11 @@ watch(androidQrTarget, () => {
 })
 
 onMounted(async () => {
+  const ua = navigator.userAgent
+  if (/iphone|ipad|ipod/i.test(ua)) client.value = 'ios'
+  else if (/android/i.test(ua)) client.value = 'android'
+  else client.value = 'other'
+
   loading.value = true
   error.value = ''
   try {
@@ -72,13 +101,16 @@ onMounted(async () => {
 
       <template v-else-if="data">
         <p
-          v-if="!data.enabled"
-          class="mb-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-900 dark:text-amber-100 text-center"
+          v-if="emptyHint"
+          class="mb-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-900 dark:text-amber-100 text-center leading-relaxed"
         >
-          下载暂未开放，请稍后再来。
+          {{ emptyHint }}
         </p>
 
-        <section class="rounded-2xl border border-teal-200/70 dark:border-teal-800/50 bg-white/90 dark:bg-neutral-900/80 p-5 shadow-sm">
+        <section
+          v-if="showAndroid"
+          class="rounded-2xl border border-teal-200/70 dark:border-teal-800/50 bg-white/90 dark:bg-neutral-900/80 p-5 shadow-sm"
+        >
           <div class="flex items-center gap-2">
             <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-teal-600 text-white text-xs font-bold">安</span>
             <div>
@@ -116,48 +148,44 @@ onMounted(async () => {
               </div>
             </div>
             <p class="mt-2 text-[11px] text-neutral-500 dark:text-neutral-400 text-center">
-              {{ data.has_android ? '扫码下载 Android 安装包' : '扫码打开下载页' }}
+              扫码下载 Android 安装包
             </p>
           </div>
 
           <a
-            v-if="data.has_android && apkUrl"
             :href="apkUrl"
             class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl bg-teal-600 text-white text-[15px] font-semibold shadow-[0_8px_20px_rgba(13,148,136,0.28)] active:scale-[0.99]"
           >
-            {{ isAndroid ? '下载并安装' : '下载 Android APK' }}
+            {{ client === 'android' ? '下载并安装' : '下载 Android APK' }}
           </a>
-          <p v-else class="mt-4 text-sm text-neutral-500 text-center">
-            Android 安装包尚未上传
-          </p>
-          <p v-if="data.has_android" class="mt-2 text-[11px] text-neutral-400 text-center leading-relaxed">
+          <p class="mt-2 text-[11px] text-neutral-400 text-center leading-relaxed">
             若无法安装，请在系统设置中允许「未知来源」应用。
           </p>
         </section>
 
-        <section class="mt-4 rounded-2xl border border-black/8 dark:border-white/10 bg-white/80 dark:bg-neutral-900/70 p-5">
+        <section
+          v-if="showIos"
+          class="rounded-2xl border border-black/8 dark:border-white/10 bg-white/80 dark:bg-neutral-900/70 p-5"
+          :class="showAndroid ? 'mt-4' : ''"
+        >
           <div class="flex items-center gap-2">
             <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-800 text-white text-xs font-bold dark:bg-neutral-200 dark:text-neutral-900">iOS</span>
             <div>
               <h2 class="text-base font-semibold">iPhone / iPad</h2>
-              <p class="text-xs text-neutral-500">尚未上架 App Store</p>
+              <p class="text-xs text-neutral-500">前往安装</p>
             </div>
           </div>
-          <p class="mt-3 text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
-            {{ data.ios_note || 'iOS 版尚未上架 App Store，敬请期待。' }}
+          <p v-if="data.ios_note" class="mt-3 text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
+            {{ data.ios_note }}
           </p>
           <a
-            v-if="data.ios_link"
-            :href="data.ios_link"
+            :href="iosLink"
             target="_blank"
             rel="noopener"
-            class="mt-4 flex w-full min-h-11 items-center justify-center rounded-xl border border-black/10 dark:border-white/15 text-sm font-semibold"
+            class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl bg-neutral-900 text-white text-[15px] font-semibold dark:bg-neutral-100 dark:text-neutral-900 active:scale-[0.99]"
           >
-            了解更多
+            {{ client === 'ios' ? '前往下载' : '打开 iOS 下载页' }}
           </a>
-          <p v-else-if="isIOS" class="mt-3 text-xs text-neutral-400">
-            当前为 iOS 设备，请使用 Android 手机下载，或等待 App Store 上架。
-          </p>
         </section>
 
         <p class="mt-8 text-center text-xs text-neutral-400">

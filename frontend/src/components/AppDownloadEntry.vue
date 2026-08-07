@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useAppDownloadAvailability } from '@/composables/useAppDownloadAvailability'
 import { isMobileAppBuild, isNativePlatform } from '@/utils/platform'
 
 withDefaults(
@@ -10,8 +11,16 @@ withDefaults(
   { variant: 'header' },
 )
 
-/** 已在 App 壳内则不再展示下载入口 */
-const visible = computed(() => !isNativePlatform() && !isMobileAppBuild())
+const { showEntry, ensureLoaded } = useAppDownloadAvailability()
+
+/** App 壳内不展示；网页按设备与是否有对应安装包决定 */
+const visible = computed(
+  () => !isNativePlatform() && !isMobileAppBuild() && showEntry.value,
+)
+
+onMounted(() => {
+  void ensureLoaded()
+})
 </script>
 
 <template>
