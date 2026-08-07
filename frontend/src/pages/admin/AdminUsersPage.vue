@@ -55,6 +55,19 @@ const currentSegmentHint = computed(() => {
   return segmentHints[segment.value]
 })
 
+function clientLabel(client: string | null | undefined) {
+  if (client === 'web') return '浏览器'
+  if (client === 'android') return 'App · Android'
+  if (client === 'ios') return 'App · iOS'
+  return ''
+}
+
+function clientBadgeClass(client: string | null | undefined) {
+  if (client === 'web') return 'bg-sky-100 text-sky-800'
+  if (client === 'android' || client === 'ios') return 'bg-violet-100 text-violet-800'
+  return 'bg-neutral-100 text-neutral-500'
+}
+
 async function loadSegments() {
   segmentsLoading.value = true
   try {
@@ -270,6 +283,9 @@ onUnmounted(() => {
           · 当前在线 {{ onlineUsers }} 人（近 {{ onlineWindowSec }} 秒有活动，含非会员）
         </span>
         <span class="ml-2">
+          · 「访问端」来自最近心跳：浏览器 / App；在线时为当前端，离线时为离线前最后一端
+        </span>
+        <span class="ml-2">
           · 「到访天数」按东八区自然日；「到访次数」为会话数（距上次活动超过 30 分钟再上线计为新一次，上线后才开始累计）
         </span>
       </p>
@@ -283,6 +299,9 @@ onUnmounted(() => {
         <thead class="bg-neutral-50 text-neutral-500">
           <tr>
             <th class="text-left px-4 py-3 font-medium">邮箱</th>
+            <th class="text-left px-4 py-3 font-medium whitespace-nowrap" title="最近心跳来自浏览器或 App">
+              访问端
+            </th>
             <th class="text-left px-4 py-3 font-medium">会员</th>
             <th class="text-left px-4 py-3 font-medium">状态</th>
             <th class="text-left px-4 py-3 font-medium whitespace-nowrap">注册地区</th>
@@ -332,6 +351,19 @@ onUnmounted(() => {
                   <div v-else-if="user.is_online" class="text-xs text-emerald-600">在线</div>
                 </div>
               </div>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <template v-if="clientLabel(user.last_client)">
+                <span
+                  class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium leading-none"
+                  :class="clientBadgeClass(user.last_client)"
+                  :title="user.is_online ? '当前访问端' : '最近一次访问端（当前离线）'"
+                >
+                  {{ clientLabel(user.last_client) }}
+                </span>
+                <div v-if="!user.is_online" class="mt-1 text-[10px] text-neutral-400">离线前</div>
+              </template>
+              <span v-else class="text-neutral-400">—</span>
             </td>
             <td class="px-4 py-3">
               <div class="space-y-1.5">
@@ -422,7 +454,7 @@ onUnmounted(() => {
             </td>
           </tr>
           <tr v-if="!rows.length">
-            <td colspan="15" class="px-4 py-8 text-center text-neutral-500">暂无数据</td>
+            <td colspan="16" class="px-4 py-8 text-center text-neutral-500">暂无数据</td>
           </tr>
         </tbody>
       </table>

@@ -215,6 +215,9 @@ def _migrate_schema():
     if "last_seen_at" not in cols:
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE users ADD COLUMN last_seen_at {datetime_type}"))
+    if "last_client" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN last_client VARCHAR(16)"))
     if "my_corpus_seen_at" not in cols:
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE users ADD COLUMN my_corpus_seen_at {datetime_type}"))

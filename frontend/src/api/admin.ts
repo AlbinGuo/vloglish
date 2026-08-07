@@ -131,6 +131,11 @@ export interface DashboardStats {
   online_users_now: number
   online_members_now?: number
   online_free_now?: number
+  online_web_now?: number
+  online_app_now?: number
+  online_android_now?: number
+  online_ios_now?: number
+  online_unknown_now?: number
   dau_today?: number
   dau_trend?: DashboardDauPoint[]
   funnel_register_learn?: DashboardFunnelRegisterLearn | null
@@ -155,6 +160,11 @@ export interface AdminPresenceOnline {
   online_users: number
   online_members?: number
   online_free?: number
+  online_web?: number
+  online_app?: number
+  online_android?: number
+  online_ios?: number
+  online_unknown?: number
   window_sec: number
 }
 
@@ -187,6 +197,8 @@ export interface UserRow {
   is_active: boolean
   is_staff: boolean
   is_online?: boolean
+  /** 最近心跳客户端：web | android | ios */
+  last_client?: string | null
   member_activated_at: string | null
   /** 会员对应激活码（若有） */
   activation_code?: string | null

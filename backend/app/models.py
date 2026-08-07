@@ -198,6 +198,8 @@ class User(Base):
     member_activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     session_version: Mapped[int] = mapped_column(Integer, default=1)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # 最近一次心跳客户端：web | android | ios
+    last_client: Mapped[str | None] = mapped_column(String(16), nullable=True)
     # 上次进入「我的语料库」的时间；用于首页「新」角标
     my_corpus_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     signup_country: Mapped[str | None] = mapped_column(String(64), nullable=True)

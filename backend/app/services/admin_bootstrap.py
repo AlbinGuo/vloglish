@@ -93,6 +93,11 @@ def dashboard_stats(db: Session) -> dict:
     stats["online_users_now"] = presence["online_users"]
     stats["online_members_now"] = presence["online_members"]
     stats["online_free_now"] = presence["online_free"]
+    stats["online_web_now"] = presence["online_web"]
+    stats["online_app_now"] = presence["online_app"]
+    stats["online_android_now"] = presence["online_android"]
+    stats["online_ios_now"] = presence["online_ios"]
+    stats["online_unknown_now"] = presence["online_unknown"]
     stats.update(ops_health_block(db))
     return stats
 

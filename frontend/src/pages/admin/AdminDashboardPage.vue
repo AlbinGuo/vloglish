@@ -22,6 +22,11 @@ const pageDwell = ref<AdminPageDwellStats | null>(null)
 const onlineUsers = ref(0)
 const onlineMembers = ref(0)
 const onlineFree = ref(0)
+const onlineWeb = ref(0)
+const onlineApp = ref(0)
+const onlineAndroid = ref(0)
+const onlineIos = ref(0)
+const onlineUnknown = ref(0)
 const onlineWindowSec = ref(90)
 
 const membershipGateEnabled = ref(true)
@@ -31,17 +36,50 @@ const gateSavedHint = ref('')
 
 let onlinePollTimer: ReturnType<typeof setInterval> | null = null
 
+function applyOnline(data: {
+  online_users: number
+  online_members?: number
+  online_free?: number
+  online_web?: number
+  online_app?: number
+  online_android?: number
+  online_ios?: number
+  online_unknown?: number
+  window_sec?: number
+}) {
+  onlineUsers.value = data.online_users
+  onlineMembers.value = data.online_members ?? 0
+  onlineFree.value = data.online_free ?? 0
+  onlineWeb.value = data.online_web ?? 0
+  onlineApp.value = data.online_app ?? 0
+  onlineAndroid.value = data.online_android ?? 0
+  onlineIos.value = data.online_ios ?? 0
+  onlineUnknown.value = data.online_unknown ?? 0
+  if (data.window_sec != null) onlineWindowSec.value = data.window_sec
+}
+
 async function refreshOnlineUsers() {
   try {
-    const data = await adminFetchOnlineUsers()
-    onlineUsers.value = data.online_users
-    onlineMembers.value = data.online_members ?? 0
-    onlineFree.value = data.online_free ?? 0
-    onlineWindowSec.value = data.window_sec
+    applyOnline(await adminFetchOnlineUsers())
   } catch {
     // 保持上次数值
   }
 }
+
+const clientShare = computed(() => {
+  const total = Math.max(1, onlineUsers.value)
+  const web = onlineWeb.value
+  const app = onlineApp.value
+  const unknown = onlineUnknown.value
+  return {
+    webPct: Math.round((web / total) * 100),
+    appPct: Math.round((app / total) * 100),
+    unknownPct: Math.round((unknown / total) * 100),
+    webWidth: `${(web / total) * 100}%`,
+    appWidth: `${(app / total) * 100}%`,
+    unknownWidth: `${(unknown / total) * 100}%`,
+  }
+})
 
 async function toggleMembershipGate() {
   if (gateSaving.value) return
@@ -93,9 +131,16 @@ onMounted(async () => {
     geoStats.value = geo
     pageDwell.value = dwell
     if (site) membershipGateEnabled.value = site.membership_gate_enabled
-    onlineUsers.value = dashboard.online_users_now
-    onlineMembers.value = dashboard.online_members_now ?? 0
-    onlineFree.value = dashboard.online_free_now ?? 0
+    applyOnline({
+      online_users: dashboard.online_users_now,
+      online_members: dashboard.online_members_now,
+      online_free: dashboard.online_free_now,
+      online_web: dashboard.online_web_now,
+      online_app: dashboard.online_app_now,
+      online_android: dashboard.online_android_now,
+      online_ios: dashboard.online_ios_now,
+      online_unknown: dashboard.online_unknown_now,
+    })
     await refreshOnlineUsers()
   } finally {
     loading.value = false
@@ -183,7 +228,7 @@ function barWidth(rate: number) {
       class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm"
     >
       <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div class="min-w-0 flex-1">
           <p class="text-sm text-emerald-700 mb-1 flex items-center gap-2">
             <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
             当前在线用户
@@ -203,6 +248,68 @@ function barWidth(rate: number) {
         <p class="text-xs text-neutral-500 text-right max-w-[12rem]">
           近 {{ onlineWindowSec }} 秒内有活动视为在线（不含管理员），每 30 秒自动刷新
         </p>
+      </div>
+
+      <div class="mt-5 pt-4 border-t border-emerald-100/80">
+        <p class="text-xs font-medium text-neutral-600 mb-3">访问端分布</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div class="rounded-lg bg-white/70 border border-sky-100 px-3 py-2.5">
+            <p class="text-xs text-sky-700">浏览器</p>
+            <p class="mt-0.5 text-2xl font-semibold tabular-nums text-sky-900">{{ onlineWeb }}</p>
+            <p class="text-[11px] text-neutral-400">{{ clientShare.webPct }}%</p>
+          </div>
+          <div class="rounded-lg bg-white/70 border border-violet-100 px-3 py-2.5">
+            <p class="text-xs text-violet-700">App</p>
+            <p class="mt-0.5 text-2xl font-semibold tabular-nums text-violet-900">{{ onlineApp }}</p>
+            <p class="text-[11px] text-neutral-400">
+              {{ clientShare.appPct }}%
+              <template v-if="onlineApp > 0">
+                · Android {{ onlineAndroid }} / iOS {{ onlineIos }}
+              </template>
+            </p>
+          </div>
+          <div
+            v-if="onlineUnknown > 0"
+            class="rounded-lg bg-white/70 border border-neutral-100 px-3 py-2.5"
+          >
+            <p class="text-xs text-neutral-500">未知</p>
+            <p class="mt-0.5 text-2xl font-semibold tabular-nums text-neutral-700">{{ onlineUnknown }}</p>
+            <p class="text-[11px] text-neutral-400">尚未上报端信息</p>
+          </div>
+        </div>
+        <div
+          v-if="onlineUsers > 0"
+          class="mt-3 h-2.5 rounded-full bg-white/80 border border-emerald-100 overflow-hidden flex"
+          title="浏览器 / App / 未知"
+        >
+          <div
+            class="h-full bg-sky-500 transition-all"
+            :style="{ width: clientShare.webWidth }"
+          />
+          <div
+            class="h-full bg-violet-500 transition-all"
+            :style="{ width: clientShare.appWidth }"
+          />
+          <div
+            v-if="onlineUnknown > 0"
+            class="h-full bg-neutral-300 transition-all"
+            :style="{ width: clientShare.unknownWidth }"
+          />
+        </div>
+        <div class="mt-2 flex flex-wrap gap-3 text-[11px] text-neutral-500">
+          <span class="inline-flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-sm bg-sky-500" aria-hidden="true" />
+            浏览器
+          </span>
+          <span class="inline-flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-sm bg-violet-500" aria-hidden="true" />
+            App
+          </span>
+          <span v-if="onlineUnknown > 0" class="inline-flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-sm bg-neutral-300" aria-hidden="true" />
+            未知
+          </span>
+        </div>
       </div>
     </div>
 

@@ -1,4 +1,5 @@
 import api from '@/api/client'
+import { getNativePlatform } from '@/utils/platform'
 
 /** 与后端 page_dwell.ALLOWED_PAGE_KEYS 对齐的路由名 */
 export const TRACKED_PAGE_KEYS = new Set([
@@ -27,5 +28,9 @@ export function normalizePresencePageKey(name: unknown): string | undefined {
 
 export async function sendPresenceHeartbeat(pageKey?: string | null) {
   const page_key = pageKey && TRACKED_PAGE_KEYS.has(pageKey) ? pageKey : undefined
-  await api.post('/api/presence/heartbeat/', page_key ? { page_key } : {})
+  const client = getNativePlatform()
+  await api.post('/api/presence/heartbeat/', {
+    ...(page_key ? { page_key } : {}),
+    client,
+  })
 }

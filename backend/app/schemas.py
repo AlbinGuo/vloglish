@@ -170,6 +170,11 @@ class AdminDashboardOut(BaseModel):
     online_users_now: int = 0
     online_members_now: int = 0
     online_free_now: int = 0
+    online_web_now: int = 0
+    online_app_now: int = 0
+    online_android_now: int = 0
+    online_ios_now: int = 0
+    online_unknown_now: int = 0
     dau_today: int = 0
     dau_trend: list[AdminDauPointOut] = []
     funnel_register_learn: AdminFunnelRegisterLearnOut | None = None
@@ -180,6 +185,11 @@ class AdminPresenceOnlineOut(BaseModel):
     online_users: int
     online_members: int = 0
     online_free: int = 0
+    online_web: int = 0
+    online_app: int = 0
+    online_android: int = 0
+    online_ios: int = 0
+    online_unknown: int = 0
     window_sec: int
 
 
@@ -243,6 +253,7 @@ class AdminUserListItemOut(BaseModel):
     is_active: bool
     is_staff: bool
     is_online: bool = False
+    last_client: str | None = None
     member_activated_at: str | None = None
     activation_code: str | None = None
     created_at: str

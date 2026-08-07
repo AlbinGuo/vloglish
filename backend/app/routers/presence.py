@@ -12,6 +12,7 @@ router = APIRouter(prefix="/api/presence", tags=["presence"])
 
 class HeartbeatIn(BaseModel):
     page_key: str | None = Field(default=None, max_length=64)
+    client: str | None = Field(default=None, max_length=16, description="web | android | ios")
 
 
 @router.post("/heartbeat/")
@@ -21,5 +22,6 @@ def heartbeat(
     db: Session = Depends(get_db),
 ):
     page_key = body.page_key if body else None
-    touch_presence(db, user, page_key=page_key)
+    client = body.client if body else None
+    touch_presence(db, user, page_key=page_key, client=client)
     return {"ok": True}
