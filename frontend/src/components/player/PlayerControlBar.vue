@@ -66,12 +66,33 @@ function bindControlScrollFade() {
   nextTick(() => updateControlScrollFade())
 }
 
-const loopCountLabel = computed(() => {
-  const n = props.player.sentenceLoopCount.value
-  return n === 0 ? '∞' : String(n)
-})
+const loopCountLabel = computed(() => String(props.player.sentenceLoopCount.value))
 
 const loopActive = computed(() => props.player.loopMode.value === 'sentence')
+
+/** 首次打开循环菜单时的轻量引导 */
+const loopCoachVisible = ref(false)
+
+function maybeShowLoopCoach() {
+  try {
+    if (localStorage.getItem('teco-loop-pause-tip-seen') === '1') {
+      loopCoachVisible.value = false
+      return
+    }
+  } catch {
+    /* ignore */
+  }
+  loopCoachVisible.value = true
+}
+
+function dismissLoopCoach() {
+  loopCoachVisible.value = false
+  try {
+    localStorage.setItem('teco-loop-pause-tip-seen', '1')
+  } catch {
+    /* ignore */
+  }
+}
 
 function formatRate(r: number) {
   return `${Number.isInteger(r) ? r.toFixed(1) : r}x`
@@ -141,8 +162,9 @@ watch(loopOpen, (open) => {
     speedOpen.value = false
     speedMenuPos.value = null
     bindDocClick()
-  } else if (!speedOpen.value) {
-    unbindDocClick()
+  } else {
+    if (loopCoachVisible.value) dismissLoopCoach()
+    if (!speedOpen.value) unbindDocClick()
   }
 })
 
@@ -231,9 +253,16 @@ async function toggleLoopMenu() {
     loopMenuPos.value = anchorMenu(loopRoot.value)
   }
   loopOpen.value = true
+  maybeShowLoopCoach()
   if (loopMenuPos.value) {
     loopMenuPos.value = await clampCenteredPopover(() => loopPopoverEl.value, loopMenuPos.value)
   }
+}
+
+function togglePauseAfterSentence() {
+  const next = !props.player.pauseAfterSentence.value
+  props.player.setPauseAfterSentence(next)
+  if (next) dismissLoopCoach()
 }
 
 function selectRate(rate: number) {
@@ -245,26 +274,20 @@ function selectRate(rate: number) {
 function selectLoopCount(count: number) {
   props.player.setSentenceLoopCount(count)
   props.player.enableSentenceLoop()
-  // 次数为无限时听写 / 自动下一句不会触发，自动关掉
-  if (count === 0) {
-    if (props.player.dictationAfterLoop.value) props.player.setDictationAfterLoop(false)
-    if (props.player.autoAdvanceAfterLoop.value) props.player.setAutoAdvanceAfterLoop(false)
-  }
-}
-
-function closeLoopMenu() {
-  loopOpen.value = false
-  loopMenuPos.value = null
+  if (loopCoachVisible.value) dismissLoopCoach()
 }
 
 function toggleDictationAfterLoop() {
-  if (props.player.sentenceLoopCount.value === 0) return
+  props.player.armSentenceLoopMode()
   props.player.setDictationAfterLoop(!props.player.dictationAfterLoop.value)
+  if (loopCoachVisible.value) dismissLoopCoach()
 }
 
 function toggleAutoAdvanceAfterLoop() {
-  if (props.player.sentenceLoopCount.value === 0) return
+  if (props.player.pauseAfterSentence.value) return
+  props.player.armSentenceLoopMode()
   props.player.setAutoAdvanceAfterLoop(!props.player.autoAdvanceAfterLoop.value)
+  if (loopCoachVisible.value) dismissLoopCoach()
 }
 
 function cycleInterval() {
@@ -536,18 +559,19 @@ function handleMainAction() {
         <span class="text-[11px] leading-tight mt-0.5">B点</span>
       </button>
 
-      <!-- 单句循环 -->
+      <!-- 单句循环（含句末停下等设置） -->
       <div ref="loopRoot" class="relative flex flex-col items-center shrink-0 min-w-[3rem] cursor-pointer">
         <button
           type="button"
           class="flex flex-col items-center text-xs transition-all active:scale-95 focus:outline-none cursor-pointer"
           :class="loopActive ? 'text-neutral-900' : ''"
+          title="单句循环与句末停下"
           @click.stop="toggleLoopMenu"
         >
           <div class="relative w-8 h-8 flex items-center justify-center">
             <svg
               class="w-8 h-8"
-              :class="loopActive ? 'text-amber-600' : ''"
+              :class="loopActive || player.pauseAfterSentence.value ? 'text-amber-600' : ''"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -558,6 +582,11 @@ function handleMainAction() {
             <span class="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tabular-nums">
               {{ loopCountLabel }}
             </span>
+            <span
+              v-if="player.pauseAfterSentence.value"
+              class="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-orange-500 ring-2 ring-neutral-200 dark:ring-neutral-800"
+              aria-hidden="true"
+            />
           </div>
           <span class="text-[11px] leading-tight mt-0.5">单句循环</span>
         </button>
@@ -580,23 +609,6 @@ function handleMainAction() {
         </span>
       </button>
 
-      <!-- 单句暂停 -->
-      <button
-        type="button"
-        class="flex flex-col items-center shrink-0 min-w-[3rem] text-xs transition-all active:scale-95 focus:outline-none cursor-pointer"
-        title="循环完当前句后自动暂停"
-        @click="player.pauseAfterSentence.value = !player.pauseAfterSentence.value"
-      >
-        <div
-          class="p-0.5 w-8 h-8 flex items-center justify-center"
-          :class="player.pauseAfterSentence.value ? 'text-orange-500' : ''"
-        >
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5V18M15 7.5V18M3 16.811V8.69c0-.864.933-1.406 1.683-.977l7.108 4.061a1.125 1.125 0 0 1 0 1.954l-7.108 4.061A1.125 1.125 0 0 1 3 16.811Z" />
-          </svg>
-        </div>
-        <span class="text-[11px] leading-tight mt-0.5">单句暂停</span>
-      </button>
       </div>
       <div
         v-if="showControlScrollFade"
@@ -662,20 +674,17 @@ function handleMainAction() {
               <span>B 点</span>
             </button>
             <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="toggleLoopMenu()">
-              <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-amber-600 font-semibold">{{ loopCountLabel }}</div>
+              <div
+                class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-amber-600 font-semibold relative"
+                :class="player.pauseAfterSentence.value ? 'ring-2 ring-orange-400/60' : ''"
+              >
+                {{ loopCountLabel }}
+              </div>
               <span>单句循环</span>
             </button>
             <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="cycleInterval(); moreOpen = false">
               <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">⏱</div>
               <span>间隔</span>
-            </button>
-            <button
-              type="button"
-              class="flex flex-col items-center gap-1 text-xs"
-              @click="player.pauseAfterSentence.value = !player.pauseAfterSentence.value; moreOpen = false"
-            >
-              <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center" :class="player.pauseAfterSentence.value ? 'text-orange-500' : ''">⏸</div>
-              <span>句末暂停</span>
             </button>
           </div>
         </div>
@@ -716,7 +725,7 @@ function handleMainAction() {
         v-if="loopOpen && loopMenuPos"
         ref="loopPopoverEl"
         data-player-popover
-        class="fixed z-[300] p-2 bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-black/10 dark:border-white/10 min-w-[12rem]"
+        class="fixed z-[300] p-2.5 bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-black/10 dark:border-white/10 min-w-[14rem] max-w-[min(20rem,calc(100vw-1rem))]"
         :style="{
           top: `${loopMenuPos.top}px`,
           left: `${loopMenuPos.left}px`,
@@ -724,7 +733,14 @@ function handleMainAction() {
         }"
         @click.stop
       >
-        <p class="text-[10px] text-center text-neutral-400 uppercase tracking-wider mb-2">设置单句循环次数</p>
+        <p class="text-[10px] text-center text-neutral-400 uppercase tracking-wider mb-1.5">单句循环</p>
+        <p
+          v-if="loopCoachVisible"
+          class="mb-2 rounded-lg bg-orange-50 dark:bg-orange-950/40 px-2.5 py-2 text-[11px] leading-snug text-orange-900 dark:text-orange-100"
+        >
+          练跟读：设好次数并打开「句末停下」后，会连播满次数再停；点「下一句」自动播下一句。
+        </p>
+        <p class="text-[10px] text-neutral-400 mb-1.5 px-0.5">循环次数</p>
         <div class="grid grid-cols-4 gap-1.5">
           <button
             v-for="n in LOOP_COUNT_OPTIONS"
@@ -738,7 +754,7 @@ function handleMainAction() {
             "
             @click="selectLoopCount(n)"
           >
-            {{ n === 0 ? '∞' : n }}
+            {{ n }}
           </button>
         </div>
         <div class="mt-2 pt-2 border-t border-black/5 dark:border-white/10 space-y-2">
@@ -746,16 +762,44 @@ function handleMainAction() {
             type="button"
             class="w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors"
             :class="
-              player.sentenceLoopCount.value === 0
+              player.pauseAfterSentence.value
+                ? 'bg-orange-50 text-orange-900 dark:bg-orange-950/50 dark:text-orange-100'
+                : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+            "
+            title="按循环次数连播，播满后暂停"
+            @click="togglePauseAfterSentence"
+          >
+            <span class="min-w-0">
+              <span class="block font-medium">句末停下</span>
+              <span class="block text-[10px] text-neutral-400 mt-0.5 leading-snug">
+                按次数连播，播满后停；点下一句自动播下一句
+              </span>
+            </span>
+            <span
+              class="shrink-0 w-9 h-5 rounded-full relative transition-colors"
+              :class="player.pauseAfterSentence.value ? 'bg-orange-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+              aria-hidden="true"
+            >
+              <span
+                class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+                :class="player.pauseAfterSentence.value ? 'translate-x-4' : ''"
+              />
+            </span>
+          </button>
+          <button
+            type="button"
+            class="w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors"
+            :class="
+              player.pauseAfterSentence.value
                 ? 'opacity-40 cursor-not-allowed text-neutral-400'
                 : player.autoAdvanceAfterLoop.value
                   ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
                   : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
             "
-            :disabled="player.sentenceLoopCount.value === 0"
+            :disabled="player.pauseAfterSentence.value"
             :title="
-              player.sentenceLoopCount.value === 0
-                ? '无限循环无法自动下一句，请先选择次数'
+              player.pauseAfterSentence.value
+                ? '句末停下开启时请手动点「下一句」换句'
                 : '每句播完设定次数后自动进入下一句'
             "
             @click="toggleAutoAdvanceAfterLoop"
@@ -764,8 +808,8 @@ function handleMainAction() {
               <span class="block font-medium">自动下一句</span>
               <span class="block text-[10px] text-neutral-400 mt-0.5 leading-snug">
                 {{
-                  player.sentenceLoopCount.value === 0
-                    ? '请先选择有限次数'
+                  player.pauseAfterSentence.value
+                    ? '句末停下时请手动换句'
                     : '同句多遍连续播；换句时短暂停顿'
                 }}
               </span>
@@ -785,19 +829,14 @@ function handleMainAction() {
             type="button"
             class="w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors"
             :class="
-              player.sentenceLoopCount.value === 0
-                ? 'opacity-40 cursor-not-allowed text-neutral-400'
-                : player.dictationAfterLoop.value
-                  ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
-                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+              player.dictationAfterLoop.value
+                ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
+                : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
             "
-            :disabled="player.sentenceLoopCount.value === 0"
             :title="
-              player.sentenceLoopCount.value === 0
-                ? '无限循环无法自动进入听写，请先选择次数'
-                : player.autoAdvanceAfterLoop.value
-                  ? '整段播完后进入听写'
-                  : '当前句次数播完后进入听写'
+              player.autoAdvanceAfterLoop.value
+                ? '整段播完后进入听写'
+                : '当前句次数播完后进入听写'
             "
             @click="toggleDictationAfterLoop"
           >
@@ -805,11 +844,9 @@ function handleMainAction() {
               <span class="block font-medium">播放完后听写</span>
               <span class="block text-[10px] text-neutral-400 mt-0.5 leading-snug">
                 {{
-                  player.sentenceLoopCount.value === 0
-                    ? '请先选择有限次数'
-                    : player.autoAdvanceAfterLoop.value
-                      ? '整段播完后进入听写'
-                      : '当前句次数播完后进入听写'
+                  player.autoAdvanceAfterLoop.value
+                    ? '整段播完后进入听写'
+                    : '当前句次数播完后进入听写'
                 }}
               </span>
             </span>
@@ -824,19 +861,18 @@ function handleMainAction() {
               />
             </span>
           </button>
-          <button
-            type="button"
-            class="w-full rounded-lg bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 px-3 py-2 text-xs font-medium"
-            @click="closeLoopMenu"
-          >
-            完成
-          </button>
         </div>
       </div>
     </Teleport>
 
     <p
-      v-if="player.loopStatusText.value"
+      v-if="player.pauseHintText.value"
+      class="mt-2 text-[12px] font-medium text-orange-900 dark:text-orange-100 bg-orange-50 dark:bg-orange-950/50 px-2 py-1.5 rounded-lg text-center animate-pulse"
+    >
+      {{ player.pauseHintText.value }}
+    </p>
+    <p
+      v-else-if="player.loopStatusText.value"
       class="mt-2 text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50/80 dark:bg-amber-950/40 px-2 py-1 rounded-lg text-center"
     >
       {{ player.loopStatusText.value }}
