@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { consumeRemoteLoginNotice } from '@/api/tokens'
+import AppDownloadEntry from '@/components/AppDownloadEntry.vue'
 import PasswordInput from '@/components/PasswordInput.vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -92,6 +93,10 @@ async function submit() {
         还没有账号？
         <RouterLink to="/signup" class="text-neutral-900 dark:text-neutral-100 font-medium hover:underline">免费注册</RouterLink>
       </p>
+
+      <div class="mt-5 pt-5 border-t border-black/5 dark:border-white/10 flex justify-center">
+        <AppDownloadEntry variant="auth" />
+      </div>
     </div>
   </div>
 </template>

@@ -18,6 +18,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 import { useNotificationStore } from '@/stores/notifications'
 import { useVocabularyStore } from '@/stores/vocabulary'
+import AppDownloadEntry from '@/components/AppDownloadEntry.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const route = useRoute()
@@ -300,6 +301,7 @@ watch(
         </RouterLink>
 
         <div class="flex items-center gap-1 sm:gap-3 text-sm shrink-0">
+          <AppDownloadEntry variant="header" />
           <ThemeToggle />
           <template v-if="auth.isLoggedIn">
             <RouterLink
