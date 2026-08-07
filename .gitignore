@@ -95,3 +95,6 @@ assets/
 *.temp
 *.bak
 *~
+
+# --- Android local Gradle zip ---
+**/gradle-8.11.1-all.zip
