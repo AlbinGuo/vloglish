@@ -71,6 +71,7 @@ import {
 import type { BlankPrintOptions } from '@/utils/blankPrint'
 import type { WordCardPrintOptions } from '@/utils/wordCardPrint'
 import { parseVocabSummary } from '@/utils/vocabSummary'
+import { matchSummaryDanmakuSources } from '@/utils/vocabDanmaku'
 import {
   modeIsDynamicFocus,
   modeIsChineseOnly,
@@ -1010,16 +1011,10 @@ useSwipeNavigation(dynamicFocusRef, {
 
 const displaySub = computed(() => resolveDisplaySub(sortedSubs.value, player.currentTime.value))
 
-/** 弹幕比字幕条更早切换到下一句，便于句首预进场 */
-const DANMAKU_PRIME_SEC = 0.6
-const danmakuSub = computed(() => {
-  const t = player.currentTime.value
-  const subs = sortedSubs.value
-  if (!subs.length) return null
-  const upcoming = subs.find((s) => s.start > t && s.start - t <= DANMAKU_PRIME_SEC)
-  if (upcoming) return upcoming
-  return resolveDisplaySub(subs, t)
-})
+/** 当前句字幕中命中的「汇总」词，供弹幕同步展示 */
+const danmakuSources = computed(() =>
+  matchSummaryDanmakuSources(displaySub.value?.english || '', vocabSummaryGroups.value),
+)
 
 /** 当前句字幕条是否应挂载（全屏下保持挂载，仅用 v-show 显隐，避免卸载 Teleport 扰乱 Fullscreen） */
 const mountCurrentSubtitleBar = computed(
@@ -1979,13 +1974,13 @@ function subtitleRowClass(index: number) {
             :flush="mobileVideoImmersive || isVideoPanelFullscreen"
           />
           <VocabDanmakuOverlay
-            v-if="vocabDanmakuEnabled && !videoHidden && danmakuSub"
-            :html="danmakuSub.english_html || ''"
-            :context="danmakuSub.english || ''"
+            v-if="vocabDanmakuEnabled && !videoHidden && displaySub && danmakuSources.length"
+            :sources="danmakuSources"
+            :context="displaySub.english || ''"
             :video-id="videoId"
-            :subtitle-id="danmakuSub.id"
-            :start="danmakuSub.start"
-            :end="danmakuSub.end"
+            :subtitle-id="displaySub.id"
+            :start="displaySub.start"
+            :end="displaySub.end"
             :current-time="player.currentTime.value"
             :paused="!player.isPlaying.value"
             :can-save="auth.isLoggedIn && !adminPreview"
@@ -2179,6 +2174,8 @@ function subtitleRowClass(index: number) {
         <EpisodeVocabSummaryList
           v-else-if="contentView === 'summary'"
           :groups="vocabSummaryGroups"
+          :video-id="videoId"
+          :can-save="auth.isLoggedIn && !adminPreview"
         />
 
         <EpisodeVideoContextPanel

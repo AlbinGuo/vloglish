@@ -2,14 +2,12 @@
 import { onUnmounted, ref, watch } from 'vue'
 import { lookupWord } from '@/api/episodes'
 import { saveVocabulary } from '@/api/learning'
-import {
-  extractVocabDanmakuSources,
-  type VocabDanmakuSource,
-} from '@/utils/vocabDanmaku'
+import { type VocabDanmakuSource } from '@/utils/vocabDanmaku'
 
 const props = withDefaults(
   defineProps<{
-    html: string
+    /** 当前句匹配到的汇总词（已与字幕同步） */
+    sources: VocabDanmakuSource[]
     context: string
     videoId: string
     subtitleId: number | null
@@ -21,6 +19,7 @@ const props = withDefaults(
     canSave?: boolean
   }>(),
   {
+    sources: () => [],
     start: 0,
     end: 0,
     currentTime: 0,
@@ -144,12 +143,11 @@ function durationFor(word: string, gloss: string) {
  * 句首预进场 + 短窗口内排队发射。
  * 切句不打断已在滚的弹幕；未发出的上一句待发会被清掉，避免拖到下句才冒出来。
  */
-function rebuildSchedule(html: string) {
+function rebuildSchedule(sources: VocabDanmakuSource[]) {
   clearPendingOnly()
   resetLaneClock()
   scheduleSubtitleId = props.subtitleId
 
-  const sources = extractVocabDanmakuSources(html)
   if (!sources.length) return
 
   const start = Number.isFinite(props.start) ? props.start : 0
@@ -170,7 +168,7 @@ function rebuildSchedule(html: string) {
     subtitleId: props.subtitleId,
   }))
 
-  flushPending(props.currentTime)
+  if (!props.paused) flushPending(props.currentTime)
 }
 
 function gapNeeded(lane: number, subtitleId: number | null, durationSec: number) {
@@ -455,9 +453,9 @@ async function onAddClick(b: Bullet, e: MouseEvent) {
 }
 
 watch(
-  () => [props.html, props.subtitleId, props.start, props.end] as const,
-  () => rebuildSchedule(props.html || ''),
-  { immediate: true },
+  () => [props.sources, props.subtitleId, props.start, props.end] as const,
+  () => rebuildSchedule(props.sources || []),
+  { immediate: true, deep: true },
 )
 
 watch(

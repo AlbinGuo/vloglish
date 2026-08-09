@@ -165,9 +165,9 @@ const currentAlign = () => props.subtitleAlign ?? 'left'
             @change="setVocabDanmakuEnabled(($event.target as HTMLInputElement).checked)"
           />
           <span>
-            <span class="block text-sm font-medium">在视频上显示高亮词弹幕</span>
+            <span class="block text-sm font-medium">在视频上显示词汇弹幕</span>
             <span class="block text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-              当前句高亮词汇从右向左飘过，可一键加入生词本（默认开启）
+              当前句命中「汇总」中的词汇时从右向左飘过，可一键加入生词本（默认开启）
             </span>
           </span>
         </label>

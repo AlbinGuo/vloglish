@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { lookupWord } from '@/api/episodes'
+import { saveVocabulary } from '@/api/learning'
 import type { VocabSummaryGroup, VocabSummaryItem } from '@/utils/vocabSummary'
 import {
   countVocabSummaryItems,
@@ -7,12 +9,22 @@ import {
   vocabLevelTagClass,
 } from '@/utils/vocabSummary'
 
-const props = defineProps<{
-  groups: VocabSummaryGroup[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    groups: VocabSummaryGroup[]
+    videoId?: string
+    canSave?: boolean
+  }>(),
+  {
+    videoId: '',
+    canSave: false,
+  },
+)
 
 const selectedKey = ref('')
 const tabListRef = ref<HTMLElement | null>(null)
+const savedKeys = ref(new Set<string>())
+const rowState = reactive<Record<string, { saving: boolean; tip: string; tipTone: 'ok' | 'err' }>>({})
 
 const total = computed(() => countVocabSummaryItems(props.groups))
 
@@ -62,7 +74,6 @@ function scrollActiveTabIntoView() {
 
   const cRect = container.getBoundingClientRect()
   const eRect = el.getBoundingClientRect()
-  // 选中项靠左约 20%，右侧留出空间给后续分类
   const idealLeft = cRect.left + Math.min(cRect.width * 0.2, 48)
   const delta = eRect.left - idealLeft
   if (Math.abs(delta) < 4) return
@@ -74,7 +85,6 @@ function selectGroup(key: string) {
 }
 
 function tabClass(title: string, active: boolean) {
-  // 用 border 代替 ring，避免 overflow-x 把描边裁掉
   const color = vocabGroupTagClass(title)
   if (active) {
     return `${color} border border-black/20 dark:border-white/30`
@@ -91,6 +101,75 @@ function itemTagClass(item: VocabSummaryItem): string {
   if (level) return vocabLevelTagClass(level)
   return vocabGroupTagClass(activeGroup.value?.title || '')
 }
+
+function itemKey(item: VocabSummaryItem, index: number) {
+  return `${activeGroup.value?.key || ''}-${item.en}-${index}`
+}
+
+function ensureRow(key: string) {
+  if (!rowState[key]) rowState[key] = { saving: false, tip: '', tipTone: 'ok' }
+  return rowState[key]!
+}
+
+function isPhrase(en: string) {
+  return /\s/.test(en.trim()) || /[^A-Za-z0-9']/i.test(en.replace(/[()]/g, ''))
+}
+
+function lookupContext(item: VocabSummaryItem) {
+  return (item.example || item.note || item.zh || item.en || '').trim()
+}
+
+function flashTip(key: string, message: string, tone: 'ok' | 'err' = 'ok') {
+  const row = ensureRow(key)
+  row.tip = message
+  row.tipTone = tone
+  window.setTimeout(() => {
+    if (rowState[key]?.tip === message) rowState[key]!.tip = ''
+  }, 1800)
+}
+
+async function onAdd(item: VocabSummaryItem, index: number) {
+  if (!props.canSave) return
+  const key = itemKey(item, index)
+  const row = ensureRow(key)
+  const wordKey = item.en.trim().toLowerCase()
+  if (savedKeys.value.has(wordKey) || row.saving) {
+    flashTip(key, '已在生词本', 'ok')
+    return
+  }
+
+  row.saving = true
+  try {
+    const tokenType: 1 | 2 = isPhrase(item.en) ? 2 : 1
+    const entry = await lookupWord(item.en.trim(), tokenType, lookupContext(item), {
+      video_id: props.videoId || undefined,
+    })
+    if (entry.favorite) {
+      savedKeys.value.add(wordKey)
+      flashTip(key, '已在生词本', 'ok')
+      return
+    }
+    await saveVocabulary({
+      entry_id: entry.id,
+      word: entry.headword,
+      token_type: entry.category === 'phrase' || entry.category === '短语' ? 2 : tokenType,
+      video_id: props.videoId || undefined,
+      source_type: 'vocab',
+    })
+    savedKeys.value.add(wordKey)
+    try {
+      const { useVocabularyStore } = await import('@/stores/vocabulary')
+      useVocabularyStore().invalidate()
+    } catch {
+      /* ignore */
+    }
+    flashTip(key, '已加入生词本', 'ok')
+  } catch {
+    flashTip(key, '收藏失败', 'err')
+  } finally {
+    row.saving = false
+  }
+}
 </script>
 
 <template>
@@ -102,7 +181,6 @@ function itemTagClass(item: VocabSummaryItem): string {
       </span>
     </p>
     <div v-else class="space-y-2">
-      <!-- 紧挨一级「汇总」工具栏：同色底 + 无上边距，避免中间空隙 -->
       <div
         class="sticky top-0 z-10 -mx-3 px-3 py-2 lg:-mx-4 lg:px-4 bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10"
       >
@@ -137,7 +215,7 @@ function itemTagClass(item: VocabSummaryItem): string {
       <ul class="space-y-3 pt-1">
         <li
           v-for="(item, index) in listItems"
-          :key="`${activeGroup?.key}-${item.en}-${index}`"
+          :key="itemKey(item, index)"
           class="rounded-xl px-3.5 py-3 bg-white dark:bg-neutral-900/60 border border-black/[0.04] dark:border-white/[0.06]"
         >
           <div class="flex items-start gap-2.5">
@@ -176,7 +254,62 @@ function itemTagClass(item: VocabSummaryItem): string {
               >
                 <span class="text-neutral-400 dark:text-neutral-500">释义：</span>{{ item.zh }}
               </p>
+              <p
+                v-if="rowState[itemKey(item, index)]?.tip"
+                class="text-xs font-medium"
+                :class="
+                  rowState[itemKey(item, index)]?.tipTone === 'err'
+                    ? 'text-red-600 dark:text-red-400'
+                    : 'text-emerald-600 dark:text-emerald-400'
+                "
+              >
+                {{ rowState[itemKey(item, index)]?.tip }}
+              </p>
             </div>
+
+            <button
+              v-if="canSave"
+              type="button"
+              class="shrink-0 mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors"
+              :class="
+                savedKeys.has(item.en.trim().toLowerCase())
+                  ? 'border-emerald-500/40 bg-emerald-500 text-white'
+                  : 'border-black/10 dark:border-white/15 bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+              "
+              :disabled="rowState[itemKey(item, index)]?.saving"
+              :title="savedKeys.has(item.en.trim().toLowerCase()) ? '已在生词本' : '加入生词本'"
+              :aria-label="
+                savedKeys.has(item.en.trim().toLowerCase())
+                  ? '已在生词本'
+                  : `将 ${item.en} 加入生词本`
+              "
+              @click.stop="onAdd(item, index)"
+            >
+              <svg
+                v-if="savedKeys.has(item.en.trim().toLowerCase())"
+                class="h-3.5 w-3.5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.3a1 1 0 0 1-1.432.012l-3.25-3.2a1 1 0 1 1 1.4-1.426l2.53 2.49 6.54-6.58a1 1 0 0 1 1.456-.01Z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              <svg
+                v-else
+                class="h-3.5 w-3.5"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                aria-hidden="true"
+              >
+                <path stroke-linecap="round" d="M10 5v10M5 10h10" />
+              </svg>
+            </button>
           </div>
         </li>
       </ul>
