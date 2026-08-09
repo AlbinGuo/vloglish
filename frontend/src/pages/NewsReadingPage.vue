@@ -472,10 +472,13 @@ function clearVocabNotice() {
   vocabNoticeType.value = ''
 }
 
-function flashVocabNotice(message: string, type: 'ok' | 'err') {
+/** persist=true 时不自动消失（加入成功后保留「已加入生词本 / 查看」） */
+function flashVocabNotice(message: string, type: 'ok' | 'err', persist = false) {
   if (vocabNoticeTimer != null) clearTimeout(vocabNoticeTimer)
+  vocabNoticeTimer = null
   vocabNotice.value = message
   vocabNoticeType.value = type
+  if (persist) return
   vocabNoticeTimer = setTimeout(() => {
     vocabNotice.value = ''
     vocabNoticeType.value = ''
@@ -497,7 +500,7 @@ async function toggleVocabulary(entry: EntryDetail) {
       tokenType: entry.category === '短语' ? 2 : 1,
     })
     selectedEntry.value = { ...entry, favorite: saved }
-    flashVocabNotice(saved ? '已加入生词本' : '已移出生词本', 'ok')
+    flashVocabNotice(saved ? '已加入生词本' : '已移出生词本', 'ok', saved)
     if (saved !== wasSaved) {
       try {
         const { useVocabularyStore } = await import('@/stores/vocabulary')

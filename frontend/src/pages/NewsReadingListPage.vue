@@ -131,13 +131,17 @@ watch(
 
     <div class="mb-4 flex flex-wrap items-center justify-end gap-2">
       <RouterLink
-        :to="auth.isMember ? '/english/submit-article' : '/pricing'"
+        :to="auth.isMember || siteConfig.memberToolsOpen ? '/english/submit-article' : '/pricing'"
         class="inline-flex items-center gap-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium px-2.5 py-1.5 transition"
       >
         上传文章
       </RouterLink>
       <RouterLink
-        :to="auth.isMember ? '/english/my-submissions?tab=articles' : '/pricing'"
+        :to="
+          auth.isMember || siteConfig.memberToolsOpen
+            ? '/english/my-submissions?tab=articles'
+            : '/pricing'
+        "
         class="text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
       >
         我的语料库

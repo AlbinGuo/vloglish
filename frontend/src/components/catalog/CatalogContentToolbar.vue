@@ -8,6 +8,7 @@ import { useIsMobile } from '@/composables/useBreakpoint'
 import { useAuthStore } from '@/stores/auth'
 import { useCatalogStore, type CatalogDurationFilter } from '@/stores/catalog'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
+import { useSiteConfigStore } from '@/stores/siteConfig'
 import { isMobileAppBuild } from '@/utils/platform'
 
 const props = withDefaults(
@@ -18,9 +19,11 @@ const props = withDefaults(
 )
 
 const auth = useAuthStore()
+const siteConfig = useSiteConfigStore()
 const store = useCatalogStore()
 const corpusBadge = useMyCorpusBadgeStore()
 const isMobile = useIsMobile()
+const canUseMemberTools = computed(() => auth.isMember || siteConfig.memberToolsOpen)
 const { browseMode, setBrowseMode } = useCatalogBrowseMode()
 const { viewMode, setViewMode } = useCatalogViewMode()
 
@@ -55,9 +58,13 @@ const showFavoriteFilter = computed(() => auth.isMember)
 const showSubmitActions = computed(
   () => auth.isLoggedIn && props.showSubmitEntry && !isMobileAppBuild(),
 )
-const submitLink = computed(() => (auth.isMember ? '/english/submit' : '/pricing'))
-const submitArticleLink = computed(() => (auth.isMember ? '/english/submit-article' : '/pricing'))
-const mySubmissionsLink = computed(() => (auth.isMember ? '/english/my-submissions' : '/pricing'))
+const submitLink = computed(() => (canUseMemberTools.value ? '/english/submit' : '/pricing'))
+const submitArticleLink = computed(() =>
+  canUseMemberTools.value ? '/english/submit-article' : '/pricing',
+)
+const mySubmissionsLink = computed(() =>
+  canUseMemberTools.value ? '/english/my-submissions' : '/pricing',
+)
 
 const durationSelectValue = computed({
   get: () => store.filters.duration,
@@ -92,13 +99,13 @@ watch(
 )
 
 watch(
-  () => auth.isMember,
-  (member) => {
-    if (!member && store.filters.learningStatus === 'favorite') {
+  canUseMemberTools,
+  (ok) => {
+    if (!ok && store.filters.learningStatus === 'favorite') {
       store.filters.learningStatus = ''
       void store.loadEpisodes(true)
     }
-    if (member) void corpusBadge.refresh()
+    if (ok) void corpusBadge.refresh()
     else corpusBadge.clear()
   },
 )
@@ -108,7 +115,7 @@ onMounted(() => {
     store.filters.learningStatus = ''
     void store.loadEpisodes(true)
   }
-  if (auth.isMember) void corpusBadge.refresh()
+  if (canUseMemberTools.value) void corpusBadge.refresh()
 })
 </script>
 
@@ -231,13 +238,13 @@ onMounted(() => {
         >
           我的语料库
           <span
-            v-if="auth.isMember && corpusBadge.hasNew"
+            v-if="canUseMemberTools && corpusBadge.hasNew"
             class="px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none bg-red-500 text-white"
           >
             新
           </span>
           <span
-            v-else-if="auth.isMember && corpusBadge.count > 0"
+            v-else-if="canUseMemberTools && corpusBadge.count > 0"
             class="text-[10px] font-medium text-neutral-400 dark:text-neutral-500"
           >
             {{ corpusBadge.count }}
@@ -290,13 +297,13 @@ onMounted(() => {
       >
         我的语料库
         <span
-          v-if="auth.isMember && corpusBadge.hasNew"
+          v-if="canUseMemberTools && corpusBadge.hasNew"
           class="px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none bg-red-500 text-white"
         >
           新
         </span>
         <span
-          v-else-if="auth.isMember && corpusBadge.count > 0"
+          v-else-if="canUseMemberTools && corpusBadge.count > 0"
           class="text-[10px] font-medium text-neutral-400 dark:text-neutral-500"
         >
           {{ corpusBadge.count }}

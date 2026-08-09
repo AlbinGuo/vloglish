@@ -357,8 +357,8 @@ function bulletStyle(b: Bullet) {
   }
 }
 
-/** 提示贴在弹幕上方；短暂停住便于看清 */
-function showBulletTip(b: Bullet, message: string, tone: 'ok' | 'err' = 'ok') {
+/** 提示贴在弹幕上方；短暂停住便于看清。holdMs=0 表示一直显示直到下次提示覆盖 */
+function showBulletTip(b: Bullet, message: string, tone: 'ok' | 'err' = 'ok', holdMs = 1600) {
   const prev = tipTimers.get(b.key)
   if (prev != null) clearTimeout(prev)
 
@@ -373,6 +373,8 @@ function showBulletTip(b: Bullet, message: string, tone: 'ok' | 'err' = 'ok') {
     el.classList.add('vocab-danmaku-bullet--hover')
     pinnedKeys.add(b.key)
   }
+
+  if (holdMs <= 0) return
 
   tipTimers.set(
     b.key,
@@ -394,7 +396,7 @@ function showBulletTip(b: Bullet, message: string, tone: 'ok' | 'err' = 'ok') {
       pinnedKeys.delete(b.key)
       node.classList.remove('vocab-danmaku-bullet--hover')
       resumeBulletEl(node)
-    }, 1600),
+    }, holdMs),
   )
 }
 
@@ -418,6 +420,8 @@ async function onAddClick(b: Bullet, e: MouseEvent) {
     return
   }
   b.saving = true
+  // 先即时反馈；等接口结果再换成成功/失败（加入中不自动消失）
+  showBulletTip(b, '加入中…', 'ok', 0)
   try {
     const entry = await lookupWord(b.word, b.tokenType, props.context, {
       video_id: props.videoId,

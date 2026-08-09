@@ -6,6 +6,7 @@ import { useCatalogBrowseMode, type CatalogBrowseMode } from '@/composables/useC
 import { useAuthStore } from '@/stores/auth'
 import { useCatalogStore, type CatalogDurationFilter } from '@/stores/catalog'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
+import { useSiteConfigStore } from '@/stores/siteConfig'
 import { isMobileAppBuild } from '@/utils/platform'
 
 const props = withDefaults(
@@ -19,9 +20,11 @@ const props = withDefaults(
 const emit = defineEmits<{ close: [] }>()
 
 const auth = useAuthStore()
+const siteConfig = useSiteConfigStore()
 const store = useCatalogStore()
 const corpusBadge = useMyCorpusBadgeStore()
 const { browseMode, setBrowseMode } = useCatalogBrowseMode()
+const canUseMemberTools = computed(() => auth.isMember || siteConfig.memberToolsOpen)
 
 const browseOptions: { value: CatalogBrowseMode; label: string }[] = [
   { value: 'all', label: '全部视频' },
@@ -39,9 +42,13 @@ const showFavorite = computed(() => auth.isMember)
 const showSubmitActions = computed(
   () => auth.isLoggedIn && props.showSubmitEntry && !isMobileAppBuild(),
 )
-const submitLink = computed(() => (auth.isMember ? '/english/submit' : '/pricing'))
-const submitArticleLink = computed(() => (auth.isMember ? '/english/submit-article' : '/pricing'))
-const mySubmissionsLink = computed(() => (auth.isMember ? '/english/my-submissions' : '/pricing'))
+const submitLink = computed(() => (canUseMemberTools.value ? '/english/submit' : '/pricing'))
+const submitArticleLink = computed(() =>
+  canUseMemberTools.value ? '/english/submit-article' : '/pricing',
+)
+const mySubmissionsLink = computed(() =>
+  canUseMemberTools.value ? '/english/my-submissions' : '/pricing',
+)
 
 const segmentIdle =
   'text-neutral-500 dark:text-neutral-400'
@@ -56,7 +63,7 @@ watch(
   () => props.open,
   (open) => {
     document.body.style.overflow = open ? 'hidden' : ''
-    if (open && auth.isMember) void corpusBadge.refresh()
+    if (open && canUseMemberTools.value) void corpusBadge.refresh()
   },
 )
 
@@ -204,13 +211,13 @@ async function onReset() {
               >
                 我的语料库
                 <span
-                  v-if="auth.isMember && corpusBadge.hasNew"
+                  v-if="canUseMemberTools && corpusBadge.hasNew"
                   class="px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none bg-red-500 text-white"
                 >
                   新
                 </span>
                 <span
-                  v-else-if="auth.isMember && corpusBadge.count > 0"
+                  v-else-if="canUseMemberTools && corpusBadge.count > 0"
                   class="text-[11px] text-neutral-400"
                 >
                   {{ corpusBadge.count }}

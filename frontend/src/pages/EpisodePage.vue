@@ -1480,10 +1480,13 @@ function clearVocabNotice() {
   vocabNoticeType.value = ''
 }
 
-function flashVocabNotice(message: string, type: 'ok' | 'err') {
+/** persist=true 时不自动消失（加入成功后保留「已加入生词本 / 查看」） */
+function flashVocabNotice(message: string, type: 'ok' | 'err', persist = false) {
   if (vocabNoticeTimer != null) clearTimeout(vocabNoticeTimer)
+  vocabNoticeTimer = null
   vocabNotice.value = message
   vocabNoticeType.value = type
+  if (persist) return
   vocabNoticeTimer = setTimeout(() => {
     vocabNotice.value = ''
     vocabNoticeType.value = ''
@@ -1510,7 +1513,7 @@ async function toggleVocabulary(entry: EntryDetail) {
       })
       entry.favorite = true
       noteLookup()
-      flashVocabNotice('已加入生词本', 'ok')
+      flashVocabNotice('已加入生词本', 'ok', true)
       try {
         const { useVocabularyStore } = await import('@/stores/vocabulary')
         useVocabularyStore().invalidate()
@@ -1974,7 +1977,7 @@ function subtitleRowClass(index: number) {
             :flush="mobileVideoImmersive || isVideoPanelFullscreen"
           />
           <VocabDanmakuOverlay
-            v-if="vocabDanmakuEnabled && !videoHidden && displaySub && danmakuSources.length"
+            v-if="vocabDanmakuEnabled && !videoHidden && displaySub"
             :sources="danmakuSources"
             :context="displaySub.english || ''"
             :video-id="videoId"

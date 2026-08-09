@@ -341,7 +341,13 @@ router.beforeEach(async (to) => {
     return { path: '/login', query: { next: to.fullPath } }
   }
 
-  if (to.meta.requiresMember && auth.isLoggedIn && !auth.isMember) {
+  // 关会员内容限制时，登录用户即可使用上传/语料库，不强制跳转开通页
+  if (
+    to.meta.requiresMember &&
+    auth.isLoggedIn &&
+    !auth.isMember &&
+    siteConfig.isContentGated
+  ) {
     return { path: '/pricing', query: { next: to.fullPath } }
   }
 })

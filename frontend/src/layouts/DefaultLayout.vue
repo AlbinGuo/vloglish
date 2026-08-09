@@ -17,6 +17,7 @@ import { useCatalogMobileHeaderHide } from '@/composables/useCatalogMobileHeader
 import { useAuthStore } from '@/stores/auth'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 import { useNotificationStore } from '@/stores/notifications'
+import { useSiteConfigStore } from '@/stores/siteConfig'
 import { useVocabularyStore } from '@/stores/vocabulary'
 import AppDownloadEntry from '@/components/AppDownloadEntry.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
@@ -24,10 +25,13 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const siteConfig = useSiteConfigStore()
 const notifications = useNotificationStore()
 const corpusBadge = useMyCorpusBadgeStore()
 const vocabulary = useVocabularyStore()
 const feedbackOpen = ref(false)
+/** 会员，或关内容限制后的登录用户 */
+const canUseMemberTools = computed(() => auth.isMember || siteConfig.memberToolsOpen)
 
 const vocabCount = computed(() => vocabulary.items.length)
 const vocabBadgeLabel = computed(() => (vocabCount.value > 99 ? '99+' : String(vocabCount.value)))
@@ -144,7 +148,7 @@ async function refreshPendingPopups() {
     } else {
       popupUnits.value = units
     }
-    if (auth.isMember) void corpusBadge.refresh()
+    if (canUseMemberTools.value) void corpusBadge.refresh()
   } catch {
     // 静默失败
   }
@@ -376,9 +380,9 @@ watch(
                 {{ notifications.unreadCount > 99 ? '99+' : notifications.unreadCount }}
               </span>
             </RouterLink>
-            <!-- 非会员：开通入口；会员身份在头像菜单内展示 -->
+            <!-- 开启内容限制时非会员才显示开通入口；关限制后隐藏 -->
             <RouterLink
-              v-if="!auth.isMember"
+              v-if="!auth.isMember && siteConfig.isContentGated"
               to="/pricing"
               class="inline-flex items-center justify-center rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition p-2 sm:px-3 sm:py-1.5"
               aria-label="开通会员"

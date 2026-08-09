@@ -78,7 +78,15 @@ def get_current_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
-def get_current_member(user: User = Depends(get_current_user)) -> User:
-    if not user.is_member:
-        raise HTTPException(status_code=403, detail="需要激活会员")
-    return user
+def get_current_member(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    """会员，或关会员内容限制时的登录用户（上传视频/文章/语料库等）。"""
+    if user.is_member:
+        return user
+    from .services.site_settings import content_access_unlocked
+
+    if content_access_unlocked(db, user):
+        return user
+    raise HTTPException(status_code=403, detail="需要激活会员")

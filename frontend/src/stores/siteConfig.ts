@@ -9,6 +9,12 @@ export const useSiteConfigStore = defineStore('siteConfig', () => {
   /** 是否仍对非会员做内容限量（视频/合集/文章） */
   const isContentGated = computed(() => membershipGateEnabled.value)
 
+  /**
+   * 关会员内容限制时：登录用户可走上传视频/文章、我的语料库等入口
+   *（不必 is_member；AI 日限仍按会员身份）
+   */
+  const memberToolsOpen = computed(() => !membershipGateEnabled.value)
+
   async function hydrate() {
     try {
       const data = await fetchSiteConfig()
@@ -28,6 +34,7 @@ export const useSiteConfigStore = defineStore('siteConfig', () => {
     membershipGateEnabled,
     ready,
     isContentGated,
+    memberToolsOpen,
     hydrate,
     setMembershipGateEnabled,
   }

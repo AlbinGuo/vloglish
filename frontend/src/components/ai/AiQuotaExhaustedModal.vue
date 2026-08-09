@@ -3,9 +3,11 @@ import { watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAiQuotaPromptStore } from '@/stores/aiQuotaPrompt'
+import { useSiteConfigStore } from '@/stores/siteConfig'
 
 const router = useRouter()
 const store = useAiQuotaPromptStore()
+const siteConfig = useSiteConfigStore()
 const { open, detail } = storeToRefs(store)
 
 watch(open, (v) => {
@@ -55,6 +57,7 @@ function goPricing() {
             稍后再说
           </button>
           <button
+            v-if="siteConfig.isContentGated"
             type="button"
             class="px-4 py-2 rounded-xl text-sm font-medium bg-neutral-900 text-white dark:bg-amber-500 dark:text-neutral-900 hover:opacity-90"
             @click="goPricing"
