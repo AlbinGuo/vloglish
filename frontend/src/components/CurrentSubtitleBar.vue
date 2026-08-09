@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, nextTick, ref, watch } from 'vue'
 import SubtitleBlock from '@/components/SubtitleBlock.vue'
 import IntensiveReadingBlock from '@/components/intensive/IntensiveReadingBlock.vue'
 import type { Subtitle } from '@/types'
@@ -9,6 +10,7 @@ import {
   modeShowsChinese,
   modeShowsEnglish,
   modeShowsIpa,
+  stripSpeakerMarkers,
 } from '@/utils/subtitleHtml'
 
 const props = defineProps<{
@@ -21,6 +23,8 @@ const props = defineProps<{
   compact?: boolean
   /** Pad：实时字幕顶对齐（margin: 0） */
   topAlign?: boolean
+  /** 全屏等场景：中文固定在底部，上方英文可滚动；并按篇幅收缩字号 */
+  pinChinese?: boolean
   intensive?: boolean
   lookupMeta?: WordLookupMeta
   /** 听写中：毛玻璃遮罩 */
@@ -32,7 +36,58 @@ defineEmits<{
   seek: []
 }>()
 
+const scrollRef = ref<HTMLElement | null>(null)
+
 const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
+
+const showChinese = computed(() => modeShowsChinese(props.subtitleMode))
+const showEnglish = computed(() => modeShowsEnglish(props.subtitleMode))
+const showIpaLine = computed(() => modeShowsIpa(props.subtitleMode, props.showIpa))
+
+const displayChinese = computed(() => stripSpeakerMarkers(props.sub.chinese || ''))
+
+const usePinnedChinese = computed(
+  () =>
+    Boolean(props.pinChinese) &&
+    !props.compact &&
+    showChinese.value &&
+    Boolean(displayChinese.value),
+)
+
+/** 按英/中篇幅收缩字号，尽量同屏显示（全屏贴底模式） */
+const fluidStyle = computed(() => {
+  if (!props.pinChinese) return undefined
+  const en = (props.sub.english || '').trim().length
+  const zh = displayChinese.value.trim().length
+  const score = en + zh * 0.9
+  let enRem = 1.625
+  let zhRem = 1
+  if (score > 220) {
+    enRem = 1.125
+    zhRem = 0.8125
+  } else if (score > 160) {
+    enRem = 1.25
+    zhRem = 0.875
+  } else if (score > 100) {
+    enRem = 1.375
+    zhRem = 0.9375
+  } else if (score > 60) {
+    enRem = 1.5
+    zhRem = 1
+  }
+  return {
+    '--csb-en-size': `${enRem}rem`,
+    '--csb-zh-size': `${zhRem}rem`,
+  } as Record<string, string>
+})
+
+watch(
+  () => props.sub.id,
+  async () => {
+    await nextTick()
+    if (scrollRef.value) scrollRef.value.scrollTop = 0
+  },
+)
 </script>
 
 <template>
@@ -41,11 +96,53 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
     :class="[
       compact ? 'current-subtitle-bar--compact shrink-0 overflow-hidden' : 'min-h-0 flex-1 overflow-hidden overflow-x-hidden',
       topAlign ? 'current-subtitle-bar--top-align' : '',
+      usePinnedChinese ? 'current-subtitle-bar--pin-chinese' : '',
+      pinChinese ? 'current-subtitle-bar--fluid' : '',
     ]"
+    :style="fluidStyle"
     @click="$emit('seek')"
   >
     <div class="current-subtitle-bar__viewport">
-      <div class="subtitle-focus-light current-subtitle-bar__content">
+      <template v-if="usePinnedChinese">
+        <div ref="scrollRef" class="current-subtitle-bar__scroll subtitle-focus-light">
+          <IntensiveReadingBlock
+            v-if="intensive"
+            class="w-full min-w-0"
+            :english-html="englishHtml"
+            :english="sub.english"
+            :chinese="sub.chinese"
+            :ipa="sub.ipa"
+            :large="!compact"
+            align="center"
+            :show-english="showEnglish"
+            :show-chinese="false"
+            :show-ipa="showIpaLine"
+            :lookup-meta="lookupMeta"
+            @click.stop="$emit('click', $event)"
+          />
+          <SubtitleBlock
+            v-else
+            class="w-full min-w-0"
+            :english-html="englishHtml"
+            :chinese="sub.chinese"
+            :ipa="sub.ipa"
+            :large="!compact"
+            align="center"
+            :chinese-focus="isChineseOnly()"
+            :show-english="showEnglish"
+            :show-chinese="false"
+            :show-ipa="showIpaLine"
+            @click.stop="$emit('click', $event)"
+          />
+        </div>
+        <p
+          class="subtitle-chinese current-subtitle-bar__chinese-pin max-w-full break-words"
+          :class="intensive ? 'intensive-chinese-block' : ''"
+        >
+          {{ displayChinese }}
+        </p>
+      </template>
+      <div v-else class="subtitle-focus-light current-subtitle-bar__content">
         <IntensiveReadingBlock
           v-if="intensive"
           class="w-full min-w-0"
@@ -55,9 +152,9 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
           :ipa="sub.ipa"
           :large="!compact"
           align="center"
-          :show-english="modeShowsEnglish(subtitleMode)"
-          :show-chinese="modeShowsChinese(subtitleMode)"
-          :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+          :show-english="showEnglish"
+          :show-chinese="showChinese"
+          :show-ipa="showIpaLine"
           :lookup-meta="lookupMeta"
           @click.stop="$emit('click', $event)"
         />
@@ -70,9 +167,9 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
           :large="!compact"
           align="center"
           :chinese-focus="isChineseOnly()"
-          :show-english="modeShowsEnglish(subtitleMode)"
-          :show-chinese="modeShowsChinese(subtitleMode)"
-          :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
+          :show-english="showEnglish"
+          :show-chinese="showChinese"
+          :show-ipa="showIpaLine"
           @click.stop="$emit('click', $event)"
         />
       </div>
@@ -116,6 +213,41 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
 
 .current-subtitle-bar--top-align .current-subtitle-bar__viewport {
   align-items: flex-start;
+}
+
+/* 中文贴底：上方英文可滚，中文始终可见 */
+.current-subtitle-bar--pin-chinese .current-subtitle-bar__viewport {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.375rem;
+}
+
+.current-subtitle-bar__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  text-align: center;
+}
+
+.current-subtitle-bar__chinese-pin {
+  flex: 0 0 auto;
+  width: 100%;
+  margin: 0;
+  text-align: center;
+  padding-top: 0.25rem;
+  border-top: 1px solid rgb(0 0 0 / 0.06);
+}
+
+:global(.dark) .current-subtitle-bar__chinese-pin {
+  border-top-color: rgb(255 255 255 / 0.1);
+}
+
+.current-subtitle-bar__chinese-pin.intensive-chinese-block {
+  border-top: none;
+  padding-top: 0;
 }
 
 /* 手机端：随内容折行，过长时在区域内滚动 */
@@ -224,13 +356,33 @@ const isChineseOnly = () => modeIsChineseOnly(props.subtitleMode)
   }
 }
 
-.current-subtitle-bar :deep(.subtitle-chinese) {
+.current-subtitle-bar :deep(.subtitle-chinese),
+.current-subtitle-bar__chinese-pin {
   font-size: 1rem;
   color: #818181;
   opacity: 1;
 }
 
-:global(.dark) .current-subtitle-bar :deep(.subtitle-chinese) {
+:global(.dark) .current-subtitle-bar :deep(.subtitle-chinese),
+:global(.dark) .current-subtitle-bar__chinese-pin {
   color: rgb(212 212 212);
+}
+
+/* 流体字号：覆盖固定 rem，随篇幅收缩 */
+.current-subtitle-bar--fluid:not(.current-subtitle-bar--compact) :deep(.subtitle-english),
+.current-subtitle-bar--fluid:not(.current-subtitle-bar--compact) :deep(.intensive-english) {
+  font-size: var(--csb-en-size, 1.625rem) !important;
+  line-height: 1.4;
+}
+
+.current-subtitle-bar--fluid:not(.current-subtitle-bar--compact) :deep(.subtitle-chinese),
+.current-subtitle-bar--fluid:not(.current-subtitle-bar--compact) .current-subtitle-bar__chinese-pin {
+  font-size: var(--csb-zh-size, 1rem) !important;
+  line-height: 1.45;
+}
+
+.current-subtitle-bar--fluid:not(.current-subtitle-bar--compact) :deep(.subtitle-ipa),
+.current-subtitle-bar--fluid:not(.current-subtitle-bar--compact) :deep(.intensive-ipa) {
+  font-size: calc(var(--csb-zh-size, 1rem) * 0.95) !important;
 }
 </style>

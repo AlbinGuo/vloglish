@@ -1381,6 +1381,25 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
   height: auto !important;
   border-radius: 0 !important;
   box-shadow: none !important;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* 弹幕包裹层内的播放器：吃满剩余高度 */
+.video-panel:fullscreen .video-panel__player > .relative,
+.video-panel.video-panel--fullscreen .video-panel__player > .relative,
+.video-panel:fullscreen .video-panel__player > video,
+.video-panel.video-panel--fullscreen .video-panel__player > video,
+.video-panel:fullscreen .video-panel__player > iframe,
+.video-panel.video-panel--fullscreen .video-panel__player > iframe {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: 100%;
+  aspect-ratio: auto !important;
+  height: auto !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 .video-panel:fullscreen .video-panel__subtitle,
@@ -1388,8 +1407,8 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
   flex: 0 0 auto !important;
   width: 100%;
   /* !important：盖过 Tailwind min-h-0，避免绝对定位字幕内容把高度压成 0 */
-  min-height: 6.75rem !important;
-  max-height: min(32vh, 15rem);
+  min-height: 7.25rem !important;
+  max-height: min(36vh, 17rem);
   display: flex;
   flex-direction: column;
 }
@@ -1397,11 +1416,18 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
 .video-panel:fullscreen .video-panel__subtitle .current-subtitle-bar,
 .video-panel.video-panel--fullscreen .video-panel__subtitle .current-subtitle-bar {
   flex: 1 1 auto;
-  min-height: 6.75rem !important;
-  max-height: min(32vh, 15rem);
+  min-height: 7.25rem !important;
+  max-height: min(36vh, 17rem);
   background: rgb(23 23 23);
   border-color: rgb(255 255 255 / 0.12);
   color: #f5f5f5;
+}
+
+/* 全屏贴底中文：分隔线与暗色面板对齐 */
+.video-panel:fullscreen .video-panel__subtitle .current-subtitle-bar__chinese-pin,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .current-subtitle-bar__chinese-pin {
+  border-top-color: rgb(255 255 255 / 0.12);
+  color: rgb(212 212 212);
 }
 
 .video-panel:fullscreen .video-panel__subtitle .subtitle-english,

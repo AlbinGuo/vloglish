@@ -412,9 +412,10 @@ watch(
         </div>
       </div>
     </header>
+    <!-- 占位高度勿做 transition：动画过程中 scrollY 连续跳变会触发 header 显隐闪烁 -->
     <div
       v-if="!immersive && catalogHeaderAutoHide"
-      class="shrink-0 pointer-events-none overflow-hidden transition-[height] duration-300 ease-out"
+      class="shrink-0 pointer-events-none overflow-hidden"
       :class="catalogHeaderVisible ? 'h-[calc(4.25rem+env(safe-area-inset-top,0px))]' : 'h-0'"
       aria-hidden="true"
     />

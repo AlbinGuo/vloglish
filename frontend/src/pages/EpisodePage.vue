@@ -14,6 +14,7 @@ import SentenceDictationSheet from '@/components/episode/SentenceDictationSheet.
 import ShadowingSessionBar from '@/components/episode/ShadowingSessionBar.vue'
 import ShadowTrack from '@/components/episode/ShadowTrack.vue'
 import SubtitlePracticeToolbar from '@/components/episode/SubtitlePracticeToolbar.vue'
+import VocabDanmakuOverlay from '@/components/episode/VocabDanmakuOverlay.vue'
 import AiExplainSheet from '@/components/ai/AiExplainSheet.vue'
 import AiShadowingSheet from '@/components/ai/AiShadowingSheet.vue'
 import AiClozeSheet from '@/components/ai/AiClozeSheet.vue'
@@ -53,6 +54,7 @@ import IntensiveCoreVocabPanel from '@/components/intensive/IntensiveCoreVocabPa
 import IntensiveCoreVocabMobile from '@/components/intensive/IntensiveCoreVocabMobile.vue'
 import IntensiveModeToggle from '@/components/intensive/IntensiveModeToggle.vue'
 import { useIntensiveReadingMode } from '@/composables/useIntensiveReadingMode'
+import { useVocabDanmaku } from '@/composables/useVocabDanmaku'
 import { useCoreVocabulary, type CoreVocabSource } from '@/composables/useCoreVocabulary'
 import {
   useEpisodeWordCards,
@@ -224,6 +226,7 @@ const sortedSubs = computed(() =>
 )
 
 const { intensiveMode, intensivePageClass } = useIntensiveReadingMode()
+const { vocabDanmakuEnabled } = useVocabDanmaku()
 
 const coreVocabSources = computed<CoreVocabSource[]>(() =>
   sortedSubs.value.map((sub) => ({
@@ -287,6 +290,12 @@ const dictationOpen = ref(false)
 const dictationSubtitle = ref<Subtitle | null>(null)
 /** 听写弹窗打开时，对该句施加毛玻璃遮罩 */
 const dictationTargetId = ref<number | null>(null)
+/** 练习菜单打开时抬高该行，避免被下一条字幕盖住 */
+const practiceMenuOpenId = ref<number | null>(null)
+
+function onPracticeMenuOpenChange(subId: number, open: boolean) {
+  practiceMenuOpenId.value = open ? subId : practiceMenuOpenId.value === subId ? null : practiceMenuOpenId.value
+}
 /** 暂时隐藏「标记已掌握」入口，改为每句「听写」 */
 const showSubtitleLearnedMark = false
 
@@ -1001,6 +1010,17 @@ useSwipeNavigation(dynamicFocusRef, {
 
 const displaySub = computed(() => resolveDisplaySub(sortedSubs.value, player.currentTime.value))
 
+/** 弹幕比字幕条更早切换到下一句，便于句首预进场 */
+const DANMAKU_PRIME_SEC = 0.6
+const danmakuSub = computed(() => {
+  const t = player.currentTime.value
+  const subs = sortedSubs.value
+  if (!subs.length) return null
+  const upcoming = subs.find((s) => s.start > t && s.start - t <= DANMAKU_PRIME_SEC)
+  if (upcoming) return upcoming
+  return resolveDisplaySub(subs, t)
+})
+
 /** 当前句字幕条是否应挂载（全屏下保持挂载，仅用 v-show 显隐，避免卸载 Teleport 扰乱 Fullscreen） */
 const mountCurrentSubtitleBar = computed(
   () => Boolean(displaySub.value) && (!isPhone.value || isVideoPanelFullscreen.value),
@@ -1677,33 +1697,60 @@ const wordLongPressHandlers = {
   contextmenu: wordLongPress.onContextMenu,
 }
 
-async function onSubtitleClick(e: MouseEvent) {
-  if (wordLongPress.consumeIfFired()) return
-
-  const hit = resolveWordHitFromEvent(e)
-  if (!hit) return
-
+async function openWordEntry(payload: {
+  word: string
+  type: 1 | 2
+  context: string
+  subtitleId: number | null
+}) {
   pausePlaybackForEntry()
   showEntryPanel.value = true
   entryLoading.value = true
   entryError.value = ''
   clearVocabNotice()
   selectedEntry.value = null
-
-  entrySourceSubtitleId.value = hit.subtitleId
+  entrySourceSubtitleId.value = payload.subtitleId
   try {
-    selectedEntry.value = await lookupWord(hit.word, hit.type, hit.context, {
+    selectedEntry.value = await lookupWord(payload.word, payload.type, payload.context, {
       video_id: props.videoId,
-      subtitle_id: hit.subtitleId ?? undefined,
+      subtitle_id: payload.subtitleId ?? undefined,
     })
     if (auth.isLoggedIn) noteLookup()
     if (sidePanelTab.value === 'lookup') void loadLookupHistory()
-    hit.target.classList.add('highlight', 'token-clicked')
   } catch {
     entryError.value = '词条加载失败，请确认后端已启动且 DeepSeek API 配置正确'
   } finally {
     entryLoading.value = false
   }
+}
+
+async function onSubtitleClick(e: MouseEvent) {
+  if (wordLongPress.consumeIfFired()) return
+
+  const hit = resolveWordHitFromEvent(e)
+  if (!hit) return
+
+  await openWordEntry({
+    word: hit.word,
+    type: hit.type,
+    context: hit.context,
+    subtitleId: hit.subtitleId,
+  })
+  hit.target.classList.add('highlight', 'token-clicked')
+}
+
+function onDanmakuOpenWord(payload: {
+  word: string
+  tokenType: 1 | 2
+  context: string
+  subtitleId: number | null
+}) {
+  void openWordEntry({
+    word: payload.word,
+    type: payload.tokenType,
+    context: payload.context,
+    subtitleId: payload.subtitleId,
+  })
 }
 
 function closeEntryPanel() {
@@ -1915,18 +1962,36 @@ function subtitleRowClass(index: number) {
           videoPanelLayoutClass,
         ]"
       >
-        <VideoPlayer
-          class="shrink-0 video-panel__player"
-          :src="playbackSrc"
-          :poster="episode.media.thumbnail_url"
-          :hidden="videoHidden"
-          :autoplay="videoAutoplay"
-          :register-video="registerVideoEl"
-          :player="player"
-          :show-progress-bar="!isPhone || isVideoPanelFullscreen"
-          :auto-hide-progress="!isPhone || isVideoPanelFullscreen"
-          :flush="mobileVideoImmersive || isVideoPanelFullscreen"
-        />
+        <div
+          class="video-panel__player shrink-0 w-full min-h-0"
+          :class="videoHidden ? 'contents' : 'relative'"
+        >
+          <VideoPlayer
+            class="w-full"
+            :src="playbackSrc"
+            :poster="episode.media.thumbnail_url"
+            :hidden="videoHidden"
+            :autoplay="videoAutoplay"
+            :register-video="registerVideoEl"
+            :player="player"
+            :show-progress-bar="!isPhone || isVideoPanelFullscreen"
+            :auto-hide-progress="!isPhone || isVideoPanelFullscreen"
+            :flush="mobileVideoImmersive || isVideoPanelFullscreen"
+          />
+          <VocabDanmakuOverlay
+            v-if="vocabDanmakuEnabled && !videoHidden && danmakuSub"
+            :html="danmakuSub.english_html || ''"
+            :context="danmakuSub.english || ''"
+            :video-id="videoId"
+            :subtitle-id="danmakuSub.id"
+            :start="danmakuSub.start"
+            :end="danmakuSub.end"
+            :current-time="player.currentTime.value"
+            :paused="!player.isPlaying.value"
+            :can-save="auth.isLoggedIn && !adminPreview"
+            @open-word="onDanmakuOpenWord"
+          />
+        </div>
         <PlayerControls
           v-if="!isPhone || isVideoPanelFullscreen"
           class="shrink-0 video-panel__controls"
@@ -1967,6 +2032,7 @@ function subtitleRowClass(index: number) {
               :class="isPhone && !isVideoPanelFullscreen ? '' : 'min-h-0 flex-1'"
               :compact="isPhone && !isVideoPanelFullscreen"
               :top-align="isPad && !isVideoPanelFullscreen"
+              :pin-chinese="isVideoPanelFullscreen"
               :intensive="intensiveMode"
               :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
               :sub="displaySub"
@@ -2209,6 +2275,8 @@ function subtitleRowClass(index: number) {
                         : 'border-red-100/80 dark:border-red-950/40',
                     ]
                   : [subtitleRowClass(i), i === currentIndex && 'subtitle-row--active'],
+                showSubtitleLearnedMark && auth.isLoggedIn && !adminPreview ? 'pr-10 sm:pr-12' : '',
+                practiceMenuOpenId === sub.id && 'z-40',
               ]"
             >
               <button
@@ -2225,18 +2293,6 @@ function subtitleRowClass(index: number) {
               >
                 ✓
               </button>
-              <SubtitlePracticeToolbar
-                v-else-if="!adminPreview"
-                :align="subtitleAlign"
-                :shadow-active="shadowActiveSubId === sub.id"
-                :has-shadow-track="Boolean(shadowTracks[sub.id]?.audio_url)"
-                :dictation-active="dictationTargetId === sub.id"
-                @explain="startAiExplain(sub, $event)"
-                @shadowing="startAiShadowing(sub, $event)"
-                @shadow="startShadowPractice(sub, $event)"
-                @cloze="startAiCloze(sub, $event)"
-                @dictation="startSubtitleDictation(sub, $event)"
-              />
               <IntensiveReadingBlock
                 v-if="intensiveMode"
                 :english-html="renderHtml(sub.english_html)"
@@ -2267,6 +2323,20 @@ function subtitleRowClass(index: number) {
                 :emphasize-word="isSourceFocused(sub.id) ? sourceFocusWord : ''"
                 v-on="wordLongPressHandlers"
                 @click.stop="onSubtitleClick"
+              />
+              <SubtitlePracticeToolbar
+                v-if="!adminPreview && !showSubtitleLearnedMark"
+                variant="inline-row"
+                :align="subtitleAlign"
+                :shadow-active="shadowActiveSubId === sub.id"
+                :has-shadow-track="Boolean(shadowTracks[sub.id]?.audio_url)"
+                :dictation-active="dictationTargetId === sub.id"
+                @explain="startAiExplain(sub, $event)"
+                @shadowing="startAiShadowing(sub, $event)"
+                @shadow="startShadowPractice(sub, $event)"
+                @cloze="startAiCloze(sub, $event)"
+                @dictation="startSubtitleDictation(sub, $event)"
+                @menu-open-change="onPracticeMenuOpenChange(sub.id, $event)"
               />
               <div
                 v-if="

@@ -2,6 +2,7 @@
 import { useHighlightStyle, type HighlightStyle } from '@/composables/useHighlightStyle'
 import { useTheme, type ThemeMode } from '@/composables/useTheme'
 import { useIntensiveReadingMode } from '@/composables/useIntensiveReadingMode'
+import { useVocabDanmaku } from '@/composables/useVocabDanmaku'
 import type { SubtitleAlign } from '@/utils/subtitleHtml'
 
 const props = defineProps<{
@@ -16,6 +17,7 @@ const emit = defineEmits<{
 const { highlightStyle, setHighlightStyle } = useHighlightStyle()
 const { themeMode, setThemeMode } = useTheme()
 const { intensiveMode, setIntensiveMode } = useIntensiveReadingMode()
+const { vocabDanmakuEnabled, setVocabDanmakuEnabled } = useVocabDanmaku()
 
 const themeOptions: { key: ThemeMode; label: string; desc: string }[] = [
   { key: 'light', label: '浅色', desc: '明亮界面，适合白天使用' },
@@ -145,6 +147,27 @@ const currentAlign = () => props.subtitleAlign ?? 'left'
             <span class="block text-sm font-medium">开启精读</span>
             <span class="block text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
               词下直译、段落译文对照、核心词汇侧栏
+            </span>
+          </span>
+        </label>
+      </section>
+
+      <section class="mb-1">
+        <h4 class="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-3">词汇弹幕</h4>
+        <label
+          class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors"
+          :class="vocabDanmakuEnabled ? optionSelectedClass : optionDefaultClass"
+        >
+          <input
+            type="checkbox"
+            class="mt-1 shrink-0"
+            :checked="vocabDanmakuEnabled"
+            @change="setVocabDanmakuEnabled(($event.target as HTMLInputElement).checked)"
+          />
+          <span>
+            <span class="block text-sm font-medium">在视频上显示高亮词弹幕</span>
+            <span class="block text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+              当前句高亮词汇从右向左飘过，可一键加入生词本（默认开启）
             </span>
           </span>
         </label>
