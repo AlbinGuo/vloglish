@@ -533,6 +533,73 @@ class SiteSetting(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class WordPracticeSession(Base):
+    """单词拼写练习：一局会话。"""
+
+    __tablename__ = "word_practice_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    source: Mapped[str] = mapped_column(String(32), default="vocab", index=True)  # vocab|episode_vocab|vocab_wrong
+    mode: Mapped[str] = mapped_column(String(16), default="type")
+    video_id: Mapped[str] = mapped_column(String(32), default="", index=True)
+    total_count: Mapped[int] = mapped_column(Integer, default=0)
+    correct_count: Mapped[int] = mapped_column(Integer, default=0)
+    wrong_count: Mapped[int] = mapped_column(Integer, default=0)
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    chars_typed: Mapped[int] = mapped_column(Integer, default=0)
+    items_json: Mapped[str] = mapped_column(Text, default="[]")
+    results_json: Mapped[str] = mapped_column(Text, default="[]")
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class WordPracticeWrong(Base):
+    """拼写错词本。"""
+
+    __tablename__ = "word_practice_wrongs"
+    __table_args__ = (UniqueConstraint("user_id", "entry_id", name="uq_word_practice_wrong"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    entry_id: Mapped[int] = mapped_column(Integer, index=True)
+    vocabulary_item_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    word: Mapped[str] = mapped_column(String(256), default="")
+    wrong_count: Mapped[int] = mapped_column(Integer, default=1)
+    last_wrong_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class WordPracticeStat(Base):
+    """每用户每词拼写掌握度。"""
+
+    __tablename__ = "word_practice_stats"
+    __table_args__ = (UniqueConstraint("user_id", "entry_id", name="uq_word_practice_stat"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    entry_id: Mapped[int] = mapped_column(Integer, index=True)
+    vocabulary_item_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="new")  # new|learning|review|known
+    practice_count: Mapped[int] = mapped_column(Integer, default=0)
+    correct_streak: Mapped[int] = mapped_column(Integer, default=0)
+    wrong_count_total: Mapped[int] = mapped_column(Integer, default=0)
+    last_practiced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class ExampleTranslationCache(Base):
+    """例句英→中翻译共享缓存：同一英文例句全站只调一次 AI。"""
+
+    __tablename__ = "example_translation_cache"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    content_hash: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    english: Mapped[str] = mapped_column(Text, default="")
+    chinese: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class UserPracticeRecord(Base):
     """口语评测 / 单词打分 / 篇章评测练习记录（含可选录音）。"""
 

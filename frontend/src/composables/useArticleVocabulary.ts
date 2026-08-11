@@ -21,7 +21,9 @@ export interface ArticleVocabularyContext {
   reload: () => Promise<void>
 }
 
-export const ARTICLE_VOCABULARY_KEY: InjectionKey<ArticleVocabularyContext> = Symbol('article-vocabulary')
+/** Symbol.for：避免 HMR 后 Symbol 身份变化导致 inject 拿不到 provide */
+export const ARTICLE_VOCABULARY_KEY: InjectionKey<ArticleVocabularyContext> =
+  Symbol.for('vloglish.article-vocabulary')
 
 function wordKey(word: string) {
   return word.trim().replace(/\s+/g, ' ').toLowerCase()

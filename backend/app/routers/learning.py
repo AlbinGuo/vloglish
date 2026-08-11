@@ -24,7 +24,7 @@ from ..schemas import (
     WordLookupListOut,
     WordLookupOut,
 )
-from ..services.entry_lookup import entry_vocab_extras
+from ..services.entry_lookup import entry_vocab_extras, entry_vocab_extras_many
 from ..services.learning import (
     _fmt_dt,
     dedupe_lookups_by_word,
@@ -123,8 +123,11 @@ def _vocabulary_item_out(
     *,
     episode_video_ids: dict[int, str] | None = None,
     article_refs: dict[int, str] | None = None,
+    extras: tuple[list[str], str, str] | None = None,
 ) -> VocabularyItemOut:
-    exam_tags, ipa, definition_cn = entry_vocab_extras(db, row.entry_id)
+    exam_tags, ipa, definition_cn = (
+        extras if extras is not None else entry_vocab_extras(db, row.entry_id)
+    )
     source_type, source_ref = _resolve_vocab_source_ref(
         db, row, episode_video_ids=episode_video_ids, article_refs=article_refs
     )
@@ -259,6 +262,7 @@ def list_vocabulary(
         ):
             art_titles[art_id] = art_title
             article_refs[art_id] = art_ref
+    extras_map = entry_vocab_extras_many(db, [r.entry_id for r in rows])
     result: list[VocabularyItemOut] = []
     for r in rows:
         title = titles.get(r.source_episode_id or 0, "") or art_titles.get(r.source_article_id or 0, "")
@@ -269,6 +273,7 @@ def list_vocabulary(
                 title,
                 episode_video_ids=episode_video_ids,
                 article_refs=article_refs,
+                extras=extras_map.get(r.entry_id, ([], "", "")),
             )
         )
     payload = [item.model_dump() for item in result]

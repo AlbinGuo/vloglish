@@ -5,6 +5,7 @@ import {
   removeVocabulary as apiRemoveVocabulary,
   type VocabularyItem,
 } from '@/api/learning'
+import { getErrorDetail } from '@/api/tokens'
 import { useAuthStore } from '@/stores/auth'
 
 const STORAGE_PREFIX = 'vloglish_vocab_cache_v1:'
@@ -50,12 +51,31 @@ function clearLocal(userId: number) {
   }
 }
 
+function loadErrorMessage(error: unknown): string {
+  const status = (error as { response?: { status?: number } })?.response?.status
+  const detail = getErrorDetail(error)
+  const code = (error as { code?: string })?.code
+  if (status === 401) return '登录已失效，请重新登录'
+  if (status === 502 || (typeof detail === 'string' && detail.includes('后端未启动'))) {
+    return '后端未连接，请确认服务已启动后重试'
+  }
+  if (code === 'ECONNABORTED' || code === 'ERR_NETWORK') {
+    return code === 'ECONNABORTED' ? '加载超时，请稍后重试' : '网络异常，请稍后重试'
+  }
+  if (detail) return detail
+  return '生词本加载失败，请稍后重试'
+}
+
 export const useVocabularyStore = defineStore('vocabulary', () => {
   const items = ref<VocabularyItem[]>([])
   const loading = ref(false)
   const refreshing = ref(false)
   const error = ref('')
   const loadedUserId = ref<number | null>(null)
+
+  /** 合并 Layout / 页面并发 load，避免重复打接口 */
+  let inflight: Promise<VocabularyItem[]> | null = null
+  let inflightUserId: number | null = null
 
   function hydrateFromLocal(userId: number) {
     const cached = readLocal(userId)
@@ -65,24 +85,63 @@ export const useVocabularyStore = defineStore('vocabulary', () => {
     return true
   }
 
-  async function load(options: { force?: boolean } = {}) {
+  async function resolveUserId(): Promise<number | null> {
     const auth = useAuthStore()
-    const userId = auth.user?.id
+    if (!auth.ready) {
+      await auth.hydrate()
+    }
+    if (auth.user?.id) return auth.user.id
+    if (auth.accessToken) {
+      try {
+        await auth.fetchMe()
+      } catch {
+        return null
+      }
+    }
+    return auth.user?.id ?? null
+  }
+
+  async function fetchVocabulary(userId: number): Promise<VocabularyItem[]> {
+    if (inflight && inflightUserId === userId) return inflight
+    inflightUserId = userId
+    inflight = getVocabulary()
+      .then((data) => {
+        if (useAuthStore().user?.id === userId) {
+          items.value = data
+          loadedUserId.value = userId
+          writeLocal(userId, data)
+          error.value = ''
+        }
+        return data
+      })
+      .finally(() => {
+        if (inflightUserId === userId) {
+          inflight = null
+          inflightUserId = null
+        }
+      })
+    return inflight
+  }
+
+  async function load(options: { force?: boolean } = {}) {
+    const userId = await resolveUserId()
     if (!userId) {
       items.value = []
       loadedUserId.value = null
-      error.value = '加载失败，请先登录'
+      error.value = '请先登录后查看生词本'
       return
     }
 
     const force = Boolean(options.force)
     // 先展示内存/本地缓存，后台静默刷新（stale-while-revalidate）
     if (!force) {
-      if (loadedUserId.value === userId) {
+      if (loadedUserId.value === userId && items.value.length) {
+        error.value = ''
         void refreshInBackground(userId)
         return
       }
       if (hydrateFromLocal(userId)) {
+        error.value = ''
         void refreshInBackground(userId)
         return
       }
@@ -91,12 +150,9 @@ export const useVocabularyStore = defineStore('vocabulary', () => {
     loading.value = true
     error.value = ''
     try {
-      const data = await getVocabulary()
-      items.value = data
-      loadedUserId.value = userId
-      writeLocal(userId, data)
-    } catch {
-      if (!items.value.length) error.value = '加载失败，请先登录'
+      await fetchVocabulary(userId)
+    } catch (e) {
+      if (!items.value.length) error.value = loadErrorMessage(e)
     } finally {
       loading.value = false
     }
@@ -106,12 +162,7 @@ export const useVocabularyStore = defineStore('vocabulary', () => {
     if (refreshing.value) return
     refreshing.value = true
     try {
-      const data = await getVocabulary()
-      if (useAuthStore().user?.id !== userId) return
-      items.value = data
-      loadedUserId.value = userId
-      writeLocal(userId, data)
-      error.value = ''
+      await fetchVocabulary(userId)
     } catch {
       // 保留缓存展示
     } finally {
@@ -142,6 +193,8 @@ export const useVocabularyStore = defineStore('vocabulary', () => {
     items.value = []
     loadedUserId.value = null
     error.value = ''
+    inflight = null
+    inflightUserId = null
     const userId = useAuthStore().user?.id
     if (userId) clearLocal(userId)
   }

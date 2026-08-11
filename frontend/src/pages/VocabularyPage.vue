@@ -267,35 +267,68 @@ onUnmounted(() => {
 
 <template>
   <div class="page-container py-6 max-w-4xl">
-    <div class="flex items-center justify-between gap-3 text-sm mb-6">
-      <div class="flex items-center gap-3">
-        <RouterLink to="/english/learning" class="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">← 学习统计</RouterLink>
-        <span class="text-neutral-300 dark:text-neutral-600">|</span>
-        <span class="font-medium">生词本</span>
-        <span v-if="items.length" class="text-[11px] text-neutral-400">{{ items.length }} 词</span>
+    <!-- 页头 -->
+    <div class="mb-6 space-y-4">
+      <div class="flex items-center gap-3 text-sm min-w-0">
+        <RouterLink
+          to="/english/learning"
+          class="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white shrink-0"
+        >
+          ← 学习统计
+        </RouterLink>
+        <span class="text-neutral-300 dark:text-neutral-600">·</span>
+        <span class="font-medium tracking-tight">生词本</span>
+        <span v-if="items.length" class="text-[11px] tabular-nums text-neutral-400">{{ items.length }} 词</span>
         <span v-if="refreshing" class="text-[11px] text-neutral-400">更新中…</span>
       </div>
-      <div v-if="items.length" class="flex items-center gap-2 shrink-0">
-        <button
-          ref="reviewBtnRef"
-          type="button"
-          class="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-60 transition ring-offset-2 dark:ring-offset-neutral-950"
-          :class="highlightReview ? 'ring-2 ring-amber-400' : ''"
-          :disabled="reviewLoading"
-          @click="startReview(false)"
-        >
-          {{ primaryReviewLabel }}
-        </button>
-        <button
-          v-if="hasCachedReview || reviewCards.length"
-          type="button"
-          class="px-3 py-1.5 rounded-lg text-xs font-medium border border-black/10 dark:border-white/15 text-neutral-600 dark:text-neutral-300 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60"
-          :disabled="reviewLoading"
-          title="重新调用 AI 生成，会消耗额度"
-          @click="startReview(true)"
-        >
-          重新生成
-        </button>
+
+      <div v-if="items.length" class="flex flex-col gap-1.5">
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <RouterLink
+            to="/english/word-practice?source=vocab&limit=15"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-teal-600 text-white hover:bg-teal-500 shadow-sm shadow-teal-600/20 transition"
+            title="优先抽取错词与未练习的单词"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M4 7h16M7 12h10M9 17h6" stroke-linecap="round" />
+            </svg>
+            拼写练习
+          </RouterLink>
+          <RouterLink
+            to="/english/word-practice?source=vocab_wrong&limit=15"
+            class="inline-flex items-center px-3.5 py-2 rounded-xl text-sm font-medium border border-amber-300/70 text-amber-800 dark:border-amber-700/80 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition"
+          >
+            错词复习
+          </RouterLink>
+        </div>
+        <div class="hidden sm:block w-px h-6 bg-black/8 dark:bg-white/10 shrink-0" aria-hidden="true" />
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            ref="reviewBtnRef"
+            type="button"
+            class="px-3.5 py-2 rounded-xl text-sm font-medium bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-60 transition ring-offset-2 dark:ring-offset-neutral-950"
+            :class="highlightReview ? 'ring-2 ring-amber-400' : ''"
+            :disabled="reviewLoading"
+            @click="startReview(false)"
+          >
+            {{ primaryReviewLabel }}
+          </button>
+          <button
+            v-if="hasCachedReview || reviewCards.length"
+            type="button"
+            class="px-3 py-2 rounded-xl text-sm font-medium border border-black/10 dark:border-white/15 text-neutral-600 dark:text-neutral-300 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60"
+            :disabled="reviewLoading"
+            title="重新调用 AI 生成，会消耗额度"
+            @click="startReview(true)"
+          >
+            重新生成
+          </button>
+        </div>
+      </div>
+      <p class="text-[11px] text-neutral-400 dark:text-neutral-500">
+        拼写练习优先错词与未练习，已掌握会后排
+      </p>
       </div>
     </div>
 
@@ -307,7 +340,7 @@ onUnmounted(() => {
 
     <div
       v-if="reviewCards.length"
-      class="mb-6 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/20 p-4 space-y-3"
+      class="mb-6 rounded-2xl border border-amber-200/80 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/25 p-4 space-y-3"
     >
       <p class="text-xs text-neutral-500">
         复习 {{ reviewIndex + 1 }} / {{ reviewCards.length }}
@@ -367,14 +400,28 @@ onUnmounted(() => {
     </div>
 
     <div v-if="loading && !items.length" class="text-neutral-500 dark:text-neutral-400 text-sm">加载中...</div>
-    <div v-else-if="!items.length" class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-12 text-center text-neutral-500 dark:text-neutral-400 text-sm">
+    <div
+      v-else-if="!items.length"
+      class="rounded-2xl border border-dashed border-black/10 dark:border-white/12 bg-white/60 dark:bg-neutral-900/50 p-12 text-center text-neutral-500 dark:text-neutral-400 text-sm"
+    >
       暂无生词，在学习页查词后可加入生词本
     </div>
 
-    <div v-else class="space-y-8">
+    <div v-else class="space-y-9">
       <section v-for="group in groupedItems" :key="group.key" class="space-y-3">
         <div class="flex items-center justify-between gap-3 min-w-0">
-          <div class="min-w-0 flex items-baseline gap-2">
+          <div class="min-w-0 flex items-center gap-2">
+            <span
+              class="shrink-0 w-1 h-4 rounded-full"
+              :class="
+                group.sourceType === 'article'
+                  ? 'bg-sky-400'
+                  : group.sourceType === 'video'
+                    ? 'bg-amber-400'
+                    : 'bg-neutral-300 dark:bg-neutral-600'
+              "
+              aria-hidden="true"
+            />
             <span
               class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded"
               :class="
@@ -390,7 +437,7 @@ onUnmounted(() => {
             <h2 class="text-sm font-medium truncate text-neutral-800 dark:text-neutral-100">
               {{ group.title }}
             </h2>
-            <span class="shrink-0 text-[11px] text-neutral-400">{{ group.items.length }} 词</span>
+            <span class="shrink-0 text-[11px] text-neutral-400 tabular-nums">{{ group.items.length }}</span>
           </div>
           <RouterLink
             v-if="groupSourcePath(group)"
@@ -401,16 +448,16 @@ onUnmounted(() => {
           </RouterLink>
         </div>
 
-        <ul class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+        <ul class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           <li
             v-for="item in group.items"
             :key="item.id"
-            class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-3 flex flex-col min-h-[7.25rem]"
+            class="vocab-card group relative flex flex-col min-h-[8.5rem] rounded-2xl border border-black/[0.05] dark:border-white/[0.07] bg-white/80 dark:bg-neutral-900/70 p-3.5 transition-colors hover:border-teal-500/25 dark:hover:border-teal-400/25 hover:bg-white dark:hover:bg-neutral-900"
           >
             <div class="flex items-start gap-2 min-w-0">
               <button
                 type="button"
-                class="min-w-0 flex-1 text-left font-medium text-[15px] leading-snug text-neutral-900 dark:text-neutral-100 break-words hover:text-amber-800 dark:hover:text-amber-300 transition-colors"
+                class="min-w-0 flex-1 text-left font-semibold text-[15px] leading-snug tracking-tight text-neutral-900 dark:text-neutral-50 break-words hover:text-teal-700 dark:hover:text-teal-300 transition-colors"
                 :aria-label="`朗读 ${item.word}`"
                 @click="speakWord(item.word)"
               >
@@ -421,58 +468,58 @@ onUnmounted(() => {
                 class="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full transition"
                 :class="
                   isSpeaking(item.word)
-                    ? 'bg-amber-500 text-white shadow-sm scale-105'
-                    : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/80 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:ring-amber-800/60 dark:hover:bg-amber-900/50'
+                    ? 'bg-teal-500 text-white shadow-sm scale-105'
+                    : 'bg-teal-500/10 text-teal-700 ring-1 ring-teal-500/15 hover:bg-teal-500/15 dark:text-teal-300 dark:bg-teal-400/10 dark:ring-teal-400/20'
                 "
                 aria-label="朗读"
                 @click.stop="speakWord(item.word)"
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
                 </svg>
               </button>
             </div>
-            <p v-if="item.ipa" class="mt-0.5 text-[11px] text-neutral-400 font-serif truncate">
-              {{ item.ipa }}
+            <p v-if="item.ipa" class="mt-1 text-[11px] text-neutral-400 dark:text-neutral-500 truncate tracking-wide">
+              /{{ item.ipa.replace(/^\/|\/$/g, '') }}/
             </p>
             <p
               v-if="item.definition_cn"
-              class="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2 leading-relaxed"
+              class="mt-2 text-[13px] text-neutral-600 dark:text-neutral-300 line-clamp-2 leading-relaxed"
             >
               {{ item.definition_cn }}
             </p>
-            <div class="mt-auto pt-2.5 flex items-center gap-1.5 border-t border-black/[0.04] dark:border-white/[0.06]">
+            <div
+              class="mt-auto pt-3 flex items-center gap-1 border-t border-black/[0.04] dark:border-white/[0.06] opacity-80 group-hover:opacity-100 transition-opacity"
+            >
               <button
                 type="button"
-                class="inline-flex items-center justify-center w-9 h-9 rounded-xl text-sky-700 bg-sky-50 hover:bg-sky-100 dark:text-sky-300 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 transition"
-                title="跟读打分"
-                aria-label="跟读打分"
+                class="inline-flex items-center gap-1 h-8 px-2 rounded-lg text-[11px] font-medium text-sky-700 bg-sky-50/80 hover:bg-sky-100 dark:text-sky-300 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 transition"
                 @click="startWordScore(item.word, { ipa: item.ipa, chinese: item.definition_cn })"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3z" stroke-linecap="round" stroke-linejoin="round" />
                   <path d="M19 11a7 7 0 0 1-14 0M12 18v3" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
+                打分
               </button>
               <RouterLink
                 v-if="sourcePath(item)"
                 :to="sourcePath(item)"
-                class="inline-flex items-center justify-center w-9 h-9 rounded-xl text-amber-700 bg-amber-50 hover:bg-amber-100 dark:text-amber-300 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 transition"
-                title="回看来源"
-                aria-label="回看来源"
+                class="inline-flex items-center gap-1 h-8 px-2 rounded-lg text-[11px] font-medium text-amber-800 bg-amber-50/80 hover:bg-amber-100 dark:text-amber-300 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 transition"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
+                回看
               </RouterLink>
               <button
                 type="button"
-                class="ml-auto inline-flex items-center justify-center w-9 h-9 rounded-xl text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-950/40 transition"
+                class="ml-auto inline-flex items-center justify-center w-8 h-8 rounded-lg text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-950/40 transition"
                 title="从生词本移除"
                 aria-label="从生词本移除"
                 @click="remove(item)"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </button>

@@ -196,51 +196,95 @@ watch(
     <div v-if="loading" class="py-24 text-center text-neutral-500">加载中...</div>
     <div v-else-if="error" class="py-24 text-center text-red-500">{{ error }}</div>
     <div v-else-if="!articles.length" class="py-24 text-center text-neutral-500">暂无文章</div>
-    <div v-else class="space-y-3">
-      <RouterLink
-        v-for="article in articles"
-        :key="article.article_id"
-        :to="article.accessible ? articlePath(article.article_id) : '#'"
-        class="block rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 transition hover:shadow-sm"
-        :class="!article.accessible ? 'opacity-60 pointer-events-none' : ''"
-      >
-        <div class="flex items-start gap-3">
-          <img
-            v-if="article.cover"
-            :src="resolveMediaUrl(article.cover)"
-            :alt="article.title"
-            class="shrink-0 w-24 h-16 sm:w-28 sm:h-[4.5rem] rounded-lg object-cover bg-neutral-100 dark:bg-neutral-800"
-            loading="lazy"
-          />
-          <div class="min-w-0 flex-1 flex items-start justify-between gap-3">
-            <div class="min-w-0 flex-1">
-              <h3 class="font-semibold leading-snug line-clamp-2">
+    <div v-else>
+      <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <li v-for="article in articles" :key="article.article_id">
+          <RouterLink
+            :to="article.accessible ? articlePath(article.article_id) : '#'"
+            class="group flex h-full flex-col rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white dark:bg-neutral-900 p-4 sm:p-5 transition hover:border-black/10 dark:hover:border-white/15 hover:bg-neutral-50/80 dark:hover:bg-neutral-900"
+            :class="!article.accessible ? 'opacity-60 pointer-events-none' : ''"
+          >
+            <div class="flex items-start gap-3 min-w-0">
+              <div class="min-w-0 flex-1">
+                <h3 class="font-semibold text-[15px] sm:text-base leading-snug text-neutral-900 dark:text-neutral-50 line-clamp-2 tracking-tight">
+                  <span
+                    v-if="article.is_new"
+                    class="inline-block align-middle mr-1.5 text-[10px] px-1.5 py-0.5 rounded bg-rose-500 text-white font-bold leading-none"
+                  >新</span>
+                  {{ article.title }}
+                </h3>
+                <p
+                  class="mt-2 text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed line-clamp-2"
+                >
+                  {{ article.summary?.trim() || `${article.word_count} 词 · ${article.segment_count} 段` }}
+                </p>
+              </div>
+              <div class="relative shrink-0">
+                <div
+                  class="w-[4.5rem] h-[3.35rem] sm:w-[5rem] sm:h-[3.75rem] rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 ring-1 ring-black/5 dark:ring-white/10"
+                >
+                  <img
+                    v-if="article.cover"
+                    :src="resolveMediaUrl(article.cover)"
+                    :alt="article.title"
+                    class="w-full h-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                    loading="lazy"
+                  />
+                  <div
+                    v-else
+                    class="w-full h-full flex items-center justify-center text-neutral-300 dark:text-neutral-600"
+                    aria-hidden="true"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M4 6h16v12H4zM8 10h.01M12 14l3-3 3 4" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </div>
+                </div>
                 <span
-                  v-if="article.is_new"
-                  class="inline-block align-middle mr-2 text-sm px-2.5 py-1 rounded-md bg-red-500 text-white font-bold leading-none"
-                >新</span>
-                {{ article.title }}
-              </h3>
-              <p class="text-xs text-neutral-500 mt-2 flex flex-wrap gap-x-2 gap-y-1">
-                <span v-if="article.source">{{ article.source }}</span>
-                <span v-if="article.published_at">{{ article.published_at.slice(0, 10) }}</span>
-                <span>{{ article.word_count }} 词 · {{ article.segment_count }} 段</span>
-                <span class="text-amber-600 dark:text-amber-400">{{ starsLabel(article.stars) }}</span>
-              </p>
+                  v-if="article.progress"
+                  class="absolute -bottom-1.5 -right-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded-md shadow-sm"
+                  :class="
+                    article.progress.is_completed
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 ring-1 ring-black/8 dark:ring-white/10'
+                  "
+                >
+                  {{ article.progress.is_completed ? '完' : `${Math.round(article.progress.completion_percent)}%` }}
+                </span>
+                <span
+                  v-else-if="!article.accessible"
+                  class="absolute -bottom-1.5 -right-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-amber-500 text-white shadow-sm"
+                >
+                  锁
+                </span>
+              </div>
             </div>
-            <span
-              v-if="article.progress"
-              class="shrink-0 text-xs px-2 py-1 rounded-full"
-              :class="article.progress.is_completed ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'"
-            >
-              {{ article.progress.is_completed ? '已读完' : `${Math.round(article.progress.completion_percent)}%` }}
-            </span>
-            <span v-else-if="!article.accessible" class="shrink-0 text-xs text-amber-700 dark:text-amber-400">额度已满</span>
-          </div>
-        </div>
-      </RouterLink>
 
-      <div v-if="hasMore" class="pt-4 text-center">
+            <div class="mt-auto pt-3.5 flex flex-wrap items-center gap-1.5">
+              <span
+                v-if="article.topic"
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+              >
+                {{ article.topic }}
+              </span>
+              <span
+                v-if="article.source"
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+              >
+                {{ article.source }}
+              </span>
+              <span
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40"
+                :title="`${article.stars} 星`"
+              >
+                {{ starsLabel(article.stars) }}
+              </span>
+            </div>
+          </RouterLink>
+        </li>
+      </ul>
+
+      <div v-if="hasMore" class="pt-6 text-center">
         <button
           type="button"
           class="text-sm text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white"
@@ -250,7 +294,7 @@ watch(
           {{ loadingMore ? '加载中...' : '加载更多' }}
         </button>
       </div>
-      <p v-else class="pt-4 text-center text-sm text-neutral-400">共 {{ total }} 篇</p>
+      <p v-else class="pt-6 text-center text-sm text-neutral-400">共 {{ total }} 篇</p>
     </div>
     </div>
   </div>

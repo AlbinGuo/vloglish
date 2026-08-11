@@ -243,6 +243,12 @@ const userRoutes: RouteRecordRaw[] = [
         meta: { requiresAuth: true },
       },
       {
+        path: 'english/reading/:articleId/typing',
+        name: 'ArticleTyping',
+        component: () => import('@/pages/ArticleTypingPage.vue'),
+        meta: { immersive: true, requiresAuth: true },
+      },
+      {
         path: 'english/reading/:articleId',
         name: 'NewsReading',
         component: () => import('@/pages/NewsReadingPage.vue'),
@@ -283,6 +289,12 @@ const userRoutes: RouteRecordRaw[] = [
         path: 'english/vocabulary',
         name: 'Vocabulary',
         component: () => import('@/pages/VocabularyPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: 'english/word-practice',
+        name: 'WordPractice',
+        component: () => import('@/pages/WordPracticePage.vue'),
         meta: { requiresAuth: true },
       },
     ],

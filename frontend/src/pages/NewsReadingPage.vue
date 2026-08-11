@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { getArticleDetail, type ArticleDetail, type ArticleSegment } from '@/api/articles'
 import { fetchWordLookup } from '@/composables/useWordLookupCache'
 import EntryCard from '@/components/EntryCard.vue'
@@ -577,6 +577,14 @@ watch(layoutMode, async () => {
           </span>
         </p>
       </div>
+      <RouterLink
+        v-if="article"
+        :to="`/english/reading/${articleId}/typing`"
+        class="shrink-0 rounded-full px-3 py-1 text-xs font-medium border border-teal-500/40 bg-teal-50 text-teal-800 hover:bg-teal-100 dark:bg-teal-950/40 dark:text-teal-200 dark:border-teal-700/60 dark:hover:bg-teal-900/50 transition-colors"
+        title="展示全文段落，从第 1 段开始逐句打字"
+      >
+        打字练习
+      </RouterLink>
       <button
         v-if="article && !intensiveMode"
         type="button"
@@ -697,6 +705,9 @@ watch(layoutMode, async () => {
                 :groups="vocabSummaryGroups"
                 :active-en="activeVocabEn"
                 :fill-remaining="!segmentsExpanded"
+                :article-id="articleId"
+                :can-save="auth.isLoggedIn"
+                :vocabulary="articleVocab"
                 @select="onVocabCardSelect"
               />
 
@@ -873,6 +884,12 @@ watch(layoutMode, async () => {
 </template>
 
 <style scoped>
+:deep(.subtitle-english),
+:deep(.reading-vocab-en) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+}
+
 :deep(.subtitle-english span.highlight),
 :deep(.subtitle-english span.vocab-link-hl) {
   cursor: pointer;

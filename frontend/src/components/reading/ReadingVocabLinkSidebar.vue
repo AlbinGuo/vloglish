@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, inject, nextTick, reactive, ref, watch } from 'vue'
+import {
+  ARTICLE_VOCABULARY_KEY,
+  type ArticleVocabularyContext,
+} from '@/composables/useArticleVocabulary'
+import { fetchWordLookup } from '@/composables/useWordLookupCache'
 import type { VocabSummaryGroup, VocabSummaryItem } from '@/utils/vocabSummary'
 import {
   countVocabSummaryItems,
@@ -8,20 +13,38 @@ import {
   vocabLevelTagClass,
 } from '@/utils/vocabSummary'
 
-const props = defineProps<{
-  groups: VocabSummaryGroup[]
-  activeEn?: string
-  /** 段落栏收起时占满分割线右侧剩余宽度 */
-  fillRemaining?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    groups: VocabSummaryGroup[]
+    activeEn?: string
+    /** 段落栏收起时占满分割线右侧剩余宽度 */
+    fillRemaining?: boolean
+    articleId?: string
+    canSave?: boolean
+    /** 显式传入，避免仅依赖 inject（HMR / 边界场景会静默失败） */
+    vocabulary?: ArticleVocabularyContext | null
+  }>(),
+  {
+    activeEn: '',
+    fillRemaining: false,
+    articleId: '',
+    canSave: false,
+    vocabulary: null,
+  },
+)
 
 const emit = defineEmits<{
   select: [item: VocabSummaryItem, groupTitle: string]
 }>()
 
+const injectedVocab = inject(ARTICLE_VOCABULARY_KEY, null)
+const articleVocab = computed(() => props.vocabulary ?? injectedVocab)
+
 const expanded = ref(true)
 const selectedKey = ref('')
 const tabListRef = ref<HTMLElement | null>(null)
+const savedKeys = ref(new Set<string>())
+const rowState = reactive<Record<string, { saving: boolean; tip: string; tipTone: 'ok' | 'err' }>>({})
 
 const total = computed(() => countVocabSummaryItems(props.groups))
 
@@ -59,6 +82,20 @@ watch(
 watch(selectedKey, () => {
   void nextTick(() => scrollActiveTabIntoView())
 })
+
+watch(
+  () => articleVocab.value?.items.value,
+  (items) => {
+    if (!items?.length) return
+    const next = new Set(savedKeys.value)
+    for (const row of items) {
+      const key = row.word.trim().toLowerCase()
+      if (key) next.add(key)
+    }
+    savedKeys.value = next
+  },
+  { immediate: true, deep: true },
+)
 
 function toggleExpanded() {
   expanded.value = !expanded.value
@@ -103,6 +140,99 @@ function isActiveItem(item: VocabSummaryItem): boolean {
   return item.en.trim().toLowerCase() === a
 }
 
+function itemKey(item: VocabSummaryItem, index: number) {
+  return `${activeGroup.value?.key || ''}-${item.en}-${index}`
+}
+
+function ensureRow(key: string) {
+  if (!rowState[key]) rowState[key] = { saving: false, tip: '', tipTone: 'ok' }
+  return rowState[key]!
+}
+
+function isPhrase(en: string) {
+  return /\s/.test(en.trim()) || /[^A-Za-z0-9']/i.test(en.replace(/[()]/g, ''))
+}
+
+function lookupContext(item: VocabSummaryItem) {
+  return (item.example || item.note || item.zh || item.en || '').trim()
+}
+
+function flashTip(key: string, message: string, tone: 'ok' | 'err' = 'ok') {
+  const row = ensureRow(key)
+  row.tip = message
+  row.tipTone = tone
+  window.setTimeout(() => {
+    if (rowState[key]?.tip === message) rowState[key]!.tip = ''
+  }, 1600)
+}
+
+function isSavedWord(en: string) {
+  return savedKeys.value.has(en.trim().toLowerCase())
+}
+
+async function onAdd(item: VocabSummaryItem, index: number) {
+  const key = itemKey(item, index)
+  const row = ensureRow(key)
+  const wordKey = item.en.trim().toLowerCase()
+  if (!wordKey || row.saving) return
+
+  if (!props.canSave) {
+    flashTip(key, '请先登录', 'err')
+    return
+  }
+  if (!props.articleId) {
+    flashTip(key, '文章未就绪', 'err')
+    return
+  }
+  const vocab = articleVocab.value
+  if (!vocab) {
+    flashTip(key, '生词本未就绪', 'err')
+    return
+  }
+  if (isSavedWord(item.en)) {
+    flashTip(key, '已在生词本', 'ok')
+    return
+  }
+
+  row.saving = true
+  try {
+    const tokenType: 1 | 2 = isPhrase(item.en) ? 2 : 1
+    const entry = await fetchWordLookup(item.en.trim(), tokenType, lookupContext(item), {
+      article_id: props.articleId,
+    })
+    if (!entry) {
+      flashTip(key, '查词失败', 'err')
+      return
+    }
+    // 仅以本篇生词本为准；全局 favorite 不代表已加入本篇
+    if (vocab.isSaved(entry.id)) {
+      savedKeys.value = new Set(savedKeys.value).add(wordKey)
+      flashTip(key, '已在生词本', 'ok')
+      return
+    }
+    const saved = await vocab.toggle(
+      { ...entry, favorite: false },
+      { tokenType: entry.category === '短语' || entry.category === 'phrase' ? 2 : tokenType },
+    )
+    if (saved) {
+      savedKeys.value = new Set(savedKeys.value).add(wordKey)
+      try {
+        const { useVocabularyStore } = await import('@/stores/vocabulary')
+        useVocabularyStore().invalidate()
+      } catch {
+        /* ignore */
+      }
+      flashTip(key, '已加入', 'ok')
+    } else {
+      flashTip(key, '已移出', 'ok')
+    }
+  } catch {
+    flashTip(key, '加入失败', 'err')
+  } finally {
+    row.saving = false
+  }
+}
+
 function onSelect(item: VocabSummaryItem) {
   emit('select', item, activeGroup.value?.title || '')
 }
@@ -135,7 +265,10 @@ defineExpose({ expanded })
         >
           <div v-if="expanded" class="min-w-0 flex-1 pr-1">
             <p class="text-sm font-semibold text-neutral-800 dark:text-neutral-100">词文对照</p>
-            <p class="text-xs text-neutral-500 mt-0.5">与「词汇与表达汇总」同组 · {{ total }} 条</p>
+            <p class="text-xs text-neutral-500 mt-0.5">
+              与「词汇与表达汇总」同组 · {{ total }} 条
+              <span v-if="canSave" class="text-neutral-400"> · 点 + 加入生词本</span>
+            </p>
           </div>
           <button
             type="button"
@@ -195,47 +328,126 @@ defineExpose({ expanded })
               </button>
             </div>
 
-            <ul class="space-y-2 pb-3">
+            <ul class="space-y-2 pt-5 pb-3">
               <li
                 v-for="(item, index) in activeGroup?.items ?? []"
-                :key="`${activeGroup?.key}-${item.en}-${index}`"
+                :key="itemKey(item, index)"
               >
-                <button
-                  type="button"
+                <div
                   class="w-full text-left rounded-xl border px-3 py-2.5 transition-shadow hover:shadow-sm"
                   :class="[
                     vocabGroupCardClass(activeGroup?.title || ''),
                     isActiveItem(item) ? 'ring-2 ring-neutral-800/25 dark:ring-white/30' : '',
                   ]"
-                  @click="onSelect(item)"
                 >
                   <div class="flex items-start gap-2">
-                    <span
-                      class="shrink-0 mt-0.5 w-5 h-5 rounded text-[11px] font-semibold tabular-nums inline-flex items-center justify-center bg-white/70 dark:bg-black/20 text-neutral-600 dark:text-neutral-300"
+                    <button
+                      type="button"
+                      class="min-w-0 flex-1 text-left flex items-start gap-2"
+                      @click="onSelect(item)"
                     >
-                      {{ index + 1 }}
-                    </span>
-                    <div class="min-w-0 flex-1 space-y-1">
-                      <div class="flex flex-wrap items-center gap-1.5">
-                        <p class="text-sm font-semibold text-neutral-900 dark:text-neutral-50 leading-snug">
-                          {{ item.en }}
-                        </p>
-                        <span
-                          class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium leading-none"
-                          :class="itemTagClass(item)"
-                        >
-                          {{ itemTagLabel(item) }}
-                        </span>
-                      </div>
-                      <p
-                        v-if="item.note || item.zh"
-                        class="text-xs leading-relaxed text-neutral-700 dark:text-neutral-300"
+                      <span
+                        class="shrink-0 mt-0.5 w-5 h-5 rounded text-[11px] font-semibold tabular-nums inline-flex items-center justify-center bg-white/70 dark:bg-black/20 text-neutral-600 dark:text-neutral-300"
                       >
-                        {{ item.note || item.zh }}
-                      </p>
+                        {{ index + 1 }}
+                      </span>
+                      <div class="min-w-0 flex-1 space-y-1">
+                        <div class="flex flex-wrap items-center gap-1.5">
+                          <p class="reading-vocab-en text-sm font-semibold text-neutral-900 dark:text-neutral-50 leading-snug">
+                            {{ item.en }}
+                          </p>
+                          <span
+                            class="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium leading-none"
+                            :class="itemTagClass(item)"
+                          >
+                            {{ itemTagLabel(item) }}
+                          </span>
+                        </div>
+                        <p
+                          v-if="item.note || item.zh"
+                          class="text-xs leading-relaxed text-neutral-700 dark:text-neutral-300"
+                        >
+                          {{ item.note || item.zh }}
+                        </p>
+                      </div>
+                    </button>
+
+                    <div v-if="canSave" class="relative shrink-0 mt-0.5">
+                      <span
+                        v-if="rowState[itemKey(item, index)]?.tip"
+                        class="pointer-events-none absolute left-1/2 bottom-full z-20 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[10px] font-medium shadow-sm animate-[vocabTipIn_0.18s_ease]"
+                        :class="
+                          rowState[itemKey(item, index)]?.tipTone === 'err'
+                            ? 'bg-rose-600 text-white'
+                            : 'bg-emerald-600 text-white'
+                        "
+                        role="status"
+                      >
+                        {{ rowState[itemKey(item, index)]?.tip }}
+                      </span>
+                      <button
+                        type="button"
+                        class="inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors"
+                        :class="
+                          isSavedWord(item.en)
+                            ? 'border-emerald-500/40 bg-emerald-500 text-white'
+                            : 'border-black/10 dark:border-white/15 bg-white/80 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                        "
+                        :disabled="rowState[itemKey(item, index)]?.saving"
+                        :title="isSavedWord(item.en) ? '已在生词本' : '加入生词本'"
+                        :aria-label="isSavedWord(item.en) ? '已在生词本' : `将 ${item.en} 加入生词本`"
+                        @click.stop="onAdd(item, index)"
+                      >
+                        <svg
+                          v-if="rowState[itemKey(item, index)]?.saving"
+                          class="h-3.5 w-3.5 animate-spin"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          aria-hidden="true"
+                        >
+                          <circle
+                            cx="10"
+                            cy="10"
+                            r="7"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            class="opacity-25"
+                          />
+                          <path
+                            d="M17 10a7 7 0 0 0-7-7"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                          />
+                        </svg>
+                        <svg
+                          v-else-if="isSavedWord(item.en)"
+                          class="h-3.5 w-3.5"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.3a1 1 0 0 1-1.432.012l-3.25-3.2a1 1 0 1 1 1.4-1.426l2.53 2.49 6.54-6.58a1 1 0 0 1 1.456-.01Z"
+                            clip-rule="evenodd"
+                          />
+                        </svg>
+                        <svg
+                          v-else
+                          class="h-3.5 w-3.5"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2.2"
+                          aria-hidden="true"
+                        >
+                          <path stroke-linecap="round" d="M10 5v10M5 10h10" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
-                </button>
+                </div>
               </li>
             </ul>
           </template>
@@ -244,3 +456,16 @@ defineExpose({ expanded })
     </aside>
   </div>
 </template>
+
+<style scoped>
+@keyframes vocabTipIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+</style>

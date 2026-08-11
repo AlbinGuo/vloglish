@@ -36,6 +36,7 @@ ACTION_LABELS: dict[str, str] = {
     "oral_warrant": "口语评测授权",
     "practice_tts": "练习 TTS",
     "lookup_deepseek": "查词 DeepSeek",
+    "example_translate": "例句翻译",
 }
 
 

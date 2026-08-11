@@ -35,6 +35,7 @@ import { consumeEpisodeAutoplay, requestEpisodeAutoplay } from '@/composables/us
 import { useSourceFocusPulse } from '@/composables/useSourceFocusPulse'
 import { useWordLongPress } from '@/composables/useWordLongPress'
 import { useAuthStore } from '@/stores/auth'
+import { useVocabularyStore } from '@/stores/vocabulary'
 import type { EntryDetail, EpisodeDetail, EpisodeSummary, Subtitle } from '@/types'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
 import EntryCard from '@/components/EntryCard.vue'
@@ -89,6 +90,18 @@ const props = defineProps<{ videoId: string; backTo?: string; adminPreview?: boo
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const vocabularyStore = useVocabularyStore()
+const episodeVocabPracticeCount = computed(() => {
+  const vid = props.videoId
+  if (!vid || !auth.isLoggedIn) return 0
+  return vocabularyStore.items.filter(
+    (i) =>
+      i.source_type !== 'article' &&
+      i.source_video_id === vid &&
+      /^[A-Za-z][A-Za-z\-']{0,63}$/.test((i.word || '').trim()) &&
+      !/\s/.test((i.word || '').trim()),
+  ).length
+})
 const {
   focusWord: sourceFocusWord,
   trigger: triggerSourceFocus,
@@ -1098,6 +1111,7 @@ function onEntryKeydown(e: KeyboardEvent) {
 onMounted(() => {
   syncSubtitlesHiddenForVideo(props.videoId)
   load()
+  if (auth.isLoggedIn) void vocabularyStore.load()
   window.addEventListener('keydown', onEntryKeydown)
   window.addEventListener('afterprint', onAfterPrint)
   document.addEventListener('fullscreenchange', onVideoPanelFullscreenChange)
@@ -2142,6 +2156,17 @@ function subtitleRowClass(index: number) {
             >
               打印词卡
             </button>
+            <RouterLink
+              v-if="!adminPreview && auth.isLoggedIn && episodeVocabPracticeCount > 0"
+              :to="{
+                path: '/english/word-practice',
+                query: { source: 'episode_vocab', videoId: props.videoId, limit: '15' },
+              }"
+              class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-teal-300/80 text-teal-700 dark:border-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition-colors"
+              title="练习本集加入生词本的单词拼写"
+            >
+              练本集生词{{ episodeVocabPracticeCount > 0 ? ` ${episodeVocabPracticeCount}` : '' }}
+            </RouterLink>
             <button
               v-if="!adminPreview && !showSidePanel"
               type="button"
