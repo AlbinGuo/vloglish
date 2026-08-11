@@ -24,7 +24,7 @@ COPY analysis /app/analysis
 
 RUN mkdir -p data \
     && curl -fsSL -o data/ip2region_v4.xdb \
-      http://oss.sxakgs.com/file/ip2region_v4.xdb
+      https://oss.sxakgs.com/file/ip2region_v4.xdb
 
 RUN mkdir -p data/media
 

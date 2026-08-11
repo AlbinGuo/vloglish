@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 _XDB_PATH = _DATA_DIR / "ip2region_v4.xdb"
-_XDB_URL = "http://oss.sxakgs.com/file/ip2region_v4.xdb"
+_XDB_URL = "https://oss.sxakgs.com/file/ip2region_v4.xdb"
 
 _searcher = None
 _searcher_lock = threading.Lock()
