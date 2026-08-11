@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
 from ..deps import get_current_member
+from ..media import resolve_cover_url
 from ..models import Article, Episode, User
 from ..schemas import (
     UserCorpusBadgeOut,
@@ -56,7 +57,7 @@ def list_my_submissions(
             created_at=_fmt_dt(ep.created_at),
             has_media=bool((ep.video_url or "").strip()) and ep.subtitle_count > 0,
             accent=ep.author.accent if ep.author else "",
-            cover=(ep.thumbnail_url or ep.cover or "").strip(),
+            cover=resolve_cover_url((ep.thumbnail_url or ep.cover or "").strip()),
         )
         for ep in rows
     ]

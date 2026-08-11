@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -9,6 +11,8 @@ from pathlib import Path
 
 from qiniu import Auth, put_file
 from qiniu.config import get_default, set_default
+
+logger = logging.getLogger(__name__)
 
 
 _PROXY_ENV_KEYS = (
@@ -111,10 +115,86 @@ class QiniuConfig:
         return "/".join(cleaned)
 
     def public_url(self, key: str) -> str:
+        """库内保存的永久基址（无签名）。对外播放请用 sign_url。"""
         return f"{self.domain}/{key.lstrip('/')}"
+
+    @property
+    def domain_host(self) -> str:
+        host = urllib.parse.urlparse(self.domain).netloc or self.domain
+        return host.lower().split(":")[0]
+
+
+def qiniu_sign_enabled() -> bool:
+    """默认开启签名；设 QINIU_SIGN_URLS=0 可临时关闭（调试用）。"""
+    raw = os.getenv("QINIU_SIGN_URLS", "1").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
+
+
+def qiniu_media_expires() -> int:
+    """正片音视频签名有效期（秒），默认 4 小时。"""
+    try:
+        return max(60, int(os.getenv("QINIU_MEDIA_EXPIRES", "14400")))
+    except ValueError:
+        return 14400
+
+
+def qiniu_cover_expires() -> int:
+    """封面签名有效期（秒），默认 24 小时。"""
+    try:
+        return max(60, int(os.getenv("QINIU_COVER_EXPIRES", "86400")))
+    except ValueError:
+        return 86400
+
+
+def strip_qiniu_download_token(url: str) -> str:
+    """去掉已有 e/token，避免重复签名。"""
+    raw = (url or "").strip()
+    if not raw or "?" not in raw:
+        return raw
+    parsed = urllib.parse.urlparse(raw)
+    query = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+    kept = [(k, v) for k, v in query if k.lower() not in {"e", "token"}]
+    return urllib.parse.urlunparse(parsed._replace(query=urllib.parse.urlencode(kept)))
+
+
+def is_our_qiniu_url(url: str, cfg: QiniuConfig | None = None) -> bool:
+    raw = (url or "").strip()
+    if not raw.startswith(("http://", "https://")):
+        return False
+    try:
+        conf = cfg or QiniuConfig.from_env()
+    except RuntimeError:
+        return False
+    host = (urllib.parse.urlparse(raw).netloc or "").lower().split(":")[0]
+    return bool(host) and host == conf.domain_host
+
+
+def sign_url(url: str, *, expires: int | None = None, cfg: QiniuConfig | None = None) -> str:
+    """对自家七牛域名资源签发短时下载 URL；非七牛或关闭签名时原样返回。"""
+    raw = (url or "").strip()
+    if not raw or not qiniu_sign_enabled():
+        return raw
+    if not raw.startswith(("http://", "https://")):
+        return raw
+    try:
+        conf = cfg or QiniuConfig.from_env()
+    except RuntimeError:
+        return raw
+    if not is_our_qiniu_url(raw, conf):
+        return raw
+
+    base = strip_qiniu_download_token(raw)
+    ttl = expires if expires is not None else qiniu_media_expires()
+    try:
+        auth = Auth(conf.access_key, conf.secret_key)
+        return auth.private_download_url(base, expires=ttl)
+    except Exception:
+        logger.warning("sign qiniu url failed: %s", base[:120], exc_info=True)
+        return base
 
 
 def episode_media_urls(cfg: QiniuConfig, video_id: str) -> dict[str, str]:
+    """写入 DB 的永久基址（无签名）。"""
     cover = cfg.public_url(cfg.object_key(video_id, "cover.webp"))
     return {
         "video_url": cfg.public_url(cfg.object_key(video_id, "video.mp4")),
@@ -126,7 +206,8 @@ def episode_media_urls(cfg: QiniuConfig, video_id: str) -> dict[str, str]:
 
 def qiniu_object_exists(cfg: QiniuConfig, video_id: str, filename: str, *, timeout: int = 30) -> bool:
     """Check object via Range GET (more reliable than HEAD on some CDNs)."""
-    url = cfg.public_url(cfg.object_key(video_id, filename))
+    base = cfg.public_url(cfg.object_key(video_id, filename))
+    url = sign_url(base, expires=300, cfg=cfg)
     req = urllib.request.Request(
         url,
         method="GET",
@@ -164,4 +245,5 @@ def upload_file(cfg: QiniuConfig, local_path: Path, key: str) -> str:
             hint += "（检测到本机代理，已尝试绕过；若仍失败请关闭 VPN/系统代理或增大 QINIU_UPLOAD_TIMEOUT）"
         raise RuntimeError(f"Qiniu upload failed ({info.status_code}): {body}{hint}")
 
+    # DB / manifest 只存无签名基址
     return cfg.public_url(key)

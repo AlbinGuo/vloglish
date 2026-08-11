@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from .models import Article, ArticleSegment, Author, Episode, Entry, Tag, UserArticleProgress
-from .media import resolve_audio_url, resolve_video_url
+from .media import resolve_audio_url, resolve_cover_url, resolve_video_url
 from .services.episode_admin import episode_is_new
 from .services.vocab_summary import parse_vocab_summary
 
@@ -50,7 +50,7 @@ def episode_summary(
         "voca_size": episode.voca_size,
         "subtitle_count": episode.subtitle_count,
         "clip_length": episode.clip_length,
-        "cover": episode.cover,
+        "cover": resolve_cover_url(episode.cover),
         "author": author_dict(episode.author),
         "tags": tags_list(episode),
         "created_at": created_at,
@@ -65,7 +65,14 @@ def episode_summary(
     }
 
 
-def episode_detail(episode: Episode, total: int, *, series_nav: dict | None = None) -> dict:
+def episode_detail(
+    episode: Episode,
+    total: int,
+    *,
+    series_nav: dict | None = None,
+    include_source_url: bool = False,
+) -> dict:
+    thumb = episode.thumbnail_url or episode.cover
     return {
         "episode": {
             "index": episode.index,
@@ -76,7 +83,8 @@ def episode_detail(episode: Episode, total: int, *, series_nav: dict | None = No
             "stars": episode.stars,
             "voca_size": episode.voca_size,
             "subtitle_count": episode.subtitle_count,
-            "original_video_url": episode.original_video_url,
+            # 用户端不暴露源站/投稿原链，仅管理端预览可带
+            "original_video_url": episode.original_video_url if include_source_url else "",
             "author": author_dict(episode.author),
             "tags": tags_list(episode),
             "media": {
@@ -91,7 +99,7 @@ def episode_detail(episode: Episode, total: int, *, series_nav: dict | None = No
                     video_url=episode.video_url,
                     original_video_url=episode.original_video_url,
                 ),
-                "thumbnail_url": episode.thumbnail_url or episode.cover,
+                "thumbnail_url": resolve_cover_url(thumb),
             },
             "subtitles": [
                 {

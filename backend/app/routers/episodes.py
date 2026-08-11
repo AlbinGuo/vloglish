@@ -18,7 +18,7 @@ from ..deps import get_current_user, get_current_user_optional, get_device_id
 from ..favorites import favorite_video_ids
 from ..services.episode_stats import learner_count_map_for_episodes
 from ..services.learning import learned_episode_ids, progress_map_for_episodes
-from ..media import find_episode_audio_file, find_episode_video_file
+from ..media import find_episode_audio_file, find_episode_video_file, resolve_cover_url
 from ..models import (
     Author,
     Episode,
@@ -341,9 +341,9 @@ def series_list(
         episodes = list_series_episodes(db, series.id, published_only=True)
         if not episodes:
             continue
-        covers = [ep.cover for ep in episodes if ep.cover][:3]
+        covers = [resolve_cover_url(ep.cover) for ep in episodes if ep.cover][:3]
         if not covers and series.cover:
-            covers = [series.cover]
+            covers = [resolve_cover_url(series.cover)]
         ep_times = [(ep.published_at or ep.created_at) for ep in episodes]
         latest = latest_dt(series.published_at, series.created_at, *ep_times)
         results.append(
@@ -352,7 +352,7 @@ def series_list(
                 "slug": series.slug,
                 "title": series.title,
                 "summary": series.summary or "",
-                "cover": covers[0] if covers else (series.cover or ""),
+                "cover": covers[0] if covers else resolve_cover_url(series.cover or ""),
                 "covers": covers,
                 "episode_count": len(episodes),
                 "sort_order": series.sort_order or 0,
@@ -395,12 +395,13 @@ def series_detail(
     prog_map = progress_map_for_episodes(db, user.id, [ep.id for ep in episodes_by_time])
     learner_map = learner_count_map_for_episodes(db, [ep.id for ep in episodes_by_time])
 
+    series_cover = series.cover or (episodes_by_time[0].cover if episodes_by_time else "")
     return {
         "id": series.id,
         "slug": series.slug,
         "title": series.title,
         "summary": series.summary or "",
-        "cover": series.cover or (episodes_by_time[0].cover if episodes_by_time else ""),
+        "cover": resolve_cover_url(series_cover),
         "episode_count": len(episodes_by_time),
         "episodes": [
             episode_summary(

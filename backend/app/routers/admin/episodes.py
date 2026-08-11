@@ -301,7 +301,12 @@ def preview_episode(
     total = db.query(Episode).filter(Episode.status == "published").count()
     from ...services.episode_series import series_nav_for_episode
 
-    return episode_detail(episode, total, series_nav=series_nav_for_episode(db, episode))
+    return episode_detail(
+        episode,
+        total,
+        series_nav=series_nav_for_episode(db, episode),
+        include_source_url=True,
+    )
 
 
 @router.post("/episodes/", response_model=AdminEpisodeDetailOut)

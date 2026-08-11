@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 from .database import DATA_DIR
+from .qiniu_storage import qiniu_cover_expires, qiniu_media_expires, sign_url
 
 YOUTUBE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{11}$")
 YOUTUBE_URL_RE = re.compile(
@@ -93,7 +94,7 @@ def is_remote_media_url(url: str) -> bool:
 
 def resolve_video_url(*, video_id: str, video_url: str, original_video_url: str) -> str:
     if is_remote_media_url(video_url) and "youtube.com/embed" not in video_url:
-        return video_url
+        return sign_url(video_url, expires=qiniu_media_expires())
     if find_episode_video_file(video_id):
         return episode_video_api_url(video_id)
     return video_url
@@ -101,12 +102,12 @@ def resolve_video_url(*, video_id: str, video_url: str, original_video_url: str)
 
 def resolve_audio_url(*, video_id: str, audio_url: str, video_url: str, original_video_url: str) -> str:
     if is_remote_media_url(audio_url):
-        return audio_url
+        return sign_url(audio_url, expires=qiniu_media_expires())
     found = find_episode_audio_file(video_id)
     if found:
         return episode_audio_api_url(video_id)
     if audio_url:
-        return audio_url
+        return sign_url(audio_url, expires=qiniu_media_expires()) if is_remote_media_url(audio_url) else audio_url
     if is_youtube_episode(
         video_id=video_id,
         video_url=video_url,
@@ -114,3 +115,13 @@ def resolve_audio_url(*, video_id: str, audio_url: str, video_url: str, original
     ):
         return episode_audio_api_url(video_id)
     return ""
+
+
+def resolve_cover_url(cover: str) -> str:
+    """列表/详情封面：七牛资源签发短时 URL。"""
+    raw = (cover or "").strip()
+    if not raw:
+        return ""
+    if is_remote_media_url(raw):
+        return sign_url(raw, expires=qiniu_cover_expires())
+    return raw

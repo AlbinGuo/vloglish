@@ -199,6 +199,11 @@ QINIU_SECRET_KEY=...
 QINIU_BUCKET=sxak-oss
 QINIU_DOMAIN=http://oss.sxakgs.com
 QINIU_PREFIX=en
+# 防盗链：后端默认签发短时 URL；请在七牛控制台把空间改为「私有」，
+# 并建议开启 Referer 防盗链。调试可设 QINIU_SIGN_URLS=0
+QINIU_SIGN_URLS=1
+QINIU_MEDIA_EXPIRES=14400
+QINIU_COVER_EXPIRES=86400
 DEEPSEEK_API_KEY=...
 
 # JWT & 管理后台
