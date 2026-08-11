@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue'
-import { lookupWord } from '@/api/episodes'
 import { saveVocabulary } from '@/api/learning'
 import type { VocabSummaryGroup, VocabSummaryItem } from '@/utils/vocabSummary'
 import {
@@ -115,48 +114,40 @@ function isPhrase(en: string) {
   return /\s/.test(en.trim()) || /[^A-Za-z0-9']/i.test(en.replace(/[()]/g, ''))
 }
 
-function lookupContext(item: VocabSummaryItem) {
-  return (item.example || item.note || item.zh || item.en || '').trim()
-}
-
-function flashTip(key: string, message: string, tone: 'ok' | 'err' = 'ok') {
+function flashTip(key: string, message: string, tone: 'ok' | 'err' = 'ok', persistMs = 1800) {
   const row = ensureRow(key)
   row.tip = message
   row.tipTone = tone
+  if (persistMs <= 0) return
   window.setTimeout(() => {
     if (rowState[key]?.tip === message) rowState[key]!.tip = ''
-  }, 1800)
+  }, persistMs)
 }
 
 async function onAdd(item: VocabSummaryItem, index: number) {
   if (!props.canSave) return
   const key = itemKey(item, index)
   const row = ensureRow(key)
-  const wordKey = item.en.trim().toLowerCase()
+  const word = item.en.trim()
+  const wordKey = word.toLowerCase()
+  if (!word) return
   if (savedKeys.value.has(wordKey) || row.saving) {
     flashTip(key, '已在生词本', 'ok')
     return
   }
 
+  // 乐观 UI：立刻标绿 +「加入中…」，不再先走查词（DeepSeek）
   row.saving = true
+  savedKeys.value.add(wordKey)
+  flashTip(key, '加入中…', 'ok', 0)
   try {
-    const tokenType: 1 | 2 = isPhrase(item.en) ? 2 : 1
-    const entry = await lookupWord(item.en.trim(), tokenType, lookupContext(item), {
-      video_id: props.videoId || undefined,
-    })
-    if (entry.favorite) {
-      savedKeys.value.add(wordKey)
-      flashTip(key, '已在生词本', 'ok')
-      return
-    }
+    const tokenType: 1 | 2 = isPhrase(word) ? 2 : 1
     await saveVocabulary({
-      entry_id: entry.id,
-      word: entry.headword,
-      token_type: entry.category === 'phrase' || entry.category === '短语' ? 2 : tokenType,
+      word,
+      token_type: tokenType,
       video_id: props.videoId || undefined,
       source_type: 'vocab',
     })
-    savedKeys.value.add(wordKey)
     try {
       const { useVocabularyStore } = await import('@/stores/vocabulary')
       useVocabularyStore().invalidate()
@@ -165,6 +156,7 @@ async function onAdd(item: VocabSummaryItem, index: number) {
     }
     flashTip(key, '已加入生词本', 'ok')
   } catch {
+    savedKeys.value.delete(wordKey)
     flashTip(key, '收藏失败', 'err')
   } finally {
     row.saving = false

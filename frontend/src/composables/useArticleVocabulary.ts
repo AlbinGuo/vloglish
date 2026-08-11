@@ -141,11 +141,19 @@ export function useArticleVocabulary(
         source_type: 'article',
       })
 
+      // 先用当前词条立刻回写侧栏，再后台补全标签/音标（不阻塞「已加入」提示）
       const next = new Map(itemsMap.value)
-      const mergeEntry = await resolveEntryForMerge(entry)
-      next.set(entry.id, mergeVocabItem(row, mergeEntry))
+      next.set(entry.id, mergeVocabItem(row, entry))
       itemsMap.value = next
       syncSavedMarks()
+
+      void resolveEntryForMerge(entry).then((mergeEntry) => {
+        const cur = itemsMap.value.get(entry.id)
+        if (!cur) return
+        const patched = new Map(itemsMap.value)
+        patched.set(entry.id, mergeVocabItem(cur, mergeEntry))
+        itemsMap.value = patched
+      })
       return true
     } catch {
       await reload()

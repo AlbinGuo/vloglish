@@ -137,7 +137,8 @@ export async function getArticleVocabulary(articleRef: string) {
 }
 
 export async function saveVocabulary(payload: {
-  entry_id: number
+  /** 可省略：服务端按 word 快速解析 entry，适合汇总/弹幕一键收藏 */
+  entry_id?: number
   word: string
   token_type: number
   video_id?: string

@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -46,6 +47,7 @@ from ..services.vocab_list_cache import (
     invalidate_vocab_list_cache,
     set_vocab_list_cache,
 )
+from ..services.word_lookup import resolve_entry_id_for_vocab_save
 
 router = APIRouter(prefix="/api/learning", tags=["learning"])
 
@@ -287,6 +289,10 @@ def add_vocabulary(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    word = (body.word or "").strip()
+    if not word:
+        raise HTTPException(status_code=400, detail="word is required")
+
     episode_id = body.episode_id
     if body.video_id and not episode_id:
         ep = db.query(Episode).filter(Episode.video_id == body.video_id).first()
@@ -297,12 +303,33 @@ def add_vocabulary(
 
         art = db.query(Article).filter(Article.article_id == body.article_ref.strip()).first()
         article_id = art.id if art else None
+
+    entry_id = body.entry_id
+    if not entry_id:
+        # 已按单词收藏过则直接复用，避免重复 entry
+        existing = (
+            db.query(UserVocabularyItem)
+            .filter(
+                UserVocabularyItem.user_id == user.id,
+                func.lower(UserVocabularyItem.word) == word.lower(),
+            )
+            .order_by(UserVocabularyItem.created_at.desc())
+            .first()
+        )
+        if existing:
+            entry_id = existing.entry_id
+        else:
+            try:
+                entry_id = resolve_entry_id_for_vocab_save(db, word, body.token_type)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
+
     row = save_vocabulary(
         db,
         user,
         {
-            "entry_id": body.entry_id,
-            "word": body.word,
+            "entry_id": entry_id,
+            "word": word,
             "token_type": body.token_type,
             "episode_id": episode_id,
             "subtitle_id": body.subtitle_id,

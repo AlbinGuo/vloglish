@@ -282,15 +282,7 @@ def correct_source_subtitle_id(
         if _subtitle_contains_word(sub.english or "", word):
             return sub.id
 
-    hit = (
-        db.query(Subtitle)
-        .filter(Subtitle.episode_id == episode_id)
-        .order_by(Subtitle.index.asc())
-        .all()
-    )
-    for sub in hit:
-        if _subtitle_contains_word(sub.english or "", word):
-            return sub.id
+    # 邻近句未命中时不再全表扫描字幕（长视频会明显拖慢「加入生词本」），保留原始 subtitle_id
     return subtitle_id
 
 

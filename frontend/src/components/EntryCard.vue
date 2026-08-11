@@ -31,7 +31,10 @@ const primaryPron = computed(() => {
 const examTags = computed(() => formatExamTags(props.entry?.exam_tags ?? []))
 
 const showVocabViewLink = computed(
-  () => props.vocabNoticeType === 'ok' && Boolean(props.entry?.favorite) && Boolean(props.vocabNotice),
+  () =>
+    props.vocabNoticeType === 'ok' &&
+    Boolean(props.entry?.favorite) &&
+    props.vocabNotice === '已加入生词本',
 )
 
 const vocabActionLabel = computed(() =>

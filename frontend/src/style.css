@@ -19,6 +19,116 @@ body {
   min-height: 100dvh;
 }
 
+/* 视频语境：富文本主题色（不用 scoped + :global(.dark)，避免 v-html 段落仍继承黑字） */
+.video-context-prose--light {
+  color: rgb(38 38 38);
+}
+.video-context-prose--dark {
+  color: rgb(229 229 229);
+}
+/* v-html 注入节点无 scoped 属性，必须用全局选择器显式上色 */
+.video-context-prose--light :is(h1, h2, h3, h4, p, span, div, li, td, th, strong, em, b, i, u, font, code, pre, blockquote) {
+  color: rgb(38 38 38);
+}
+.video-context-prose--dark *:not(a) {
+  color: rgb(229 229 229) !important;
+}
+.video-context-prose--dark blockquote,
+.video-context-prose--dark blockquote *:not(a) {
+  color: rgb(212 212 212) !important;
+}
+.video-context-prose :is(h1, h2, h3, h4) {
+  font-weight: 600;
+  margin: 1.25em 0 0.5em;
+  line-height: 1.3;
+}
+.video-context-prose h1 {
+  font-size: 1.35em;
+}
+.video-context-prose h2 {
+  font-size: 1.2em;
+}
+.video-context-prose h3 {
+  font-size: 1.1em;
+}
+.video-context-prose p {
+  margin: 0.65em 0;
+}
+.video-context-prose :is(ul, ol) {
+  margin: 0.65em 0;
+  padding-left: 1.4em;
+}
+.video-context-prose li {
+  margin: 0.25em 0;
+}
+.video-context-prose a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.video-context-prose--dark a {
+  color: #93c5fd !important;
+}
+.video-context-prose blockquote {
+  margin: 0.85em 0;
+  padding-left: 0.9em;
+  border-left: 3px solid rgba(0, 0, 0, 0.12);
+}
+.video-context-prose--dark blockquote {
+  border-left-color: rgba(255, 255, 255, 0.2);
+}
+.video-context-prose pre {
+  margin: 0.85em 0;
+  padding: 0.75em 1em;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.04);
+  font-size: 0.875em;
+}
+.video-context-prose--dark pre {
+  background: rgba(255, 255, 255, 0.06);
+}
+.video-context-prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+}
+.video-context-prose :not(pre) > code {
+  padding: 0.1em 0.35em;
+  border-radius: 0.25rem;
+  background: rgba(0, 0, 0, 0.05);
+}
+.video-context-prose--dark :not(pre) > code {
+  background: rgba(255, 255, 255, 0.08);
+}
+.video-context-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 0.85em 0;
+}
+.video-context-prose hr {
+  margin: 1.25em 0;
+  border: 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+.video-context-prose--dark hr {
+  border-top-color: rgba(255, 255, 255, 0.12);
+}
+.video-context-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.85em 0;
+  font-size: 0.95em;
+}
+.video-context-prose :is(th, td) {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 0.4em 0.6em;
+  text-align: left;
+}
+.video-context-prose--dark :is(th, td) {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
 /* 生词本「回看」：只标目标词描边闪烁，段落样式完全不动 */
 .source-focus-word {
   border-radius: 0.15rem;

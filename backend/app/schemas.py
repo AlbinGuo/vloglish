@@ -1054,7 +1054,9 @@ class VocabularyItemOut(BaseModel):
 
 
 class VocabularySaveIn(BaseModel):
-    entry_id: int = Field(ge=1)
+    """entry_id 可省略：服务端按 word 快速解析，避免客户端先查词再收藏。"""
+
+    entry_id: int | None = Field(default=None, ge=1)
     word: str = Field(min_length=1, max_length=256)
     token_type: int = Field(default=1, ge=1, le=2)
     video_id: str = ""

@@ -46,19 +46,22 @@ const contextFlipped = ref(false)
 const contextTranslating = ref(false)
 const contextTranslateError = ref('')
 let contextTranslateSeq = 0
-/** 卡片滑出 / 下一张入场 */
+/** 卡片滑出 */
 const cardExiting = ref(false)
-const cardEntering = ref(false)
 /** 滑出中的顶牌快照（下方主卡已切到下一词） */
 const exitingCard = ref<WordPracticeItem | null>(null)
 /** 本次滑出是否最后一词 */
 const exitWasLast = ref(false)
+/** 飞出期间冻结叠层深度，避免 index++ 时 ghost 跳位闪动 */
+const exitStackDepth = ref<number | null>(null)
+
+const EXIT_ANIM_MS = 900
+const REVEAL_HOLD_MS = 450
 
 let tickTimer: ReturnType<typeof setInterval> | null = null
 let sessionStartedAt = 0
 let revealTimer: ReturnType<typeof setTimeout> | null = null
 let exitTimer: ReturnType<typeof setTimeout> | null = null
-let enterTimer: ReturnType<typeof setTimeout> | null = null
 let wrongHintTimer: ReturnType<typeof setTimeout> | null = null
 
 const source = computed<WordPracticeSource>(() => {
@@ -142,21 +145,17 @@ const stackDepth = computed(() => {
   const left = items.value.length - index.value - 1
   return Math.min(2, Math.max(0, left))
 })
+/** 飞出中用冻结值，结束后恢复实时 stackDepth */
+const visualStackDepth = computed(() =>
+  cardExiting.value && exitStackDepth.value != null ? exitStackDepth.value : stackDepth.value,
+)
 const exitingLetters = computed(() => (exitingCard.value?.word || '').split(''))
-
-function bumpCardEnter() {
-  cardEntering.value = true
-  if (enterTimer) clearTimeout(enterTimer)
-  enterTimer = setTimeout(() => {
-    cardEntering.value = false
-    enterTimer = null
-  }, 340)
-}
 
 function clearExitVisual() {
   cardExiting.value = false
   exitingCard.value = null
   exitWasLast.value = false
+  exitStackDepth.value = null
 }
 
 async function ensureContextZh(item: WordPracticeItem | null, itemIndex: number) {
@@ -245,6 +244,11 @@ async function boot() {
   error.value = ''
   summary.value = null
   wrongHint.value = false
+  if (tickTimer) {
+    clearInterval(tickTimer)
+    tickTimer = null
+  }
+  sessionStartedAt = 0
   try {
     const data = await startWordPractice({
       source: source.value,
@@ -267,14 +271,13 @@ async function boot() {
     contextTranslateError.value = ''
     contextTranslateSeq += 1
     clearExitVisual()
-    cardEntering.value = false
     if (exitTimer) {
       clearTimeout(exitTimer)
       exitTimer = null
     }
-    if (enterTimer) {
-      clearTimeout(enterTimer)
-      enterTimer = null
+    if (!data.items?.length) {
+      error.value =
+        source.value === 'vocab_wrong' ? '当前没有可练习的错词' : '本局没有可练习的单词'
     }
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -398,7 +401,10 @@ async function completeWord() {
     if (!isLast) {
       index.value += 1
       wordStartedAt.value = Date.now()
-      // 主卡已是下一词，轻微入场；发音等滑出结束再播，避免叠音
+      // 冻结叠层：与切词后一致，飞出结束前不再因响应式重算跳位
+      exitStackDepth.value = Math.min(2, Math.max(0, items.value.length - index.value - 1))
+    } else {
+      exitStackDepth.value = 0
     }
 
     exitTimer = setTimeout(() => {
@@ -409,11 +415,11 @@ async function completeWord() {
         void finish()
         return
       }
-      bumpCardEnter()
+      // 不再 bumpCardEnter：飞出期间已有一次 rise，二次 opacity 入场会造成闪一下
       const next = items.value[index.value]
       if (next) void playWordPronunciation(next.word)
-    }, 420)
-  }, 380)
+    }, EXIT_ANIM_MS)
+  }, REVEAL_HOLD_MS)
 }
 
 async function finish() {
@@ -447,9 +453,26 @@ async function finish() {
 }
 
 function retryWrong() {
-  router.replace({
+  // 已在错词模式时 replace 同 query 不会触发路由 watch，需手动重开
+  summary.value = null
+  const nextQuery: Record<string, string> = {
+    source: 'vocab_wrong',
+    limit: String(limit.value),
+  }
+  if (videoId.value) nextQuery.videoId = videoId.value
+
+  const sameRoute =
+    String(route.query.source || '') === 'vocab_wrong' &&
+    String(route.query.limit || '') === nextQuery.limit &&
+    String(route.query.videoId || '') === String(nextQuery.videoId || '')
+
+  if (sameRoute) {
+    void boot()
+    return
+  }
+  void router.replace({
     path: '/english/word-practice',
-    query: { source: 'vocab_wrong', limit: String(limit.value) },
+    query: nextQuery,
   })
 }
 
@@ -475,7 +498,6 @@ onUnmounted(() => {
   if (tickTimer) clearInterval(tickTimer)
   if (revealTimer) clearTimeout(revealTimer)
   if (exitTimer) clearTimeout(exitTimer)
-  if (enterTimer) clearTimeout(enterTimer)
   if (wrongHintTimer) clearTimeout(wrongHintTimer)
   stopSpeaking()
 })
@@ -691,16 +713,18 @@ onUnmounted(() => {
 
         <div
           class="wp-deck w-full"
-          :class="stackDepth === 0 ? 'pt-0 px-0' : stackDepth === 1 ? 'pt-8 px-2' : 'pt-12 px-3'"
+          :class="
+            visualStackDepth === 0 ? 'pt-0 px-0' : visualStackDepth === 1 ? 'pt-8 px-2' : 'pt-12 px-3'
+          "
         >
           <div class="wp-deck-stage relative w-full">
           <div
-            v-if="stackDepth >= 2"
+            v-if="visualStackDepth >= 2"
             class="wp-deck-ghost ghost-2"
             aria-hidden="true"
           />
           <div
-            v-if="stackDepth >= 1"
+            v-if="visualStackDepth >= 1"
             class="wp-deck-ghost ghost-1"
             aria-hidden="true"
           />
@@ -712,7 +736,6 @@ onUnmounted(() => {
             'animate-[wpShake_0.18s_ease]': wrongFlash && !cardExiting,
             'is-reveal': showReveal && !cardExiting,
             'is-under-exit': cardExiting && !exitWasLast,
-            'is-entering': cardEntering && !cardExiting,
           }"
         >
           <!-- 开始态：文档流，避免盖住字母 -->
@@ -865,16 +888,17 @@ onUnmounted(() => {
         <!-- 飞走的顶牌：已完成词的快照 -->
         <div
           v-if="exitingCard"
-          class="wp-deck-flyaway wp-deck-card is-exiting absolute inset-0 z-[5] rounded-3xl px-4 py-12 sm:px-8 sm:py-16 min-h-[22rem] flex flex-col items-center justify-center select-none border border-black/5 dark:border-white/[0.07] bg-white/95 dark:bg-[#141c1a]/95 backdrop-blur-md shadow-[0_18px_50px_-24px_rgba(20,184,166,0.45)] pointer-events-none"
+          class="wp-deck-flyaway wp-deck-card is-exiting absolute inset-0 z-[5] rounded-3xl px-4 py-12 sm:px-8 sm:py-16 min-h-[22rem] flex flex-col items-center justify-center select-none border border-teal-500/25 dark:border-teal-400/30 bg-white/95 dark:bg-[#141c1a]/95 backdrop-blur-md pointer-events-none"
           aria-hidden="true"
         >
           <div
-            class="flex flex-wrap justify-center gap-x-1 sm:gap-x-1.5 font-mono text-4xl sm:text-5xl font-semibold tracking-wide leading-none scale-[1.03]"
+            class="wp-deck-flyaway__letters flex flex-wrap justify-center gap-x-1 sm:gap-x-1.5 font-mono text-4xl sm:text-5xl font-semibold tracking-wide leading-none"
           >
             <span
               v-for="(ch, i) in exitingLetters"
               :key="`exit-${exitingCard.entry_id}-${i}`"
-              class="wp-letter is-reveal inline-flex min-w-[0.85em] justify-center px-0.5"
+              class="wp-letter is-reveal wp-deck-flyaway__ch inline-flex min-w-[0.85em] justify-center px-0.5"
+              :style="{ animationDelay: `${40 + i * 28}ms` }"
             >
               {{ ch === ' ' ? '·' : ch }}
             </span>
@@ -989,51 +1013,108 @@ onUnmounted(() => {
 .wp-deck-card {
   will-change: transform, opacity;
   transition:
-    transform 0.42s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.32s ease,
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 0.25s ease;
 }
 .wp-deck-card.is-reveal {
   box-shadow: 0 18px 50px -24px rgba(20, 184, 166, 0.45);
 }
 .wp-deck-card.is-under-exit {
-  /* 滑出期间主卡已是下一词，略放大从叠层位「顶上来」 */
+  /* 滑出期间主卡已是下一词，轻量从叠层位顶上来（不改 opacity，避免闪） */
   transform: translateY(0) scale(1);
-  animation: wpCardRise 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: wpCardRise 0.85s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .wp-deck-flyaway.is-exiting {
-  animation: wpCardOut 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: wpCardOut 0.9s cubic-bezier(0.2, 0.85, 0.25, 1) forwards;
   pointer-events: none;
+  transform-origin: 70% 40%;
+  will-change: transform, opacity, filter, box-shadow;
+}
+.wp-deck-flyaway.is-exiting::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(
+    ellipse 70% 55% at 55% 40%,
+    rgba(45, 212, 191, 0.35),
+    rgba(20, 184, 166, 0.08) 55%,
+    transparent 75%
+  );
+  animation: wpCardGlow 0.9s ease-out forwards;
+}
+.wp-deck-flyaway__ch {
+  animation: wpLetterPop 0.55s cubic-bezier(0.22, 1.4, 0.36, 1) both;
 }
 @keyframes wpCardOut {
-  from {
-    transform: translateX(0) rotate(0deg);
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
     opacity: 1;
+    filter: blur(0);
+    box-shadow:
+      0 18px 50px -24px rgba(20, 184, 166, 0.45),
+      0 0 0 0 rgba(45, 212, 191, 0);
   }
-  to {
-    transform: translateX(118%) rotate(8deg);
+  18% {
+    /* 先轻抬、微亮，像被弹出 */
+    transform: translate(2%, -6%) rotate(-2deg) scale(1.04);
+    opacity: 1;
+    filter: blur(0);
+    box-shadow:
+      0 28px 60px -20px rgba(20, 184, 166, 0.55),
+      0 0 36px 2px rgba(45, 212, 191, 0.28);
+  }
+  55% {
+    transform: translate(18%, -14%) rotate(7deg) scale(1.01);
+    opacity: 0.92;
+    filter: blur(0.2px);
+    box-shadow:
+      0 32px 70px -18px rgba(20, 184, 166, 0.4),
+      0 0 28px 0 rgba(45, 212, 191, 0.18);
+  }
+  100% {
+    /* 右上甩出并缩小淡出 */
+    transform: translate(42%, -32%) rotate(16deg) scale(0.86);
     opacity: 0;
+    filter: blur(2.5px);
+    box-shadow:
+      0 40px 80px -10px rgba(20, 184, 166, 0.15),
+      0 0 0 0 rgba(45, 212, 191, 0);
   }
 }
-.wp-deck-card.is-entering {
-  animation: wpCardIn 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+@keyframes wpCardGlow {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  22% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+@keyframes wpLetterPop {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  35% {
+    transform: translateY(-3px) scale(1.08);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
 }
 @keyframes wpCardRise {
   from {
-    transform: translateY(-16px) scale(0.94);
+    transform: translateY(-8px) scale(0.97);
   }
   to {
     transform: translateY(0) scale(1);
-  }
-}
-@keyframes wpCardIn {
-  from {
-    transform: translateY(14px) scale(0.97);
-    opacity: 0.55;
-  }
-  to {
-    transform: translateY(0) scale(1);
-    opacity: 1;
   }
 }
 

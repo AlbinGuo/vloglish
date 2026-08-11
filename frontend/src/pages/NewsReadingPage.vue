@@ -494,6 +494,8 @@ function closeEntryPanel() {
 async function toggleVocabulary(entry: EntryDetail) {
   if (!auth.isLoggedIn) return
   const wasSaved = Boolean(entry.favorite)
+  // 先即时反馈，避免等接口才出现「已加入」
+  flashVocabNotice(wasSaved ? '移出中…' : '加入中…', 'ok')
   try {
     const saved = await articleVocab.toggle(entry, {
       segmentId: activeSegment.value?.id,

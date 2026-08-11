@@ -420,28 +420,17 @@ async function onAddClick(b: Bullet, e: MouseEvent) {
     return
   }
   b.saving = true
-  // 先即时反馈；等接口结果再换成成功/失败（加入中不自动消失）
+  b.saved = true
+  savedKeys.value.add(b.word.toLowerCase())
+  // 先即时反馈；单次快速收藏接口（不再先查词）
   showBulletTip(b, '加入中…', 'ok', 0)
   try {
-    const entry = await lookupWord(b.word, b.tokenType, props.context, {
-      video_id: props.videoId,
-      subtitle_id: props.subtitleId ?? undefined,
-    })
-    if (entry.favorite) {
-      b.saved = true
-      savedKeys.value.add(b.word.toLowerCase())
-      showBulletTip(b, '已在生词本', 'ok')
-      return
-    }
     await saveVocabulary({
-      entry_id: entry.id,
-      word: entry.headword,
-      token_type: entry.category === 'phrase' ? 2 : 1,
+      word: b.word,
+      token_type: b.tokenType,
       video_id: props.videoId,
       subtitle_id: props.subtitleId ?? undefined,
     })
-    b.saved = true
-    savedKeys.value.add(b.word.toLowerCase())
     try {
       const { useVocabularyStore } = await import('@/stores/vocabulary')
       useVocabularyStore().invalidate()
@@ -450,6 +439,8 @@ async function onAddClick(b: Bullet, e: MouseEvent) {
     }
     showBulletTip(b, '已加入生词本', 'ok')
   } catch {
+    b.saved = false
+    savedKeys.value.delete(b.word.toLowerCase())
     showBulletTip(b, '收藏失败', 'err')
   } finally {
     b.saving = false

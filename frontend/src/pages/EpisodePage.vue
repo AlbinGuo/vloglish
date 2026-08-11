@@ -1512,6 +1512,8 @@ async function toggleVocabulary(entry: EntryDetail) {
   if (!auth.isLoggedIn || !entry) return
   const subtitleId = entrySourceSubtitleId.value ?? currentSub.value?.id
   const wasSaved = Boolean(entry.favorite)
+  // 先即时反馈，避免等接口才出现「已加入」
+  flashVocabNotice(wasSaved ? '移出中…' : '加入中…', 'ok')
   try {
     if (wasSaved) {
       await removeVocabulary(entry.id)
