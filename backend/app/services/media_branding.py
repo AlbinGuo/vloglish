@@ -193,8 +193,13 @@ def _delogo_chain(width: int, height: int, *, include_top: bool, include_bottom:
 
 
 def _add_vloglish_watermark() -> bool:
-    """When true, overlay vloglish text on video/cover (legacy branding)."""
-    return os.getenv("VLOGISH_ADD_WATERMARK", "false").lower() in {"1", "true", "yes"}
+    """视频叠 vloglish 字样（默认开启；去原站水印后盖自家标识）。"""
+    return os.getenv("VLOGISH_ADD_WATERMARK", "true").lower() not in {"0", "false", "no"}
+
+
+def _add_vloglish_watermark_on_cover() -> bool:
+    """封面是否叠字；默认关闭，列表缩略图更干净。"""
+    return os.getenv("VLOGISH_WATERMARK_COVER", "false").lower() in {"1", "true", "yes"}
 
 
 def _strip_source_watermarks() -> bool:
@@ -571,7 +576,7 @@ def generate_episode_cover(
     raw = dest_path.with_suffix(".jpg")
     extract_cover_frame(video_path, raw, ts)
     out = dest_path.with_suffix(".webp")
-    if _add_vloglish_watermark():
+    if _add_vloglish_watermark_on_cover():
         return brand_cover_image(
             raw,
             episode_index=episode_index,

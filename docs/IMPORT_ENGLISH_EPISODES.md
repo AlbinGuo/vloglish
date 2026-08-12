@@ -17,27 +17,28 @@ copy(JSON.stringify({
 3. 配置七牛 `QINIU_*` 与 ffmpeg（`FFMPEG_DIR` 或 `VLOGISH_TOOLS_DIR`）
 
 4. 管理后台 → **导入导出** → **从 teco-lab.com 导入**
-   - 默认导入第 **150–190** 期
+   - 默认导入第 **191–199** 期（可改区间）
    - 自动：去左上角原站水印、加 **vloglish** 水印、从视频截帧生成**独立封面**（不用 teco 原图）
 
 ## 品牌化说明
 
 | 项目 | 行为 |
 |------|------|
-| 视频 | 去除 teco 左上角/左下角水印（毛玻璃遮罩），**不添加** vloglish 文字 |
-| 封面 | 从视频截帧生成 webp，无 vloglish 标识 |
+| 视频 | 去除 teco 左上角/左下角水印，再叠加 **vloglish** 文字水印 |
+| 封面 | 从视频截帧生成 webp，默认无 vloglish 标识 |
 | 字幕 | 直接使用 teco detail API（中英 + IPA），无需 DeepSeek |
 
 可在 `backend/.env` 调整：
 
 ```
+VLOGISH_ADD_WATERMARK=true
+VLOGISH_WATERMARK_COVER=false
+VLOGISH_WATERMARK_TEXT=vloglish
 VLOGISH_DELOGO_X=0
 VLOGISH_DELOGO_Y=0
 VLOGISH_DELOGO_W=150
 VLOGISH_DELOGO_H=52
-VLOGISH_WATERMARK_TEXT=vloglish
 ```
-
 ## CLI（可选）
 
 ```bash

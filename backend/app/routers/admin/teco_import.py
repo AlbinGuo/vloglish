@@ -44,8 +44,8 @@ def teco_auth_status(_admin: User = Depends(get_current_admin)):
 
 @router.get("/catalog/", response_model=AdminTecoCatalogOut)
 def teco_catalog(
-    index_from: int = Query(150, ge=1),
-    index_to: int = Query(190, ge=1),
+    index_from: int = Query(191, ge=1),
+    index_to: int = Query(199, ge=1),
     check_qiniu: bool = Query(False),
     _admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),

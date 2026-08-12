@@ -22,8 +22,8 @@ const result = ref<ImportResult | null>(null)
 
 // teco-lab import
 const tecoAuth = ref<Awaited<ReturnType<typeof adminTecoAuthStatus>> | null>(null)
-const indexFrom = ref(150)
-const indexTo = ref(190)
+const indexFrom = ref(191)
+const indexTo = ref(199)
 const tecoStatus = ref('published')
 const skipExisting = ref(true)
 const applyBranding = ref(true)
@@ -225,8 +225,8 @@ onMounted(() => {
         <div>
           <h2 class="font-medium text-amber-950">从 teco-lab.com 导入</h2>
           <p class="text-sm text-amber-900/80 mt-1">
-            拉取会员目录剧集，下载视频/音频/字幕，去除原站左上角/左下角水印（<strong>不添加</strong> vloglish 视频水印）；
-            封面从视频截帧生成（无 vloglish 标识）。
+            拉取会员目录剧集，下载视频/音频/字幕，去除原站左上角/左下角水印后叠加 <strong>vloglish</strong> 视频水印；
+            封面从视频截帧生成（默认无 vloglish 标识）。
           </p>
         </div>
         <button
@@ -291,7 +291,7 @@ onMounted(() => {
         </label>
         <label class="flex items-center gap-2 pb-1.5">
           <input v-model="applyBranding" type="checkbox" class="rounded" />
-          <span>去除原站水印 + 自生成封面（视频不加 vloglish 水印）</span>
+          <span>去除原站水印 + 加 vloglish 视频水印 + 自生成封面</span>
         </label>
       </div>
 
