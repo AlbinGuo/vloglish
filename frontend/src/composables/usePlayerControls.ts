@@ -56,14 +56,23 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
   /** 进入单句循环模式但不强制开播（开关立即生效用） */
   function armSentenceLoopMode() {
-    if (loopMode.value === 'sentence') return
+    const alreadyOn = loopMode.value === 'sentence'
     loopMode.value = 'sentence'
     loopPointA.value = null
     loopPointB.value = null
     abLoopPhase.value = 'off'
-    sentenceLoopsDone.value = 0
+    if (!alreadyOn) sentenceLoopsDone.value = 0
     clearSentenceLoopTimer()
     oneShotPauseSub = null
+
+    // 若从句中途打开循环，先回到句首，避免「半句」被算作第一遍
+    const sub = currentSub.value
+    const v = getVideo()
+    if (sub && v && v.currentTime > sub.start + 0.12) {
+      v.currentTime = sub.start
+      currentTime.value = sub.start
+      sentenceLoopsDone.value = 0
+    }
   }
 
   const sentenceLoopsDone = ref(0)
@@ -137,8 +146,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
     }
   }
 
-  /** 句间间隔；连续跟读时若为 0 则按 1 秒停顿 */
-  const loopInterval = ref(1)
+  /** 句间间隔（秒）；0 = 无缝接下一句，不强制停顿 */
+  const loopInterval = ref(0)
 
   /** 听写「再听一遍」：播完当前句后自动暂停 */
   let oneShotPauseSub: Subtitle | null = null
@@ -158,6 +167,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
   let sentenceLoopTimer: ReturnType<typeof setTimeout> | null = null
+  /** 句间间隔时冻住播放头，避免漏出下一句；保持 playing，不进入 pause */
+  let sentenceHoldAt: number | null = null
 
   let lastWatchTime = 0
 
@@ -230,6 +241,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
       sentenceLoopTimer = null
 
     }
+
+    sentenceHoldAt = null
 
   }
 
@@ -652,10 +665,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
   function effectiveLoopGapSec() {
-    if (loopInterval.value > 0) return loopInterval.value
-    // 连续跟读时句与句之间至少短暂停顿 1 秒
-    if (autoAdvanceAfterLoop.value && sentenceLoopCount.value > 0) return 1
-    return 0
+    // 仅使用用户设置的间隔；0 表示无缝进入下一句
+    return Math.max(0, loopInterval.value || 0)
   }
 
   function setAutoAdvanceAfterLoop(on: boolean) {
@@ -679,21 +690,31 @@ export function usePlayerControls(opts: PlayerControlOptions) {
       const nextIdx = opts.currentIndex.value + 1
       if (nextIdx < subs.length) {
         const gapMs = effectiveLoopGapSec() * 1000
-        // 句间停顿：视频继续播，不 pause；到点后跳到下一句重计遍数
         const goNext = () => {
           sentenceLoopTimer = null
+          sentenceHoldAt = null
           sentenceLoopsDone.value = 0
           seekTo(subs[nextIdx])
-          if (v.paused) void v.play()
-          isPlaying.value = true
+          void v.play().then(() => {
+            isPlaying.value = true
+          }).catch(() => {
+            isPlaying.value = false
+          })
         }
-        if (gapMs > 0) {
-          isPlaying.value = true
-          if (v.paused) void v.play()
-          sentenceLoopTimer = setTimeout(goNext, gapMs)
-        } else {
+
+        if (gapMs <= 0) {
           goNext()
+          return
         }
+
+        // 有间隔：冻在本句末尾，保持 playing（不 pause、不漏播下一句）
+        const hold = Math.max(sub.start, sub.end - 0.05)
+        sentenceHoldAt = hold
+        v.currentTime = hold
+        currentTime.value = hold
+        if (v.paused) void v.play()
+        isPlaying.value = true
+        sentenceLoopTimer = setTimeout(goNext, gapMs)
         return
       }
 
@@ -806,6 +827,15 @@ export function usePlayerControls(opts: PlayerControlOptions) {
       opts.onWatchTick(Math.min(t - lastWatchTime, 2))
     }
     lastWatchTime = t
+
+    // 句间间隔：冻住画面，不进入 pause，也不让时间轴滑进下一句
+    if (sentenceLoopTimer && sentenceHoldAt != null) {
+      if (t > sentenceHoldAt + 0.03 || t < sentenceHoldAt - 0.12) {
+        v.currentTime = sentenceHoldAt
+        currentTime.value = sentenceHoldAt
+      }
+      return
+    }
 
     if (oneShotPauseSub && t >= oneShotPauseSub.end - 0.05) {
 

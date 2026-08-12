@@ -317,12 +317,16 @@ function handleMainAction() {
 
 <template>
   <div
-    class="shrink-0 select-none text-black/70 dark:text-neutral-200 cursor-pointer"
+    class="shrink-0 select-none text-black/70 dark:text-neutral-200"
     :class="
       docked
         ? 'px-2 py-1.5 bg-transparent'
-        : 'rounded-xl bg-neutral-200/60 dark:bg-neutral-800/80 px-2 py-2.5 sm:px-3'
+        : subtitlesHidden
+          ? 'rounded-xl border border-white/25 dark:border-white/10 bg-white/55 dark:bg-neutral-900/55 backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.12)] px-2 py-2.5 sm:px-3'
+          : 'rounded-xl bg-neutral-200/60 dark:bg-neutral-800/80 px-2 py-2.5 sm:px-3'
     "
+    @click.stop
+    @pointerdown.stop
   >
     <!-- 移动端：核心控制 -->
     <div v-if="compact" class="flex items-center justify-between gap-1 max-w-full">
@@ -409,7 +413,7 @@ function handleMainAction() {
     <div v-else class="relative max-w-full">
       <div
         ref="controlScrollRef"
-        class="flex items-end justify-between gap-1 sm:gap-0 max-w-full overflow-x-auto cursor-pointer player-control-bar__scroll"
+        class="flex items-end justify-between gap-1 sm:gap-0 max-w-full overflow-x-auto player-control-bar__scroll"
         @scroll="updateControlScrollFade"
       >
       <!-- 倍速 -->
@@ -564,14 +568,18 @@ function handleMainAction() {
         <button
           type="button"
           class="flex flex-col items-center text-xs transition-all active:scale-95 focus:outline-none cursor-pointer"
-          :class="loopActive ? 'text-neutral-900' : ''"
+          :class="loopActive ? 'text-neutral-900 dark:text-neutral-100' : ''"
           title="单句循环与句末停下"
           @click.stop="toggleLoopMenu"
         >
           <div class="relative w-8 h-8 flex items-center justify-center">
             <svg
               class="w-8 h-8"
-              :class="loopActive || player.pauseAfterSentence.value ? 'text-amber-600' : ''"
+              :class="
+                loopActive || player.pauseAfterSentence.value
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : ''
+              "
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -579,7 +587,14 @@ function handleMainAction() {
             >
               <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
             </svg>
-            <span class="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tabular-nums">
+            <span
+              class="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tabular-nums"
+              :class="
+                loopActive || player.pauseAfterSentence.value
+                  ? 'text-amber-700 dark:text-amber-300'
+                  : ''
+              "
+            >
               {{ loopCountLabel }}
             </span>
             <span

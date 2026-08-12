@@ -1570,14 +1570,21 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
 }
 
 .video-panel.video-panel--cinema:not(.video-panel--fullscreen):not(:fullscreen) .video-panel__player {
+  position: relative;
+  z-index: 1;
   width: min(100%, 90rem);
+  max-width: min(100%, 90rem, calc(min(78vh, calc(100dvh - 11rem)) * 16 / 9));
   max-height: min(78vh, calc(100dvh - 11rem));
   margin-inline: auto;
   aspect-ratio: 16 / 9;
   height: auto;
+  /* 防止播放/暂停热区在 max-height 约束下溢出盖住下方控制栏 */
+  overflow: hidden;
 }
 
 .video-panel.video-panel--cinema:not(.video-panel--fullscreen):not(:fullscreen) .video-panel__controls {
+  position: relative;
+  z-index: 20;
   width: min(100%, 90rem);
   margin-inline: auto;
 }
@@ -1589,6 +1596,7 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
 
   .video-panel.video-panel--cinema:not(.video-panel--fullscreen):not(:fullscreen) .video-panel__player {
     max-height: min(62vh, calc(100dvh - 10rem));
+    max-width: min(100%, 90rem, calc(min(62vh, calc(100dvh - 10rem)) * 16 / 9));
   }
 }
 
