@@ -10,10 +10,13 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from ..demo_access import can_access_episode
+from ..media import resolve_video_url
 from ..models import (
     ArticleSegment,
     Episode,
     Subtitle,
+    User,
     UserVocabularyItem,
     WordPracticeSession,
     WordPracticeStat,
@@ -21,6 +24,9 @@ from ..models import (
 )
 from .entry_lookup import entry_vocab_extras, lookup_result_by_entry_id
 from .example_translation import lookup_cached_example_zh
+
+CLIP_PAD_BEFORE = 0.3
+CLIP_PAD_AFTER = 0.5
 
 WORD_RE = re.compile(r"^[A-Za-z][A-Za-z\-']{0,63}$")
 
@@ -486,3 +492,50 @@ def wrong_count(db: Session, user_id: int) -> int:
         .filter(WordPracticeWrong.user_id == user_id, WordPracticeWrong.resolved_at.is_(None))
         .count()
     )
+
+
+def get_context_clip(
+    db: Session,
+    user: User | None,
+    *,
+    source_subtitle_id: int,
+) -> dict[str, Any]:
+    """拼写练习「看原句」：返回可播视频 URL + 字幕时间窗。"""
+    sid = int(source_subtitle_id or 0)
+    if sid <= 0:
+        raise ValueError("缺少字幕")
+    sub = db.query(Subtitle).filter(Subtitle.id == sid).first()
+    if not sub:
+        raise ValueError("字幕不存在")
+    ep = db.query(Episode).filter(Episode.id == sub.episode_id).first()
+    if not ep or (ep.status or "") != "published":
+        raise ValueError("视频不存在或未发布")
+    if not can_access_episode(db, ep, user):
+        raise PermissionError("无权访问该内容")
+
+    video_url = resolve_video_url(
+        video_id=ep.video_id,
+        video_url=ep.video_url or "",
+        original_video_url=ep.original_video_url or "",
+    )
+    url = (video_url or "").strip()
+    # 浮层用 <video>，暂不支持 YouTube embed
+    if not url or "youtube.com" in url or "youtu.be" in url:
+        raise ValueError("该集暂无可用的原句视频")
+
+    raw_start = float(sub.start or 0)
+    raw_end = float(sub.end or 0)
+    if raw_end <= raw_start:
+        raw_end = raw_start + 1.5
+    start = max(0.0, raw_start - CLIP_PAD_BEFORE)
+    end = max(start + 0.25, raw_end + CLIP_PAD_AFTER)
+
+    return {
+        "source_subtitle_id": sub.id,
+        "video_id": ep.video_id,
+        "video_url": url,
+        "start": round(start, 3),
+        "end": round(end, 3),
+        "english": (sub.english or "").strip(),
+        "chinese": (sub.chinese or "").strip(),
+    }

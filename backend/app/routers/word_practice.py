@@ -52,6 +52,16 @@ class ContextTranslateOut(BaseModel):
     quota: dict | None = None
 
 
+class ContextClipOut(BaseModel):
+    source_subtitle_id: int
+    video_id: str
+    video_url: str
+    start: float
+    end: float
+    english: str = ""
+    chinese: str = ""
+
+
 class WordPracticeResultIn(BaseModel):
     entry_id: int
     try_count: int = 1
@@ -163,3 +173,21 @@ def translate_context(
         from_cache=bool(data.get("from_cache")),
         quota=data.get("quota"),
     )
+
+
+@router.get("/context-clip/", response_model=ContextClipOut)
+def get_context_clip(
+    source_subtitle_id: int = Query(..., ge=1),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """拼写练习「看原句」：按字幕返回可播片段（带短前后 padding）。"""
+    try:
+        data = svc.get_context_clip(db, user, source_subtitle_id=source_subtitle_id)
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except ValueError as e:
+        msg = str(e)
+        code = 400 if "暂无" in msg or "缺少" in msg else 404
+        raise HTTPException(status_code=code, detail=msg) from e
+    return ContextClipOut(**data)

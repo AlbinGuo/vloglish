@@ -109,3 +109,21 @@ export async function translateWordPracticeContext(payload: {
   })
   return data
 }
+
+export interface ContextClipResult {
+  source_subtitle_id: number
+  video_id: string
+  video_url: string
+  start: number
+  end: number
+  english: string
+  chinese: string
+}
+
+/** 按字幕拉取可播原句片段（签名 URL 即时签发） */
+export async function fetchWordPracticeContextClip(sourceSubtitleId: number) {
+  const { data } = await api.get<ContextClipResult>('/api/word-practice/context-clip/', {
+    params: { source_subtitle_id: sourceSubtitleId },
+  })
+  return data
+}

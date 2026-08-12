@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
   finishWordPractice,
+  fetchWordPracticeContextClip,
   startWordPractice,
   translateWordPracticeContext,
+  type ContextClipResult,
   type WordPracticeFinishResult,
   type WordPracticeItem,
   type WordPracticeSource,
@@ -60,6 +62,15 @@ const exitWasLast = ref(false)
 const exitStackDepth = ref<number | null>(null)
 /** 抄写完成切默写时的短提示 */
 const phaseHint = ref('')
+/** 视频语境浮层 */
+const clipOpen = ref(false)
+const clipLoading = ref(false)
+const clipError = ref('')
+const clipLoop = ref(true)
+const clipRate = ref(1)
+const clipData = ref<ContextClipResult | null>(null)
+const clipVideoRef = ref<HTMLVideoElement | null>(null)
+const CLIP_RATES = [0.5, 0.7, 1] as const
 
 const EXIT_ANIM_MS = 900
 const REVEAL_HOLD_MS = 450
@@ -178,6 +189,14 @@ const contextParts = computed(() =>
 const contextZh = computed(() => (current.value?.context_zh || '').trim())
 /** 有英文例句即可翻面；中文可能来自缓存/按需 AI */
 const canFlipContext = computed(() => Boolean(contextParts.value.length))
+const canWatchClip = computed(() => Boolean(current.value?.source_subtitle_id))
+/** 浮层字幕：按当前练习词高亮 */
+const clipSubtitleParts = computed(() => {
+  if (!clipData.value) return []
+  const word = current.value?.word || ''
+  return highlightWordInContext(clipData.value.english || '', word)
+})
+const clipSubtitleZh = computed(() => (clipData.value?.chinese || '').trim())
 /** 剩余未练词叠在下方的层数（最多 2）；滑出时主卡已是下一词 */
 const stackDepth = computed(() => {
   const left = items.value.length - index.value - 1
@@ -316,6 +335,7 @@ async function boot() {
       clearTimeout(phaseHintTimer)
       phaseHintTimer = null
     }
+    closeClipOverlay()
     if (!data.items?.length) {
       error.value =
         source.value === 'vocab_wrong' ? '当前没有可练习的错词' : '本局没有可练习的单词'
@@ -378,6 +398,7 @@ function enterRecallPhase() {
 
 /** 默写完成 → 飞出并切下一词（或结算） */
 function advanceToNextWordOrFinish() {
+  closeClipOverlay()
   const done = current.value
   if (!done) return
   const isLast = index.value + 1 >= items.value.length
@@ -413,22 +434,121 @@ function isTypingIntoControl(e: KeyboardEvent) {
   const t = e.target
   if (!(t instanceof HTMLElement)) return false
   const tag = t.tagName
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return true
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'VIDEO') {
+    return true
+  }
   if (t.isContentEditable) return true
-  return Boolean(t.closest('button, a, [role="button"]'))
+  return Boolean(t.closest('button, a, [role="button"], label, video'))
 }
 
 function togglePreview() {
   previewOpen.value = !previewOpen.value
 }
 
+function pauseClipVideo() {
+  const v = clipVideoRef.value
+  if (!v) return
+  v.pause()
+}
+
+function closeClipOverlay() {
+  const v = clipVideoRef.value
+  if (v) {
+    v.pause()
+    v.removeAttribute('src')
+    v.load()
+  }
+  clipOpen.value = false
+  clipLoading.value = false
+  clipError.value = ''
+  clipData.value = null
+}
+
+async function openClipOverlay() {
+  const sid = current.value?.source_subtitle_id
+  if (!sid || clipLoading.value) return
+  // 侧栏已开 → 再点收起
+  if (clipOpen.value) {
+    closeClipOverlay()
+    return
+  }
+  stopSpeaking()
+  clipOpen.value = true
+  clipLoading.value = true
+  clipError.value = ''
+  clipData.value = null
+  try {
+    const data = await fetchWordPracticeContextClip(sid)
+    clipData.value = data
+    await nextTick()
+    const v = clipVideoRef.value
+    if (!v) return
+    v.src = data.video_url
+    v.playbackRate = clipRate.value
+    const start = data.start
+    const onReady = () => {
+      v.currentTime = start
+      v.playbackRate = clipRate.value
+      void v.play().catch(() => {
+        /* 用户手势已打开面板，失败时仍可点播放 */
+      })
+    }
+    if (v.readyState >= 1) onReady()
+    else v.addEventListener('loadedmetadata', onReady, { once: true })
+  } catch (e: unknown) {
+    const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+    clipError.value = typeof detail === 'string' ? detail : '原句视频加载失败'
+  } finally {
+    clipLoading.value = false
+  }
+}
+
+function onClipTimeUpdate() {
+  const v = clipVideoRef.value
+  const data = clipData.value
+  if (!v || !data || !clipLoop.value) return
+  if (v.currentTime >= data.end - 0.04) {
+    v.currentTime = data.start
+    if (v.paused) void v.play().catch(() => {})
+  }
+}
+
+function onClipEnded() {
+  const v = clipVideoRef.value
+  const data = clipData.value
+  if (!v || !data) return
+  if (clipLoop.value) {
+    v.currentTime = data.start
+    void v.play().catch(() => {})
+  }
+}
+
+function replayClipOnce() {
+  const v = clipVideoRef.value
+  const data = clipData.value
+  if (!v || !data) return
+  v.currentTime = data.start
+  v.playbackRate = clipRate.value
+  void v.play().catch(() => {})
+}
+
+function setClipRate(rate: number) {
+  clipRate.value = rate
+  const v = clipVideoRef.value
+  if (v) v.playbackRate = rate
+}
+
 function onKeydown(e: KeyboardEvent) {
+  if (clipOpen.value && e.key === 'Escape') {
+    e.preventDefault()
+    closeClipOverlay()
+    return
+  }
   if (summary.value || loading.value || !current.value || showReveal.value || cardExiting.value) return
   if (e.ctrlKey || e.metaKey || e.altKey) return
+  if (isTypingIntoControl(e)) return
 
   if (!started.value) {
-    // 折叠按钮等控件上的空格/回车不触发开局
-    if (isTypingIntoControl(e)) return
     if (e.key.length === 1 || e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       started.value = true
@@ -588,6 +708,7 @@ onUnmounted(() => {
   if (exitTimer) clearTimeout(exitTimer)
   if (wrongHintTimer) clearTimeout(wrongHintTimer)
   if (phaseHintTimer) clearTimeout(phaseHintTimer)
+  pauseClipVideo()
   stopSpeaking()
 })
 </script>
@@ -597,7 +718,10 @@ onUnmounted(() => {
     class="wp-shell relative min-h-[calc(100dvh-4rem)] text-neutral-900 dark:text-neutral-50 bg-[radial-gradient(ellipse_80%_55%_at_50%_-10%,rgba(20,184,166,0.16),transparent_55%),radial-gradient(ellipse_50%_40%_at_100%_80%,rgba(245,158,11,0.08),transparent_50%),linear-gradient(180deg,#f8fafb_0%,#f1f5f4_100%)] dark:bg-[radial-gradient(ellipse_80%_55%_at_50%_-10%,rgba(45,212,191,0.12),transparent_55%),radial-gradient(ellipse_50%_40%_at_0%_90%,rgba(15,118,110,0.18),transparent_50%),linear-gradient(180deg,#0a0f0e_0%,#0c1211_100%)]"
     :class="cardExiting ? 'overflow-visible' : 'overflow-hidden'"
   >
-    <div class="relative mx-auto max-w-3xl px-4 py-6 sm:py-10">
+    <div
+      class="relative mx-auto px-4 py-6 sm:py-10 transition-[max-width] duration-300 ease-out"
+      :class="clipOpen && current && !summary ? 'max-w-6xl' : 'max-w-3xl'"
+    >
       <!-- 顶栏 -->
       <header class="mb-5 sm:mb-7">
         <div class="flex items-center justify-between gap-3 text-sm min-w-0">
@@ -801,7 +925,10 @@ onUnmounted(() => {
         </section>
 
         <div
-          class="wp-deck w-full"
+          class="wp-practice-row flex flex-col lg:flex-row gap-4 lg:gap-5 lg:items-start"
+        >
+        <div
+          class="wp-deck w-full min-w-0 flex-1"
           :class="
             visualStackDepth === 0 ? 'pt-0 px-0' : visualStackDepth === 1 ? 'pt-8 px-2' : 'pt-12 px-3'
           "
@@ -915,6 +1042,20 @@ onUnmounted(() => {
             <p v-if="current.ipa" class="text-sm text-neutral-400 dark:text-neutral-500 tracking-wide">
               /{{ current.ipa.replace(/^\/|\/$/g, '') }}/
             </p>
+            <div v-if="canWatchClip && !contextParts.length" class="pt-1">
+              <button
+                type="button"
+                class="text-[11px] px-2 py-0.5 rounded-md transition"
+                :class="
+                  clipOpen
+                    ? 'text-teal-900 bg-teal-500/25 dark:text-teal-100 dark:bg-teal-400/25'
+                    : 'text-teal-700 bg-teal-500/10 hover:bg-teal-500/15 dark:text-teal-300 dark:bg-teal-400/10 dark:hover:bg-teal-400/15'
+                "
+                @click.stop="openClipOverlay"
+              >
+                {{ clipOpen ? '收起视频' : '视频语境' }}
+              </button>
+            </div>
             <div
               v-if="contextParts.length"
               class="pt-3 mt-1 border-t border-black/5 dark:border-white/[0.06] space-y-2"
@@ -932,13 +1073,28 @@ onUnmounted(() => {
                     · AI 翻译中…
                   </span>
                 </p>
-                <button
-                  type="button"
-                  class="shrink-0 text-[11px] px-2 py-0.5 rounded-md text-teal-700 bg-teal-500/10 hover:bg-teal-500/15 dark:text-teal-300 dark:bg-teal-400/10 dark:hover:bg-teal-400/15 transition"
-                  @click.stop="toggleContextFlip"
-                >
-                  {{ contextFlipped ? '看英文' : '看中文' }}
-                </button>
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <button
+                    v-if="canWatchClip"
+                    type="button"
+                    class="text-[11px] px-2 py-0.5 rounded-md transition"
+                    :class="
+                      clipOpen
+                        ? 'text-teal-900 bg-teal-500/25 dark:text-teal-100 dark:bg-teal-400/25'
+                        : 'text-teal-700 bg-teal-500/10 hover:bg-teal-500/15 dark:text-teal-300 dark:bg-teal-400/10 dark:hover:bg-teal-400/15'
+                    "
+                    @click.stop="openClipOverlay"
+                  >
+                    {{ clipOpen ? '收起视频' : '视频语境' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="text-[11px] px-2 py-0.5 rounded-md text-teal-700 bg-teal-500/10 hover:bg-teal-500/15 dark:text-teal-300 dark:bg-teal-400/10 dark:hover:bg-teal-400/15 transition"
+                    @click.stop="toggleContextFlip"
+                  >
+                    {{ contextFlipped ? '看英文' : '看中文' }}
+                  </button>
+                </div>
               </div>
 
               <button
@@ -1035,6 +1191,113 @@ onUnmounted(() => {
           </div>
         </div>
           </div>
+        </div>
+
+        <!-- 视频语境：桌面右侧 / 手机卡片下方，不打断打字 -->
+        <aside
+          v-if="clipOpen"
+          class="wp-clip-panel w-full lg:w-[22rem] xl:w-[24rem] shrink-0 rounded-3xl border border-black/5 dark:border-white/[0.07] bg-[#0f1614] text-neutral-50 shadow-[0_18px_50px_-28px_rgba(15,118,110,0.35)] dark:shadow-[0_22px_60px_-30px_rgba(0,0,0,0.65)] overflow-hidden animate-[wpFadeUp_0.28s_ease]"
+          aria-label="视频语境"
+        >
+          <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/10">
+            <div class="min-w-0">
+              <p class="text-sm font-medium tracking-tight">视频语境</p>
+              <p class="text-[11px] text-neutral-400 truncate">
+                {{ current?.word || '' }}
+                <span v-if="clipLoop" class="ml-1.5 text-teal-300/80">· 循环</span>
+              </p>
+            </div>
+            <button
+              type="button"
+              class="shrink-0 h-8 w-8 rounded-full text-neutral-300 hover:bg-white/10 transition"
+              aria-label="收起"
+              @click="closeClipOverlay"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div class="relative aspect-video bg-black">
+            <div
+              v-if="clipLoading"
+              class="absolute inset-0 flex items-center justify-center text-sm text-neutral-400"
+            >
+              加载中…
+            </div>
+            <div
+              v-else-if="clipError"
+              class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-rose-300"
+            >
+              {{ clipError }}
+            </div>
+            <video
+              v-show="clipData && !clipError"
+              ref="clipVideoRef"
+              class="h-full w-full object-contain"
+              playsinline
+              controls
+              @timeupdate="onClipTimeUpdate"
+              @ended="onClipEnded"
+            />
+          </div>
+
+          <div
+            v-if="clipData && !clipError && (clipSubtitleParts.length || clipSubtitleZh)"
+            class="px-4 py-3 border-t border-white/10 space-y-1.5"
+          >
+            <p
+              v-if="clipSubtitleParts.length"
+              class="text-sm sm:text-[0.95rem] text-neutral-200 leading-relaxed text-center"
+            >
+              <template v-for="(part, pi) in clipSubtitleParts" :key="`clip-sub-${pi}`">
+                <mark
+                  v-if="part.hit"
+                  class="bg-teal-400/25 text-teal-100 rounded px-0.5 font-semibold not-italic"
+                >{{ part.text }}</mark>
+                <span v-else>{{ part.text }}</span>
+              </template>
+            </p>
+            <p
+              v-if="clipSubtitleZh"
+              class="text-xs sm:text-sm text-neutral-400 leading-relaxed text-center"
+            >
+              {{ clipSubtitleZh }}
+            </p>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-white/10">
+            <div class="flex flex-wrap items-center gap-3">
+              <label class="inline-flex items-center gap-2 text-xs text-neutral-300 select-none cursor-pointer">
+                <input v-model="clipLoop" type="checkbox" class="rounded border-white/20 bg-transparent" />
+                循环
+              </label>
+              <div class="inline-flex items-center gap-1" role="group" aria-label="播放倍速">
+                <button
+                  v-for="rate in CLIP_RATES"
+                  :key="rate"
+                  type="button"
+                  class="text-[11px] px-2 py-1 rounded-md transition"
+                  :class="
+                    clipRate === rate
+                      ? 'bg-teal-500/90 text-neutral-950 font-medium'
+                      : 'bg-white/10 text-neutral-300 hover:bg-white/15'
+                  "
+                  @click="setClipRate(rate)"
+                >
+                  {{ rate === 1 ? '1×' : `${rate}×` }}
+                </button>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="text-xs px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/15 transition disabled:opacity-40"
+              :disabled="!clipData || !!clipError"
+              @click="replayClipOnce"
+            >
+              重播
+            </button>
+          </div>
+        </aside>
         </div>
 
         <div
