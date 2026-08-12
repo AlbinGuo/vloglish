@@ -31,6 +31,10 @@ const input = ref('')
 const wrongFlash = ref(false)
 const wrongHint = ref(false)
 const showReveal = ref(false)
+/** 词内阶段：抄写（看词）→ 默写（藏词） */
+const wordPhase = ref<'copy' | 'recall'>('copy')
+/** 本词两轮累计是否出过错（用于结算/错词队列） */
+const wordHadWrong = ref(false)
 const tryCount = ref(1)
 const wordStartedAt = ref(0)
 const charsTyped = ref(0)
@@ -54,15 +58,19 @@ const exitingCard = ref<WordPracticeItem | null>(null)
 const exitWasLast = ref(false)
 /** 飞出期间冻结叠层深度，避免 index++ 时 ghost 跳位闪动 */
 const exitStackDepth = ref<number | null>(null)
+/** 抄写完成切默写时的短提示 */
+const phaseHint = ref('')
 
 const EXIT_ANIM_MS = 900
 const REVEAL_HOLD_MS = 450
+const PHASE_HINT_MS = 1200
 
 let tickTimer: ReturnType<typeof setInterval> | null = null
 let sessionStartedAt = 0
 let revealTimer: ReturnType<typeof setTimeout> | null = null
 let exitTimer: ReturnType<typeof setTimeout> | null = null
 let wrongHintTimer: ReturnType<typeof setTimeout> | null = null
+let phaseHintTimer: ReturnType<typeof setTimeout> | null = null
 
 const source = computed<WordPracticeSource>(() => {
   const s = String(route.query.source || 'vocab')
@@ -77,9 +85,13 @@ const limit = computed(() => {
 
 const current = computed(() => items.value[index.value] || null)
 const letters = computed(() => (current.value?.word || '').split(''))
-const progressLabel = computed(() =>
-  items.value.length ? `${Math.min(index.value + 1, items.value.length)} / ${items.value.length}` : '',
-)
+const isRecall = computed(() => wordPhase.value === 'recall')
+const phaseLabel = computed(() => (isRecall.value ? '默写' : '抄写'))
+const progressLabel = computed(() => {
+  if (!items.value.length) return ''
+  const n = Math.min(index.value + 1, items.value.length)
+  return `${n} / ${items.value.length} · ${phaseLabel.value}`
+})
 const progressPct = computed(() => {
   if (!items.value.length) return 0
   const done = summary.value ? items.value.length : Math.min(index.value, items.value.length)
@@ -87,10 +99,13 @@ const progressPct = computed(() => {
 })
 const practiceProgressPct = computed(() => {
   if (!items.value.length) return 0
-  // 当前词计入进度感：已完成 + 当前词一半权重
-  const base = index.value
-  const frac = showReveal.value ? 1 : input.value.length / Math.max(letters.value.length, 1) * 0.35
-  return Math.min(100, ((base + frac) / items.value.length) * 100)
+  // 每个词两轮：抄写 0.5 + 默写 0.5；当前轮内再按输入比例微调
+  const phaseBase = isRecall.value ? 0.5 : 0
+  const frac = showReveal.value
+    ? 0.5
+    : (input.value.length / Math.max(letters.value.length, 1)) * 0.45
+  const within = Math.min(0.5, phaseBase + frac * 0.5)
+  return Math.min(100, ((index.value + within) / items.value.length) * 100)
 })
 const wpm = computed(() => {
   const mins = elapsedMs.value / 60000
@@ -132,6 +147,29 @@ function highlightWordInContext(sentence: string, word: string): ContextPart[] {
   return chunks
     .filter((p) => p.length > 0)
     .map((p) => ({ text: p, hit: p.toLowerCase() === w.toLowerCase() }))
+}
+
+/** 默写：例句中目标词只留首字母，其余用下划线 */
+function maskWordKeepInitial(text: string): string {
+  if (!text) return text
+  if (text.length === 1) return text
+  const chars = [...text]
+  return chars
+    .map((ch, i) => {
+      if (/\s/.test(ch)) return ch
+      if (i === 0) return ch
+      return '_'
+    })
+    .join('')
+}
+
+/** 拼写格显示：抄写看全词；默写仅首字母提示 + 已打出的字母 */
+function letterGlyph(i: number, ch: string): string {
+  if (ch === ' ') return '·'
+  if (showReveal.value || wordPhase.value === 'copy') return ch
+  if (i < input.value.length) return ch
+  if (i === 0) return ch
+  return '_'
 }
 
 const contextParts = computed(() =>
@@ -263,8 +301,7 @@ async function boot() {
     charsTyped.value = 0
     elapsedMs.value = 0
     started.value = false
-    tryCount.value = 1
-    showReveal.value = false
+    resetWordState()
     previewOpen.value = false
     contextFlipped.value = false
     contextTranslating.value = false
@@ -274,6 +311,10 @@ async function boot() {
     if (exitTimer) {
       clearTimeout(exitTimer)
       exitTimer = null
+    }
+    if (phaseHintTimer) {
+      clearTimeout(phaseHintTimer)
+      phaseHintTimer = null
     }
     if (!data.items?.length) {
       error.value =
@@ -302,6 +343,70 @@ function flashWrongHint() {
     wrongHint.value = false
     wrongHintTimer = null
   }, 900)
+}
+
+function flashPhaseHint(text: string) {
+  phaseHint.value = text
+  if (phaseHintTimer) clearTimeout(phaseHintTimer)
+  phaseHintTimer = setTimeout(() => {
+    phaseHint.value = ''
+    phaseHintTimer = null
+  }, PHASE_HINT_MS)
+}
+
+function resetWordState() {
+  wordPhase.value = 'copy'
+  wordHadWrong.value = false
+  tryCount.value = 1
+  input.value = ''
+  showReveal.value = false
+  wrongFlash.value = false
+  wrongHint.value = false
+  phaseHint.value = ''
+}
+
+/** 抄写完成 → 同词进入默写 */
+function enterRecallPhase() {
+  wordPhase.value = 'recall'
+  input.value = ''
+  showReveal.value = false
+  wrongFlash.value = false
+  wrongHint.value = false
+  flashPhaseHint('默写：只看首字母')
+  if (current.value) void playWordPronunciation(current.value.word)
+}
+
+/** 默写完成 → 飞出并切下一词（或结算） */
+function advanceToNextWordOrFinish() {
+  const done = current.value
+  if (!done) return
+  const isLast = index.value + 1 >= items.value.length
+  exitingCard.value = { ...done }
+  exitWasLast.value = isLast
+  showReveal.value = false
+  resetWordState()
+  cardExiting.value = true
+
+  if (!isLast) {
+    index.value += 1
+    wordStartedAt.value = Date.now()
+    exitStackDepth.value = Math.min(2, Math.max(0, items.value.length - index.value - 1))
+  } else {
+    exitStackDepth.value = 0
+  }
+
+  if (exitTimer) clearTimeout(exitTimer)
+  exitTimer = setTimeout(() => {
+    const last = exitWasLast.value
+    clearExitVisual()
+    exitTimer = null
+    if (last) {
+      void finish()
+      return
+    }
+    const next = items.value[index.value]
+    if (next) void playWordPronunciation(next.word)
+  }, EXIT_ANIM_MS)
 }
 
 function isTypingIntoControl(e: KeyboardEvent) {
@@ -357,6 +462,7 @@ function onKeydown(e: KeyboardEvent) {
     playKeyError()
     wrongFlash.value = true
     tryCount.value += 1
+    wordHadWrong.value = true
     flashWrongHint()
     setTimeout(() => {
       wrongFlash.value = false
@@ -376,49 +482,31 @@ async function completeWord() {
   if (!current.value || cardExiting.value) return
   playWordCorrect()
   showReveal.value = true
+
+  if (revealTimer) clearTimeout(revealTimer)
+  if (exitTimer) clearTimeout(exitTimer)
+
+  if (wordPhase.value === 'copy') {
+    // 抄写过关 → 同词进入默写（不飞走）
+    revealTimer = setTimeout(() => {
+      showReveal.value = false
+      revealTimer = null
+      enterRecallPhase()
+    }, REVEAL_HOLD_MS)
+    return
+  }
+
+  // 默写过关 → 记入结果并飞向下一词
   const latency = Math.max(0, Date.now() - (wordStartedAt.value || Date.now()))
   results.value.push({
     entry_id: current.value.entry_id,
     try_count: tryCount.value,
-    had_wrong: tryCount.value > 1,
+    had_wrong: wordHadWrong.value || tryCount.value > 1,
     latency_ms: latency,
   })
 
-  if (revealTimer) clearTimeout(revealTimer)
-  if (exitTimer) clearTimeout(exitTimer)
-  // 先短暂高亮，再滑出：同时把主卡切到下一词，避免底下空白
   revealTimer = setTimeout(() => {
-    const done = current.value
-    if (!done) return
-    const isLast = index.value + 1 >= items.value.length
-    exitingCard.value = { ...done }
-    exitWasLast.value = isLast
-    showReveal.value = false
-    input.value = ''
-    tryCount.value = 1
-    cardExiting.value = true
-
-    if (!isLast) {
-      index.value += 1
-      wordStartedAt.value = Date.now()
-      // 冻结叠层：与切词后一致，飞出结束前不再因响应式重算跳位
-      exitStackDepth.value = Math.min(2, Math.max(0, items.value.length - index.value - 1))
-    } else {
-      exitStackDepth.value = 0
-    }
-
-    exitTimer = setTimeout(() => {
-      const last = exitWasLast.value
-      clearExitVisual()
-      exitTimer = null
-      if (last) {
-        void finish()
-        return
-      }
-      // 不再 bumpCardEnter：飞出期间已有一次 rise，二次 opacity 入场会造成闪一下
-      const next = items.value[index.value]
-      if (next) void playWordPronunciation(next.word)
-    }, EXIT_ANIM_MS)
+    advanceToNextWordOrFinish()
   }, REVEAL_HOLD_MS)
 }
 
@@ -499,6 +587,7 @@ onUnmounted(() => {
   if (revealTimer) clearTimeout(revealTimer)
   if (exitTimer) clearTimeout(exitTimer)
   if (wrongHintTimer) clearTimeout(wrongHintTimer)
+  if (phaseHintTimer) clearTimeout(phaseHintTimer)
   stopSpeaking()
 })
 </script>
@@ -746,7 +835,9 @@ onUnmounted(() => {
             <p class="text-lg sm:text-xl font-medium text-neutral-700 dark:text-neutral-200 tracking-tight">
               按任意键开始
             </p>
-            <p class="mt-1.5 text-xs text-neutral-400">建议使用实体键盘 · 打错将整词重来</p>
+            <p class="mt-1.5 text-xs text-neutral-400">
+              每词两轮：先抄写，再默写 · 打错整词重来
+            </p>
             <p class="mt-2 text-[11px] text-teal-700/80 dark:text-teal-300/70 sm:hidden">
               {{ pickHint }}
             </p>
@@ -754,6 +845,28 @@ onUnmounted(() => {
               class="mt-4 mx-auto block w-0.5 h-6 rounded-full bg-teal-500 animate-[wpCaret_1s_steps(1)_infinite]"
               aria-hidden="true"
             />
+          </div>
+
+          <div
+            v-if="started"
+            class="mb-5 flex items-center justify-center gap-2"
+          >
+            <span
+              class="text-[11px] font-medium tracking-wide px-2 py-0.5 rounded-md"
+              :class="
+                isRecall
+                  ? 'bg-amber-500/15 text-amber-800 dark:bg-amber-400/15 dark:text-amber-200'
+                  : 'bg-teal-500/10 text-teal-800 dark:bg-teal-400/10 dark:text-teal-200'
+              "
+            >
+              {{ phaseLabel }}
+            </span>
+            <span
+              v-if="phaseHint"
+              class="text-[11px] text-neutral-500 dark:text-neutral-400 animate-[wpFadeUp_0.2s_ease]"
+            >
+              {{ phaseHint }}
+            </span>
           </div>
 
           <div
@@ -766,11 +879,17 @@ onUnmounted(() => {
           >
             <span
               v-for="(ch, i) in letters"
-              :key="`${current.entry_id}-${i}`"
+              :key="`${current.entry_id}-${wordPhase}-${i}`"
               class="wp-letter inline-flex min-w-[0.85em] justify-center px-0.5 transition-colors duration-75"
               :class="`is-${letterState(i)}`"
             >
-              <span :class="letterState(i) === 'idle' && started ? 'opacity-35' : ''">{{ ch === ' ' ? '·' : ch }}</span>
+              <span
+                :class="
+                  letterState(i) === 'idle' && started && !(isRecall && i === 0)
+                    ? 'opacity-35'
+                    : ''
+                "
+              >{{ letterGlyph(i, ch) }}</span>
             </span>
           </div>
 
@@ -838,8 +957,8 @@ onUnmounted(() => {
                       <template v-for="(part, pi) in contextParts" :key="`${current.entry_id}-ctx-${pi}`">
                         <mark
                           v-if="part.hit"
-                          class="bg-teal-500/15 text-teal-800 dark:bg-teal-400/20 dark:text-teal-200 rounded px-0.5 font-semibold not-italic"
-                        >{{ part.text }}</mark>
+                          class="bg-teal-500/15 text-teal-800 dark:bg-teal-400/20 dark:text-teal-200 rounded px-0.5 font-semibold not-italic tracking-wide"
+                        >{{ isRecall && !showReveal ? maskWordKeepInitial(part.text) : part.text }}</mark>
                         <span v-else>{{ part.text }}</span>
                       </template>
                     </span>
