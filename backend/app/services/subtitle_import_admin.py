@@ -234,7 +234,8 @@ def import_subtitle_text_for_admin(
     if not rows:
         has_arrow = "-->" in stripped
         hint = (
-            "未识别到时间轴（需含 00:00:00,000 --> 00:00:01,000）。"
+            "未识别到时间轴。请使用 SRT/VTT（含 00:00:00,000 --> 00:00:01,000），"
+            "或 Time / Subtitle / Machine Translation 的制表符文本（如 14s / 1:01 / 1:46:05）。"
             if not has_arrow
             else "已检测到 -->，但时间格式可能不兼容，或文件编码异常（请另存为 UTF-8）。"
         )

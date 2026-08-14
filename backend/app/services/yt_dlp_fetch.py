@@ -142,7 +142,9 @@ def _find_media_file(work_dir: Path, stem: str, extensions: tuple[str, ...]) -> 
     return matches[0] if matches else None
 
 
-H264_FORMAT = (
+AUDIO_FORMAT = "bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio[acodec^=mp4a]/bestaudio"
+
+H264_FORMAT_BEST = (
     "best[ext=mp4][vcodec^=avc1]/"
     "best[ext=mp4][vcodec^=h264]/"
     "bestvideo[vcodec^=avc1]+bestaudio/"
@@ -150,6 +152,30 @@ H264_FORMAT = (
     "b[ext=mp4][vcodec!=hevc][vcodec!=h265]/"
     "bv*+ba/b"
 )
+
+
+def normalize_fetch_quality(quality: str | None) -> int | None:
+    """720 / 1080 / best。返回最大高度；None 表示不限。"""
+    q = (quality or "720").strip().lower().rstrip("p")
+    if q in {"best", "max", "0"}:
+        return None
+    if q == "1080":
+        return 1080
+    return 720
+
+
+def _video_format(max_height: int | None) -> str:
+    if max_height is None:
+        return H264_FORMAT_BEST
+    h = max_height
+    return (
+        f"best[height<={h}][ext=mp4][vcodec^=avc1]/"
+        f"best[height<={h}][ext=mp4][vcodec^=h264]/"
+        f"bestvideo[height<={h}][vcodec^=avc1]+bestaudio/"
+        f"bestvideo[height<={h}][vcodec^=h264]+bestaudio/"
+        f"best[height<={h}][ext=mp4]/"
+        f"{H264_FORMAT_BEST}"
+    )
 
 
 def _extract_audio_mp3(video_path: Path, ffmpeg_dir: Path) -> Path:
@@ -172,14 +198,14 @@ def _extract_audio_mp3(video_path: Path, ffmpeg_dir: Path) -> Path:
             "-acodec",
             "libmp3lame",
             "-q:a",
-            "2",
+            "4",
             str(output),
         ],
         capture_output=True,
         text=True,
         encoding="utf-8",
         errors="replace",
-        timeout=int(os.getenv("FFMPEG_TRANSCODE_TIMEOUT", "1800")),
+        timeout=int(os.getenv("FFMPEG_TRANSCODE_TIMEOUT", "14400")),
     )
     if proc.returncode != 0 or not output.is_file():
         detail = (proc.stderr or proc.stdout or "").strip()
@@ -195,6 +221,11 @@ def _yt_dlp_cli_extras() -> list[str]:
     impersonate = os.getenv("YT_DLP_IMPERSONATE", "").strip()
     if impersonate:
         args.extend(["--impersonate", impersonate])
+    try:
+        fragments = max(1, min(16, int(os.getenv("YT_DLP_CONCURRENT_FRAGMENTS", "8"))))
+    except ValueError:
+        fragments = 8
+    args.extend(["-N", str(fragments), "--continue"])
     return args
 
 
@@ -241,24 +272,35 @@ def _format_ytdlp_error(detail: str, url: str) -> str:
     return detail[-2000:] if detail else "yt-dlp 执行失败"
 
 
-def _run_yt_dlp(tools: YtDlpTools, url: str, work_dir: Path, *, write_subtitles: bool = True) -> None:
-    out_template = str(work_dir / "media.%(ext)s")
+def _run_yt_dlp(
+    tools: YtDlpTools,
+    url: str,
+    work_dir: Path,
+    *,
+    fmt: str,
+    stem: str,
+    write_subtitles: bool = False,
+    write_thumbnail: bool = False,
+    write_info: bool = False,
+    merge_mp4: bool = False,
+) -> None:
+    out_template = str(work_dir / f"{stem}.%(ext)s")
     cmd = [
         str(tools.yt_dlp),
         "--ffmpeg-location",
         str(tools.ffmpeg_dir),
         "--no-playlist",
         "-f",
-        H264_FORMAT,
-        "--merge-output-format",
-        "mp4",
+        fmt,
         "-o",
         out_template,
-        "--write-thumbnail",
-        "--convert-thumbnails",
-        "webp",
-        "--write-info-json",
     ]
+    if merge_mp4:
+        cmd.extend(["--merge-output-format", "mp4"])
+    if write_thumbnail:
+        cmd.extend(["--write-thumbnail", "--convert-thumbnails", "webp"])
+    if write_info:
+        cmd.append("--write-info-json")
     if write_subtitles:
         cmd.extend(
             [
@@ -275,14 +317,21 @@ def _run_yt_dlp(tools: YtDlpTools, url: str, work_dir: Path, *, write_subtitles:
     cmd.extend(_yt_dlp_cli_extras())
     cmd.append(url)
 
-    proc = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=int(os.getenv("YT_DLP_TIMEOUT", "900")),
-    )
+    timeout_sec = int(os.getenv("YT_DLP_TIMEOUT", "14400"))
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout_sec,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"yt-dlp 下载超时（已等待 {timeout_sec} 秒）。长视频请在 backend/.env 提高 "
+            f"YT_DLP_TIMEOUT 后重启后端，或先在本机用 yt-dlp 下完再上传七牛。"
+        ) from exc
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout or "").strip()
         raise RuntimeError(_format_ytdlp_error(detail, url))
@@ -299,15 +348,58 @@ def _load_info_json(work_dir: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def download_source_media(url: str, *, write_subtitles: bool = True) -> FetchedMedia:
+def download_source_media(
+    url: str,
+    *,
+    write_subtitles: bool = True,
+    quality: str = "720",
+) -> FetchedMedia:
     url = url.strip()
     if not is_supported_source_url(url):
         raise RuntimeError("仅支持 YouTube 或 TikTok 链接")
 
     tools = YtDlpTools.from_env()
     work_dir = Path(tempfile.mkdtemp(prefix="vloglish-ytdlp-", dir=DATA_DIR))
+    max_height = normalize_fetch_quality(quality)
+    video_err: Exception | None = None
+    audio_err: Exception | None = None
+
+    def _download_video() -> None:
+        _run_yt_dlp(
+            tools,
+            url,
+            work_dir,
+            fmt=_video_format(max_height),
+            stem="media",
+            write_subtitles=write_subtitles,
+            write_thumbnail=True,
+            write_info=True,
+            merge_mp4=True,
+        )
+
+    def _download_audio() -> None:
+        _run_yt_dlp(
+            tools,
+            url,
+            work_dir,
+            fmt=AUDIO_FORMAT,
+            stem="audio",
+        )
+
     try:
-        _run_yt_dlp(tools, url, work_dir, write_subtitles=write_subtitles)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            fut_video = pool.submit(_download_video)
+            fut_audio = pool.submit(_download_audio)
+            try:
+                fut_video.result()
+            except Exception as exc:
+                video_err = exc
+            try:
+                fut_audio.result()
+            except Exception as exc:
+                audio_err = exc
+        if video_err:
+            raise video_err
     except Exception:
         shutil.rmtree(work_dir, ignore_errors=True)
         raise
@@ -319,7 +411,7 @@ def download_source_media(url: str, *, write_subtitles: bool = True) -> FetchedM
         shutil.rmtree(work_dir, ignore_errors=True)
         raise RuntimeError("未下载到视频文件")
 
-    audio_path = _find_media_file(work_dir, "media", (".mp3", ".m4a", ".opus", ".wav"))
+    audio_path = _find_media_file(work_dir, "audio", (".m4a", ".mp3", ".opus", ".webm", ".wav"))
     thumbnail_path = _find_media_file(work_dir, "media", (".webp", ".jpg", ".jpeg", ".png"))
     vtt_path = _pick_english_vtt(work_dir) if write_subtitles else None
 
@@ -333,7 +425,8 @@ def download_source_media(url: str, *, write_subtitles: bool = True) -> FetchedM
             audio_path = _extract_audio_mp3(video_path, tools.ffmpeg_dir)
         except RuntimeError:
             shutil.rmtree(work_dir, ignore_errors=True)
-            raise RuntimeError("未下载到音频文件，且从视频中提取音频失败")
+            detail = str(audio_err) if audio_err else "未知错误"
+            raise RuntimeError(f"未下载到独立音轨，且从视频提取音频失败：{detail[-400:]}")
 
     video_path, _ = ensure_browser_compatible_video(video_path, tools.ffmpeg_dir)
 
@@ -535,8 +628,9 @@ def fetch_and_upload_from_url(
     *,
     slug: str = "",
     enrich_subtitles: bool = True,
+    quality: str = "720",
 ) -> dict:
-    fetched = download_source_media(url, write_subtitles=enrich_subtitles)
+    fetched = download_source_media(url, write_subtitles=enrich_subtitles, quality=quality)
     try:
         folder = slug.strip() or fetched.source_id or sanitize_slug(fetched.title)
         folder = sanitize_slug(folder)

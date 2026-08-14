@@ -51,7 +51,7 @@ def _qiniu_upload_context():
     os.environ["no_proxy"] = no_proxy_value
 
     old_timeout = get_default("connection_timeout")
-    upload_timeout = int(os.getenv("QINIU_UPLOAD_TIMEOUT", "600"))
+    upload_timeout = int(os.getenv("QINIU_UPLOAD_TIMEOUT", "7200"))
     set_default(connection_timeout=upload_timeout)
     try:
         yield

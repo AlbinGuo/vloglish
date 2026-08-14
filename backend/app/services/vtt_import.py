@@ -302,6 +302,93 @@ def srt_to_subtitle_dicts(srt_text: str, *, merge_sentences: bool = False) -> li
     return _cues_to_subtitle_dicts(cues, merge_sentences=merge_sentences)
 
 
+_EMPTY_ZH = frozenset({"-", "—", "–", "n/a", "na", "none", "null"})
+
+
+def parse_loose_start_time(value: str) -> float | None:
+    """14s / 1:01 / 1:46:05 → 秒。"""
+    token = (value or "").strip().lower()
+    if not token:
+        return None
+    if token.endswith("s") and ":" not in token:
+        try:
+            return float(token[:-1].replace(",", "."))
+        except ValueError:
+            return None
+    try:
+        return parse_timestamp(token)
+    except (ValueError, IndexError, TypeError):
+        return None
+
+
+def _split_tsv_row(line: str) -> list[str]:
+    if "\t" in line:
+        return line.split("\t")
+    return []
+
+
+def _is_timed_tsv_header(line: str) -> bool:
+    cols = [c.strip().lower() for c in _split_tsv_row(line)]
+    if not cols:
+        return False
+    joined = " ".join(cols)
+    return cols[0] in {"time", "timestamp", "start", "timecode"} and (
+        "subtitle" in joined or "translation" in joined or len(cols) >= 2
+    )
+
+
+def looks_like_timed_tsv(text: str) -> bool:
+    lines = [ln for ln in _normalize_subtitle_newlines(text).split("\n") if ln.strip()]
+    if not lines:
+        return False
+    if _is_timed_tsv_header(lines[0]):
+        return True
+    hits = 0
+    for ln in lines[:40]:
+        parts = _split_tsv_row(ln)
+        if len(parts) >= 2 and parse_loose_start_time(parts[0]) is not None:
+            hits += 1
+    return hits >= 3
+
+
+def parse_timed_tsv(content: str) -> list[Cue]:
+    """YouTube / 工具导出：Time \\t Subtitle \\t Machine Translation。只有起点，终点取下一条。"""
+    lines = [ln for ln in _normalize_subtitle_newlines(content).split("\n") if ln.strip()]
+    if lines and _is_timed_tsv_header(lines[0]):
+        lines = lines[1:]
+
+    raw: list[tuple[float, str, str]] = []
+    for ln in lines:
+        parts = _split_tsv_row(ln)
+        if len(parts) < 2:
+            continue
+        start = parse_loose_start_time(parts[0])
+        if start is None:
+            continue
+        english = strip_speaker_markers(strip_youtube_inline_tags((parts[1] or "").strip()))
+        chinese = (parts[2] or "").strip() if len(parts) >= 3 else ""
+        if chinese.lower() in _EMPTY_ZH:
+            chinese = ""
+        chinese = strip_speaker_markers(chinese)
+        if not english and not chinese:
+            continue
+        if not english and chinese:
+            english, chinese = chinese, ""
+        raw.append((start, english, chinese))
+
+    cues: list[Cue] = []
+    for i, (start, english, chinese) in enumerate(raw):
+        end = raw[i + 1][0] if i + 1 < len(raw) else start + 3.0
+        if end <= start:
+            end = start + 1.0
+        cues.append(Cue(start=start, end=end, english=english, chinese=chinese))
+    return cues
+
+
+def timed_tsv_to_subtitle_dicts(text: str, *, merge_sentences: bool = False) -> list[dict]:
+    return _cues_to_subtitle_dicts(parse_timed_tsv(text), merge_sentences=merge_sentences)
+
+
 def subtitle_text_to_dicts(text: str, *, merge_sentences: bool | None = None) -> list[dict]:
     stripped = text.lstrip("\ufeff").strip()
     if stripped.upper().startswith("WEBVTT"):
@@ -309,6 +396,11 @@ def subtitle_text_to_dicts(text: str, *, merge_sentences: bool | None = None) ->
         return vtt_to_subtitle_dicts(
             text,
             merge_sentences=True if merge_sentences is None else merge_sentences,
+        )
+    if looks_like_timed_tsv(stripped):
+        return timed_tsv_to_subtitle_dicts(
+            text,
+            merge_sentences=False if merge_sentences is None else merge_sentences,
         )
     srt_rows = srt_to_subtitle_dicts(
         text,

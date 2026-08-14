@@ -817,11 +817,12 @@ export async function adminFetchMediaFromUrl(payload: {
   url: string
   slug?: string
   enrich_subtitles?: boolean
+  quality?: '720' | '1080' | 'best'
 }) {
   const { data } = await adminApi.post<AdminFetchMediaResult>(
     '/api/admin/episodes/fetch-media/',
     payload,
-    { timeout: 900000 },
+    { timeout: 14_400_000 },
   )
   return data
 }

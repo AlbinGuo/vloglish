@@ -20,9 +20,9 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: process.env.VITE_API_PROXY || 'http://127.0.0.1:8000',
           changeOrigin: true,
-          // 字幕导入含 DeepSeek 翻译/高亮，大文件可能需数分钟
-          timeout: 900_000,
-          proxyTimeout: 900_000,
+          // 两小时长视频：下载 + 可能转码 + 上传七牛，整条链路按 4 小时预留
+          timeout: 14_400_000,
+          proxyTimeout: 14_400_000,
           configure: (proxy) => {
             proxy.on('error', (_err, _req, res) => {
               if (res && 'writeHead' in res && !res.headersSent) {

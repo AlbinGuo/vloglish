@@ -243,6 +243,7 @@ def fetch_media(
             body.url,
             slug=body.slug,
             enrich_subtitles=body.enrich_subtitles,
+            quality=body.quality,
         )
     except HTTPException:
         raise

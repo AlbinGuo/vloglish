@@ -590,6 +590,7 @@ class AdminFetchMediaIn(BaseModel):
     url: str = Field(min_length=8)
     slug: str = Field(default="", max_length=64)
     enrich_subtitles: bool = False
+    quality: str = Field(default="720", description="720 | 1080 | best")
 
 
 class AdminFetchMediaOut(BaseModel):

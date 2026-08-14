@@ -30,6 +30,7 @@ import SubtitleModeSheet from '@/components/episode/SubtitleModeSheet.vue'
 import { useIsPad, useIsPhone } from '@/composables/useBreakpoint'
 import { useMobilePlayerChrome } from '@/composables/useMobilePlayerChrome'
 import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
+import { useSubtitleVirtualList } from '@/composables/useSubtitleVirtualList'
 import { useLearningProgress } from '@/composables/useLearningProgress'
 import { consumeEpisodeAutoplay, requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useSourceFocusPulse } from '@/composables/useSourceFocusPulse'
@@ -546,6 +547,24 @@ let shadowFinishing = false
 const shadowActiveSub = computed(
   () => sortedSubs.value.find((s) => s.id === shadowActiveSubId.value) ?? null,
 )
+
+const subtitleCount = computed(() => sortedSubs.value.length)
+const listRemeasureKey = computed(
+  () =>
+    `${shadowActiveSubId.value ?? ''}|${dictationTargetId.value ?? ''}|${practiceMenuOpenId.value ?? ''}|${intensiveMode.value}|${subtitleMode.value}|${showIpa.value}`,
+)
+const subtitleVirtual = useSubtitleVirtualList({
+  containerRef: listRef,
+  count: subtitleCount,
+  estimatePx: isPhone.value ? 112 : 104,
+  gapPx: 8,
+  overscan: isPhone.value ? 6 : 8,
+  remeasureKey: listRemeasureKey,
+})
+const visibleSubtitleRows = computed(() => {
+  const { start, end } = subtitleVirtual.range.value
+  return sortedSubs.value.slice(start, end).map((sub, i) => ({ sub, index: start + i }))
+})
 
 function clearShadowSafetyTimer() {
   if (shadowSafetyTimer) {
@@ -1584,16 +1603,23 @@ function animateScrollTo(el: HTMLElement, to: number, duration = 320) {
 
 function scrollCurrentIntoView() {
   const container = listRef.value
-  const el = container?.querySelector(`[data-sub-index="${currentIndex.value}"]`) as HTMLElement | null
-  if (!container || !el) return
-
-  const padding = 8
-  const containerRect = container.getBoundingClientRect()
-  const elRect = el.getBoundingClientRect()
-  const targetTop = Math.max(0, container.scrollTop + (elRect.top - containerRect.top) - padding)
-
-  if (isPhone.value || isPad.value) animateScrollTo(container, targetTop)
-  else container.scrollTo({ top: targetTop, behavior: 'smooth' })
+  if (!container || !sortedSubs.value.length) return
+  const targetTop = Math.max(0, subtitleVirtual.offsetOf(currentIndex.value) - 8)
+  const jump = Math.abs(container.scrollTop - targetTop) > 360
+  if (jump) {
+    container.scrollTop = targetTop
+  } else if (isPhone.value || isPad.value) {
+    animateScrollTo(container, targetTop)
+  } else {
+    container.scrollTo({ top: targetTop, behavior: 'smooth' })
+  }
+  nextTick(() => {
+    subtitleVirtual.measure()
+    const corrected = Math.max(0, subtitleVirtual.offsetOf(currentIndex.value) - 8)
+    if (Math.abs(container.scrollTop - corrected) > 28) {
+      container.scrollTop = corrected
+    }
+  })
 }
 
 function resolveSentenceContext(target: HTMLElement): string {
@@ -2280,30 +2306,37 @@ function subtitleRowClass(index: number) {
         <div
           v-else
           ref="listRef"
-          class="subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] touch-pan-y px-3 pt-2 space-y-2 lg:p-4 lg:pb-4"
+          class="subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] touch-pan-y px-3 pt-2 lg:p-4 lg:pb-4"
           :class="mobileListBottomPad"
         >
           <div
-            v-for="(sub, i) in sortedSubs"
-            :key="sub.id"
-            :data-sub-index="i"
+            class="flex flex-col gap-2"
+            :style="{
+              paddingTop: `${subtitleVirtual.padTop.value}px`,
+              paddingBottom: `${subtitleVirtual.padBottom.value}px`,
+            }"
+          >
+          <div
+            v-for="row in visibleSubtitleRows"
+            :key="row.sub.id"
+            :data-sub-index="row.index"
             class="flex flex-col cursor-pointer scroll-mt-2"
             :class="subtitleAlign === 'left' ? 'items-stretch' : 'items-center'"
-            @click="player.seekTo(sub)"
+            @click="player.seekTo(row.sub)"
           >
             <div
-              class="w-full relative transition-all duration-300 ease-out pr-2 sm:pr-4"
+              class="w-full relative transition-colors duration-200 ease-out pr-2 sm:pr-4"
               :class="[
                 intensiveMode
                   ? [
                       'intensive-subtitle-card rounded-xl border p-3 sm:p-4',
-                      i === currentIndex
+                      row.index === currentIndex
                         ? 'border-red-300/80 dark:border-red-700/50 ring-1 ring-red-200/60 dark:ring-red-900/30'
                         : 'border-red-100/80 dark:border-red-950/40',
                     ]
-                  : [subtitleRowClass(i), i === currentIndex && 'subtitle-row--active'],
+                  : [subtitleRowClass(row.index), row.index === currentIndex && 'subtitle-row--active'],
                 showSubtitleLearnedMark && auth.isLoggedIn && !adminPreview ? 'pr-10 sm:pr-12' : '',
-                practiceMenuOpenId === sub.id && 'z-40',
+                practiceMenuOpenId === row.sub.id && 'z-40',
               ]"
             >
               <button
@@ -2311,43 +2344,43 @@ function subtitleRowClass(index: number) {
                 type="button"
                 class="absolute top-2 right-2 z-10 w-7 h-7 rounded-full text-sm flex items-center justify-center border transition"
                 :class="
-                  learnedSubtitleIds.has(sub.id)
+                  learnedSubtitleIds.has(row.sub.id)
                     ? 'bg-emerald-500 border-emerald-500 text-white'
                     : 'bg-white/80 border-black/10 text-neutral-400 hover:border-emerald-400 dark:bg-neutral-800/80 dark:border-white/10 dark:text-neutral-500 dark:hover:border-emerald-500'
                 "
-                :title="learnedSubtitleIds.has(sub.id) ? '取消已掌握' : '标记已掌握'"
-                @click="toggleSubtitleLearned(sub, $event)"
+                :title="learnedSubtitleIds.has(row.sub.id) ? '取消已掌握' : '标记已掌握'"
+                @click="toggleSubtitleLearned(row.sub, $event)"
               >
                 ✓
               </button>
               <IntensiveReadingBlock
                 v-if="intensiveMode"
-                :english-html="renderHtml(sub.english_html)"
-                :english="sub.english"
-                :chinese="sub.chinese"
-                :ipa="sub.ipa"
+                :english-html="renderHtml(row.sub.english_html)"
+                :english="row.sub.english"
+                :chinese="row.sub.chinese"
+                :ipa="row.sub.ipa"
                 :active="false"
                 :align="subtitleAlign"
                 :show-english="modeShowsEnglish(subtitleMode)"
                 :show-chinese="modeShowsChinese(subtitleMode)"
                 :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
-                :lookup-meta="{ video_id: videoId, subtitle_id: sub.id }"
-                :emphasize-word="isSourceFocused(sub.id) ? sourceFocusWord : ''"
+                :lookup-meta="{ video_id: videoId, subtitle_id: row.sub.id }"
+                :emphasize-word="isSourceFocused(row.sub.id) ? sourceFocusWord : ''"
                 v-on="wordLongPressHandlers"
                 @click.stop="onSubtitleClick"
               />
               <SubtitleBlock
                 v-else
-                :english-html="renderHtml(sub.english_html)"
-                :chinese="sub.chinese"
-                :ipa="sub.ipa"
-                :active="i === currentIndex"
+                :english-html="renderHtml(row.sub.english_html)"
+                :chinese="row.sub.chinese"
+                :ipa="row.sub.ipa"
+                :active="row.index === currentIndex"
                 :align="subtitleAlign"
                 :chinese-focus="isChineseOnly"
                 :show-english="modeShowsEnglish(subtitleMode)"
                 :show-chinese="modeShowsChinese(subtitleMode)"
                 :show-ipa="modeShowsIpa(subtitleMode, showIpa)"
-                :emphasize-word="isSourceFocused(sub.id) ? sourceFocusWord : ''"
+                :emphasize-word="isSourceFocused(row.sub.id) ? sourceFocusWord : ''"
                 v-on="wordLongPressHandlers"
                 @click.stop="onSubtitleClick"
               />
@@ -2355,28 +2388,28 @@ function subtitleRowClass(index: number) {
                 v-if="!adminPreview && !showSubtitleLearnedMark"
                 variant="inline-row"
                 :align="subtitleAlign"
-                :shadow-active="shadowActiveSubId === sub.id"
-                :has-shadow-track="Boolean(shadowTracks[sub.id]?.audio_url)"
-                :dictation-active="dictationTargetId === sub.id"
-                @explain="startAiExplain(sub, $event)"
-                @shadowing="startAiShadowing(sub, $event)"
-                @shadow="startShadowPractice(sub, $event)"
-                @cloze="startAiCloze(sub, $event)"
-                @dictation="startSubtitleDictation(sub, $event)"
-                @menu-open-change="onPracticeMenuOpenChange(sub.id, $event)"
+                :shadow-active="shadowActiveSubId === row.sub.id"
+                :has-shadow-track="Boolean(shadowTracks[row.sub.id]?.audio_url)"
+                :dictation-active="dictationTargetId === row.sub.id"
+                @explain="startAiExplain(row.sub, $event)"
+                @shadowing="startAiShadowing(row.sub, $event)"
+                @shadow="startShadowPractice(row.sub, $event)"
+                @cloze="startAiCloze(row.sub, $event)"
+                @dictation="startSubtitleDictation(row.sub, $event)"
+                @menu-open-change="onPracticeMenuOpenChange(row.sub.id, $event)"
               />
               <div
                 v-if="
                   !adminPreview &&
-                  (shadowActiveSubId === sub.id ||
-                    shadowTracks[sub.id]?.audio_url ||
-                    shadowUploadId === sub.id)
+                  (shadowActiveSubId === row.sub.id ||
+                    shadowTracks[row.sub.id]?.audio_url ||
+                    shadowUploadId === row.sub.id)
                 "
-                :data-shadow-anchor="sub.id"
+                :data-shadow-anchor="row.sub.id"
                 class="mt-0.5"
               >
                 <ShadowingSessionBar
-                  v-if="shadowActiveSubId === sub.id"
+                  v-if="shadowActiveSubId === row.sub.id"
                   v-model:delay-sec="shadowDelaySec"
                   v-model:rate="shadowRate"
                   v-model:mic-enabled="shadowMicEnabled"
@@ -2389,24 +2422,24 @@ function subtitleRowClass(index: number) {
                 />
                 <ShadowTrack
                   v-if="
-                    shadowActiveSubId !== sub.id &&
-                    (shadowTracks[sub.id]?.audio_url || shadowUploadId === sub.id)
+                    shadowActiveSubId !== row.sub.id &&
+                    (shadowTracks[row.sub.id]?.audio_url || shadowUploadId === row.sub.id)
                   "
-                  :audio-url="shadowTracks[sub.id]?.audio_url || ''"
-                  :sentence-duration-sec="sentenceDurationSec(sub)"
-                  :uploading="shadowUploadId === sub.id"
-                  @rerecord="rerecordShadow(sub)"
-                  @score="scoreShadow(sub)"
-                  @play-reference="playShadowReference(sub)"
+                  :audio-url="shadowTracks[row.sub.id]?.audio_url || ''"
+                  :sentence-duration-sec="sentenceDurationSec(row.sub)"
+                  :uploading="shadowUploadId === row.sub.id"
+                  @rerecord="rerecordShadow(row.sub)"
+                  @score="scoreShadow(row.sub)"
+                  @play-reference="playShadowReference(row.sub)"
                 />
               </div>
-              <!-- 听写中：单词区毛玻璃遮罩，关闭弹窗后消失 -->
               <div
-                v-if="isDictationFrost(sub.id)"
+                v-if="isDictationFrost(row.sub.id)"
                 :class="dictationFrostClass"
                 aria-hidden="true"
               />
             </div>
+          </div>
           </div>
         </div>
 

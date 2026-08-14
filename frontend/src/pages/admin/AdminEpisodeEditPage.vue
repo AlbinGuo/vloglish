@@ -50,6 +50,7 @@ const importingPrepared = ref(false)
 const subtitleEnrichMode = ref<'keep' | 'translate'>('keep')
 const sourceUrl = ref('')
 const mediaSlug = ref('')
+const mediaQuality = ref<'720' | '1080' | 'best'>('720')
 const isUserSubmitted = ref(false)
 /** 用户投稿：勾选=全站可见；不勾选=仅投稿者可见 */
 const isCatalogPublic = ref(false)
@@ -494,8 +495,25 @@ async function enrichCurrentSubtitles() {
   }
 }
 
+function looksLikeTimedTsv(text: string): boolean {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+  if (!lines.length) return false
+  const header = lines[0].toLowerCase()
+  if (header.includes('time') && (header.includes('subtitle') || header.includes('translation'))) {
+    return true
+  }
+  let hits = 0
+  for (const ln of lines.slice(0, 40)) {
+    if (/^(\d+(?:[.,]\d+)?s|\d{1,2}:\d{2}(?::\d{2})?(?:[.,]\d{1,3})?)\t/.test(ln)) hits += 1
+  }
+  return hits >= 3
+}
+
 function looksLikeSubtitleText(text: string): boolean {
-  return /-->/.test(text) || /^WEBVTT/i.test(text.trim())
+  return /-->/.test(text) || /^WEBVTT/i.test(text.trim()) || looksLikeTimedTsv(text)
 }
 
 async function readSubtitleFile(file: File): Promise<string> {
@@ -558,6 +576,30 @@ async function onSubtitleFileChange(event: Event) {
   await importSubtitles()
 }
 
+function adminRequestErrorMessage(e: unknown, fallback: string): string {
+  const err = e as {
+    code?: string
+    message?: string
+    response?: { data?: { detail?: unknown }; status?: number }
+  }
+  const detail = err.response?.data?.detail
+  if (typeof detail === 'string' && detail.trim()) return detail
+  if (Array.isArray(detail)) {
+    const first = detail[0]
+    if (typeof first === 'string') return first
+    if (first && typeof first === 'object' && 'msg' in first) {
+      return String((first as { msg?: string }).msg || fallback)
+    }
+  }
+  if (err.code === 'ECONNABORTED' || /timeout/i.test(err.message || '')) {
+    return '抓取超时：两小时左右的片子，下载+转码+上传可能要很久。请确认后端仍在跑后重试；或在 backend/.env 把 YT_DLP_TIMEOUT 调到 14400 以上并重启。'
+  }
+  if (!err.response) {
+    return '与后端连接中断（长视频常见于代理/请求超时）。请确认 8000 端口 uvicorn 仍在运行后重试。'
+  }
+  return fallback
+}
+
 async function fetchFromSourceUrl() {
   const url = sourceUrl.value.trim()
   if (!url) {
@@ -572,6 +614,7 @@ async function fetchFromSourceUrl() {
       url,
       slug: mediaSlug.value.trim() || form.value.video_id.trim() || undefined,
       enrich_subtitles: false,
+      quality: mediaQuality.value,
     })
     form.value.short_title = data.title || form.value.short_title
     if (data.summary) {
@@ -592,9 +635,11 @@ async function fetchFromSourceUrl() {
     if (isNew.value) {
       form.value.index = await adminGetNextEpisodeIndex()
     }
+    const qualityLabel = mediaQuality.value === 'best' ? '最高清' : `${mediaQuality.value}p`
     const parts = [
       `已抓取「${data.title}」`,
       data.author_name ? `作者 ${data.author_name}` : null,
+      `清晰度 ${qualityLabel}`,
       '已上传视频/音频/封面',
       '未抓取字幕（请下方手动导入 SRT）',
     ].filter(Boolean) as string[]
@@ -602,8 +647,7 @@ async function fetchFromSourceUrl() {
     success.value = parts.join('，')
     sourceUrl.value = ''
   } catch (e: unknown) {
-    const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-    error.value = msg || '抓取失败，请检查链接与 yt-dlp 配置'
+    error.value = adminRequestErrorMessage(e, '抓取失败，请检查链接与 yt-dlp 配置')
   } finally {
     fetching.value = false
   }
@@ -941,7 +985,7 @@ watch(
       <section class="rounded-xl border border-black/5 bg-white p-5 space-y-4">
         <h2 class="font-medium">从 YouTube / TikTok 抓取</h2>
         <p class="text-sm text-neutral-600">
-          使用本机 yt-dlp 下载视频、封面、音频并上传七牛，回填标题、摘要、作者。不抓取字幕；字幕请在下方手动导入 SRT/VTT（可选是否 AI 翻译，并生成音标与难词高亮）。
+          默认抓 720p，音视频并行下载（不再整片抽 mp3）。封面、标题、摘要、作者会回填。不抓字幕，请在下方手动导入 SRT/VTT。
         </p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label class="block text-sm md:col-span-2">
@@ -953,6 +997,14 @@ watch(
             />
           </label>
           <label class="block text-sm">
+            <span class="text-neutral-500">清晰度</span>
+            <select v-model="mediaQuality" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2">
+              <option value="720">720p（推荐，长视频更快）</option>
+              <option value="1080">1080p</option>
+              <option value="best">最高清（最慢）</option>
+            </select>
+          </label>
+          <label class="block text-sm">
             <span class="text-neutral-500">七牛目录名（可选）</span>
             <input
               v-model="mediaSlug"
@@ -960,14 +1012,14 @@ watch(
               class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2"
             />
           </label>
-          <div class="flex items-end">
+          <div class="flex items-end md:col-span-2">
             <button
               type="button"
               class="text-sm px-4 py-2 rounded-lg bg-neutral-900 text-white disabled:opacity-50"
               :disabled="fetching"
               @click="fetchFromSourceUrl"
             >
-              {{ fetching ? '下载上传中（可能需要几分钟）...' : '抓取并上传七牛' }}
+              {{ fetching ? '下载上传中（请勿关页）...' : '抓取并上传七牛' }}
             </button>
           </div>
         </div>
@@ -1069,18 +1121,18 @@ watch(
 
         <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">
           <p class="text-sm text-neutral-600">
-            从 VTT / SRT 导入文本（秒级，不调 AI）。导入后可点下方「AI 增强当前字幕」生成翻译/音标/高亮，或改用上方 JSON 最终稿。
+            从 VTT / SRT，或 Time / Subtitle / Machine Translation 文本导入（秒级，不调 AI）。导入后可点下方「AI 增强当前字幕」生成音标/高亮。
           </p>
           <textarea
             v-model="subtitleImportText"
             rows="4"
-            placeholder="WEBVTT 或 SRT 内容&#10;00:00:00.000 --> 00:00:03.000&#10;Hello world."
+            placeholder="WEBVTT / SRT，或：&#10;Time	Subtitle	Machine Translation&#10;14s	Hello world.	你好世界。"
             class="w-full rounded-lg border border-black/10 px-3 py-2 text-sm font-mono"
           />
           <div class="flex flex-wrap gap-2">
             <label class="text-sm px-3 py-1.5 border rounded-lg bg-white cursor-pointer hover:bg-neutral-50">
-              选择 .vtt / .srt 文件
-              <input type="file" accept=".vtt,.srt,text/vtt,application/x-subrip" class="hidden" @change="onSubtitleFileChange" />
+              选择 .vtt / .srt / .txt 文件
+              <input type="file" accept=".vtt,.srt,.txt,text/vtt,text/plain,application/x-subrip" class="hidden" @change="onSubtitleFileChange" />
             </label>
             <button
               type="button"

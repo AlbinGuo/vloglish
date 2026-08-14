@@ -83,7 +83,7 @@ def is_browser_compatible_codec(codec: str) -> bool:
 def transcode_to_h264(input_path: Path, ffmpeg_dir: Path) -> Path:
     ffmpeg = _ffmpeg_bin(ffmpeg_dir, "ffmpeg")
     output = input_path.with_name(f"{input_path.stem}.h264{input_path.suffix}")
-    timeout = int(os.getenv("FFMPEG_TRANSCODE_TIMEOUT", "1800"))
+    timeout = int(os.getenv("FFMPEG_TRANSCODE_TIMEOUT", "14400"))
     proc = subprocess.run(
         [
             ffmpeg,
