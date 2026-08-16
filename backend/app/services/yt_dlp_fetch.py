@@ -213,7 +213,78 @@ def _extract_audio_mp3(video_path: Path, ffmpeg_dir: Path) -> Path:
     return output
 
 
-def _yt_dlp_cli_extras() -> list[str]:
+def _is_youtube_url(url: str) -> bool:
+    u = (url or "").lower()
+    return "youtube.com" in u or "youtu.be" in u
+
+
+def _looks_like_http_403(detail: str) -> bool:
+    lower = (detail or "").lower()
+    return "403" in lower and ("forbidden" in lower or "unable to download" in lower)
+
+
+def _detect_js_runtime() -> str:
+    configured = os.getenv("YT_DLP_JS_RUNTIME", "").strip().lower()
+    if configured:
+        return configured
+    if shutil.which("deno"):
+        return "deno"
+    if shutil.which("node"):
+        return "node"
+    return ""
+
+
+def _video_format_403_fallback(max_height: int | None) -> str:
+    """403 时改下「已合并」的 progressive 流，避开 DASH/android_sdkless。"""
+    if max_height is None:
+        return "b[ext=mp4]/b"
+    h = max_height
+    return f"b[height<={h}][ext=mp4]/b[height<={h}]/best[height<={h}][ext=mp4]/b[ext=mp4]/b"
+
+
+def _video_format_hls(max_height: int | None) -> str:
+    """ios 客户端只稳 HLS；非 m3u8 的 ios https 流容易 403。"""
+    cap = f"[height<={max_height}]" if max_height else ""
+    return (
+        f"bv{cap}[protocol=m3u8_native]+ba[protocol=m3u8_native]/"
+        f"b{cap}[protocol=m3u8_native]/"
+        "b[protocol=m3u8_native]/b"
+    )
+
+
+# default 会带上 web/tv；当前会话一旦 SABR-only，这两家没有 https 直链。
+# mweb 的 https 需要 GVS PO Token，未配置时只会告警，故默认只用 android_vr。
+_YOUTUBE_CLIENTS = "android_vr,-android_sdkless,-web,-tv,-web_safari,-mweb"
+_YOUTUBE_CLIENTS_IOS = "ios,-android_sdkless,-web,-tv,-web_safari,-mweb"
+
+
+def _cookies_from_browser() -> str:
+    return os.getenv("YT_DLP_COOKIES_FROM_BROWSER", "").strip()
+
+
+def _youtube_cookies_opt_in() -> bool:
+    return os.getenv("YT_DLP_YOUTUBE_COOKIES", "").strip().lower() in {"1", "true", "yes"}
+
+
+def _cookies_configured(cookies: Path | None = None) -> bool:
+    if _cookies_from_browser():
+        return True
+    if os.getenv("YT_DLP_COOKIES", "").strip():
+        return True
+    if cookies and cookies.is_file():
+        return True
+    tools_dir = Path(os.getenv("VLOGISH_TOOLS_DIR", r"E:\vloglish"))
+    return (tools_dir / "cookies.txt").is_file()
+
+
+def _yt_dlp_cli_extras(
+    *,
+    url: str = "",
+    compat: bool = False,
+    player_client: str | None = None,
+    extractor_extra: str = "",
+    use_browser_cookies: bool = True,
+) -> list[str]:
     args: list[str] = []
     proxy = os.getenv("YT_DLP_PROXY", "").strip()
     if proxy:
@@ -221,10 +292,32 @@ def _yt_dlp_cli_extras() -> list[str]:
     impersonate = os.getenv("YT_DLP_IMPERSONATE", "").strip()
     if impersonate:
         args.extend(["--impersonate", impersonate])
+    browser = _cookies_from_browser() if use_browser_cookies else ""
+    if browser:
+        args.extend(["--cookies-from-browser", browser])
+    if _is_youtube_url(url):
+        client = (player_client or os.getenv("YT_DLP_PLAYER_CLIENT", "").strip())
+        if not client:
+            client = _YOUTUBE_CLIENTS_IOS if compat else _YOUTUBE_CLIENTS
+        extractor = f"youtube:player_client={client}"
+        po_token = os.getenv("YT_DLP_PO_TOKEN", "").strip()
+        if po_token:
+            extractor += f";po_token={po_token}"
+        if extractor_extra:
+            extractor += f";{extractor_extra}"
+        args.extend(["--extractor-args", extractor])
+        js_runtime = _detect_js_runtime()
+        if js_runtime:
+            args.extend(["--js-runtimes", js_runtime])
+        # 避免缓存把 SABR-only 会话粘住；先探测直链是否 403 再换格式
+        args.extend(["--no-cache-dir", "--check-formats"])
     try:
-        fragments = max(1, min(16, int(os.getenv("YT_DLP_CONCURRENT_FRAGMENTS", "8"))))
+        default_n = 2 if _is_youtube_url(url) else 8
+        fragments = max(1, min(16, int(os.getenv("YT_DLP_CONCURRENT_FRAGMENTS", str(default_n)))))
     except ValueError:
-        fragments = 8
+        fragments = 2 if _is_youtube_url(url) else 8
+    if compat:
+        fragments = 1
     args.extend(["-N", str(fragments), "--continue"])
     return args
 
@@ -269,6 +362,34 @@ def _format_ytdlp_error(detail: str, url: str) -> str:
             "或在本地 Windows 抓取后上传七牛。"
             f"\n\n原始错误：{detail[-800:]}"
         )
+    if _looks_like_http_403(detail) and platform == "YouTube":
+        sabr = "sabr" in lower
+        has_cookies = _cookies_configured()
+        cookie_hint = (
+            "YouTube 默认不再带 cookies.txt（登录态 + 代理 IP 会 403）。"
+            "年龄限制片才需要在 backend/.env 设 YT_DLP_YOUTUBE_COOKIES=1。"
+            if has_cookies
+            else "一般不用 cookies；年龄限制片再设 YT_DLP_YOUTUBE_COOKIES=1。"
+        )
+        if sabr:
+            return (
+                "YouTube 对当前会话启用了 SABR-only（web/tv 没有 https 直链）。"
+                "请重启后端后再抓一次（已避开 tv/web，并会自动改试 android_vr / ios HLS）。"
+                "若仍失败：① 换一个代理节点（最有效）；② 本机 yt-dlp 已更新，确认后端用的是 E:\\vloglish\\yt-dlp.exe；"
+                f"③ {cookie_hint}\n\n"
+                f"原始错误：{detail[-800:]}"
+            )
+        js = _detect_js_runtime()
+        js_hint = (
+            f"已检测到 JS 运行时 {js}。"
+            if js
+            else "未检测到 Deno/Node。YouTube 解签名需要其一，请安装后重启后端。"
+        )
+        return (
+            "YouTube 拒绝了媒体流下载（HTTP 403）。"
+            f"① 换代理节点后重试；② {cookie_hint}③ {js_hint}\n\n"
+            f"原始错误：{detail[-800:]}"
+        )
     return detail[-2000:] if detail else "yt-dlp 执行失败"
 
 
@@ -283,6 +404,10 @@ def _run_yt_dlp(
     write_thumbnail: bool = False,
     write_info: bool = False,
     merge_mp4: bool = False,
+    compat: bool = False,
+    player_client: str | None = None,
+    extractor_extra: str = "",
+    use_cookies: bool = True,
 ) -> None:
     out_template = str(work_dir / f"{stem}.%(ext)s")
     cmd = [
@@ -312,9 +437,19 @@ def _run_yt_dlp(
                 "vtt",
             ]
         )
-    if tools.cookies:
+    allow_any_cookies = use_cookies and (not _is_youtube_url(url) or _youtube_cookies_opt_in())
+    browser_cookies = bool(_cookies_from_browser()) if allow_any_cookies else False
+    if allow_any_cookies and tools.cookies and not browser_cookies:
         cmd.extend(["--cookies", str(tools.cookies)])
-    cmd.extend(_yt_dlp_cli_extras())
+    cmd.extend(
+        _yt_dlp_cli_extras(
+            url=url,
+            compat=compat,
+            player_client=player_client,
+            extractor_extra=extractor_extra,
+            use_browser_cookies=browser_cookies,
+        )
+    )
     cmd.append(url)
 
     timeout_sec = int(os.getenv("YT_DLP_TIMEOUT", "14400"))
@@ -375,6 +510,7 @@ def download_source_media(
             write_thumbnail=True,
             write_info=True,
             merge_mp4=True,
+            use_cookies=not _is_youtube_url(url) or _youtube_cookies_opt_in(),
         )
 
     def _download_audio() -> None:
@@ -384,29 +520,84 @@ def download_source_media(
             work_dir,
             fmt=AUDIO_FORMAT,
             stem="audio",
+            use_cookies=not _is_youtube_url(url) or _youtube_cookies_opt_in(),
         )
 
     try:
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            fut_video = pool.submit(_download_video)
-            fut_audio = pool.submit(_download_audio)
+        if _is_youtube_url(url):
+            # 音视频并行容易把同一会话打成 SABR-only，YouTube 改为先视频后音频
             try:
-                fut_video.result()
+                _download_video()
             except Exception as exc:
                 video_err = exc
-            try:
-                fut_audio.result()
-            except Exception as exc:
-                audio_err = exc
+        else:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                fut_video = pool.submit(_download_video)
+                fut_audio = pool.submit(_download_audio)
+                try:
+                    fut_video.result()
+                except Exception as exc:
+                    video_err = exc
+                try:
+                    fut_audio.result()
+                except Exception as exc:
+                    audio_err = exc
+        if video_err and _is_youtube_url(url) and _looks_like_http_403(str(video_err)):
+            retries = (
+                {
+                    "player_client": "android_vr",
+                    "fmt": _video_format_403_fallback(max_height),
+                    "extractor_extra": "",
+                    "use_cookies": False,
+                },
+                {
+                    "player_client": _YOUTUBE_CLIENTS_IOS,
+                    "fmt": _video_format_hls(max_height),
+                    "extractor_extra": "formats=missing_pot",
+                    "use_cookies": False,
+                },
+                {
+                    "player_client": "android_vr",
+                    "fmt": "18/b[ext=mp4]/b",
+                    "extractor_extra": "",
+                    "use_cookies": False,
+                },
+            )
+            for attempt in retries:
+                try:
+                    _run_yt_dlp(
+                        tools,
+                        url,
+                        work_dir,
+                        fmt=str(attempt["fmt"]),
+                        stem="media",
+                        write_subtitles=write_subtitles,
+                        write_thumbnail=True,
+                        write_info=True,
+                        merge_mp4=True,
+                        compat=True,
+                        player_client=str(attempt["player_client"]),
+                        extractor_extra=str(attempt["extractor_extra"]),
+                        use_cookies=bool(attempt["use_cookies"]),
+                    )
+                    video_err = None
+                    break
+                except Exception as exc:
+                    video_err = exc
         if video_err:
             raise video_err
+        if _is_youtube_url(url):
+            try:
+                _download_audio()
+            except Exception as exc:
+                audio_err = exc
     except Exception:
         shutil.rmtree(work_dir, ignore_errors=True)
         raise
 
     info = _load_info_json(work_dir)
     meta = _extract_video_metadata(info)
-    video_path = _find_media_file(work_dir, "media", (".mp4", ".webm", ".mkv"))
+    video_path = _find_media_file(work_dir, "media", (".mp4", ".webm", ".mkv", ".ts"))
     if not video_path:
         shutil.rmtree(work_dir, ignore_errors=True)
         raise RuntimeError("未下载到视频文件")
