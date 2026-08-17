@@ -51,9 +51,9 @@ const controlScrollRef = ref<HTMLElement | null>(null)
 const showControlScrollFade = ref(false)
 let controlScrollObserver: ResizeObserver | null = null
 
-/** 全屏时弹层必须挂在全屏元素内；依赖 isFullscreen 触发重算 */
+/** 全屏时弹层挂全屏元素内；非全屏必须挂 body，否则会被底部进度条盖住 */
 const popoverTeleportTo = computed(() => {
-  void isFullscreen.value
+  if (!isFullscreen.value) return 'body'
   const fs = document.fullscreenElement
   if (fs instanceof HTMLElement) return fs
   if (props.videoPanelRef) return props.videoPanelRef
@@ -63,7 +63,7 @@ const popoverTeleportTo = computed(() => {
 const overlayLayerClass = computed(() =>
   isFullscreen.value
     ? 'absolute inset-0 z-[400] flex items-end justify-center bg-black/40'
-    : 'fixed inset-0 z-[300] flex items-end justify-center bg-black/40',
+    : 'fixed inset-0 z-[500] flex items-end justify-center bg-black/40',
 )
 
 function updateControlScrollFade() {
