@@ -1481,6 +1481,9 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
   gap: 0.45rem !important;
   background: #0a0a0a !important;
   border: none !important;
+  /* 必须 visible：否则 Teleport 进来的倍速/更多弹层会被裁掉 */
+  overflow: visible !important;
+  position: relative !important;
 }
 
 .video-panel:fullscreen .video-panel__player,
@@ -1520,16 +1523,34 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
   flex: 0 0 auto !important;
   width: 100%;
   min-height: 0 !important;
-  max-height: min(32dvh, 12.5rem);
+  max-height: min(34dvh, 13.5rem);
   overflow: visible;
   display: flex;
   flex-direction: column;
 }
 
+.video-panel__caption-mode-btn {
+  min-width: 3.25rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  font-weight: 550;
+  color: rgb(163 163 163);
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.video-panel__caption-mode-btn.is-active {
+  color: #fafafa;
+  background: rgb(255 255 255 / 0.16);
+  border-color: rgb(255 255 255 / 0.28);
+}
+
 @media (orientation: landscape) and (max-width: 1023px) {
   .video-panel:fullscreen .video-panel__subtitle,
   .video-panel.video-panel--fullscreen .video-panel__subtitle {
-    max-height: min(28dvh, 9.5rem);
+    max-height: min(30dvh, 10.5rem);
   }
 }
 
@@ -1572,6 +1593,12 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
 .video-panel:fullscreen .subtitle-word-tooltip,
 .video-panel.video-panel--fullscreen .subtitle-word-tooltip {
   z-index: 2147483646;
+}
+
+.video-panel:fullscreen .video-panel__controls,
+.video-panel.video-panel--fullscreen .video-panel__controls {
+  position: relative;
+  z-index: 40;
 }
 
 /* 隐藏字幕后的观影布局：尽量放大画面，同时保留底部呼吸空间 */

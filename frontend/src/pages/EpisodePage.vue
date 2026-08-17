@@ -908,6 +908,13 @@ const playbackSrc = computed(() => {
 
 const isChineseOnly = computed(() => modeIsChineseOnly(subtitleMode.value))
 
+/** 全屏当前句：仅双语 / 英语两种展示（与侧栏完整模式共用 subtitleMode） */
+const fullscreenCaptionBilingual = computed(() => modeShowsChinese(subtitleMode.value))
+
+function setFullscreenCaptionMode(mode: 'both' | 'en') {
+  selectSubtitleMode(mode)
+}
+
 const modeButtons: { key: SubtitleDisplayMode; label: string }[] = [
   { key: 'both', label: '双语' },
   { key: 'en', label: '英语' },
@@ -2038,6 +2045,30 @@ function subtitleRowClass(index: number) {
           v-show="showCurrentSubtitleBar"
           class="video-panel__subtitle shrink-0 min-h-0 flex flex-col"
         >
+          <div
+            class="video-panel__caption-mode shrink-0 flex items-center justify-center gap-1 pb-1"
+            role="group"
+            aria-label="全屏字幕语言"
+          >
+            <button
+              type="button"
+              class="video-panel__caption-mode-btn"
+              :class="fullscreenCaptionBilingual ? 'is-active' : ''"
+              :aria-pressed="fullscreenCaptionBilingual"
+              @click="setFullscreenCaptionMode('both')"
+            >
+              中英
+            </button>
+            <button
+              type="button"
+              class="video-panel__caption-mode-btn"
+              :class="!fullscreenCaptionBilingual ? 'is-active' : ''"
+              :aria-pressed="!fullscreenCaptionBilingual"
+              @click="setFullscreenCaptionMode('en')"
+            >
+              英语
+            </button>
+          </div>
           <SubtitleWordTooltipHost
             class="w-full shrink-0"
             :context="displaySub.english"
@@ -2049,11 +2080,13 @@ function subtitleRowClass(index: number) {
             <CurrentSubtitleBar
               class="w-full shrink-0"
               pin-chinese
+              :align="isPhone ? 'left' : 'center'"
+              :mono-english="isPhone"
               :intensive="intensiveMode"
               :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
               :sub="displaySub"
               :current-time="playbackTime"
-              subtitle-mode="both"
+              :subtitle-mode="fullscreenCaptionBilingual ? 'both' : 'en'"
               :show-ipa="false"
               :english-html="renderHtml(displaySub.english_html)"
               :dictation-frost="isDictationFrost(displaySub.id)"
@@ -2071,11 +2104,13 @@ function subtitleRowClass(index: number) {
           :show-ipa="showIpa"
           :video-hidden="videoHidden"
           :subtitles-hidden="subtitlesHidden"
+          :subtitle-mode="subtitleMode"
           :video-panel-ref="videoPanelRef"
           :compact="isPhone"
           @update:show-ipa="showIpa = $event"
           @update:video-hidden="videoHidden = $event"
           @update:subtitles-hidden="subtitlesHidden = $event"
+          @update:subtitle-mode="selectSubtitleMode"
         />
         <button
           v-if="subtitlesHidden && !isVideoPanelFullscreen"
@@ -2505,8 +2540,8 @@ function subtitleRowClass(index: number) {
       />
     </div>
 
-    <!-- 手机端：底部播放控制 -->
-    <div v-if="isPhone && episode" class="fixed inset-x-0 bottom-0 z-40 pointer-events-none">
+    <!-- 手机端：底部播放控制（全屏时改用面板内控制条，避免遮挡/抢点击） -->
+    <div v-if="isPhone && episode && !isVideoPanelFullscreen" class="fixed inset-x-0 bottom-0 z-40 pointer-events-none">
       <button
         v-if="!adminPreview && !mobileChromeVisible"
         type="button"

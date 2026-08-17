@@ -4,7 +4,7 @@ import SubtitleBlock from '@/components/SubtitleBlock.vue'
 import IntensiveReadingBlock from '@/components/intensive/IntensiveReadingBlock.vue'
 import type { Subtitle } from '@/types'
 import type { WordLookupMeta } from '@/composables/useWordLookupCache'
-import type { SubtitleDisplayMode } from '@/utils/subtitleHtml'
+import type { SubtitleDisplayMode, SubtitleAlign } from '@/utils/subtitleHtml'
 import {
   modeIsChineseOnly,
   modeShowsChinese,
@@ -23,10 +23,14 @@ const props = defineProps<{
   compact?: boolean
   /** Pad：实时字幕顶对齐（margin: 0） */
   topAlign?: boolean
-  /** 全屏等场景：中文固定在底部，上方英文可滚动；并按篇幅收缩字号 */
+  /** 全屏等场景：高度随内容；有中文时中文贴底，上方英文可滚动；并按篇幅收缩字号 */
   pinChinese?: boolean
   /** 叠在画面底部的字幕条（手机全屏） */
   overlay?: boolean
+  /** 英文对齐，默认居中 */
+  align?: SubtitleAlign
+  /** 英文使用等宽字体（手机全屏） */
+  monoEnglish?: boolean
   intensive?: boolean
   lookupMeta?: WordLookupMeta
   /** 听写中：毛玻璃遮罩 */
@@ -53,15 +57,16 @@ const showIpaLine = computed(() => modeShowsIpa(props.subtitleMode, props.showIp
 
 const displayChinese = computed(() => stripSpeakerMarkers(props.sub.chinese || ''))
 
+/** 全屏等：高度随内容；中文可选贴底 */
+const usePinLayout = computed(() => Boolean(props.pinChinese) && !props.compact)
+
 const usePinnedChinese = computed(
-  () =>
-    Boolean(props.pinChinese) &&
-    !props.compact &&
-    showChinese.value &&
-    Boolean(displayChinese.value),
+  () => usePinLayout.value && showChinese.value && Boolean(displayChinese.value),
 )
 
 const useOverlay = computed(() => Boolean(props.overlay))
+
+const englishAlign = computed(() => props.align ?? 'center')
 
 /** 按英/中篇幅收缩字号，尽量同屏显示（全屏贴底模式） */
 const fluidStyle = computed(() => {
@@ -102,14 +107,16 @@ function panelBudgetPx(): number {
     // 叠在画面上：最多约占播放器高度 38%，并避开底部进度条
     return Math.min(h * 0.38, 12.5 * 16)
   }
+  const panel = rootRef.value?.closest('.video-panel__subtitle') as HTMLElement | null
+  if (panel?.clientHeight) return Math.max(panel.clientHeight - 8, 72)
   const h = window.innerHeight
   const landscape = window.matchMedia('(orientation: landscape)').matches
-  if (landscape) return Math.min(h * 0.42, 16 * 16) - 8
-  return Math.min(h * 0.58, 26 * 16) - 8
+  if (landscape) return Math.min(h * 0.3, 10.5 * 16) - 8
+  return Math.min(h * 0.34, 13.5 * 16) - 8
 }
 
 async function fitEnglishToViewport() {
-  if ((!props.pinChinese && !props.overlay) || (!usePinnedChinese.value && !useOverlay.value)) {
+  if ((!props.pinChinese && !props.overlay) || (!usePinLayout.value && !useOverlay.value)) {
     fitScale.value = 1
     englishOverflow.value = false
     return
@@ -198,18 +205,21 @@ onUnmounted(() => {
     class="current-subtitle-bar relative rounded-2xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 dark:border-white/10 cursor-pointer shadow-sm transition-shadow hover:shadow-md"
     :class="[
       compact && !overlay ? 'current-subtitle-bar--compact shrink-0 overflow-hidden' : '',
-      !compact && !overlay ? 'min-h-0 flex-1 overflow-hidden overflow-x-hidden' : '',
+      !compact && !overlay && !pinChinese ? 'min-h-0 flex-1 overflow-hidden overflow-x-hidden' : '',
       overlay ? 'current-subtitle-bar--overlay shrink-0' : '',
       topAlign ? 'current-subtitle-bar--top-align' : '',
-      usePinnedChinese ? 'current-subtitle-bar--pin-chinese' : '',
+      usePinLayout ? 'current-subtitle-bar--pin-chinese' : '',
+      usePinnedChinese ? 'current-subtitle-bar--has-chinese-pin' : '',
       pinChinese || overlay ? 'current-subtitle-bar--fluid' : '',
+      englishAlign === 'left' ? 'current-subtitle-bar--align-left' : '',
+      monoEnglish ? 'current-subtitle-bar--mono-english' : '',
       englishOverflow ? 'is-english-overflow' : '',
     ]"
     :style="fluidStyle"
     @click="$emit('seek')"
   >
     <div class="current-subtitle-bar__viewport">
-      <template v-if="usePinnedChinese">
+      <template v-if="usePinLayout">
         <div ref="scrollRef" class="current-subtitle-bar__scroll subtitle-focus-light">
           <IntensiveReadingBlock
             v-if="intensive"
@@ -219,7 +229,7 @@ onUnmounted(() => {
             :chinese="sub.chinese"
             :ipa="sub.ipa"
             :large="!compact"
-            align="center"
+            :align="englishAlign"
             :show-english="showEnglish"
             :show-chinese="false"
             :show-ipa="showIpaLine"
@@ -233,7 +243,7 @@ onUnmounted(() => {
             :chinese="sub.chinese"
             :ipa="sub.ipa"
             :large="!compact"
-            align="center"
+            :align="englishAlign"
             :chinese-focus="isChineseOnly()"
             :show-english="showEnglish"
             :show-chinese="false"
@@ -242,6 +252,7 @@ onUnmounted(() => {
           />
         </div>
         <p
+          v-if="usePinnedChinese"
           class="subtitle-chinese current-subtitle-bar__chinese-pin max-w-full break-words"
           :class="intensive ? 'intensive-chinese-block' : ''"
         >
@@ -257,7 +268,7 @@ onUnmounted(() => {
           :chinese="sub.chinese"
           :ipa="sub.ipa"
           :large="!compact"
-          align="center"
+          :align="englishAlign"
           :show-english="showEnglish"
           :show-chinese="showChinese"
           :show-ipa="showIpaLine"
@@ -271,7 +282,7 @@ onUnmounted(() => {
           :chinese="sub.chinese"
           :ipa="sub.ipa"
           :large="!compact"
-          align="center"
+          :align="englishAlign"
           :chinese-focus="isChineseOnly()"
           :show-english="showEnglish"
           :show-chinese="showChinese"
@@ -359,6 +370,15 @@ onUnmounted(() => {
   text-align: center;
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+.current-subtitle-bar--align-left .current-subtitle-bar__scroll,
+.current-subtitle-bar--align-left .current-subtitle-bar__content {
+  text-align: left;
+}
+
+.current-subtitle-bar--mono-english :deep(.subtitle-english),
+.current-subtitle-bar--mono-english :deep(.intensive-english) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 .current-subtitle-bar__scroll::-webkit-scrollbar {
   width: 0;

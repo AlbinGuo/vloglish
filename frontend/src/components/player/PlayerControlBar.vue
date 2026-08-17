@@ -5,12 +5,14 @@ import {
   PLAYBACK_RATES,
   type usePlayerControls,
 } from '@/composables/usePlayerControls'
+import { modeShowsChinese, type SubtitleDisplayMode } from '@/utils/subtitleHtml'
 
 const props = defineProps<{
   player: ReturnType<typeof usePlayerControls>
   showIpa: boolean
   videoHidden: boolean
   subtitlesHidden?: boolean
+  subtitleMode?: SubtitleDisplayMode
   videoPanelRef: HTMLElement | null | undefined
   /** 移动端精简控制条 */
   compact?: boolean
@@ -25,8 +27,15 @@ const emit = defineEmits<{
   'update:showIpa': [value: boolean]
   'update:videoHidden': [value: boolean]
   'update:subtitlesHidden': [value: boolean]
+  'update:subtitleMode': [value: SubtitleDisplayMode]
   toggleChrome: []
 }>()
+
+const captionBilingual = computed(() => modeShowsChinese(props.subtitleMode ?? 'both'))
+
+function setCaptionMode(mode: 'both' | 'en') {
+  emit('update:subtitleMode', mode)
+}
 
 const speedOpen = ref(false)
 const speedRoot = ref<HTMLElement | null>(null)
@@ -41,6 +50,21 @@ const isFullscreen = ref(false)
 const controlScrollRef = ref<HTMLElement | null>(null)
 const showControlScrollFade = ref(false)
 let controlScrollObserver: ResizeObserver | null = null
+
+/** 全屏时弹层必须挂在全屏元素内；依赖 isFullscreen 触发重算 */
+const popoverTeleportTo = computed(() => {
+  void isFullscreen.value
+  const fs = document.fullscreenElement
+  if (fs instanceof HTMLElement) return fs
+  if (props.videoPanelRef) return props.videoPanelRef
+  return 'body'
+})
+
+const overlayLayerClass = computed(() =>
+  isFullscreen.value
+    ? 'absolute inset-0 z-[400] flex items-end justify-center bg-black/40'
+    : 'fixed inset-0 z-[300] flex items-end justify-center bg-black/40',
+)
 
 function updateControlScrollFade() {
   const el = controlScrollRef.value
@@ -169,6 +193,7 @@ watch(loopOpen, (open) => {
 })
 
 onMounted(() => {
+  onFullscreenChange()
   document.addEventListener('fullscreenchange', onFullscreenChange)
   bindControlScrollFade()
 })
@@ -187,6 +212,13 @@ watch(
 
 function onFullscreenChange() {
   isFullscreen.value = Boolean(document.fullscreenElement)
+  if (!isFullscreen.value) {
+    moreOpen.value = false
+    speedOpen.value = false
+    speedMenuPos.value = null
+    loopOpen.value = false
+    loopMenuPos.value = null
+  }
 }
 
 async function toggleFullscreen() {
@@ -229,11 +261,16 @@ async function toggleSpeedMenu() {
     speedMenuPos.value = null
     return
   }
-  if (props.compact) {
-    speedMenuPos.value = { top: window.innerHeight - 16, left: window.innerWidth / 2 }
-  } else {
-    speedMenuPos.value = anchorMenu(speedRoot.value)
+  moreOpen.value = false
+  loopOpen.value = false
+  loopMenuPos.value = null
+  // 移动端 / 全屏：用底部 sheet，不依赖 fixed 坐标（全屏内容易被裁切）
+  if (props.compact || isFullscreen.value) {
+    speedMenuPos.value = null
+    speedOpen.value = true
+    return
   }
+  speedMenuPos.value = anchorMenu(speedRoot.value)
   speedOpen.value = true
   if (speedMenuPos.value) {
     speedMenuPos.value = await clampCenteredPopover(() => speedPopoverEl.value, speedMenuPos.value)
@@ -247,16 +284,26 @@ async function toggleLoopMenu() {
     return
   }
   moreOpen.value = false
-  if (props.compact) {
-    loopMenuPos.value = { top: window.innerHeight - 16, left: window.innerWidth / 2 }
-  } else {
-    loopMenuPos.value = anchorMenu(loopRoot.value)
+  speedOpen.value = false
+  speedMenuPos.value = null
+  if (props.compact || isFullscreen.value) {
+    loopMenuPos.value = null
+    loopOpen.value = true
+    maybeShowLoopCoach()
+    return
   }
+  loopMenuPos.value = anchorMenu(loopRoot.value)
   loopOpen.value = true
   maybeShowLoopCoach()
   if (loopMenuPos.value) {
     loopMenuPos.value = await clampCenteredPopover(() => loopPopoverEl.value, loopMenuPos.value)
   }
+}
+
+function closeLoopSheet() {
+  loopOpen.value = false
+  loopMenuPos.value = null
+  if (loopCoachVisible.value) dismissLoopCoach()
 }
 
 function togglePauseAfterSentence() {
@@ -473,6 +520,46 @@ function handleMainAction() {
         <span class="text-[11px] leading-tight mt-0.5">{{ subtitlesHidden ? '显示字幕' : '隐藏字幕' }}</span>
       </button>
 
+      <!-- 全屏字幕语言：中英 / 英语 -->
+      <div
+        v-if="isFullscreen"
+        class="flex flex-col items-center shrink-0 min-w-[3.5rem] text-xs"
+        role="group"
+        aria-label="字幕语言"
+      >
+        <div class="flex items-center rounded-full bg-black/5 dark:bg-white/10 p-0.5">
+          <button
+            type="button"
+            class="px-1.5 h-7 rounded-full text-[10px] font-medium transition-colors"
+            :class="
+              captionBilingual
+                ? 'bg-neutral-700 text-white dark:bg-neutral-200 dark:text-neutral-900'
+                : 'text-neutral-600 dark:text-neutral-300'
+            "
+            :aria-pressed="captionBilingual"
+            title="中英字幕"
+            @click="setCaptionMode('both')"
+          >
+            中英
+          </button>
+          <button
+            type="button"
+            class="px-1.5 h-7 rounded-full text-[10px] font-medium transition-colors"
+            :class="
+              !captionBilingual
+                ? 'bg-neutral-700 text-white dark:bg-neutral-200 dark:text-neutral-900'
+                : 'text-neutral-600 dark:text-neutral-300'
+            "
+            :aria-pressed="!captionBilingual"
+            title="仅英文字幕"
+            @click="setCaptionMode('en')"
+          >
+            英语
+          </button>
+        </div>
+        <span class="text-[11px] leading-tight mt-0.5">字幕</span>
+      </div>
+
       <!-- 全屏 -->
       <button
         type="button"
@@ -632,13 +719,13 @@ function handleMainAction() {
       />
     </div>
 
-    <!-- 弹层挂到 body，避免被 overflow 裁剪 -->
-    <Teleport to="body">
+    <!-- 弹层：非全屏挂 body；全屏挂全屏元素，并用 absolute 避免 overflow 裁切 -->
+    <Teleport :to="popoverTeleportTo">
       <!-- 移动端更多 -->
       <div
         v-if="compact && moreOpen"
         data-player-popover
-        class="fixed inset-0 z-[300] flex items-end justify-center bg-black/40"
+        :class="overlayLayerClass"
         @click.self="moreOpen = false"
       >
         <div
@@ -676,6 +763,34 @@ function handleMainAction() {
               </div>
               <span>{{ subtitlesHidden ? '显示字幕' : '隐藏字幕' }}</span>
             </button>
+            <button
+              v-if="isFullscreen"
+              type="button"
+              class="flex flex-col items-center gap-1 text-xs"
+              @click="setCaptionMode('both'); moreOpen = false"
+            >
+              <div
+                class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[11px] font-medium"
+                :class="captionBilingual ? 'text-orange-500 ring-2 ring-orange-400/50' : ''"
+              >
+                中英
+              </div>
+              <span>中英字幕</span>
+            </button>
+            <button
+              v-if="isFullscreen"
+              type="button"
+              class="flex flex-col items-center gap-1 text-xs"
+              @click="setCaptionMode('en'); moreOpen = false"
+            >
+              <div
+                class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[11px] font-medium"
+                :class="!captionBilingual ? 'text-orange-500 ring-2 ring-orange-400/50' : ''"
+              >
+                EN
+              </div>
+              <span>英文字幕</span>
+            </button>
             <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="toggleFullscreen(); moreOpen = false">
               <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">⛶</div>
               <span>全屏</span>
@@ -705,8 +820,177 @@ function handleMainAction() {
         </div>
       </div>
 
+      <!-- 移动端 / 全屏：倍速底部 sheet -->
       <div
-        v-if="speedOpen && speedMenuPos"
+        v-if="(compact || isFullscreen) && speedOpen"
+        data-player-popover
+        :class="overlayLayerClass"
+        @click.self="speedOpen = false"
+      >
+        <div
+          class="w-full max-w-lg rounded-t-2xl bg-white dark:bg-neutral-900 shadow-2xl border-t border-black/10 dark:border-white/10 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]"
+          @click.stop
+        >
+          <div class="flex justify-center pb-2">
+            <div class="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+          </div>
+          <p class="text-sm font-medium text-center mb-3">播放倍速</p>
+          <div class="grid grid-cols-4 gap-2 pb-2">
+            <button
+              v-for="r in PLAYBACK_RATES"
+              :key="r"
+              type="button"
+              class="px-2 py-2.5 text-sm rounded-xl border transition-colors"
+              :class="
+                player.playbackRate.value === r
+                  ? 'bg-neutral-600 border-neutral-600 text-white'
+                  : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800'
+              "
+              @click="selectRate(r)"
+            >
+              {{ formatRate(r) }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 移动端 / 全屏：单句循环底部 sheet -->
+      <div
+        v-if="(compact || isFullscreen) && loopOpen"
+        data-player-popover
+        :class="overlayLayerClass"
+        @click.self="closeLoopSheet"
+      >
+        <div
+          class="w-full max-w-lg rounded-t-2xl bg-white dark:bg-neutral-900 shadow-2xl border-t border-black/10 dark:border-white/10 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]"
+          @click.stop
+        >
+          <div class="flex justify-center pb-2">
+            <div class="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+          </div>
+          <p class="text-sm font-medium text-center mb-2">单句循环</p>
+          <p
+            v-if="loopCoachVisible"
+            class="mb-2 rounded-lg bg-orange-50 dark:bg-orange-950/40 px-2.5 py-2 text-[11px] leading-snug text-orange-900 dark:text-orange-100"
+          >
+            练跟读：设好次数并打开「句末停下」后，会连播满次数再停；点「下一句」自动播下一句。
+          </p>
+          <p class="text-[10px] text-neutral-400 mb-1.5 px-0.5">循环次数</p>
+          <div class="grid grid-cols-4 gap-2 mb-3">
+            <button
+              v-for="n in LOOP_COUNT_OPTIONS"
+              :key="n"
+              type="button"
+              class="px-2 py-2.5 text-sm rounded-xl border transition-colors"
+              :class="
+                player.sentenceLoopCount.value === n
+                  ? 'bg-neutral-600 border-neutral-600 text-white'
+                  : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800'
+              "
+              @click="selectLoopCount(n)"
+            >
+              {{ n }}
+            </button>
+          </div>
+          <div class="space-y-2 pb-2">
+            <button
+              type="button"
+              class="w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors"
+              :class="
+                player.pauseAfterSentence.value
+                  ? 'bg-orange-50 text-orange-900 dark:bg-orange-950/50 dark:text-orange-100'
+                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+              "
+              @click="togglePauseAfterSentence"
+            >
+              <span class="min-w-0">
+                <span class="block font-medium">句末停下</span>
+                <span class="block text-[10px] text-neutral-400 mt-0.5 leading-snug">
+                  按次数连播，播满后停；点下一句自动播下一句
+                </span>
+              </span>
+              <span
+                class="shrink-0 w-9 h-5 rounded-full relative transition-colors"
+                :class="player.pauseAfterSentence.value ? 'bg-orange-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+                aria-hidden="true"
+              >
+                <span
+                  class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+                  :class="player.pauseAfterSentence.value ? 'translate-x-4' : ''"
+                />
+              </span>
+            </button>
+            <button
+              type="button"
+              class="w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors"
+              :class="
+                player.pauseAfterSentence.value
+                  ? 'opacity-40 cursor-not-allowed text-neutral-400'
+                  : player.autoAdvanceAfterLoop.value
+                    ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
+                    : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+              "
+              :disabled="player.pauseAfterSentence.value"
+              @click="toggleAutoAdvanceAfterLoop"
+            >
+              <span class="min-w-0">
+                <span class="block font-medium">自动下一句</span>
+                <span class="block text-[10px] text-neutral-400 mt-0.5 leading-snug">
+                  {{
+                    player.pauseAfterSentence.value
+                      ? '句末停下时请手动换句'
+                      : '同句多遍连续播；换句时短暂停顿'
+                  }}
+                </span>
+              </span>
+              <span
+                class="shrink-0 w-9 h-5 rounded-full relative transition-colors"
+                :class="player.autoAdvanceAfterLoop.value ? 'bg-amber-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+                aria-hidden="true"
+              >
+                <span
+                  class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+                  :class="player.autoAdvanceAfterLoop.value ? 'translate-x-4' : ''"
+                />
+              </span>
+            </button>
+            <button
+              type="button"
+              class="w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors"
+              :class="
+                player.dictationAfterLoop.value
+                  ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
+                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+              "
+              @click="toggleDictationAfterLoop"
+            >
+              <span class="min-w-0">
+                <span class="block font-medium">播放完后听写</span>
+                <span class="block text-[10px] text-neutral-400 mt-0.5 leading-snug">
+                  {{
+                    player.autoAdvanceAfterLoop.value
+                      ? '整段播完后进入听写'
+                      : '当前句次数播完后进入听写'
+                  }}
+                </span>
+              </span>
+              <span
+                class="shrink-0 w-9 h-5 rounded-full relative transition-colors"
+                :class="player.dictationAfterLoop.value ? 'bg-amber-500' : 'bg-neutral-200 dark:bg-neutral-700'"
+                aria-hidden="true"
+              >
+                <span
+                  class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
+                  :class="player.dictationAfterLoop.value ? 'translate-x-4' : ''"
+                />
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-if="!compact && !isFullscreen && speedOpen && speedMenuPos"
         ref="speedPopoverEl"
         data-player-popover
         class="fixed z-[300] p-2 bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-black/10 dark:border-white/10 min-w-[11rem]"
@@ -737,7 +1021,7 @@ function handleMainAction() {
       </div>
 
       <div
-        v-if="loopOpen && loopMenuPos"
+        v-if="!compact && !isFullscreen && loopOpen && loopMenuPos"
         ref="loopPopoverEl"
         data-player-popover
         class="fixed z-[300] p-2.5 bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-black/10 dark:border-white/10 min-w-[14rem] max-w-[min(20rem,calc(100vw-1rem))]"
