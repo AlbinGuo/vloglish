@@ -2032,6 +2032,38 @@ function subtitleRowClass(index: number) {
             @open-word="onDanmakuOpenWord"
           />
         </div>
+        <!-- 全屏：字幕在视频下方独立区域，不叠在进度条上 -->
+        <div
+          v-if="mountCurrentSubtitleBar && displaySub && isVideoPanelFullscreen"
+          v-show="showCurrentSubtitleBar"
+          class="video-panel__subtitle shrink-0 min-h-0 flex flex-col"
+        >
+          <SubtitleWordTooltipHost
+            class="w-full shrink-0"
+            :context="displaySub.english"
+            :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
+            :teleport-to="subtitleTooltipTeleport"
+            @word-hover-start="onSubtitleWordHoverStart"
+            @word-hover-end="onSubtitleWordHoverEnd"
+          >
+            <CurrentSubtitleBar
+              class="w-full shrink-0"
+              pin-chinese
+              :intensive="intensiveMode"
+              :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
+              :sub="displaySub"
+              :current-time="playbackTime"
+              subtitle-mode="both"
+              :show-ipa="false"
+              :english-html="renderHtml(displaySub.english_html)"
+              :dictation-frost="isDictationFrost(displaySub.id)"
+              :data-subtitle-context="displaySub.english"
+              @seek="player.seekTo(displaySub)"
+              v-on="wordLongPressHandlers"
+              @click="onSubtitleClick"
+            />
+          </SubtitleWordTooltipHost>
+        </div>
         <PlayerControls
           v-if="!isPhone || isVideoPanelFullscreen"
           class="shrink-0 video-panel__controls"
@@ -2054,10 +2086,9 @@ function subtitleRowClass(index: number) {
           字幕已隐藏 · 点击显示
         </button>
         <div
-          v-if="mountCurrentSubtitleBar && displaySub"
+          v-if="mountCurrentSubtitleBar && displaySub && !isVideoPanelFullscreen"
           v-show="showCurrentSubtitleBar"
-          class="min-h-0 flex flex-col"
-          :class="isVideoPanelFullscreen ? 'video-panel__subtitle shrink-0' : 'flex-1 min-h-0'"
+          class="min-h-0 flex flex-col flex-1"
         >
           <SubtitleWordTooltipHost
             class="min-h-0 flex flex-col flex-1"
@@ -2069,16 +2100,15 @@ function subtitleRowClass(index: number) {
           >
             <CurrentSubtitleBar
               class="w-full"
-              :class="isPhone && !isVideoPanelFullscreen ? '' : 'min-h-0 flex-1'"
-              :compact="isPhone && !isVideoPanelFullscreen"
-              :top-align="isPad && !isVideoPanelFullscreen"
-              :pin-chinese="isVideoPanelFullscreen"
+              :class="isPhone ? '' : 'min-h-0 flex-1'"
+              :compact="isPhone"
+              :top-align="isPad"
               :intensive="intensiveMode"
               :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
               :sub="displaySub"
               :current-time="playbackTime"
-              :subtitle-mode="isVideoPanelFullscreen ? 'both' : subtitleMode"
-              :show-ipa="showIpa && !isVideoPanelFullscreen"
+              :subtitle-mode="subtitleMode"
+              :show-ipa="showIpa"
               :english-html="renderHtml(displaySub.english_html)"
               :dictation-frost="isDictationFrost(displaySub.id)"
               :data-subtitle-context="displaySub.english"
