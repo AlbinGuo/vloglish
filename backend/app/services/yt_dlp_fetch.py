@@ -144,13 +144,15 @@ def _find_media_file(work_dir: Path, stem: str, extensions: tuple[str, ...]) -> 
 
 AUDIO_FORMAT = "bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio[acodec^=mp4a]/bestaudio"
 
+# 优先 DASH 分离流。`best[ext=mp4]` 常落到 itag 18（360p 合并），`--check-formats` 一跳过就没得下。
 H264_FORMAT_BEST = (
-    "best[ext=mp4][vcodec^=avc1]/"
-    "best[ext=mp4][vcodec^=h264]/"
     "bestvideo[vcodec^=avc1]+bestaudio/"
     "bestvideo[vcodec^=h264]+bestaudio/"
+    "bestvideo[ext=mp4]+bestaudio/"
+    "bv*+ba/"
+    "best[ext=mp4][vcodec^=avc1]/"
     "b[ext=mp4][vcodec!=hevc][vcodec!=h265]/"
-    "bv*+ba/b"
+    "b"
 )
 
 
@@ -169,11 +171,10 @@ def _video_format(max_height: int | None) -> str:
         return H264_FORMAT_BEST
     h = max_height
     return (
-        f"best[height<={h}][ext=mp4][vcodec^=avc1]/"
-        f"best[height<={h}][ext=mp4][vcodec^=h264]/"
         f"bestvideo[height<={h}][vcodec^=avc1]+bestaudio/"
         f"bestvideo[height<={h}][vcodec^=h264]+bestaudio/"
-        f"best[height<={h}][ext=mp4]/"
+        f"bestvideo[height<={h}][ext=mp4]+bestaudio/"
+        f"bv[height<={h}]+ba/"
         f"{H264_FORMAT_BEST}"
     )
 
@@ -223,6 +224,15 @@ def _looks_like_http_403(detail: str) -> bool:
     return "403" in lower and ("forbidden" in lower or "unable to download" in lower)
 
 
+def _looks_like_format_unavailable(detail: str) -> bool:
+    lower = (detail or "").lower()
+    return "requested format is not available" in lower or "unable to download format" in lower
+
+
+def _should_retry_youtube(detail: str) -> bool:
+    return _looks_like_http_403(detail) or _looks_like_format_unavailable(detail)
+
+
 def _detect_js_runtime() -> str:
     configured = os.getenv("YT_DLP_JS_RUNTIME", "").strip().lower()
     if configured:
@@ -235,11 +245,15 @@ def _detect_js_runtime() -> str:
 
 
 def _video_format_403_fallback(max_height: int | None) -> str:
-    """403 时改下「已合并」的 progressive 流，避开 DASH/android_sdkless。"""
+    """403 / 格式 18 失效时改下 DASH 分离流，不再钉死 itag 18。"""
     if max_height is None:
-        return "b[ext=mp4]/b"
+        return "bv[vcodec^=avc1]+ba/bv*+ba/b"
     h = max_height
-    return f"b[height<={h}][ext=mp4]/b[height<={h}]/best[height<={h}][ext=mp4]/b[ext=mp4]/b"
+    return (
+        f"bv[height<={h}][vcodec^=avc1]+ba/"
+        f"bv[height<={h}]+ba/"
+        "bv[vcodec^=avc1]+ba/bv*+ba/b"
+    )
 
 
 def _video_format_hls(max_height: int | None) -> str:
@@ -252,10 +266,10 @@ def _video_format_hls(max_height: int | None) -> str:
     )
 
 
-# default 会带上 web/tv；当前会话一旦 SABR-only，这两家没有 https 直链。
-# mweb 的 https 需要 GVS PO Token，未配置时只会告警，故默认只用 android_vr。
-_YOUTUBE_CLIENTS = "android_vr,-android_sdkless,-web,-tv,-web_safari,-mweb"
-_YOUTUBE_CLIENTS_IOS = "ios,-android_sdkless,-web,-tv,-web_safari,-mweb"
+# web_embedded 不需要 GVS PO Token，且实测 googlevideo 不 403。
+# android_vr 能列出 DASH，但 CDN 常 403；web/tv/mweb 易 SABR-only。
+_YOUTUBE_CLIENTS = "web_embedded,-android_sdkless,-web,-tv,-mweb"
+_YOUTUBE_CLIENTS_IOS = "ios,-android_sdkless,-web,-tv,-mweb"
 
 
 def _cookies_from_browser() -> str:
@@ -284,13 +298,16 @@ def _yt_dlp_cli_extras(
     player_client: str | None = None,
     extractor_extra: str = "",
     use_browser_cookies: bool = True,
+    check_formats: bool = True,
 ) -> list[str]:
     args: list[str] = []
     proxy = os.getenv("YT_DLP_PROXY", "").strip()
     if proxy:
         args.extend(["--proxy", proxy])
     impersonate = os.getenv("YT_DLP_IMPERSONATE", "").strip()
-    if impersonate:
+    if not impersonate and _is_youtube_url(url):
+        impersonate = "chrome"
+    if impersonate and impersonate.lower() not in {"0", "none", "off"}:
         args.extend(["--impersonate", impersonate])
     browser = _cookies_from_browser() if use_browser_cookies else ""
     if browser:
@@ -309,8 +326,10 @@ def _yt_dlp_cli_extras(
         js_runtime = _detect_js_runtime()
         if js_runtime:
             args.extend(["--js-runtimes", js_runtime])
-        # 避免缓存把 SABR-only 会话粘住；先探测直链是否 403 再换格式
-        args.extend(["--no-cache-dir", "--check-formats"])
+        # 避免缓存把 SABR-only 会话粘住
+        args.append("--no-cache-dir")
+        if check_formats:
+            args.append("--check-formats")
     try:
         default_n = 2 if _is_youtube_url(url) else 8
         fragments = max(1, min(16, int(os.getenv("YT_DLP_CONCURRENT_FRAGMENTS", str(default_n)))))
@@ -387,7 +406,16 @@ def _format_ytdlp_error(detail: str, url: str) -> str:
         )
         return (
             "YouTube 拒绝了媒体流下载（HTTP 403）。"
-            f"① 换代理节点后重试；② {cookie_hint}③ {js_hint}\n\n"
+            "请重启后端后再抓一次（已改用 web_embedded 客户端，本机探测可下）。"
+            f"若仍失败：① 换代理节点；② {cookie_hint}③ {js_hint}"
+            "禁止嵌入的视频 web_embedded 不可用，可换一条可嵌入的片源。\n\n"
+            f"原始错误：{detail[-800:]}"
+        )
+    if _looks_like_format_unavailable(detail) and platform == "YouTube":
+        return (
+            "YouTube 没有可用的下载格式（常见于 360p 合并流 itag 18 被跳过）。"
+            "请重启后端后再抓一次——已改为优先下载 720p DASH 分离流。"
+            "若仍失败请换代理节点。\n\n"
             f"原始错误：{detail[-800:]}"
         )
     return detail[-2000:] if detail else "yt-dlp 执行失败"
@@ -408,6 +436,7 @@ def _run_yt_dlp(
     player_client: str | None = None,
     extractor_extra: str = "",
     use_cookies: bool = True,
+    check_formats: bool = True,
 ) -> None:
     out_template = str(work_dir / f"{stem}.%(ext)s")
     cmd = [
@@ -448,6 +477,7 @@ def _run_yt_dlp(
             player_client=player_client,
             extractor_extra=extractor_extra,
             use_browser_cookies=browser_cookies,
+            check_formats=check_formats,
         )
     )
     cmd.append(url)
@@ -511,6 +541,7 @@ def download_source_media(
             write_info=True,
             merge_mp4=True,
             use_cookies=not _is_youtube_url(url) or _youtube_cookies_opt_in(),
+            check_formats=not _is_youtube_url(url),
         )
 
     def _download_audio() -> None:
@@ -521,6 +552,7 @@ def download_source_media(
             fmt=AUDIO_FORMAT,
             stem="audio",
             use_cookies=not _is_youtube_url(url) or _youtube_cookies_opt_in(),
+            check_formats=not _is_youtube_url(url),
         )
 
     try:
@@ -542,25 +574,28 @@ def download_source_media(
                     fut_audio.result()
                 except Exception as exc:
                     audio_err = exc
-        if video_err and _is_youtube_url(url) and _looks_like_http_403(str(video_err)):
+        if video_err and _is_youtube_url(url) and _should_retry_youtube(str(video_err)):
             retries = (
                 {
-                    "player_client": "android_vr",
+                    "player_client": "web_embedded",
                     "fmt": _video_format_403_fallback(max_height),
                     "extractor_extra": "",
                     "use_cookies": False,
+                    "check_formats": False,
                 },
                 {
                     "player_client": _YOUTUBE_CLIENTS_IOS,
                     "fmt": _video_format_hls(max_height),
                     "extractor_extra": "formats=missing_pot",
                     "use_cookies": False,
+                    "check_formats": False,
                 },
                 {
                     "player_client": "android_vr",
-                    "fmt": "18/b[ext=mp4]/b",
+                    "fmt": _video_format_403_fallback(max_height),
                     "extractor_extra": "",
                     "use_cookies": False,
+                    "check_formats": False,
                 },
             )
             for attempt in retries:
@@ -579,6 +614,7 @@ def download_source_media(
                         player_client=str(attempt["player_client"]),
                         extractor_extra=str(attempt["extractor_extra"]),
                         use_cookies=bool(attempt["use_cookies"]),
+                        check_formats=bool(attempt["check_formats"]),
                     )
                     video_err = None
                     break

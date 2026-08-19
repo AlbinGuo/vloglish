@@ -698,15 +698,25 @@ function handleMainAction() {
       <button
         type="button"
         class="flex flex-col items-center shrink-0 min-w-[3rem] text-xs transition-all active:scale-95 focus:outline-none cursor-pointer"
-        title="循环间隔"
+        title="句间/遍间停顿。点击 0→5 秒循环。倒计时可点画面跳过。"
         @click="cycleInterval"
       >
-        <div class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10">
+        <div
+          class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center"
+          :class="
+            player.loopInterval.value > 0
+              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+              : 'bg-black/5 dark:bg-white/10'
+          "
+        >
           <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
           </svg>
         </div>
-        <span class="text-[11px] leading-tight mt-0.5">
+        <span
+          class="text-[11px] leading-tight mt-0.5"
+          :class="player.loopInterval.value > 0 ? 'text-amber-700 dark:text-amber-300' : ''"
+        >
           间隔{{ player.loopInterval.value > 0 ? player.loopInterval.value + '秒' : '' }}
         </span>
       </button>
@@ -813,8 +823,13 @@ function handleMainAction() {
               <span>单句循环</span>
             </button>
             <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="cycleInterval(); moreOpen = false">
-              <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">⏱</div>
-              <span>间隔</span>
+              <div
+                class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center"
+                :class="player.loopInterval.value > 0 ? 'text-amber-600 ring-2 ring-amber-400/60' : ''"
+              >
+                ⏱
+              </div>
+              <span>{{ player.loopInterval.value > 0 ? `间隔${player.loopInterval.value}秒` : '间隔' }}</span>
             </button>
           </div>
         </div>

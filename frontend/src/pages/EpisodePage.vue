@@ -43,6 +43,7 @@ import EntryCard from '@/components/EntryCard.vue'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import PlayerControls from '@/components/PlayerControls.vue'
 import VideoPlayer from '@/components/player/VideoPlayer.vue'
+import GapCountdownOverlay from '@/components/player/GapCountdownOverlay.vue'
 import VideoProgressBar from '@/components/player/VideoProgressBar.vue'
 import KeyboardHelp from '@/components/KeyboardHelp.vue'
 import SettingsButton from '@/components/SettingsButton.vue'
@@ -2034,9 +2035,16 @@ function subtitleRowClass(index: number) {
             :start="displaySub.start"
             :end="displaySub.end"
             :current-time="player.currentTime.value"
-            :paused="!player.isPlaying.value"
+            :paused="!player.isPlaying.value || player.gapActive.value"
             :can-save="auth.isLoggedIn && !adminPreview"
             @open-word="onDanmakuOpenWord"
+          />
+          <GapCountdownOverlay
+            v-if="!videoHidden && player.gapActive.value"
+            :remaining-ms="player.gapRemainingMs.value"
+            :duration-ms="player.gapDurationMs.value"
+            :kind="player.gapKind.value"
+            @skip="player.skipGapHold"
           />
         </div>
         <!-- 全屏：字幕在视频下方独立区域，不叠在进度条上 -->

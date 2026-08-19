@@ -146,8 +146,23 @@ export function usePlayerControls(opts: PlayerControlOptions) {
     }
   }
 
-  /** 句间间隔（秒）；0 = 无缝接下一句，不强制停顿 */
-  const loopInterval = ref(0)
+  /** 句间 / 遍间间隔（秒）；0 = 无缝接下一遍或下一句 */
+  const loopInterval = ref(
+    (() => {
+      try {
+        const raw = Number(localStorage.getItem('teco-loop-interval') || '0')
+        if (!Number.isFinite(raw)) return 0
+        return Math.min(5, Math.max(0, Math.floor(raw)))
+      } catch {
+        return 0
+      }
+    })(),
+  )
+
+  const gapRemainingMs = ref(0)
+  const gapDurationMs = ref(0)
+  const gapKind = ref<'repeat' | 'next' | ''>('')
+  const gapActive = computed(() => gapKind.value !== '')
 
   /** 听写「再听一遍」：播完当前句后自动暂停 */
   let oneShotPauseSub: Subtitle | null = null
@@ -167,8 +182,11 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
   let sentenceLoopTimer: ReturnType<typeof setTimeout> | null = null
-  /** 句间间隔时冻住播放头，避免漏出下一句；保持 playing，不进入 pause */
+  let gapTickTimer: ReturnType<typeof setInterval> | null = null
+  /** 间隔时冻住播放头，避免漏出下一句 */
   let sentenceHoldAt: number | null = null
+  let gapOnDone: (() => void) | null = null
+  let gapDeadlineAt = 0
 
   let lastWatchTime = 0
 
@@ -232,18 +250,32 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
 
-  function clearSentenceLoopTimer() {
-
-    if (sentenceLoopTimer) {
-
-      clearTimeout(sentenceLoopTimer)
-
-      sentenceLoopTimer = null
-
+  function clearGapUi() {
+    if (gapTickTimer) {
+      clearInterval(gapTickTimer)
+      gapTickTimer = null
     }
+    gapRemainingMs.value = 0
+    gapDurationMs.value = 0
+    gapKind.value = ''
+    gapDeadlineAt = 0
+  }
 
+  function clearSentenceLoopTimer() {
+    if (sentenceLoopTimer) {
+      clearTimeout(sentenceLoopTimer)
+      sentenceLoopTimer = null
+    }
     sentenceHoldAt = null
+    gapOnDone = null
+    clearGapUi()
+  }
 
+  function skipGapHold() {
+    const fn = gapOnDone
+    gapOnDone = null
+    clearSentenceLoopTimer()
+    fn?.()
   }
 
 
@@ -369,25 +401,19 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
   function togglePlay() {
-
     const v = getVideo()
-
     if (!v) return
-
-    if (v.paused) {
-
-      void v.play()
-
-      isPlaying.value = true
-
-    } else {
-
-      v.pause()
-
-      isPlaying.value = false
-
+    if (gapOnDone) {
+      skipGapHold()
+      return
     }
-
+    if (v.paused) {
+      void v.play()
+      isPlaying.value = true
+    } else {
+      v.pause()
+      isPlaying.value = false
+    }
   }
 
 
@@ -537,9 +563,12 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
   function cycleLoopInterval() {
-
     loopInterval.value = loopInterval.value >= 5 ? 0 : loopInterval.value + 1
-
+    try {
+      localStorage.setItem('teco-loop-interval', String(loopInterval.value))
+    } catch {
+      // ignore
+    }
   }
 
 
@@ -665,8 +694,82 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
   function effectiveLoopGapSec() {
-    // 仅使用用户设置的间隔；0 表示无缝进入下一句
     return Math.max(0, loopInterval.value || 0)
+  }
+
+  function beginGapHold(
+    v: HTMLVideoElement,
+    sub: Subtitle,
+    gapSec: number,
+    kind: 'repeat' | 'next',
+    onDone: () => void,
+  ) {
+    const gapMs = Math.round(Math.max(0, gapSec) * 1000)
+    if (gapMs <= 0) {
+      onDone()
+      return
+    }
+
+    clearSentenceLoopTimer()
+    const hold = Math.max(sub.start, sub.end - 0.05)
+    sentenceHoldAt = hold
+    v.currentTime = hold
+    currentTime.value = hold
+    v.pause()
+    isPlaying.value = true
+
+    gapKind.value = kind
+    gapDurationMs.value = gapMs
+    gapRemainingMs.value = gapMs
+    gapDeadlineAt = performance.now() + gapMs
+    gapOnDone = onDone
+
+    gapTickTimer = setInterval(() => {
+      const left = Math.max(0, gapDeadlineAt - performance.now())
+      gapRemainingMs.value = left
+      if (left <= 0 && gapTickTimer) {
+        clearInterval(gapTickTimer)
+        gapTickTimer = null
+      }
+    }, 80)
+
+    sentenceLoopTimer = setTimeout(() => {
+      const fn = gapOnDone
+      gapOnDone = null
+      clearSentenceLoopTimer()
+      fn?.()
+    }, gapMs)
+  }
+
+  function replaySameSentenceAfterGap(v: HTMLVideoElement, sub: Subtitle) {
+    const gapSec = effectiveLoopGapSec()
+    if (gapSec <= 0) {
+      replaySameSentenceNow(v, sub)
+      return
+    }
+    beginGapHold(v, sub, gapSec, 'repeat', () => replaySameSentenceNow(v, sub))
+  }
+
+  function playNextSubtitleAfterGap(v: HTMLVideoElement, sub: Subtitle) {
+    const subs = opts.sortedSubs.value
+    const nextIdx = opts.currentIndex.value + 1
+    if (nextIdx >= subs.length) return false
+    const goNext = () => {
+      sentenceLoopsDone.value = 0
+      seekTo(subs[nextIdx])
+      void v.play().then(() => {
+        isPlaying.value = true
+      }).catch(() => {
+        isPlaying.value = false
+      })
+    }
+    const gapSec = effectiveLoopGapSec()
+    if (gapSec <= 0) {
+      goNext()
+      return true
+    }
+    beginGapHold(v, sub, gapSec, 'next', goNext)
+    return true
   }
 
   function setAutoAdvanceAfterLoop(on: boolean) {
@@ -683,40 +786,12 @@ export function usePlayerControls(opts: PlayerControlOptions) {
     oneShotPauseSub = null
 
     const canAutoAdvance =
-      autoAdvanceAfterLoop.value && sentenceLoopCount.value > 0
+      !dictationAfterLoop.value
+      && sentenceLoopCount.value > 0
+      && (autoAdvanceAfterLoop.value || effectiveLoopGapSec() > 0)
 
     if (canAutoAdvance) {
-      const subs = opts.sortedSubs.value
-      const nextIdx = opts.currentIndex.value + 1
-      if (nextIdx < subs.length) {
-        const gapMs = effectiveLoopGapSec() * 1000
-        const goNext = () => {
-          sentenceLoopTimer = null
-          sentenceHoldAt = null
-          sentenceLoopsDone.value = 0
-          seekTo(subs[nextIdx])
-          void v.play().then(() => {
-            isPlaying.value = true
-          }).catch(() => {
-            isPlaying.value = false
-          })
-        }
-
-        if (gapMs <= 0) {
-          goNext()
-          return
-        }
-
-        // 有间隔：冻在本句末尾，保持 playing（不 pause、不漏播下一句）
-        const hold = Math.max(sub.start, sub.end - 0.05)
-        sentenceHoldAt = hold
-        v.currentTime = hold
-        currentTime.value = hold
-        if (v.paused) void v.play()
-        isPlaying.value = true
-        sentenceLoopTimer = setTimeout(goNext, gapMs)
-        return
-      }
+      if (playNextSubtitleAfterGap(v, sub)) return
 
       // 最后一句次数播完：整段结束
       loopMode.value = 'off'
@@ -795,7 +870,7 @@ export function usePlayerControls(opts: PlayerControlOptions) {
         pauseAfterLoopRound(v, sub)
         return
       }
-      replaySameSentenceNow(v, sub)
+      replaySameSentenceAfterGap(v, sub)
       return
     }
 
@@ -805,8 +880,7 @@ export function usePlayerControls(opts: PlayerControlOptions) {
       return
     }
 
-    // 同句未满次数：立刻接下一遍
-    replaySameSentenceNow(v, sub)
+    replaySameSentenceAfterGap(v, sub)
   }
 
 
@@ -828,8 +902,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
     }
     lastWatchTime = t
 
-    // 句间间隔：冻住画面，不进入 pause，也不让时间轴滑进下一句
-    if (sentenceLoopTimer && sentenceHoldAt != null) {
+    // 间隔倒计时：冻住画面，不让时间轴滑进下一句
+    if ((sentenceLoopTimer || gapOnDone) && sentenceHoldAt != null) {
       if (t > sentenceHoldAt + 0.03 || t < sentenceHoldAt - 0.12) {
         v.currentTime = sentenceHoldAt
         currentTime.value = sentenceHoldAt
@@ -861,7 +935,7 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
 
-    if (loopMode.value === 'sentence' && playingSub && !sentenceLoopTimer) {
+    if (loopMode.value === 'sentence' && playingSub && !sentenceLoopTimer && !gapOnDone) {
 
       if (t >= playingSub.end - 0.05) {
 
@@ -871,6 +945,23 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
       }
 
+    }
+
+    if (
+      loopMode.value === 'off'
+      && playingSub
+      && !sentenceLoopTimer
+      && !gapOnDone
+      && !oneShotPauseSub
+      && !v.paused
+      && effectiveLoopGapSec() > 0
+      && t >= playingSub.end - 0.05
+    ) {
+      if (!playNextSubtitleAfterGap(v, playingSub)) {
+        v.pause()
+        isPlaying.value = false
+      }
+      return
     }
 
 
@@ -1107,6 +1198,16 @@ export function usePlayerControls(opts: PlayerControlOptions) {
     playSentenceOnce,
 
     loopInterval,
+
+    gapRemainingMs,
+
+    gapDurationMs,
+
+    gapKind,
+
+    gapActive,
+
+    skipGapHold,
 
     loopPointA,
 

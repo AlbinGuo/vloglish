@@ -127,7 +127,11 @@ watch(youtubeId, (id) => {
 })
 
 const showCenterPlay = computed(
-  () => !props.hidden && !youtubeId.value && !props.player.isPlaying.value,
+  () =>
+    !props.hidden &&
+    !youtubeId.value &&
+    !props.player.isPlaying.value &&
+    !props.player.gapActive.value,
 )
 
 function onLoadedMetadata() {
