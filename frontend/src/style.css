@@ -1469,7 +1469,7 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
   border-color: rgb(127 29 29 / 0.4);
 }
 
-/* 视频面板全屏：画面优先，字幕在视频下方独立区域 */
+/* 视频面板全屏：画面铺满，字幕叠在画面上可拖动 */
 .video-panel:fullscreen,
 .video-panel.video-panel--fullscreen {
   width: 100% !important;
@@ -1517,16 +1517,71 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
   box-shadow: none !important;
 }
 
-/* 全屏字幕：视频下方紧凑条，与进度条分离 */
+/* 全屏字幕：叠在画面上，可上下拖动 */
 .video-panel:fullscreen .video-panel__subtitle,
 .video-panel.video-panel--fullscreen .video-panel__subtitle {
-  flex: 0 0 auto !important;
-  width: 100%;
-  min-height: 0 !important;
-  max-height: min(34dvh, 13.5rem);
+  position: absolute;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: min(52rem, calc(100% - 1.5rem));
+  flex: none !important;
+  max-height: min(40dvh, 16rem);
   overflow: visible;
   display: flex;
   flex-direction: column;
+  z-index: 36;
+  pointer-events: none;
+  padding: 0 0.45rem 0.45rem;
+  border-radius: 1rem;
+  background: rgb(8 8 8 / 0.45);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 32px rgb(0 0 0 / 0.38);
+}
+
+.video-panel:fullscreen .video-panel__subtitle > *,
+.video-panel.video-panel--fullscreen .video-panel__subtitle > * {
+  pointer-events: auto;
+}
+
+.video-panel__subtitle-drag {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0 0.2rem;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.video-panel:fullscreen .video-panel__subtitle-drag,
+.video-panel.video-panel--fullscreen .video-panel__subtitle-drag {
+  display: flex;
+}
+
+.video-panel__subtitle-drag-bar {
+  width: 2.75rem;
+  height: 0.28rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.5);
+  box-shadow: 0 0 0 4px rgb(0 0 0 / 0.2);
+}
+
+.video-panel__subtitle.is-dragging .video-panel__subtitle-drag-bar {
+  background: rgb(251 191 36);
+}
+
+.video-panel:fullscreen .video-panel__subtitle.is-blind,
+.video-panel.video-panel--fullscreen .video-panel__subtitle.is-blind {
+  max-height: none;
+  background: rgb(8 8 8 / 0.32);
+}
+
+.video-panel:fullscreen .video-panel__subtitle.is-dragging,
+.video-panel.video-panel--fullscreen .video-panel__subtitle.is-dragging {
+  cursor: ns-resize;
+  user-select: none;
 }
 
 .video-panel__caption-mode-btn {
@@ -1550,7 +1605,7 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
 @media (orientation: landscape) and (max-width: 1023px) {
   .video-panel:fullscreen .video-panel__subtitle,
   .video-panel.video-panel--fullscreen .video-panel__subtitle {
-    max-height: min(30dvh, 10.5rem);
+    max-height: min(36dvh, 12rem);
   }
 }
 
@@ -1560,8 +1615,10 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
   min-height: 0 !important;
   max-height: none;
   height: auto;
-  background: rgb(23 23 23);
-  border-color: rgb(255 255 255 / 0.12);
+  background: transparent;
+  backdrop-filter: none;
+  border-color: transparent;
+  border-radius: 0;
   color: #f5f5f5;
 }
 

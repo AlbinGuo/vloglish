@@ -40,6 +40,9 @@ export function preprocessSubtitleHtml(html: string, options: { blank?: boolean 
 
 export type SubtitleDisplayMode = 'both' | 'en' | 'zh' | 'blank' | 'dynamic' | 'ipa'
 
+/** 全屏当前句字幕：中英 / 英语 / 盲听 */
+export type FullscreenCaptionMode = 'both' | 'en' | 'blind'
+
 export function modeShowsEnglish(mode: SubtitleDisplayMode): boolean {
   return mode === 'both' || mode === 'en' || mode === 'blank' || mode === 'dynamic' || mode === 'ipa'
 }

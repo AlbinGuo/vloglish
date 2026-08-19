@@ -5,7 +5,7 @@ import {
   PLAYBACK_RATES,
   type usePlayerControls,
 } from '@/composables/usePlayerControls'
-import { modeShowsChinese, type SubtitleDisplayMode } from '@/utils/subtitleHtml'
+import { modeShowsChinese, type FullscreenCaptionMode, type SubtitleDisplayMode } from '@/utils/subtitleHtml'
 
 const props = defineProps<{
   player: ReturnType<typeof usePlayerControls>
@@ -13,6 +13,7 @@ const props = defineProps<{
   videoHidden: boolean
   subtitlesHidden?: boolean
   subtitleMode?: SubtitleDisplayMode
+  fullscreenCaptionMode?: FullscreenCaptionMode
   videoPanelRef: HTMLElement | null | undefined
   /** 移动端精简控制条 */
   compact?: boolean
@@ -28,13 +29,17 @@ const emit = defineEmits<{
   'update:videoHidden': [value: boolean]
   'update:subtitlesHidden': [value: boolean]
   'update:subtitleMode': [value: SubtitleDisplayMode]
+  'update:fullscreenCaptionMode': [value: FullscreenCaptionMode]
   toggleChrome: []
 }>()
 
 const captionBilingual = computed(() => modeShowsChinese(props.subtitleMode ?? 'both'))
+const fsCaptionMode = computed<FullscreenCaptionMode>(
+  () => props.fullscreenCaptionMode ?? (captionBilingual.value ? 'both' : 'en'),
+)
 
-function setCaptionMode(mode: 'both' | 'en') {
-  emit('update:subtitleMode', mode)
+function setCaptionMode(mode: FullscreenCaptionMode) {
+  emit('update:fullscreenCaptionMode', mode)
 }
 
 const speedOpen = ref(false)
@@ -520,7 +525,7 @@ function handleMainAction() {
         <span class="text-[11px] leading-tight mt-0.5">{{ subtitlesHidden ? '显示字幕' : '隐藏字幕' }}</span>
       </button>
 
-      <!-- 全屏字幕语言：中英 / 英语 -->
+      <!-- 全屏字幕语言：中英 / 英语 / 盲听 -->
       <div
         v-if="isFullscreen"
         class="flex flex-col items-center shrink-0 min-w-[3.5rem] text-xs"
@@ -532,11 +537,11 @@ function handleMainAction() {
             type="button"
             class="px-1.5 h-7 rounded-full text-[10px] font-medium transition-colors"
             :class="
-              captionBilingual
+              fsCaptionMode === 'both'
                 ? 'bg-neutral-700 text-white dark:bg-neutral-200 dark:text-neutral-900'
                 : 'text-neutral-600 dark:text-neutral-300'
             "
-            :aria-pressed="captionBilingual"
+            :aria-pressed="fsCaptionMode === 'both'"
             title="中英字幕"
             @click="setCaptionMode('both')"
           >
@@ -546,15 +551,29 @@ function handleMainAction() {
             type="button"
             class="px-1.5 h-7 rounded-full text-[10px] font-medium transition-colors"
             :class="
-              !captionBilingual
+              fsCaptionMode === 'en'
                 ? 'bg-neutral-700 text-white dark:bg-neutral-200 dark:text-neutral-900'
                 : 'text-neutral-600 dark:text-neutral-300'
             "
-            :aria-pressed="!captionBilingual"
+            :aria-pressed="fsCaptionMode === 'en'"
             title="仅英文字幕"
             @click="setCaptionMode('en')"
           >
             英语
+          </button>
+          <button
+            type="button"
+            class="px-1.5 h-7 rounded-full text-[10px] font-medium transition-colors"
+            :class="
+              fsCaptionMode === 'blind'
+                ? 'bg-neutral-700 text-white dark:bg-neutral-200 dark:text-neutral-900'
+                : 'text-neutral-600 dark:text-neutral-300'
+            "
+            :aria-pressed="fsCaptionMode === 'blind'"
+            title="盲听，不显示字幕"
+            @click="setCaptionMode('blind')"
+          >
+            盲听
           </button>
         </div>
         <span class="text-[11px] leading-tight mt-0.5">字幕</span>
@@ -781,7 +800,7 @@ function handleMainAction() {
             >
               <div
                 class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[11px] font-medium"
-                :class="captionBilingual ? 'text-orange-500 ring-2 ring-orange-400/50' : ''"
+                :class="fsCaptionMode === 'both' ? 'text-orange-500 ring-2 ring-orange-400/50' : ''"
               >
                 中英
               </div>
@@ -795,11 +814,25 @@ function handleMainAction() {
             >
               <div
                 class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[11px] font-medium"
-                :class="!captionBilingual ? 'text-orange-500 ring-2 ring-orange-400/50' : ''"
+                :class="fsCaptionMode === 'en' ? 'text-orange-500 ring-2 ring-orange-400/50' : ''"
               >
                 EN
               </div>
               <span>英文字幕</span>
+            </button>
+            <button
+              v-if="isFullscreen"
+              type="button"
+              class="flex flex-col items-center gap-1 text-xs"
+              @click="setCaptionMode('blind'); moreOpen = false"
+            >
+              <div
+                class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[11px] font-medium"
+                :class="fsCaptionMode === 'blind' ? 'text-orange-500 ring-2 ring-orange-400/50' : ''"
+              >
+                盲
+              </div>
+              <span>盲听</span>
             </button>
             <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="toggleFullscreen(); moreOpen = false">
               <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">⛶</div>
