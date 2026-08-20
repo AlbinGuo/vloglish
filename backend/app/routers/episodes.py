@@ -32,7 +32,11 @@ from ..models import (
 )
 from ..serializers import episode_detail, episode_summary
 from ..services.episode_series import list_series_episodes, series_nav_for_episode
-from ..services.episode_word_cards import get_or_build_episode_word_cards, load_episode_for_word_cards
+from ..services.episode_word_cards import (
+    get_or_build_episode_word_cards,
+    load_cached_episode_word_cards,
+    load_episode_for_word_cards,
+)
 
 router = APIRouter(prefix="/api", tags=["episodes"])
 
@@ -457,6 +461,7 @@ def get_episode_detail(
 @router.get("/episode/{video_id}/word-cards/")
 def get_episode_word_cards(
     video_id: str,
+    cache_only: bool = Query(False),
     db: Session = Depends(get_db),
     user: User | None = Depends(get_current_user_optional),
 ):
@@ -468,6 +473,16 @@ def get_episode_word_cards(
         raise HTTPException(status_code=403, detail="无权访问该内容")
 
     try:
+        if cache_only:
+            cached = load_cached_episode_word_cards(db, episode)
+            if cached:
+                return cached
+            return {
+                "video_id": episode.video_id,
+                "from_cache": False,
+                "count": 0,
+                "cards": [],
+            }
         return get_or_build_episode_word_cards(db, episode)
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e)) from e

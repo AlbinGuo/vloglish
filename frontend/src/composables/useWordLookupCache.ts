@@ -19,17 +19,25 @@ export function makeWordLookupKey(word: string, type: 1 | 2, context: string): s
   return `${word.trim().toLowerCase()}|${type}|${context.trim()}`
 }
 
+function wordTypeKey(word: string, type: 1 | 2): string {
+  return `${word.trim().toLowerCase()}|${type}`
+}
+
 function rememberEntry(entry: EntryDetail, word: string, type: 1 | 2, context: string) {
   byEntryId.set(entry.id, entry)
   byLookupKey.set(makeWordLookupKey(word, type, context), entry)
+  byLookupKey.set(wordTypeKey(word, type), entry)
   if (entry.headword) {
     byLookupKey.set(makeWordLookupKey(entry.headword, type, context), entry)
+    byLookupKey.set(wordTypeKey(entry.headword, type), entry)
   }
 }
 
 export function getCachedWordLookup(word: string, type: 1 | 2, context: string): EntryDetail | null | undefined {
   const key = makeWordLookupKey(word, type, context)
   if (byLookupKey.has(key)) return byLookupKey.get(key) ?? null
+  const byWord = byLookupKey.get(wordTypeKey(word, type))
+  if (byWord !== undefined) return byWord
   return undefined
 }
 
@@ -40,6 +48,35 @@ export function getCachedEntryById(entryId: number): EntryDetail | null | undefi
 
 export function cacheWordLookupEntry(entry: EntryDetail, word: string, type: 1 | 2, context: string) {
   rememberEntry(entry, word, type, context)
+}
+
+export function makeLookupStub(
+  word: string,
+  type: 1 | 2,
+  gloss = '',
+): EntryDetail {
+  return {
+    id: 0,
+    headword: word,
+    category: type === 2 ? '短语' : '单词',
+    pronunciations: [],
+    definitions: gloss
+      ? [
+          {
+            id: 0,
+            pos: '',
+            definition_en: '',
+            definition_cn: gloss,
+            usage_pattern: '',
+            note: '',
+            order: 0,
+            examples: [],
+          },
+        ]
+      : [],
+    exam_tags: [],
+    favorite: false,
+  }
 }
 
 async function requestWordLookup(
@@ -69,8 +106,25 @@ export async function fetchWordLookup(
   meta: WordLookupMeta = {},
 ): Promise<EntryDetail | null> {
   const key = makeWordLookupKey(word, type, context)
-  const cached = byLookupKey.get(key)
-  if (cached !== undefined) return cached
+  const exact = byLookupKey.get(key)
+  if (exact !== undefined) return exact
+
+  const reused = byLookupKey.get(wordTypeKey(word, type))
+  if (reused) {
+    if (!inflightByKey.has(key)) {
+      const refresh = requestWordLookup(word, type, context, meta)
+        .then((entry) => {
+          rememberEntry(entry, word, type, context)
+          return entry
+        })
+        .catch(() => reused)
+        .finally(() => {
+          inflightByKey.delete(key)
+        })
+      inflightByKey.set(key, refresh)
+    }
+    return reused
+  }
 
   const pending = inflightByKey.get(key)
   if (pending) return pending

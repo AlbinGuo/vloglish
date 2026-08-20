@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, useAttrs, watch } from 'vue'
-import { fetchWordLookup, type WordLookupMeta } from '@/composables/useWordLookupCache'
+import { fetchWordLookup, getCachedWordLookup, type WordLookupMeta } from '@/composables/useWordLookupCache'
 import type { EntryDetail } from '@/types'
 import { firstChineseDefinition, firstEnglishDefinition, primaryIpa } from '@/utils/entryDisplay'
 import { playWordPronunciation } from '@/utils/speakWord'
@@ -178,9 +178,6 @@ async function showFor(span: HTMLElement) {
 
   activeWord.value = word
   manualGloss.value = (span.getAttribute('data-gloss') || '').trim()
-  // 有手动翻译时先展示，仍后台查词典补音标等
-  loading.value = !manualGloss.value
-  entry.value = null
 
   const isPhrase = span.hasAttribute('pid') || span.classList.contains('phrase-token')
   const type = (isPhrase ? 2 : 1) as 1 | 2
@@ -188,6 +185,10 @@ async function showFor(span: HTMLElement) {
     props.context ||
     (span.closest('[data-subtitle-context]') as HTMLElement | null)?.dataset.subtitleContext ||
     ''
+
+  const cached = getCachedWordLookup(word, type, context)
+  entry.value = cached ?? null
+  loading.value = !cached && !manualGloss.value
 
   const result = await fetchWordLookup(word, type, context, props.lookupMeta ?? {})
 
@@ -203,6 +204,20 @@ function scheduleHide() {
   hideTimer = setTimeout(() => {
     if (!hoveringTooltip) hide()
   }, 140)
+}
+
+function onPointerDown(e: PointerEvent) {
+  const span = resolveWordSpan(e.target)
+  if (!span) return
+  const word = span.textContent?.trim().replace(/\s+/g, ' ') ?? ''
+  if (!word) return
+  const isPhrase = span.hasAttribute('pid') || span.classList.contains('phrase-token')
+  const type = (isPhrase ? 2 : 1) as 1 | 2
+  const context =
+    props.context ||
+    (span.closest('[data-subtitle-context]') as HTMLElement | null)?.dataset.subtitleContext ||
+    ''
+  void fetchWordLookup(word, type, context, props.lookupMeta ?? {})
 }
 
 function onMouseOver(e: MouseEvent) {
@@ -307,7 +322,7 @@ defineExpose({ hostRef })
 </script>
 
 <template>
-  <div ref="hostRef" v-bind="attrs" @mouseover="onMouseOver" @mouseout="onMouseOut">
+  <div ref="hostRef" v-bind="attrs" @pointerdown="onPointerDown" @mouseover="onMouseOver" @mouseout="onMouseOut">
     <slot />
   </div>
 
@@ -322,7 +337,7 @@ defineExpose({ hostRef })
       @mouseenter="onTooltipEnter"
       @mouseleave="onTooltipLeave"
     >
-      <div v-if="loading" class="text-xs text-neutral-300 animate-pulse py-0.5">加载中…</div>
+      <div v-if="loading && !entry && !manualGloss" class="text-xs text-neutral-300 animate-pulse py-0.5">加载中…</div>
       <template v-else-if="entry || manualGloss">
         <div class="flex items-start gap-2.5">
           <div class="min-w-0 flex-1 space-y-1">

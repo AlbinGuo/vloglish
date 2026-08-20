@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'v
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
 import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
-import { getEpisodeList, setEpisodeFavorite } from '@/api/episodes'
+import { getEpisodeList, setEpisodeFavorite, warmEpisodeWordLookups } from '@/api/episodes'
 import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
 import EpisodeWordCardList from '@/components/episode/EpisodeWordCardList.vue'
 import EpisodeVocabSummaryList from '@/components/episode/EpisodeVocabSummaryList.vue'
@@ -64,6 +64,7 @@ import {
   type WordCardItem,
 } from '@/composables/useEpisodeWordCards'
 import { usePlayerControls } from '@/composables/usePlayerControls'
+import { fetchWordLookup, getCachedWordLookup, makeLookupStub } from '@/composables/useWordLookupCache'
 import { useShadowingRecorder } from '@/composables/useShadowingRecorder'
 import {
   listShadowTracks,
@@ -1074,7 +1075,7 @@ function resumePlaybackAfterEntry() {
 async function openWordCard(item: WordCardItem) {
   pausePlaybackForEntry()
   showEntryPanel.value = true
-  entryLoading.value = true
+  entryLoading.value = !item.entry
   entryError.value = ''
   clearVocabNotice()
   selectedEntry.value = item.entry
@@ -1212,6 +1213,7 @@ onMounted(() => {
   window.addEventListener('keydown', onEntryKeydown)
   window.addEventListener('afterprint', onAfterPrint)
   document.addEventListener('fullscreenchange', onVideoPanelFullscreenChange)
+  if (props.videoId) void warmEpisodeWordLookups(props.videoId)
 })
 
 onUnmounted(() => {
@@ -1230,6 +1232,7 @@ watch(
     contentView.value = 'subtitles'
     syncSubtitlesHiddenForVideo(videoId)
     void load()
+    if (videoId) void warmEpisodeWordLookups(videoId)
   },
 )
 watch(currentIndex, (idx, prevIdx) => {
@@ -1745,7 +1748,8 @@ function resolveWordHitFromEvent(e: Event) {
   const type = (isPhrase ? 2 : 1) as 1 | 2
   const context = resolveSentenceContext(target)
   const sub = resolveSubtitleFromTarget(target)
-  return { target, word, type, context, subtitleId: sub?.id ?? null }
+  const gloss = (target.getAttribute('data-gloss') || '').trim()
+  return { target, word, type, context, subtitleId: sub?.id ?? null, gloss }
 }
 
 const quickVocabToast = ref('')
@@ -1808,11 +1812,23 @@ const wordLongPress = useWordLongPress({
 })
 
 const wordLongPressHandlers = {
-  pointerdown: wordLongPress.onPointerDown,
+  pointerdown: (e: PointerEvent) => {
+    prefetchWordFromEvent(e)
+    wordLongPress.onPointerDown(e)
+  },
   pointermove: wordLongPress.onPointerMove,
   pointerup: wordLongPress.onPointerUp,
   pointercancel: wordLongPress.onPointerCancel,
   contextmenu: wordLongPress.onContextMenu,
+}
+
+function prefetchWordFromEvent(e: Event) {
+  const hit = resolveWordHitFromEvent(e)
+  if (!hit) return
+  void fetchWordLookup(hit.word, hit.type, hit.context, {
+    video_id: props.videoId,
+    subtitle_id: hit.subtitleId ?? undefined,
+  })
 }
 
 async function openWordEntry(payload: {
@@ -1820,14 +1836,18 @@ async function openWordEntry(payload: {
   type: 1 | 2
   context: string
   subtitleId: number | null
+  gloss?: string
 }) {
   pausePlaybackForEntry()
   showEntryPanel.value = true
-  entryLoading.value = true
   entryError.value = ''
   clearVocabNotice()
-  selectedEntry.value = null
   entrySourceSubtitleId.value = payload.subtitleId
+
+  const cached = getCachedWordLookup(payload.word, payload.type, payload.context)
+  selectedEntry.value = cached ?? makeLookupStub(payload.word, payload.type, payload.gloss)
+  entryLoading.value = !cached
+
   try {
     selectedEntry.value = await lookupWord(payload.word, payload.type, payload.context, {
       video_id: props.videoId,
@@ -1836,7 +1856,7 @@ async function openWordEntry(payload: {
     if (auth.isLoggedIn) noteLookup()
     if (sidePanelTab.value === 'lookup') void loadLookupHistory()
   } catch {
-    entryError.value = '词条加载失败，请确认后端已启动且 DeepSeek API 配置正确'
+    if (!cached && !payload.gloss) entryError.value = '词条加载失败，请确认后端已启动且 DeepSeek API 配置正确'
   } finally {
     entryLoading.value = false
   }
@@ -1853,6 +1873,7 @@ async function onSubtitleClick(e: MouseEvent) {
     type: hit.type,
     context: hit.context,
     subtitleId: hit.subtitleId,
+    gloss: hit.gloss,
   })
   hit.target.classList.add('highlight', 'token-clicked')
 }

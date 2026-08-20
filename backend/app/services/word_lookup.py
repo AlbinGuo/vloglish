@@ -18,6 +18,49 @@ from .entry_lookup import merged_exam_tags
 logger = logging.getLogger(__name__)
 
 
+def _finalize_cached_lookup(db: Session, cached: dict, fallback_id: int) -> tuple[dict, bool]:
+    try:
+        cache_entry(db, cached)
+    except Exception:
+        logger.debug("cache_entry skipped on cache hit id=%s", cached.get("id"), exc_info=True)
+    eid = int(cached.get("id") or fallback_id or 0)
+    cached["exam_tags"] = merged_exam_tags(db, eid)
+    cached["favorite"] = False
+    return cached, True
+
+
+def _reuse_word_level_cache(db: Session, word: str, token_type: int) -> dict | None:
+    """同一单词在其它句子查过时，先复用释义，避免每次都等 DeepSeek。"""
+    generic = get_cached_lookup(db, make_cache_key(word, token_type, ""))
+    if generic:
+        return generic
+    row = (
+        db.query(LookupCache)
+        .filter(func.lower(LookupCache.word) == word.lower())
+        .filter(LookupCache.token_type == token_type)
+        .order_by(LookupCache.updated_at.desc())
+        .first()
+    )
+    if row:
+        reused = get_cached_lookup(db, row.cache_key)
+        if reused:
+            return reused
+    entry = (
+        db.query(Entry)
+        .filter(func.lower(Entry.headword) == word.lower())
+        .order_by(Entry.id.asc())
+        .first()
+    )
+    if not entry:
+        return None
+    from .entry_lookup import build_entry_detail
+
+    detail = build_entry_detail(db, entry.id)
+    if detail and detail.get("definitions"):
+        return detail
+    return None
+
+
 def resolve_word_lookup(
     db: Session, word: str, token_type: int, context: str
 ) -> tuple[dict, bool]:
@@ -32,16 +75,23 @@ def resolve_word_lookup(
 
     cached = get_cached_lookup(db, cache_key)
     if cached:
+        return _finalize_cached_lookup(db, cached, entry_id)
+
+    reused = _reuse_word_level_cache(db, word, token_type)
+    if reused:
+        reused_id = int(reused.get("id") or entry_id)
         try:
-            cache_entry(db, cached)
+            save_lookup_cache(db, cache_key, word, token_type, context, reused_id, reused)
         except Exception:
-            logger.debug("cache_entry skipped on cache hit word=%r", word, exc_info=True)
-        cached["exam_tags"] = merged_exam_tags(db, cached.get("id", entry_id))
-        cached["favorite"] = False
-        return cached, True
+            logger.debug("reuse cache write skipped word=%r", word, exc_info=True)
+        return _finalize_cached_lookup(db, reused, reused_id)
 
     result = lookup_with_deepseek(word, token_type, context, entry_id)
     save_lookup_cache(db, cache_key, word, token_type, context, entry_id, result)
+    if context:
+        generic_key = make_cache_key(word, token_type, "")
+        if not get_cached_lookup(db, generic_key):
+            save_lookup_cache(db, generic_key, word, token_type, "", entry_id, result)
     try:
         cache_entry(db, result)
     except Exception:

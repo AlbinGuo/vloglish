@@ -1,5 +1,5 @@
 import api from './client'
-import { fetchWordLookup, type WordLookupMeta } from '@/composables/useWordLookupCache'
+import { cacheWordLookupEntry, fetchWordLookup, type WordLookupMeta } from '@/composables/useWordLookupCache'
 import type {
   AuthorCatalogItem,
   EntryDetail,
@@ -114,9 +114,27 @@ export interface EpisodeWordCardsResponse {
 }
 
 /** 整集词卡（服务端共享缓存，首次生成后其他用户直接读缓存） */
-export async function getEpisodeWordCards(videoId: string) {
-  const { data } = await api.get<EpisodeWordCardsResponse>(`/api/episode/${videoId}/word-cards/`)
+export async function getEpisodeWordCards(videoId: string, opts?: { cacheOnly?: boolean }) {
+  const { data } = await api.get<EpisodeWordCardsResponse>(`/api/episode/${videoId}/word-cards/`, {
+    params: opts?.cacheOnly ? { cache_only: true } : undefined,
+  })
   return data
+}
+
+/** 用已生成的整集词卡预热查词内存缓存，不触发 DeepSeek 重建 */
+export async function warmEpisodeWordLookups(videoId: string) {
+  const id = videoId.trim()
+  if (!id) return
+  try {
+    const data = await getEpisodeWordCards(id, { cacheOnly: true })
+    for (const card of data.cards || []) {
+      if (card.entry) {
+        cacheWordLookupEntry(card.entry, card.word, card.type, card.context || '')
+      }
+    }
+  } catch {
+    // 预热失败不影响播放
+  }
 }
 
 export async function getSeriesList() {

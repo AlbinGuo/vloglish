@@ -279,6 +279,22 @@ def _build_cards(db: Session, episode: Episode, tokens: list[dict]) -> list[dict
     return cards
 
 
+def load_cached_episode_word_cards(db: Session, episode: Episode) -> dict | None:
+    """只读 Redis / DB，未生成过则返回 None，绝不触发 DeepSeek。"""
+    redis_cards = _redis_get_cards(episode.id)
+    if redis_cards is not None:
+        return _payload(episode.video_id, redis_cards, from_cache=True)
+
+    row = _load_cache_row(db, episode.id)
+    if not row:
+        return None
+    cards = _parse_cards_json(row.cards_json)
+    if cards is None:
+        return None
+    _redis_set_cards(episode.id, row.content_hash or "", cards)
+    return _payload(episode.video_id, cards, from_cache=True)
+
+
 def get_or_build_episode_word_cards(db: Session, episode: Episode) -> dict:
     """
     返回整集词卡。

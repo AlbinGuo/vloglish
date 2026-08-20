@@ -37,6 +37,10 @@ const showVocabViewLink = computed(
     props.vocabNotice === '已加入生词本',
 )
 
+const canSave = computed(
+  () => Boolean(props.canSaveVocabulary && props.entry?.id),
+)
+
 const vocabActionLabel = computed(() =>
   props.entry?.favorite ? '已在生词本' : '加入生词本',
 )
@@ -94,7 +98,7 @@ function onToggleVocabulary() {
       </button>
 
       <!-- Loading -->
-      <div v-if="loading" class="p-6 space-y-4">
+      <div v-if="loading && !entry" class="p-6 space-y-4">
         <div class="h-8 w-40 bg-neutral-200/70 dark:bg-neutral-700/70 rounded-lg animate-pulse" />
         <div class="h-5 w-32 bg-neutral-200/60 dark:bg-neutral-700/60 rounded animate-pulse" />
         <div class="bg-white dark:bg-neutral-800 rounded-2xl p-4 space-y-3">
@@ -105,7 +109,7 @@ function onToggleVocabulary() {
       </div>
 
       <!-- Error -->
-      <div v-else-if="error" class="p-8 text-center">
+      <div v-else-if="error && !entry" class="p-8 text-center">
         <p class="text-neutral-600 dark:text-neutral-300 mb-4">{{ error }}</p>
         <button
           type="button"
@@ -122,7 +126,7 @@ function onToggleVocabulary() {
           <div class="flex items-start justify-between gap-3">
             <div class="flex items-center gap-2 min-w-0">
               <button
-                v-if="canSaveVocabulary"
+                v-if="canSave"
                 type="button"
                 class="shrink-0 transition-colors"
                 :class="[
@@ -151,6 +155,14 @@ function onToggleVocabulary() {
               {{ entry.category }}
             </span>
           </div>
+
+          <p
+            v-if="loading"
+            class="mt-2 text-xs text-neutral-400 dark:text-neutral-500"
+            role="status"
+          >
+            {{ entry.definitions.length ? '正在完善词条…' : '正在查询释义…' }}
+          </p>
 
           <p
             v-if="vocabNotice"
@@ -197,7 +209,7 @@ function onToggleVocabulary() {
 
           <!-- 桌面：词头下方主按钮，更易发现 -->
           <button
-            v-if="canSaveVocabulary"
+            v-if="canSave"
             type="button"
             class="hidden sm:inline-flex mt-4 items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
             :class="
@@ -223,8 +235,16 @@ function onToggleVocabulary() {
 
         <div
           class="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 space-y-3"
-          :class="canSaveVocabulary ? 'pb-3 sm:pb-6' : 'pb-6'"
+          :class="canSave ? 'pb-3 sm:pb-6' : 'pb-6'"
         >
+          <div
+            v-if="loading && !entry.definitions.length"
+            class="bg-white dark:bg-neutral-800 rounded-2xl p-4 space-y-3"
+          >
+            <div class="h-4 w-12 bg-neutral-100 dark:bg-neutral-700 rounded animate-pulse" />
+            <div class="h-6 w-full bg-neutral-100 dark:bg-neutral-700 rounded animate-pulse" />
+            <div class="h-4 w-4/5 bg-neutral-100 dark:bg-neutral-700 rounded animate-pulse" />
+          </div>
           <article
             v-for="def in entry.definitions"
             :key="def.id"
@@ -259,7 +279,7 @@ function onToggleVocabulary() {
 
         <!-- 手机：底部固定收藏，拇指区可达 -->
         <div
-          v-if="canSaveVocabulary"
+          v-if="canSave"
           class="sm:hidden shrink-0 border-t border-black/5 dark:border-white/10 bg-[#FDF8F1]/95 dark:bg-neutral-900/95 backdrop-blur-sm px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         >
           <button
