@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from ...database import get_db
 from ...deps import get_current_admin
-from ...models import Author, Episode, Tag, User, episode_tags
+from ...models import Author, Episode, Tag, User, UserAuthorSubscription, episode_tags
 from ...schemas import (
     AdminAuthorCreateIn,
     AdminAuthorMergeIn,
@@ -117,6 +117,9 @@ def delete_author(
     if count > 0:
         raise HTTPException(status_code=400, detail=f"该作者关联 {count} 个剧集，请先合并或修改剧集")
 
+    db.query(UserAuthorSubscription).filter(UserAuthorSubscription.author_id == author_id).delete(
+        synchronize_session=False
+    )
     db.delete(author)
     db.commit()
     return {"success": True}
@@ -143,6 +146,22 @@ def merge_author(
         {Episode.author_id: target.id},
         synchronize_session=False,
     )
+    source_subs = (
+        db.query(UserAuthorSubscription)
+        .filter(UserAuthorSubscription.author_id == source.id)
+        .all()
+    )
+    target_user_ids = {
+        row[0]
+        for row in db.query(UserAuthorSubscription.user_id)
+        .filter(UserAuthorSubscription.author_id == target.id)
+        .all()
+    }
+    for sub in source_subs:
+        if sub.user_id in target_user_ids:
+            db.delete(sub)
+        else:
+            sub.author_id = target.id
     db.delete(source)
     db.commit()
     db.refresh(target)

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { getAuthorDetail, getEpisodeList } from '@/api/episodes'
+import AuthorSubscribeButton from '@/components/AuthorSubscribeButton.vue'
 import EpisodeCard from '@/components/EpisodeCard.vue'
 import { accentIconFor } from '@/constants/accentOptions'
 import { useAuthStore } from '@/stores/auth'
@@ -74,6 +75,16 @@ watch(authorId, load)
           ← 返回视频
         </RouterLink>
         <h1 class="mt-2 text-2xl font-semibold tracking-tight">{{ author.name }}</h1>
+        <div class="mt-3 flex flex-wrap items-center gap-3">
+          <AuthorSubscribeButton
+            :author-id="author.id"
+            :is-subscribed="Boolean(author.is_subscribed)"
+            :subscriber-count="author.subscriber_count || 0"
+            show-count
+            @update:is-subscribed="author.is_subscribed = $event"
+            @update:subscriber-count="author.subscriber_count = $event"
+          />
+        </div>
         <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-neutral-600 dark:text-neutral-300">
           <span v-if="author.nationality" class="inline-flex items-center gap-1.5">
             <span class="text-base leading-none">{{ author.nationality }}</span>

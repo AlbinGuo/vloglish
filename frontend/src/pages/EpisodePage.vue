@@ -3,7 +3,8 @@ import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'v
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
 import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
-import { getEpisodeList, setEpisodeFavorite, warmEpisodeWordLookups } from '@/api/episodes'
+import { getEpisodeList, setAuthorSubscribe, setEpisodeFavorite, warmEpisodeWordLookups } from '@/api/episodes'
+import AuthorSubscribeButton from '@/components/AuthorSubscribeButton.vue'
 import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
 import EpisodeWordCardList from '@/components/episode/EpisodeWordCardList.vue'
 import EpisodeVocabSummaryList from '@/components/episode/EpisodeVocabSummaryList.vue'
@@ -1570,6 +1571,21 @@ async function toggleFavorite() {
   }
 }
 
+async function toggleAuthorSubscribeFromMore() {
+  const author = episode.value?.author
+  const authorId = author?.id
+  if (!authorId || !auth.isLoggedIn) return
+  const next = !author.is_subscribed
+  author.is_subscribed = next
+  try {
+    const res = await setAuthorSubscribe(authorId, next)
+    author.is_subscribed = res.is_subscribed
+    author.subscriber_count = res.subscriber_count
+  } catch {
+    author.is_subscribed = !next
+  }
+}
+
 function toggleSidePanel() {
   showSidePanel.value = !showSidePanel.value
 }
@@ -1986,17 +2002,35 @@ function subtitleRowClass(index: number) {
             已学完
           </span>
         </p>
-        <p class="text-xs text-neutral-500 dark:text-neutral-400 max-lg:hidden truncate">
+        <p class="text-xs text-neutral-500 dark:text-neutral-400 max-lg:hidden flex items-center gap-1.5 min-w-0">
+          <RouterLink
+            v-if="episode.author.id"
+            :to="`/english/authors/${episode.author.id}`"
+            class="hover:text-amber-700 dark:hover:text-amber-400 truncate"
+          >
+            {{ episode.author.name }}
+          </RouterLink>
+          <span v-else class="truncate">{{ episode.author.name }}</span>
+          <AuthorSubscribeButton
+            v-if="!adminPreview && episode.author.id"
+            compact
+            :author-id="episode.author.id"
+            :is-subscribed="Boolean(episode.author.is_subscribed)"
+            :subscriber-count="episode.author.subscriber_count || 0"
+            @update:is-subscribed="(v) => episode && (episode.author.is_subscribed = v)"
+            @update:subscriber-count="(v) => episode && (episode.author.subscriber_count = v)"
+          />
+          <span class="text-neutral-400">·</span>
           <template v-if="episode.series">
             <RouterLink
               :to="`/english/series/${episode.series.slug}`"
-              class="hover:text-amber-700 dark:hover:text-amber-400"
+              class="hover:text-amber-700 dark:hover:text-amber-400 truncate"
             >
               {{ episode.series.title }}
             </RouterLink>
-            · 第 {{ episode.series.series_index }} / {{ episode.series.episode_count }} 集
+            <span class="shrink-0">第 {{ episode.series.series_index }} / {{ episode.series.episode_count }} 集</span>
           </template>
-          <template v-else>{{ episode.author.name }} · 第 {{ episode.index }} 期</template>
+          <span v-else class="shrink-0">第 {{ episode.index }} 期</span>
         </p>
       </div>
       <div
@@ -2021,6 +2055,15 @@ function subtitleRowClass(index: number) {
         </button>
       </div>
       <div class="flex items-center gap-1 shrink-0">
+        <AuthorSubscribeButton
+          v-if="isPhone && !adminPreview && episode?.author?.id"
+          compact
+          :author-id="episode.author.id"
+          :is-subscribed="Boolean(episode.author.is_subscribed)"
+          :subscriber-count="episode.author.subscriber_count || 0"
+          @update:is-subscribed="(v) => episode && (episode.author.is_subscribed = v)"
+          @update:subscriber-count="(v) => episode && (episode.author.subscriber_count = v)"
+        />
         <button
           v-if="auth.isMember && !adminPreview"
           type="button"
@@ -2722,6 +2765,22 @@ function subtitleRowClass(index: number) {
             <div class="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-600" />
           </div>
           <div class="px-2 pb-2">
+            <button
+              v-if="episode?.author.id"
+              type="button"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              @click="closeMobileMore(); void toggleAuthorSubscribeFromMore()"
+            >
+              {{ episode.author.is_subscribed ? '取消关注作者' : '关注作者' }}
+            </button>
+            <RouterLink
+              v-if="episode?.author.id"
+              :to="`/english/authors/${episode.author.id}`"
+              class="block w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              @click="closeMobileMore"
+            >
+              查看作者主页
+            </RouterLink>
             <button
               type="button"
               class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"

@@ -177,6 +177,23 @@ export async function setEpisodeFavorite(videoId: string, favorite: boolean) {
   return data
 }
 
+export async function setAuthorSubscribe(authorId: number, subscribed: boolean) {
+  if (subscribed) {
+    const { data } = await api.post<{
+      success: boolean
+      is_subscribed: boolean
+      subscriber_count: number
+    }>(`/api/authors/${authorId}/subscribe/`)
+    return data
+  }
+  const { data } = await api.delete<{
+    success: boolean
+    is_subscribed: boolean
+    subscriber_count: number
+  }>(`/api/authors/${authorId}/subscribe/`)
+  return data
+}
+
 export async function getEntryDetail(entryId: number) {
   const { fetchEntryById } = await import('@/composables/useWordLookupCache')
   const entry = await fetchEntryById(entryId)

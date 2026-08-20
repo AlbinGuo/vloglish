@@ -17,7 +17,7 @@ from ..schemas import (
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
-POPUP_TYPES = ("episode_published", "episode_new_release", "article_new_release")
+POPUP_TYPES = ("episode_published", "episode_new_release", "article_new_release", "author_new_episode")
 
 
 def _fmt_dt(value: datetime | None) -> str:

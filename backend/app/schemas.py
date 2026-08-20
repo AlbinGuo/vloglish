@@ -736,6 +736,8 @@ class AuthorOut(BaseModel):
     gender: str
     nationality: str
     accent: str
+    is_subscribed: bool = False
+    subscriber_count: int = 0
 
 
 class AuthorCatalogOut(BaseModel):
@@ -746,6 +748,8 @@ class AuthorCatalogOut(BaseModel):
     accent: str
     episode_count: int
     covers: list[str] = []
+    is_subscribed: bool = False
+    subscriber_count: int = 0
 
 
 class TagOut(BaseModel):

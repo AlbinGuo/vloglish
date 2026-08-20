@@ -12,6 +12,8 @@ export interface Author {
   gender: 'm' | 'f'
   nationality: string
   accent: string
+  is_subscribed?: boolean
+  subscriber_count?: number
 }
 
 /** 首页按作者分类 / 作者详情 */
@@ -23,6 +25,8 @@ export interface AuthorCatalogItem {
   accent: string
   episode_count: number
   covers: string[]
+  is_subscribed?: boolean
+  subscriber_count?: number
 }
 
 export interface Tag {

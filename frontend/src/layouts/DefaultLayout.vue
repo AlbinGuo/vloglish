@@ -41,7 +41,7 @@ type PopupUnit =
   | { kind: 'single'; item: EpisodePublishedPopupItem }
   | { kind: 'multi'; items: EpisodePublishedPopupItem[] }
 
-const RELEASE_POPUP_TYPES = new Set(['episode_new_release', 'article_new_release'])
+const RELEASE_POPUP_TYPES = new Set(['episode_new_release', 'article_new_release', 'author_new_episode'])
 
 function isReleasePopup(item: EpisodePublishedPopupItem) {
   return RELEASE_POPUP_TYPES.has(item.type)

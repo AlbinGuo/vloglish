@@ -2,7 +2,8 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from ..models import Article, Episode, User, UserNotification
+from ..models import Article, Author, Episode, User, UserNotification
+from .author_subscribe import subscriber_user_ids
 
 
 def _episode_title(ep: Episode) -> str:
@@ -30,6 +31,11 @@ def notify_catalog_episode_released(db: Session, ep: Episode) -> int:
         return 0
 
     users = db.query(User).filter(User.is_active.is_(True)).all()
+    subscriber_ids = subscriber_user_ids(db, ep.author_id)
+    author_name = ""
+    if ep.author_id:
+        author = getattr(ep, "author", None) or db.query(Author).filter(Author.id == ep.author_id).first()
+        author_name = (author.name or "").strip() if author else ""
     title = "新视频上线"
     body = f"「{_episode_title(ep)}」已上线，快来学习吧。"
     if users:
@@ -37,8 +43,12 @@ def notify_catalog_episode_released(db: Session, ep: Episode) -> int:
             [
                 UserNotification(
                     user_id=user.id,
-                    type="episode_new_release",
-                    title=title,
+                    type="author_new_episode" if user.id in subscriber_ids else "episode_new_release",
+                    title=(
+                        f"{author_name} 发布了新视频"
+                        if user.id in subscriber_ids and author_name
+                        else title
+                    ),
                     body=body,
                     episode_id=ep.id,
                 )

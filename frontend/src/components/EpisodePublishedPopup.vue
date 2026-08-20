@@ -25,8 +25,11 @@ const open = computed(() => isMulti.value || Boolean(props.item))
 const single = computed(() => (isMulti.value ? null : props.item))
 const isNewRelease = computed(
   () =>
-    single.value?.type === 'episode_new_release' || single.value?.type === 'article_new_release',
+    single.value?.type === 'episode_new_release' ||
+    single.value?.type === 'article_new_release' ||
+    single.value?.type === 'author_new_episode',
 )
+const isAuthorRelease = computed(() => single.value?.type === 'author_new_episode')
 const isArticle = computed(() => single.value?.type === 'article_new_release')
 
 const displayTitle = computed(() => {
@@ -239,16 +242,24 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
                 "
               >
                 {{
-                  isArticle ? '新文章上线' : isNewRelease ? '新视频上线' : '审核通过'
+                  isArticle
+                    ? '新文章上线'
+                    : isAuthorRelease
+                      ? '关注的作者更新了'
+                      : isNewRelease
+                        ? '新视频上线'
+                        : '审核通过'
                 }}
               </p>
               <h2 id="episode-published-popup-title" class="text-base font-semibold leading-snug">
                 {{
                   isArticle
                     ? '有新的阅读文章发布了'
-                    : isNewRelease
-                      ? '有新的学习视频发布了'
-                      : '投稿视频已通过审核'
+                    : isAuthorRelease
+                      ? single.title || '你关注的作者发布了新视频'
+                      : isNewRelease
+                        ? '有新的学习视频发布了'
+                        : '投稿视频已通过审核'
                 }}
               </h2>
             </div>

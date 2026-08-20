@@ -14,6 +14,7 @@ from .models import (
     ActivationCode,
     AiUsageEvent,
     ExampleTranslationCache,
+    UserAuthorSubscription,
     UserPageDwell,
     UserPracticeRecord,
     WordPracticeSession,
@@ -179,6 +180,11 @@ def _migrate_schema():
     if "example_translation_cache" not in insp.get_table_names():
         ExampleTranslationCache.__table__.create(bind=engine, checkfirst=True)
         print("[vloglish] created table example_translation_cache")
+        insp = inspect(engine)
+
+    if "user_author_subscriptions" not in insp.get_table_names():
+        UserAuthorSubscription.__table__.create(bind=engine, checkfirst=True)
+        print("[vloglish] created table user_author_subscriptions")
         insp = inspect(engine)
 
     # 早期版本 article_id 为 INTEGER，需改为文章对外 ID（VARCHAR）

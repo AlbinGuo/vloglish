@@ -16,6 +16,10 @@ from ..demo_access import (
 )
 from ..deps import get_current_user, get_current_user_optional, get_device_id
 from ..favorites import favorite_video_ids
+from ..services.author_subscribe import (
+    attach_author_subscribe_fields,
+    set_author_subscribed,
+)
 from ..services.episode_stats import learner_count_map_for_episodes
 from ..services.learning import learned_episode_ids, progress_map_for_episodes
 from ..media import find_episode_audio_file, find_episode_video_file, resolve_cover_url
@@ -455,7 +459,14 @@ def get_episode_detail(
     ep_limit = get_episode_limit(db, user)
     if ep_limit is not None:
         total = ep_limit
-    return episode_detail(episode, total, series_nav=series_nav_for_episode(db, episode))
+    payload = episode_detail(episode, total, series_nav=series_nav_for_episode(db, episode))
+    payload["episode"]["author"] = attach_author_subscribe_fields(
+        db,
+        payload["episode"]["author"],
+        episode.author_id,
+        user.id if user else None,
+    )
+    return payload
 
 
 @router.get("/episode/{video_id}/word-cards/")
@@ -709,12 +720,41 @@ def author_detail(
     episodes = q.all()
     covers = [ep.cover for ep in episodes if ep.cover][:3]
 
-    return {
-        "id": author.id,
-        "name": author.name,
-        "gender": author.gender,
-        "nationality": author.nationality or "",
-        "accent": author.accent or "",
-        "episode_count": len(episodes),
-        "covers": covers,
-    }
+    return attach_author_subscribe_fields(
+        db,
+        {
+            "id": author.id,
+            "name": author.name,
+            "gender": author.gender,
+            "nationality": author.nationality or "",
+            "accent": author.accent or "",
+            "episode_count": len(episodes),
+            "covers": covers,
+        },
+        author.id,
+        user.id if user else None,
+    )
+
+
+@router.post("/authors/{author_id}/subscribe/")
+def subscribe_author(
+    author_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    try:
+        return set_author_subscribed(db, user.id, author_id, True)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.delete("/authors/{author_id}/subscribe/")
+def unsubscribe_author(
+    author_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    try:
+        return set_author_subscribed(db, user.id, author_id, False)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
