@@ -74,7 +74,7 @@ function onToggleVocabulary() {
 
 <template>
   <div
-    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/35 p-0 sm:p-4"
+    class="entry-card-overlay fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/35 p-0 sm:p-4"
     @click.self="emit('close')"
   >
     <div

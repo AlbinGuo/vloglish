@@ -71,6 +71,7 @@ def episode_detail(
     *,
     series_nav: dict | None = None,
     include_source_url: bool = False,
+    is_favorite: bool = False,
 ) -> dict:
     thumb = episode.thumbnail_url or episode.cover
     return {
@@ -118,6 +119,7 @@ def episode_detail(
             "vocab_summary": parse_vocab_summary(getattr(episode, "vocab_summary", None) or ""),
             "vocab_summary_text": getattr(episode, "vocab_summary", None) or "",
             "video_context": getattr(episode, "video_context", None) or "",
+            "is_favorite": bool(is_favorite),
         },
         "total_episodes": total,
     }

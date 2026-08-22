@@ -459,7 +459,23 @@ def get_episode_detail(
     ep_limit = get_episode_limit(db, user)
     if ep_limit is not None:
         total = ep_limit
-    payload = episode_detail(episode, total, series_nav=series_nav_for_episode(db, episode))
+    is_favorite = False
+    if user and user_is_member(user):
+        is_favorite = (
+            db.query(UserEpisodeFavorite.user_id)
+            .filter(
+                UserEpisodeFavorite.user_id == user.id,
+                UserEpisodeFavorite.episode_id == episode.id,
+            )
+            .first()
+            is not None
+        )
+    payload = episode_detail(
+        episode,
+        total,
+        series_nav=series_nav_for_episode(db, episode),
+        is_favorite=is_favorite,
+    )
     payload["episode"]["author"] = attach_author_subscribe_fields(
         db,
         payload["episode"]["author"],

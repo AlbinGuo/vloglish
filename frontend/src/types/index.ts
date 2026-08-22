@@ -4,6 +4,7 @@ export interface User {
   nickname: string | null
   phone: string | null
   is_member: boolean
+  avatar_key?: string | null
 }
 
 export interface Author {
@@ -108,6 +109,7 @@ export interface EpisodeDetail {
   vocab_summary_text?: string
   /** 视频语境原文（HTML / Markdown） */
   video_context?: string
+  is_favorite?: boolean
 }
 
 export interface VocabSummaryItem {

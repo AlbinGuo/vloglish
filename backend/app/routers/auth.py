@@ -33,22 +33,31 @@ from ..schemas import (
     RegisterIn,
     ResetPasswordIn,
     ResetPasswordByEmailIn,
+    SetAvatarIn,
     UserOut,
 )
 from ..services.daily_visits import record_daily_visit
 from ..services.site_settings import is_membership_gate_enabled
+from ..services.user_avatar import (
+    DEFAULT_AVATAR_KEYS,
+    ensure_user_avatar,
+    next_avatar_key,
+    persist_user_avatar,
+)
 from ..services.user_geo import apply_signup_geo, backfill_signup_geo
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 def user_out(user: User) -> UserOut:
+    ensure_user_avatar(user)
     return UserOut(
         id=user.id,
         email=user.email,
         nickname=user.nickname,
         phone=user.phone,
         is_member=user.is_member,
+        avatar_key=user.avatar_key,
     )
 
 
@@ -139,6 +148,7 @@ def register(
     db.flush()
     if code_value:
         apply_activation_code(db, user, code_value)
+    ensure_user_avatar(user)
     db.commit()
     db.refresh(user)
     merge_device_favorites(db, user.id, device_id)
@@ -160,6 +170,7 @@ def login(
         raise HTTPException(status_code=403, detail="账号已停用")
 
     backfill_signup_geo(user, get_client_ip(request))
+    ensure_user_avatar(user)
     db.commit()
     merge_device_favorites(db, user.id, device_id)
     return issue_tokens(db, user, device_id)
@@ -199,7 +210,26 @@ def activate_membership(
 
 
 @router.get("/me/", response_model=UserOut)
-def me(user: User = Depends(get_current_user)):
+def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    persist_user_avatar(db, user)
+    return user_out(user)
+
+
+@router.post("/avatar/", response_model=UserOut)
+def set_avatar(
+    body: SetAvatarIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if body.cycle:
+        user.avatar_key = next_avatar_key(user.avatar_key)
+    else:
+        key = (body.avatar_key or "").strip()
+        if key not in DEFAULT_AVATAR_KEYS:
+            raise HTTPException(status_code=400, detail="无效的头像")
+        user.avatar_key = key
+    db.commit()
+    db.refresh(user)
     return user_out(user)
 
 

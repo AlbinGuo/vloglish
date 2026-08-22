@@ -10,6 +10,12 @@ class UserOut(BaseModel):
     nickname: str | None = None
     phone: str | None = None
     is_member: bool
+    avatar_key: str | None = None
+
+
+class SetAvatarIn(BaseModel):
+    avatar_key: str | None = Field(default=None, max_length=32)
+    cycle: bool = False
 
 
 class AuthTokensOut(BaseModel):
@@ -822,6 +828,7 @@ class EpisodeDetailOut(BaseModel):
     vocab_summary: list[VocabSummaryGroupOut] = []
     vocab_summary_text: str = ""
     video_context: str = ""
+    is_favorite: bool = False
 
 
 class EpisodeDetailResponse(BaseModel):

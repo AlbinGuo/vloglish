@@ -16,10 +16,13 @@ const props = withDefaults(
     highlightOnly?: boolean
     /** Teleport 目标；全屏时应指向全屏元素，否则气泡不可见 */
     teleportTo?: string | HTMLElement | null
+    /** 打开词条大弹窗时收起悬停气泡，避免叠在全屏层上面 */
+    suppressed?: boolean
   }>(),
   {
     highlightOnly: false,
     teleportTo: 'body',
+    suppressed: false,
   },
 )
 
@@ -164,6 +167,7 @@ function hide() {
 }
 
 async function showFor(span: HTMLElement) {
+  if (props.suppressed) return
   const currentRequest = ++requestId
   activeSpan = span
   positionTooltip(span)
@@ -221,6 +225,7 @@ function onPointerDown(e: PointerEvent) {
 }
 
 function onMouseOver(e: MouseEvent) {
+  if (props.suppressed) return
   if (tooltipRef.value?.contains(e.target as Node)) {
     hoveringTooltip = true
     clearTimers()
@@ -315,6 +320,13 @@ watch(
   () => props.context,
   () => {
     if (visible.value) hide()
+  },
+)
+
+watch(
+  () => props.suppressed,
+  (suppressed) => {
+    if (suppressed) hide()
   },
 )
 

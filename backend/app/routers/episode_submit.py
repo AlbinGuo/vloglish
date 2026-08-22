@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 from ..database import get_db
 from ..deps import get_current_member
 from ..media import resolve_cover_url
-from ..models import Article, Episode, User
+from ..models import Article, Episode, User, UserEpisodeFavorite
 from ..schemas import (
     UserCorpusBadgeOut,
     UserEpisodeSubmitIn,
@@ -93,8 +93,13 @@ def my_corpus_badge(
     if seen_at is not None:
         new_ep = new_ep.filter(Episode.published_at > seen_at)
         new_art = new_art.filter(Article.published_at > seen_at)
+    fav_count = (
+        db.query(UserEpisodeFavorite.user_id)
+        .filter(UserEpisodeFavorite.user_id == user.id)
+        .count()
+    )
     has_new = new_ep.limit(1).first() is not None or new_art.limit(1).first() is not None
-    return UserCorpusBadgeOut(count=ep_count + art_count, has_new=has_new)
+    return UserCorpusBadgeOut(count=ep_count + art_count + fav_count, has_new=has_new)
 
 
 @router.post("/seen/")

@@ -33,6 +33,11 @@ export async function fetchCurrentUser() {
   return data
 }
 
+export async function setUserAvatar(payload: { avatar_key?: string; cycle?: boolean }) {
+  const { data } = await api.post<User>('/api/auth/avatar/', payload)
+  return data
+}
+
 export async function activateMembership(activationCode: string) {
   const { data } = await api.post<User>('/api/auth/activate/', {
     activation_code: activationCode.trim(),

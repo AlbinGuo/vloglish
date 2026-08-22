@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import {
   activateMembership as activateMembershipApi,
   fetchCurrentUser,
+  setUserAvatar,
   login as loginApi,
   logout as logoutApi,
   refreshAuthToken,
@@ -70,6 +71,12 @@ export const useAuthStore = defineStore('auth', () => {
     return me
   }
 
+  async function cycleAvatar() {
+    const me = await setUserAvatar({ cycle: true })
+    user.value = me
+    return me
+  }
+
   async function logout() {
     const token = refreshToken.value
     if (token) {
@@ -113,6 +120,7 @@ export const useAuthStore = defineStore('auth', () => {
     refreshAccess,
     fetchMe,
     activateMembership,
+    cycleAvatar,
     logout,
     hydrate,
     clearSession,

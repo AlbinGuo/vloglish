@@ -4,6 +4,8 @@ import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
 import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
 import { getEpisodeList, setAuthorSubscribe, setEpisodeFavorite, warmEpisodeWordLookups } from '@/api/episodes'
+import { useFavoriteToastStore } from '@/stores/favoriteToast'
+import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 import AuthorSubscribeButton from '@/components/AuthorSubscribeButton.vue'
 import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
 import EpisodeWordCardList from '@/components/episode/EpisodeWordCardList.vue'
@@ -254,6 +256,8 @@ const lookupHistory = ref<WordLookupRecord[]>([])
 const lookupLoading = ref(false)
 const isFavorite = ref(false)
 const favoriteLoading = ref(false)
+const favoriteToast = useFavoriteToastStore()
+const corpusBadge = useMyCorpusBadgeStore()
 const learnedSubtitleIds = ref<Set<number>>(new Set())
 const videoAutoplay = ref(false)
 const subtitleSlideDir = ref<'next' | 'prev'>('next')
@@ -1402,11 +1406,13 @@ async function load() {
   }
 
   error.value = ''
+  isFavorite.value = false
   try {
     const data = props.adminPreview
       ? await (await import('@/api/admin')).adminGetEpisodePreview(props.videoId)
       : await getEpisodeDetail(props.videoId)
     episode.value = data.episode
+    isFavorite.value = Boolean(data.episode.is_favorite)
     preloadPoster(data.episode.media?.thumbnail_url ?? '')
     currentIndex.value = 0
     if (!props.adminPreview) {
@@ -1564,6 +1570,8 @@ async function toggleFavorite() {
   try {
     const res = await setEpisodeFavorite(props.videoId, next)
     isFavorite.value = res.is_favorite
+    favoriteToast.show(res.is_favorite, episode.value?.short_title || '')
+    void corpusBadge.refresh()
   } catch {
     isFavorite.value = !next
   } finally {
@@ -2076,6 +2084,7 @@ function subtitleRowClass(index: number) {
           <StarIcon
             :active="isFavorite"
             size-class="w-5 h-5"
+            :class="isFavorite ? 'fav-star-burst' : ''"
             active-class="text-amber-400"
             inactive-class="text-neutral-400"
           />
@@ -2239,6 +2248,7 @@ function subtitleRowClass(index: number) {
               :context="displaySub.english"
               :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
               :teleport-to="subtitleTooltipTeleport"
+              :suppressed="showEntryPanel"
               @word-hover-start="onSubtitleWordHoverStart"
               @word-hover-end="onSubtitleWordHoverEnd"
             >
@@ -2298,6 +2308,7 @@ function subtitleRowClass(index: number) {
             :context="displaySub.english"
             :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
             :teleport-to="subtitleTooltipTeleport"
+            :suppressed="showEntryPanel"
             @word-hover-start="onSubtitleWordHoverStart"
             @word-hover-end="onSubtitleWordHoverEnd"
           >
@@ -2986,17 +2997,19 @@ function subtitleRowClass(index: number) {
       :options="wordCardPrintOptions"
     />
 
-    <EntryCard
-      v-if="showEntryPanel"
-      :entry="selectedEntry"
-      :loading="entryLoading"
-      :error="entryError"
-      :can-save-vocabulary="auth.isLoggedIn && !adminPreview"
-      :vocab-notice="vocabNotice"
-      :vocab-notice-type="vocabNoticeType"
-      @close="closeEntryPanel"
-      @toggle-vocabulary="toggleVocabulary"
-    />
+    <Teleport :to="subtitleTooltipTeleport">
+      <EntryCard
+        v-if="showEntryPanel"
+        :entry="selectedEntry"
+        :loading="entryLoading"
+        :error="entryError"
+        :can-save-vocabulary="auth.isLoggedIn && !adminPreview"
+        :vocab-notice="vocabNotice"
+        :vocab-notice-type="vocabNoticeType"
+        @close="closeEntryPanel"
+        @toggle-vocabulary="toggleVocabulary"
+      />
+    </Teleport>
 
     <Teleport to="body">
       <Transition name="continuous-finished-fade">

@@ -96,6 +96,7 @@ function learnerLabel() {
           <StarIcon
             :active="favorited"
             size-class="w-4.5 h-4.5"
+            :class="favorited ? 'fav-star-burst' : ''"
             active-class="text-amber-300"
             inactive-class="text-white/90"
           />

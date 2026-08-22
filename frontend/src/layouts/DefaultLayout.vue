@@ -11,6 +11,7 @@ import { normalizePresencePageKey, sendPresenceHeartbeat } from '@/api/presence'
 import BrandLogo from '@/components/BrandLogo.vue'
 import ContinueLearningDropdown from '@/components/ContinueLearningDropdown.vue'
 import EpisodePublishedPopup from '@/components/EpisodePublishedPopup.vue'
+import FavoriteCorpusToast from '@/components/FavoriteCorpusToast.vue'
 import AiQuotaExhaustedModal from '@/components/ai/AiQuotaExhaustedModal.vue'
 import FeedbackModal from '@/components/FeedbackModal.vue'
 import { useCatalogMobileHeaderHide } from '@/composables/useCatalogMobileHeaderHide'
@@ -433,6 +434,7 @@ watch(
         </KeepAlive>
       </RouterView>
     </main>
+    <FavoriteCorpusToast />
     <FeedbackModal v-model:open="feedbackOpen" />
     <AiQuotaExhaustedModal />
     <EpisodePublishedPopup

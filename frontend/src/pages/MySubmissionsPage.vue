@@ -1,22 +1,32 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { accentIconFor } from '@/constants/accentOptions'
 import { listMyArticleSubmissions, type UserArticleSubmissionItem } from '@/api/articles'
-import { listMySubmissions, type UserSubmissionItem } from '@/api/episodes'
+import { getEpisodeList, listMySubmissions, type UserSubmissionItem } from '@/api/episodes'
+import EpisodeCard from '@/components/EpisodeCard.vue'
+import { useAuthStore } from '@/stores/auth'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
+import type { EpisodeSummary } from '@/types'
 
-type CorpusTab = 'videos' | 'articles'
+type CorpusTab = 'favorites' | 'videos' | 'articles'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 const loading = ref(true)
 const error = ref('')
 const videoRows = ref<UserSubmissionItem[]>([])
 const articleRows = ref<UserArticleSubmissionItem[]>([])
+const favoriteEpisodes = ref<EpisodeSummary[]>([])
 const corpusBadge = useMyCorpusBadgeStore()
 
-const tab = computed<CorpusTab>(() => (route.query.tab === 'articles' ? 'articles' : 'videos'))
+const tab = computed<CorpusTab>(() => {
+  const raw = String(route.query.tab || '')
+  if (raw === 'articles') return 'articles'
+  if (raw === 'videos') return 'videos'
+  return 'favorites'
+})
 
 const statusLabel: Record<string, string> = {
   draft: '待审核',
@@ -45,16 +55,29 @@ function formatDate(iso?: string) {
 }
 
 function setTab(next: CorpusTab) {
-  router.replace({ query: next === 'articles' ? { tab: 'articles' } : {} })
+  router.replace({ query: next === 'favorites' ? {} : { tab: next } })
+}
+
+function episodePath(ep: EpisodeSummary) {
+  if (!auth.isLoggedIn) {
+    return `/login?next=${encodeURIComponent(`/english/episode/${ep.video_id}`)}`
+  }
+  if (ep.requires_membership) return '/pricing'
+  return `/english/episode/${ep.video_id}`
 }
 
 async function load() {
   loading.value = true
   error.value = ''
   try {
-    const [videos, articles] = await Promise.all([listMySubmissions(), listMyArticleSubmissions()])
+    const [videos, articles, favorites] = await Promise.all([
+      listMySubmissions(),
+      listMyArticleSubmissions(),
+      getEpisodeList({ status: 'favorite', page_size: 50, offset: 0 }),
+    ])
     videoRows.value = videos.results
     articleRows.value = articles.results
+    favoriteEpisodes.value = favorites.results
     await corpusBadge.markSeen()
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -65,6 +88,15 @@ async function load() {
 }
 
 onMounted(load)
+watch(
+  favoriteEpisodes,
+  (list) => {
+    if (list.some((ep) => ep.is_favorite === false)) {
+      favoriteEpisodes.value = list.filter((ep) => ep.is_favorite !== false)
+    }
+  },
+  { deep: true },
+)
 </script>
 
 <template>
@@ -82,7 +114,7 @@ onMounted(load)
         上传视频
       </RouterLink>
       <RouterLink
-        v-else
+        v-else-if="tab === 'articles'"
         to="/english/submit-article"
         class="rounded-lg bg-amber-500 text-white px-3 py-1.5 text-sm hover:bg-amber-600"
       >
@@ -94,12 +126,23 @@ onMounted(load)
       <button
         type="button"
         class="px-3.5 py-1.5 text-sm rounded-lg transition"
+        :class="tab === 'favorites'
+          ? 'bg-white dark:bg-neutral-900 shadow-sm font-medium'
+          : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'"
+        @click="setTab('favorites')"
+      >
+        收藏
+        <span v-if="favoriteEpisodes.length" class="text-xs text-neutral-400 ml-1">{{ favoriteEpisodes.length }}</span>
+      </button>
+      <button
+        type="button"
+        class="px-3.5 py-1.5 text-sm rounded-lg transition"
         :class="tab === 'videos'
           ? 'bg-white dark:bg-neutral-900 shadow-sm font-medium'
           : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'"
         @click="setTab('videos')"
       >
-        视频
+        我上传的视频
         <span v-if="videoRows.length" class="text-xs text-neutral-400 ml-1">{{ videoRows.length }}</span>
       </button>
       <button
@@ -110,13 +153,31 @@ onMounted(load)
           : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'"
         @click="setTab('articles')"
       >
-        文章
+        我上传的文章
         <span v-if="articleRows.length" class="text-xs text-neutral-400 ml-1">{{ articleRows.length }}</span>
       </button>
     </div>
 
     <p v-if="error" class="mb-4 text-sm text-red-600">{{ error }}</p>
     <div v-if="loading" class="text-sm text-neutral-500 py-12 text-center">加载中...</div>
+
+    <template v-else-if="tab === 'favorites'">
+      <div v-if="favoriteEpisodes.length" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+        <EpisodeCard
+          v-for="ep in favoriteEpisodes"
+          :key="ep.video_id"
+          :episode="ep"
+          :to="episodePath(ep)"
+        />
+      </div>
+      <div
+        v-else
+        class="rounded-xl border border-dashed border-black/10 dark:border-white/10 p-12 text-center text-sm text-neutral-500"
+      >
+        还没有收藏视频。去首页点星星，收藏的内容会出现在这里。
+        <RouterLink to="/english" class="text-amber-600 hover:underline ml-1">去首页看看</RouterLink>
+      </div>
+    </template>
 
     <template v-else-if="tab === 'videos'">
       <section v-if="publishedVideos.length" class="mb-8">

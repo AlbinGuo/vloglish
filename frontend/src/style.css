@@ -147,6 +147,23 @@ body {
   }
 }
 
+.fav-star-burst {
+  animation: fav-star-burst 0.55s cubic-bezier(0.22, 1.4, 0.36, 1);
+  filter: drop-shadow(0 0 8px rgb(251 191 36 / 0.7));
+}
+
+@keyframes fav-star-burst {
+  0% {
+    transform: scale(0.55) rotate(-18deg);
+  }
+  55% {
+    transform: scale(1.28) rotate(10deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
 /* 移动端：禁止双指/双击缩放（配合 viewport meta） */
 @media (max-width: 1023px) {
   html {
@@ -1650,6 +1667,13 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
 .video-panel:fullscreen .subtitle-word-tooltip,
 .video-panel.video-panel--fullscreen .subtitle-word-tooltip {
   z-index: 2147483646;
+}
+
+/* 全屏元素外的 fixed 弹窗不可见；挂进来后改 absolute，盖住字幕/控件 */
+.video-panel:fullscreen .entry-card-overlay,
+.video-panel.video-panel--fullscreen .entry-card-overlay {
+  position: absolute;
+  z-index: 420;
 }
 
 .video-panel:fullscreen .video-panel__controls,

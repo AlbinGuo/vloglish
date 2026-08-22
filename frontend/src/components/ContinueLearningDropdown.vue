@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import { getContinueReadingArticles, type ContinueReadingItem } from '@/api/articles'
 import { getRecentEpisodes, type RecentEpisode } from '@/api/learning'
 import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
+import UserAvatar from '@/components/UserAvatar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
 
@@ -21,12 +22,18 @@ const rootEl = ref<HTMLElement | null>(null)
 let closeTimer: ReturnType<typeof setTimeout> | undefined
 
 const label = computed(() => auth.user?.nickname || auth.user?.email || '账户')
-const avatarInitial = computed(() => {
-  const raw = (auth.user?.nickname || auth.user?.email || '?').trim()
-  const ch = raw.charAt(0)
-  return /[a-z]/i.test(ch) ? ch.toUpperCase() : ch
-})
+const cycling = ref(false)
 const hasAny = computed(() => episodes.value.length > 0 || articles.value.length > 0)
+
+async function cycleAvatar() {
+  if (cycling.value) return
+  cycling.value = true
+  try {
+    await auth.cycleAvatar()
+  } finally {
+    cycling.value = false
+  }
+}
 
 async function loadContinue() {
   if (!auth.isLoggedIn) {
@@ -127,13 +134,18 @@ watch(
   >
     <button
       type="button"
-      class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-100 text-sm font-semibold ring-1 ring-black/5 dark:ring-white/10 hover:ring-amber-400/60 transition"
+      class="inline-flex items-center justify-center w-9 h-9 rounded-full overflow-hidden p-0 ring-1 ring-black/5 dark:ring-white/10 hover:ring-amber-400/70 transition"
       :aria-expanded="open"
       aria-haspopup="true"
       aria-label="账户菜单"
       @click.stop="toggle"
     >
-      {{ avatarInitial }}
+      <UserAvatar
+        :avatar-key="auth.user?.avatar_key"
+        :user-id="auth.user?.id"
+        size-class="w-9 h-9"
+        alt=""
+      />
     </button>
 
     <div
@@ -146,12 +158,12 @@ watch(
         class="w-[min(19rem,calc(100vw-1.5rem))] rounded-xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 shadow-lg shadow-black/10 overflow-hidden"
       >
         <div class="flex items-center gap-2.5 px-3 py-3 border-b border-black/5 dark:border-white/10">
-          <div
-            class="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 text-sm font-semibold flex items-center justify-center shrink-0"
-            aria-hidden="true"
-          >
-            {{ avatarInitial }}
-          </div>
+          <UserAvatar
+            :avatar-key="auth.user?.avatar_key"
+            :user-id="auth.user?.id"
+            size-class="w-10 h-10"
+            alt=""
+          />
           <div class="min-w-0 flex-1">
             <p class="text-sm font-semibold truncate text-neutral-900 dark:text-neutral-100">
               {{ label }}
@@ -164,6 +176,14 @@ watch(
             </p>
             <p v-else class="text-[11px] text-neutral-400 mt-0.5">普通用户</p>
           </div>
+          <button
+            type="button"
+            class="shrink-0 text-[11px] px-2 py-1 rounded-full border border-black/10 dark:border-white/15 text-neutral-500 hover:text-amber-700 hover:border-amber-400/70 dark:text-neutral-400 dark:hover:text-amber-300 transition disabled:opacity-50"
+            :disabled="cycling"
+            @click.stop="cycleAvatar"
+          >
+            换头像
+          </button>
         </div>
 
         <div class="flex items-center justify-between px-3 py-2 border-b border-black/5 dark:border-white/10">
