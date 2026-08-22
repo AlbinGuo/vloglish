@@ -5,11 +5,13 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 from ..database import DATA_DIR
 from ..dict.deepseek import localize_video_metadata_with_deepseek
@@ -229,8 +231,25 @@ def _looks_like_format_unavailable(detail: str) -> bool:
     return "requested format is not available" in lower or "unable to download format" in lower
 
 
+def _looks_like_ssl_reset(detail: str) -> bool:
+    lower = (detail or "").lower()
+    return (
+        "curl: (35)" in lower
+        or "recv failure" in lower
+        or "connection was reset" in lower
+        or "connection reset" in lower
+        or "ssleoferror" in lower
+        or "eof occurred in violation of protocol" in lower
+        or "ssl: unexpected_eof" in lower
+    )
+
+
 def _should_retry_youtube(detail: str) -> bool:
-    return _looks_like_http_403(detail) or _looks_like_format_unavailable(detail)
+    return (
+        _looks_like_http_403(detail)
+        or _looks_like_format_unavailable(detail)
+        or _looks_like_ssl_reset(detail)
+    )
 
 
 def _detect_js_runtime() -> str:
@@ -291,6 +310,128 @@ def _cookies_configured(cookies: Path | None = None) -> bool:
     return (tools_dir / "cookies.txt").is_file()
 
 
+_PROXY_ENV_KEYS = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+)
+
+
+def _windows_internet_proxy() -> str:
+    """Clash 开「系统代理」时，curl-cffi（--impersonate）会走这里，不一定看 YT_DLP_PROXY。"""
+    if os.name != "nt":
+        return ""
+    try:
+        import winreg
+
+        with winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Internet Settings",
+        ) as key:
+            enable, _ = winreg.QueryValueEx(key, "ProxyEnable")
+            if not enable:
+                return ""
+            server, _ = winreg.QueryValueEx(key, "ProxyServer")
+    except OSError:
+        return ""
+    server = str(server or "").strip()
+    if not server:
+        return ""
+    if "=" in server:
+        for part in server.split(";"):
+            if "=" not in part:
+                continue
+            scheme, addr = part.split("=", 1)
+            if scheme.strip().lower() in {"https", "http"} and addr.strip():
+                addr = addr.strip()
+                return addr if "://" in addr else f"http://{addr}"
+        return ""
+    return server if "://" in server else f"http://{server}"
+
+
+def _configured_proxy_url() -> str:
+    explicit = os.getenv("YT_DLP_PROXY", "").strip()
+    if explicit:
+        return explicit
+    for key in _PROXY_ENV_KEYS:
+        raw = os.getenv(key, "").strip()
+        if raw:
+            return raw
+    return _windows_internet_proxy()
+
+
+def _proxy_host_port(proxy: str) -> tuple[str, int] | None:
+    raw = (proxy or "").strip()
+    if not raw:
+        return None
+    parsed = urlparse(raw if "://" in raw else f"http://{raw}")
+    host = (parsed.hostname or "").strip()
+    if not host:
+        return None
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    return host, port
+
+
+def _assert_local_proxy_ready() -> None:
+    proxy = _configured_proxy_url()
+    parsed = _proxy_host_port(proxy)
+    if not parsed:
+        return
+    host, port = parsed
+    if host not in {"127.0.0.1", "localhost", "::1"}:
+        return
+    try:
+        with socket.create_connection((host, port), timeout=1.5):
+            return
+    except OSError as exc:
+        raise RuntimeError(
+            f"抓取 YouTube 需要走本地代理，但 {host}:{port} 没有在监听（代理软件已关，或端口已变）。\n"
+            "请先打开 Clash/V2Ray，看「端口」里的 HTTP / Mixed 端口，然后任选其一：\n"
+            f"① 在 backend/.env 写上 YT_DLP_PROXY=http://127.0.0.1:<实际端口>（常见 7890，当前系统指向 {port}），保存后重启后端；\n"
+            "② 或保持系统代理开启，并确认代理软件正在运行。\n"
+            "生产 Docker 里不要写 127.0.0.1，应写宿主机或旁路代理地址。"
+        ) from exc
+
+
+def _effective_yt_dlp_proxy() -> str:
+    """优先用 YT_DLP_PROXY；否则沿用环境变量 / Windows 系统代理，保证关掉 impersonate 后仍走 Clash。"""
+    return os.getenv("YT_DLP_PROXY", "").strip() or _configured_proxy_url()
+
+
+def _is_local_proxy(proxy: str) -> bool:
+    parsed = _proxy_host_port(proxy)
+    return bool(parsed and parsed[0] in {"127.0.0.1", "localhost", "::1"})
+
+
+def _impersonate_target(url: str, *, disabled: bool = False) -> str:
+    """本地代理 + curl-cffi 容易 TLS reset，默认不 impersonate。"""
+    if disabled:
+        return ""
+    configured = os.getenv("YT_DLP_IMPERSONATE", "").strip()
+    if configured.lower() in {"0", "none", "off"}:
+        return ""
+    if configured:
+        return configured
+    if not _is_youtube_url(url):
+        return ""
+    if _is_local_proxy(_effective_yt_dlp_proxy()):
+        return ""
+    return "chrome"
+
+
+def _yt_dlp_subprocess_env() -> dict[str, str]:
+    env = os.environ.copy()
+    proxy = _effective_yt_dlp_proxy()
+    if not proxy:
+        return env
+    for key in _PROXY_ENV_KEYS:
+        env[key] = proxy
+    return env
+
+
 def _yt_dlp_cli_extras(
     *,
     url: str = "",
@@ -299,15 +440,14 @@ def _yt_dlp_cli_extras(
     extractor_extra: str = "",
     use_browser_cookies: bool = True,
     check_formats: bool = True,
+    disable_impersonate: bool = False,
 ) -> list[str]:
     args: list[str] = []
-    proxy = os.getenv("YT_DLP_PROXY", "").strip()
+    proxy = _effective_yt_dlp_proxy()
     if proxy:
         args.extend(["--proxy", proxy])
-    impersonate = os.getenv("YT_DLP_IMPERSONATE", "").strip()
-    if not impersonate and _is_youtube_url(url):
-        impersonate = "chrome"
-    if impersonate and impersonate.lower() not in {"0", "none", "off"}:
+    impersonate = _impersonate_target(url, disabled=disable_impersonate)
+    if impersonate:
         args.extend(["--impersonate", impersonate])
     browser = _cookies_from_browser() if use_browser_cookies else ""
     if browser:
@@ -350,7 +490,22 @@ def _format_ytdlp_error(detail: str, url: str) -> str:
         platform = "YouTube"
 
     if (
-        "eof occurred in violation of protocol" in lower
+        "curl: (7)" in lower
+        or "failed to connect to 127.0.0.1" in lower
+        or "couldn't connect to server" in lower
+        or "could not connect to server" in lower
+    ):
+        proxy = _effective_yt_dlp_proxy() or "系统代理"
+        return (
+            f"连不上本地代理，无法抓取 {platform}。yt-dlp 正在访问 {proxy}，但该端口没有服务。\n"
+            "请打开 Clash/V2Ray，把 backend/.env 的 YT_DLP_PROXY 改成当前 HTTP 端口后重启后端。\n"
+            "生产环境不要使用 127.0.0.1（那是容器自己）。\n\n"
+            f"原始错误：{detail[-800:]}"
+        )
+
+    if (
+        "curl: (35)" in lower
+        or "eof occurred in violation of protocol" in lower
         or "ssleoferror" in lower
         or "unexpected_eof_while_reading" in lower
         or "ssl: unexpected_eof" in lower
@@ -359,18 +514,20 @@ def _format_ytdlp_error(detail: str, url: str) -> str:
         or "connection reset" in lower
         or "10054" in detail
         or "forcibly closed" in lower
+        or "recv failure" in lower
     ):
-        proxy = os.getenv("YT_DLP_PROXY", "").strip()
+        proxy = _effective_yt_dlp_proxy()
         proxy_hint = (
-            f"当前已配置 YT_DLP_PROXY={proxy}，请确认：① 代理软件已开启；② 端口一致；"
-            f"③ 系统代理/TUN 不要和 yt-dlp 双重劫持（可先关 Clash 系统代理，只留 YT_DLP_PROXY）；④ 换可用节点后重试。"
+            f"当前代理 {proxy}。请：① 关掉 Clash 的「系统代理 / TUN」，只开 HTTP 端口；"
+            f"② backend/.env 写 YT_DLP_PROXY={proxy} 后重启后端；③ 换一个节点再试。"
             if proxy
-            else "当前未配置 YT_DLP_PROXY。本地请在 backend/.env 增加例如：YT_DLP_PROXY=http://127.0.0.1:7890（端口以 Clash/V2Ray 的 HTTP 代理为准），保存后重启后端再试。"
+            else "当前未配置 YT_DLP_PROXY。本地请在 backend/.env 增加例如：YT_DLP_PROXY=http://127.0.0.1:7890，保存后重启后端。"
         )
         return (
-            f"连接 {platform} 被中断（Connection reset / 10054，常见于国内直连 YouTube 失败或代理未生效）。\n"
+            f"连接 {platform} 的 TLS 被重置（curl 35 / Connection reset）。"
+            "常见于 curl-cffi 伪装浏览器 + Clash 系统代理/TUN 叠在一起。\n"
             f"{proxy_hint}\n"
-            "也可执行 yt-dlp -U 更新，或在本地成功下载后再上传七牛。\n\n"
+            "也可执行 yt-dlp -U，或在本机命令行先下载成功再上传七牛。\n\n"
             f"原始错误：{detail[-800:]}"
         )
 
@@ -437,6 +594,7 @@ def _run_yt_dlp(
     extractor_extra: str = "",
     use_cookies: bool = True,
     check_formats: bool = True,
+    disable_impersonate: bool = False,
 ) -> None:
     out_template = str(work_dir / f"{stem}.%(ext)s")
     cmd = [
@@ -478,6 +636,7 @@ def _run_yt_dlp(
             extractor_extra=extractor_extra,
             use_browser_cookies=browser_cookies,
             check_formats=check_formats,
+            disable_impersonate=disable_impersonate,
         )
     )
     cmd.append(url)
@@ -491,6 +650,7 @@ def _run_yt_dlp(
             encoding="utf-8",
             errors="replace",
             timeout=timeout_sec,
+            env=_yt_dlp_subprocess_env(),
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(
@@ -524,6 +684,7 @@ def download_source_media(
         raise RuntimeError("仅支持 YouTube 或 TikTok 链接")
 
     tools = YtDlpTools.from_env()
+    _assert_local_proxy_ready()
     work_dir = Path(tempfile.mkdtemp(prefix="vloglish-ytdlp-", dir=DATA_DIR))
     max_height = normalize_fetch_quality(quality)
     video_err: Exception | None = None
@@ -574,6 +735,26 @@ def download_source_media(
                     fut_audio.result()
                 except Exception as exc:
                     audio_err = exc
+        had_ssl_reset = bool(video_err and _looks_like_ssl_reset(str(video_err)))
+        if video_err and _is_youtube_url(url) and had_ssl_reset:
+            try:
+                _run_yt_dlp(
+                    tools,
+                    url,
+                    work_dir,
+                    fmt=_video_format(max_height),
+                    stem="media",
+                    write_subtitles=write_subtitles,
+                    write_thumbnail=True,
+                    write_info=True,
+                    merge_mp4=True,
+                    use_cookies=False,
+                    check_formats=False,
+                    disable_impersonate=True,
+                )
+                video_err = None
+            except Exception as exc:
+                video_err = exc
         if video_err and _is_youtube_url(url) and _should_retry_youtube(str(video_err)):
             retries = (
                 {
@@ -615,6 +796,7 @@ def download_source_media(
                         extractor_extra=str(attempt["extractor_extra"]),
                         use_cookies=bool(attempt["use_cookies"]),
                         check_formats=bool(attempt["check_formats"]),
+                        disable_impersonate=had_ssl_reset,
                     )
                     video_err = None
                     break
