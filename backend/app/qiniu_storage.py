@@ -211,7 +211,12 @@ def qiniu_object_exists(cfg: QiniuConfig, video_id: str, filename: str, *, timeo
     req = urllib.request.Request(
         url,
         method="GET",
-        headers={"User-Agent": "Mozilla/5.0", "Range": "bytes=0-0"},
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "Range": "bytes=0-0",
+            # 与网页端一致，避免开启 Referer 防盗链后服务端探测也被拦
+            "Referer": (os.getenv("FRONTEND_URL") or "https://en.yunankexun.com").rstrip("/") + "/",
+        },
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:

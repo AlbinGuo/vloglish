@@ -199,8 +199,10 @@ QINIU_SECRET_KEY=...
 QINIU_BUCKET=sxak-oss
 QINIU_DOMAIN=http://oss.sxakgs.com
 QINIU_PREFIX=en
-# 防盗链：后端默认签发短时 URL；请在七牛控制台把空间改为「私有」，
-# 并建议开启 Referer 防盗链。调试可设 QINIU_SIGN_URLS=0
+# 防盗链：优先把空间改为「私有」，靠后端短时签名 URL（QINIU_SIGN_URLS=1）。
+# 若再开 Referer 防盗链：白名单加 en.yunankexun.com，并必须勾选「允许空 Referer」
+# （Android 系统播放器拉视频经常不带 Referer；App WebView 源是 localhost）。
+# 不要只开 Referer 且禁止空 Referer，否则 App 图片/视频会全部 403。
 QINIU_SIGN_URLS=1
 QINIU_MEDIA_EXPIRES=14400
 QINIU_COVER_EXPIRES=86400
