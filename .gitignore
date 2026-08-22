@@ -88,7 +88,8 @@ docker-compose.override.yml
 # --- Editor / tooling ---
 .cursor/
 terminals/
-assets/
+# 只忽略仓库根目录的本地素材；写成 assets/ 会误伤 frontend/src/assets
+/assets/
 
 # --- Temp & backup ---
 *.tmp
