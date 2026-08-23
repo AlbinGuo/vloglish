@@ -30,7 +30,8 @@ import {
 import WordCardPrintDocument from '@/components/episode/WordCardPrintDocument.vue'
 import WordCardPrintSheet from '@/components/episode/WordCardPrintSheet.vue'
 import SubtitleModeSheet from '@/components/episode/SubtitleModeSheet.vue'
-import { useIsPad, useIsPhone } from '@/composables/useBreakpoint'
+import { useIsPad, useIsPhone, useMediaQuery } from '@/composables/useBreakpoint'
+import { useEpisodeVideoSplit } from '@/composables/useEpisodeVideoSplit'
 import { useMobilePlayerChrome } from '@/composables/useMobilePlayerChrome'
 import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import { useSubtitleVirtualList } from '@/composables/useSubtitleVirtualList'
@@ -244,6 +245,19 @@ const listRef = ref<HTMLElement | null>(null)
 const showSettings = ref(false)
 const isPhone = useIsPhone()
 const isPad = useIsPad()
+const isSplitRow = useMediaQuery(
+  '(min-width: 1024px), (min-width: 768px) and (max-width: 1023px) and (orientation: landscape)',
+)
+const episodeSplitRef = ref<HTMLElement | null>(null)
+const {
+  videoPercent,
+  dragging: splitDragging,
+  startDrag: startVideoSplitDrag,
+  reset: resetVideoSplit,
+  nudge: nudgeVideoSplit,
+  minPercent: videoSplitMin,
+  maxPercent: videoSplitMax,
+} = useEpisodeVideoSplit()
 const showSidePanel = ref(true)
 const mobileDrawerOpen = ref(false)
 const mobileMoreOpen = ref(false)
@@ -1142,13 +1156,47 @@ const showCurrentSubtitleBar = computed(
   () => mountCurrentSubtitleBar.value && !subtitlesHidden.value,
 )
 
+const canResizeSplit = computed(
+  () =>
+    !isPhone.value &&
+    isSplitRow.value &&
+    !isVideoPanelFullscreen.value &&
+    !subtitlesHidden.value,
+)
+
 /** 非全屏时的视频栏宽度/观影布局；全屏期间不切换，避免改全屏元素 class 导致 API 状态异常 */
 const videoPanelLayoutClass = computed(() => {
   if (isVideoPanelFullscreen.value) return ''
-  return subtitlesHidden.value
-    ? 'video-panel--cinema flex-1 min-w-0 max-lg:landscape:flex-1 max-lg:landscape:min-w-0 lg:justify-center'
-    : 'lg:w-[46%] xl:w-[44%] max-lg:landscape:w-[42%] max-lg:landscape:shrink-0'
+  if (subtitlesHidden.value) {
+    return 'video-panel--cinema flex-1 min-w-0 max-lg:landscape:flex-1 max-lg:landscape:min-w-0 lg:justify-center'
+  }
+  if (canResizeSplit.value) {
+    return 'video-panel--resizable min-w-0 max-lg:landscape:shrink-0'
+  }
+  return 'lg:w-[46%] xl:w-[44%] max-lg:landscape:w-[42%] max-lg:landscape:shrink-0'
 })
+
+const videoPanelSplitStyle = computed(() => {
+  if (!canResizeSplit.value) return undefined
+  return { width: `${videoPercent.value}%` }
+})
+
+function onVideoSplitKeydown(event: KeyboardEvent) {
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    nudgeVideoSplit(-2)
+    return
+  }
+  if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    nudgeVideoSplit(2)
+    return
+  }
+  if (event.key === 'Home' || event.key === 'Enter') {
+    event.preventDefault()
+    resetVideoSplit()
+  }
+}
 
 const playbackTime = computed(() => player.currentTime.value)
 
@@ -2143,15 +2191,22 @@ function subtitleRowClass(index: number) {
       class="flex-1 min-h-0 flex flex-col lg:flex-row max-lg:landscape:flex-row overflow-hidden"
       :class="subtitlesHidden && isPhone ? 'pb-[calc(1.25rem+env(safe-area-inset-bottom))]' : ''"
     >
+      <div
+        ref="episodeSplitRef"
+        class="flex-1 min-h-0 min-w-0 flex flex-col lg:flex-row max-lg:landscape:flex-row overflow-hidden"
+        :class="splitDragging ? 'episode-split--dragging' : ''"
+      >
       <!-- 视频区 -->
       <aside
         ref="videoPanelRef"
-        class="video-panel shrink-0 min-h-0 lg:h-full flex flex-col gap-2 overflow-hidden lg:border-r border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4 max-lg:h-auto max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:shrink-0 max-lg:landscape:static max-lg:landscape:h-auto"
+        class="video-panel shrink-0 min-h-0 lg:h-full flex flex-col gap-2 overflow-hidden bg-neutral-100 dark:bg-neutral-950 p-3 sm:p-4 max-lg:h-auto max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:shrink-0 max-lg:landscape:static max-lg:landscape:h-auto"
         :class="[
           mobileVideoImmersive ? 'max-lg:!p-0 max-lg:!gap-0 max-lg:!rounded-none' : '',
           isVideoPanelFullscreen ? 'video-panel--fullscreen' : '',
           videoPanelLayoutClass,
+          canResizeSplit ? '' : 'lg:border-r border-black/5 dark:border-white/10',
         ]"
+        :style="videoPanelSplitStyle"
       >
         <div
           class="video-panel__player shrink-0 w-full min-h-0"
@@ -2301,7 +2356,8 @@ function subtitleRowClass(index: number) {
         <div
           v-if="mountCurrentSubtitleBar && displaySub && !isVideoPanelFullscreen"
           v-show="showCurrentSubtitleBar"
-          class="min-h-0 flex flex-col flex-1"
+          class="flex flex-col flex-1"
+          :class="canResizeSplit ? 'min-h-[4.5rem]' : 'min-h-0'"
         >
           <SubtitleWordTooltipHost
             class="min-h-0 flex flex-col flex-1"
@@ -2333,6 +2389,32 @@ function subtitleRowClass(index: number) {
           </SubtitleWordTooltipHost>
         </div>
       </aside>
+
+      <div
+        v-if="canResizeSplit"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="调整视频区域宽度，双击恢复默认"
+        :aria-valuenow="Math.round(videoPercent)"
+        :aria-valuemin="videoSplitMin"
+        :aria-valuemax="videoSplitMax"
+        tabindex="0"
+        title="拖动调整宽度，双击恢复默认"
+        class="episode-split-handle group relative shrink-0 cursor-col-resize touch-none bg-transparent hover:bg-amber-500/15 active:bg-amber-500/25 transition-colors w-3.5 lg:w-2"
+        :class="splitDragging ? 'bg-amber-500/20' : ''"
+        @pointerdown="startVideoSplitDrag($event, episodeSplitRef)"
+        @dblclick.prevent="resetVideoSplit"
+        @keydown="onVideoSplitKeydown"
+      >
+        <div
+          class="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-black/10 dark:bg-white/15 group-hover:bg-amber-500/70 group-active:bg-amber-500"
+          :class="splitDragging ? 'bg-amber-500' : ''"
+        />
+        <div
+          class="pointer-events-none absolute top-1/2 left-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-300 dark:bg-neutral-600 opacity-80 group-hover:bg-amber-500 group-hover:opacity-100"
+          :class="splitDragging ? 'bg-amber-500 opacity-100' : ''"
+        />
+      </div>
 
       <!-- 字幕区：全屏时侧栏不可见且勿强行 v-show，避免牵动全屏元素所在 flex 布局 -->
       <section
@@ -2695,6 +2777,7 @@ function subtitleRowClass(index: number) {
           :loading="coreVocabLoading"
         />
       </section>
+      </div>
 
       <IntensiveCoreVocabMobile
         v-if="intensiveMode && contentView === 'subtitles' && !subtitlesHidden && !isVideoPanelFullscreen"

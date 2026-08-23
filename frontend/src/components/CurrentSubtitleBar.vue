@@ -378,7 +378,7 @@ onUnmounted(() => {
 
 .current-subtitle-bar--mono-english :deep(.subtitle-english),
 .current-subtitle-bar--mono-english :deep(.intensive-english) {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-family: math;
 }
 .current-subtitle-bar__scroll::-webkit-scrollbar {
   width: 0;

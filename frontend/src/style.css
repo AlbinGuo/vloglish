@@ -365,6 +365,12 @@ select:disabled {
   flex-wrap: wrap;
 }
 
+/* 播放器下方当前句英文 */
+.current-subtitle-bar .subtitle-english,
+.current-subtitle-bar .intensive-english {
+  font-family: math;
+}
+
 /* 视频下方实时字幕 */
 .current-subtitle-bar .subtitle-english-word-progress .subtitle-word-read,
 .current-subtitle-bar .subtitle-english-word-progress .subtitle-word-read span {
@@ -1716,6 +1722,16 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
     max-height: min(62vh, calc(100dvh - 10rem));
     max-width: min(100%, 90rem, calc(min(62vh, calc(100dvh - 10rem)) * 16 / 9));
   }
+}
+
+/* 左右拖宽时：16:9 画面不要把当前句字幕条挤没；拖动中不让 video/iframe 吞掉指针 */
+.video-panel.video-panel--resizable:not(.video-panel--fullscreen):not(:fullscreen) .video-panel__player {
+  max-height: calc(100dvh - 15.5rem);
+}
+
+.episode-split--dragging iframe,
+.episode-split--dragging video {
+  pointer-events: none;
 }
 
 /* ── 打印（挖空 / 词卡） ── */
