@@ -27,9 +27,14 @@ export interface AppVersionCheck {
   download_page_path: string
 }
 
-/** 可计数的 Android 下载中转地址（302 → APK 直链） */
+/** 可计数的 Android 下载中转地址（302 → APK 直链）。扫码必须用绝对 URL，相对路径会被扫码器解析成 http:///… */
 export function getAndroidApkTrackUrl() {
-  return `${API_BASE_URL}/api/app-download/android/`
+  const path = '/api/app-download/android/'
+  if (API_BASE_URL) return `${API_BASE_URL}${path}`
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${path}`
+  }
+  return path
 }
 
 export async function fetchAppDownload() {
