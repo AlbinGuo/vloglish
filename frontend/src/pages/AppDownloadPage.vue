@@ -26,30 +26,27 @@ const apkSizeLabel = computed(() => formatFileSize(data.value?.android_apk_bytes
 
 const iosLink = computed(() => (data.value?.ios_link || '').trim())
 
+const iosNote = computed(() => {
+  const note = (data.value?.ios_note || '').trim()
+  return note || '应用即将上架 App Store，敬请期待。'
+})
+
 const showAndroid = computed(() => {
   if (!data.value?.enabled) return false
-  if (client.value === 'ios') return false
   return Boolean(data.value.has_android && apkTrackUrl.value)
 })
 
-/** iOS：仅有可点外链时展示；Android 手机不展示 iOS 区 */
-const showIos = computed(() => {
-  if (!data.value?.enabled) return false
-  if (client.value === 'android') return false
-  return Boolean(iosLink.value)
-})
+/** 下载开放时始终展示 iOS 区；无外链时显示即将上架提示 */
+const showIos = computed(() => Boolean(data.value?.enabled))
 
 const emptyHint = computed(() => {
   if (!data.value) return ''
   if (!data.value.enabled) return '下载暂未开放，请稍后再来。'
-  if (client.value === 'ios' && !showIos.value) {
-    return data.value.ios_note || 'iOS 版尚未上架，敬请期待。可先使用网页版学习。'
+  if (!showAndroid.value && !iosLink.value) {
+    return '当前暂无 Android 安装包；iOS 即将上架 App Store，可先使用网页版。'
   }
-  if (client.value === 'android' && !showAndroid.value) {
+  if (!showAndroid.value) {
     return 'Android 安装包尚未上线，请稍后再来，或先使用网页版。'
-  }
-  if (!showAndroid.value && !showIos.value) {
-    return '当前暂无可下载的安装包，请稍后再来，或先使用网页版。'
   }
   return ''
 })
@@ -181,13 +178,16 @@ onMounted(async () => {
             <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-800 text-white text-xs font-bold dark:bg-neutral-200 dark:text-neutral-900">iOS</span>
             <div>
               <h2 class="text-base font-semibold">iPhone / iPad</h2>
-              <p class="text-xs text-neutral-500">前往安装</p>
+              <p class="text-xs text-neutral-500">
+                {{ iosLink ? '前往 App Store 安装' : '即将上架 App Store' }}
+              </p>
             </div>
           </div>
-          <p v-if="data.ios_note" class="mt-3 text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
-            {{ data.ios_note }}
+          <p class="mt-3 text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
+            {{ iosNote }}
           </p>
           <a
+            v-if="iosLink"
             :href="iosLink"
             target="_blank"
             rel="noopener"
@@ -195,6 +195,19 @@ onMounted(async () => {
           >
             {{ client === 'ios' ? '前往下载' : '打开 iOS 下载页' }}
           </a>
+          <div
+            v-else
+            class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-800/60 text-[15px] font-semibold text-neutral-500 dark:text-neutral-400"
+            aria-disabled="true"
+          >
+            即将上架 App Store
+          </div>
+          <p
+            v-if="!iosLink"
+            class="mt-2 text-[11px] text-neutral-400 text-center leading-relaxed"
+          >
+            上架后可在此页直接跳转下载；也可先使用网页版学习。
+          </p>
         </section>
 
         <p class="mt-8 text-center text-xs text-neutral-400">

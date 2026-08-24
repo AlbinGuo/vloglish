@@ -11,7 +11,7 @@ from .site_settings import get_setting, set_setting
 
 APP_RELEASE_KEY = "app_release"
 
-DEFAULT_IOS_NOTE = "iOS 版尚未上架 App Store，敬请期待。"
+DEFAULT_IOS_NOTE = "应用即将上架 App Store，敬请期待。"
 
 
 def _default_payload() -> dict[str, Any]:

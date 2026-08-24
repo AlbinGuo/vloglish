@@ -27,7 +27,7 @@ const form = ref<AdminAppRelease>({
   force_update: false,
   min_supported_version_code: 0,
   android_download_count: 0,
-  ios_note: 'iOS 版尚未上架 App Store，敬请期待。',
+  ios_note: '应用即将上架 App Store，敬请期待。',
   ios_link: '',
 })
 
@@ -64,7 +64,7 @@ function applyForm(data: AdminAppRelease) {
     force_update: Boolean(data.force_update),
     min_supported_version_code: data.min_supported_version_code || 0,
     android_download_count: data.android_download_count || 0,
-    ios_note: data.ios_note || 'iOS 版尚未上架 App Store，敬请期待。',
+    ios_note: data.ios_note || '应用即将上架 App Store，敬请期待。',
     ios_link: data.ios_link || '',
   }
 }
