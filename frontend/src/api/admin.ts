@@ -1295,6 +1295,39 @@ export async function adminUpdateFeedback(
   return data
 }
 
+export interface AdminWish {
+  id: number
+  user_id: number
+  user_email: string
+  user_nickname: string
+  title: string
+  body: string
+  admin_reply: string
+  like_count: number
+  status: string
+  hidden: boolean
+  created_at: string
+  updated_at: string
+}
+
+export async function adminListWishes(
+  params: { page?: number; page_size?: number; status?: string; hidden?: string } = {},
+) {
+  const { data } = await adminApi.get<{ count: number; results: AdminWish[] }>(
+    '/api/admin/wish-wall/',
+    { params },
+  )
+  return data
+}
+
+export async function adminUpdateWish(
+  id: number,
+  payload: { status?: string; admin_reply?: string; hidden?: boolean },
+) {
+  const { data } = await adminApi.patch<AdminWish>(`/api/admin/wish-wall/${id}/`, payload)
+  return data
+}
+
 export interface AdminAppRelease {
   enabled: boolean
   android_version: string

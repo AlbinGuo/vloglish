@@ -17,12 +17,14 @@ from .models import (
     UserAuthorSubscription,
     UserPageDwell,
     UserPracticeRecord,
+    WishRequest,
+    WishRequestLike,
     WordPracticeSession,
     WordPracticeStat,
     WordPracticeWrong,
 )
 from .schemas import AuthTokensOut
-from .routers import ai_coach, app_download, article_submit, auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, site_config, word_practice
+from .routers import ai_coach, app_download, article_submit, auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, site_config, wish_wall, word_practice
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import ai_usage as admin_ai_usage
@@ -35,6 +37,7 @@ from .routers.admin import demo_codes as admin_demo_codes
 from .routers.admin import episode_import as admin_episode_import
 from .routers.admin import episodes as admin_episodes
 from .routers.admin import feedback as admin_feedback
+from .routers.admin import wish_wall as admin_wish_wall
 from .routers.admin import membership_orders as admin_membership_orders
 from .routers.admin import notifications as admin_notifications
 from .routers.admin import presence as admin_presence
@@ -63,6 +66,7 @@ app.include_router(episodes.router)
 app.include_router(episode_submit.router)
 app.include_router(notifications.router)
 app.include_router(feedback.router)
+app.include_router(wish_wall.router)
 app.include_router(learning.router)
 app.include_router(word_practice.router)
 app.include_router(entries.router)
@@ -88,6 +92,7 @@ app.include_router(admin_tags.router)
 app.include_router(admin_series.router)
 app.include_router(admin_notifications.router)
 app.include_router(admin_feedback.router)
+app.include_router(admin_wish_wall.router)
 app.include_router(admin_learning.router)
 app.include_router(admin_ai_usage.router)
 app.include_router(admin_presence.router)
@@ -185,6 +190,15 @@ def _migrate_schema():
     if "user_author_subscriptions" not in insp.get_table_names():
         UserAuthorSubscription.__table__.create(bind=engine, checkfirst=True)
         print("[vloglish] created table user_author_subscriptions")
+        insp = inspect(engine)
+
+    if "wish_requests" not in insp.get_table_names():
+        WishRequest.__table__.create(bind=engine, checkfirst=True)
+        print("[vloglish] created table wish_requests")
+        insp = inspect(engine)
+    if "wish_request_likes" not in insp.get_table_names():
+        WishRequestLike.__table__.create(bind=engine, checkfirst=True)
+        print("[vloglish] created table wish_request_likes")
         insp = inspect(engine)
 
     # 早期版本 article_id 为 INTEGER，需改为文章对外 ID（VARCHAR）

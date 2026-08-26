@@ -71,6 +71,11 @@ const adminRoutes: RouteRecordRaw[] = [
         component: () => import('@/pages/admin/AdminFeedbackPage.vue'),
       },
       {
+        path: 'wish-wall',
+        name: 'AdminWishWall',
+        component: () => import('@/pages/admin/AdminWishWallPage.vue'),
+      },
+      {
         path: 'app',
         name: 'AdminApp',
         component: () => import('@/pages/admin/AdminAppPage.vue'),
@@ -295,6 +300,12 @@ const userRoutes: RouteRecordRaw[] = [
         path: 'english/word-practice',
         name: 'WordPractice',
         component: () => import('@/pages/WordPracticePage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: 'english/wish-wall',
+        name: 'WishWall',
+        component: () => import('@/pages/WishWallPage.vue'),
         meta: { requiresAuth: true },
       },
     ],

@@ -1479,6 +1479,66 @@ class AdminFeedbackUpdateIn(BaseModel):
     admin_note: str | None = None
 
 
+# ——— 需求墙 ———
+
+class WishCreateIn(BaseModel):
+    title: str = Field(min_length=1, max_length=80)
+    body: str = Field(default="", max_length=2000)
+
+
+class WishItemOut(BaseModel):
+    id: int
+    title: str
+    body: str
+    admin_reply: str = ""
+    like_count: int = 0
+    liked: bool = False
+    status: str = "pending"
+    mine: bool = False
+    created_at: str
+
+
+class WishListOut(BaseModel):
+    count: int
+    results: list[WishItemOut]
+
+
+class WishCreateOut(BaseModel):
+    id: int
+    message: str = "已贴到需求墙"
+
+
+class WishLikeOut(BaseModel):
+    liked: bool
+    like_count: int
+
+
+class AdminWishOut(BaseModel):
+    id: int
+    user_id: int
+    user_email: str = ""
+    user_nickname: str = ""
+    title: str
+    body: str
+    admin_reply: str = ""
+    like_count: int = 0
+    status: str
+    hidden: bool = False
+    created_at: str
+    updated_at: str = ""
+
+
+class AdminWishListOut(BaseModel):
+    count: int
+    results: list[AdminWishOut]
+
+
+class AdminWishUpdateIn(BaseModel):
+    status: str | None = None
+    admin_reply: str | None = None
+    hidden: bool | None = None
+
+
 class MembershipPricingOut(BaseModel):
     subject: str
     amount_yuan: str

@@ -364,6 +364,34 @@ class UserFeedback(Base):
         return [str(u).strip() for u in raw if str(u).strip()]
 
 
+class WishRequest(Base):
+    """需求墙：公开的功能建议。"""
+
+    __tablename__ = "wish_requests"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(80))
+    body: Mapped[str] = mapped_column(Text, default="")
+    admin_reply: Mapped[str] = mapped_column(Text, default="")
+    like_count: Mapped[int] = mapped_column(Integer, default=0)
+    # pending / replied / done
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class WishRequestLike(Base):
+    __tablename__ = "wish_request_likes"
+    __table_args__ = (UniqueConstraint("user_id", "wish_id", name="uq_wish_request_like"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    wish_id: Mapped[int] = mapped_column(ForeignKey("wish_requests.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class UserEpisodeProgress(Base):
     __tablename__ = "user_episode_progress"
     __table_args__ = (UniqueConstraint("user_id", "episode_id", name="uq_user_episode_progress"),)
