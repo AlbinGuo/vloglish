@@ -93,6 +93,7 @@ import {
   type SubtitleDisplayMode,
   type FullscreenCaptionMode,
 } from '@/utils/subtitleHtml'
+import { exitAppFullscreen, getFullscreenElement, subscribeFullscreenChange } from '@/utils/fullscreen'
 
 const props = defineProps<{ videoId: string; backTo?: string; adminPreview?: boolean }>()
 const route = useRoute()
@@ -212,7 +213,7 @@ const videoPanelRef = ref<HTMLElement | null>(null)
 const isVideoPanelFullscreen = ref(false)
 
 function onVideoPanelFullscreenChange() {
-  isVideoPanelFullscreen.value = document.fullscreenElement === videoPanelRef.value
+  isVideoPanelFullscreen.value = getFullscreenElement() === videoPanelRef.value
 }
 
 const subtitleTooltipTeleport = computed(() =>
@@ -1254,10 +1255,16 @@ watch(mobileMoreOpen, (open) => {
 
 function onEntryKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
+    if (getFullscreenElement()) {
+      void exitAppFullscreen()
+      return
+    }
     if (showEntryPanel.value) closeEntryPanel()
     else if (showSettings.value) showSettings.value = false
   }
 }
+
+let unsubscribeVideoPanelFullscreen: (() => void) | null = null
 
 onMounted(() => {
   syncSubtitlesHiddenForVideo(props.videoId)
@@ -1265,7 +1272,7 @@ onMounted(() => {
   if (auth.isLoggedIn) void vocabularyStore.load()
   window.addEventListener('keydown', onEntryKeydown)
   window.addEventListener('afterprint', onAfterPrint)
-  document.addEventListener('fullscreenchange', onVideoPanelFullscreenChange)
+  unsubscribeVideoPanelFullscreen = subscribeFullscreenChange(onVideoPanelFullscreenChange)
   if (props.videoId) void warmEpisodeWordLookups(props.videoId)
 })
 
@@ -1277,11 +1284,14 @@ onUnmounted(() => {
   document.body.style.overflow = ''
   window.removeEventListener('keydown', onEntryKeydown)
   window.removeEventListener('afterprint', onAfterPrint)
-  document.removeEventListener('fullscreenchange', onVideoPanelFullscreenChange)
+  unsubscribeVideoPanelFullscreen?.()
+  unsubscribeVideoPanelFullscreen = null
+  void exitAppFullscreen()
 })
 watch(
   () => props.videoId,
   (videoId) => {
+    void exitAppFullscreen()
     contentView.value = 'subtitles'
     syncSubtitlesHiddenForVideo(videoId)
     void load()
@@ -2575,14 +2585,7 @@ function subtitleRowClass(index: number) {
         >
           <div class="relative w-full max-w-3xl rounded-2xl p-2 -m-2">
             <Transition
-              :name="
-                isPhone
-                  ? subtitleSlideDir === 'next'
-                    ? 'subtitle-slide-next'
-                    : 'subtitle-slide-prev'
-                  : 'subtitle-fade'
-              "
-              mode="out-in"
+              :name="subtitleSlideDir === 'next' ? 'subtitle-slide-next' : 'subtitle-slide-prev'"
             >
               <IntensiveReadingBlock
                 v-if="intensiveMode"
@@ -3145,44 +3148,32 @@ function subtitleRowClass(index: number) {
   display: none;
 }
 
-/* 动态模式：手机端切句滑动 */
+/* 动态模式：切句整段上滚，不淡入淡出 */
 .subtitle-slide-next-enter-active,
 .subtitle-slide-next-leave-active,
 .subtitle-slide-prev-enter-active,
 .subtitle-slide-prev-leave-active {
-  transition:
-    transform 0.32s ease,
-    opacity 0.32s ease;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
-
+.subtitle-slide-next-leave-active,
+.subtitle-slide-prev-leave-active {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
 .subtitle-slide-next-enter-from {
-  transform: translateY(1.25rem);
-  opacity: 0;
+  transform: translateY(100%);
 }
-
 .subtitle-slide-next-leave-to {
-  transform: translateY(-1.25rem);
-  opacity: 0;
+  transform: translateY(-100%);
 }
-
 .subtitle-slide-prev-enter-from {
-  transform: translateY(-1.25rem);
-  opacity: 0;
+  transform: translateY(-100%);
 }
-
 .subtitle-slide-prev-leave-to {
-  transform: translateY(1.25rem);
-  opacity: 0;
-}
-
-.subtitle-fade-enter-active,
-.subtitle-fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.subtitle-fade-enter-from,
-.subtitle-fade-leave-to {
-  opacity: 0;
+  transform: translateY(100%);
 }
 
 .continuous-finished-fade-enter-active,

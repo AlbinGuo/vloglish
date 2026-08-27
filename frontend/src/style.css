@@ -1607,6 +1607,26 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
   user-select: none;
 }
 
+/* iPhone Safari 无法对容器 requestFullscreen：用 CSS 铺满模拟 */
+html.vloglish-css-fullscreen,
+html.vloglish-css-fullscreen body {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+  height: 100% !important;
+  touch-action: none;
+}
+
+.video-panel.video-panel--fullscreen[data-css-fullscreen] {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000 !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  max-height: none !important;
+  padding-top: max(0.5rem, env(safe-area-inset-top, 0px)) !important;
+}
+
 .video-panel__caption-mode-btn {
   min-width: 3.25rem;
   padding: 0.2rem 0.7rem;

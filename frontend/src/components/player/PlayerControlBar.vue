@@ -6,6 +6,7 @@ import {
   type usePlayerControls,
 } from '@/composables/usePlayerControls'
 import { modeShowsChinese, type FullscreenCaptionMode, type SubtitleDisplayMode } from '@/utils/subtitleHtml'
+import { getFullscreenElement, subscribeFullscreenChange, toggleAppFullscreen } from '@/utils/fullscreen'
 
 const props = defineProps<{
   player: ReturnType<typeof usePlayerControls>
@@ -55,11 +56,12 @@ const isFullscreen = ref(false)
 const controlScrollRef = ref<HTMLElement | null>(null)
 const showControlScrollFade = ref(false)
 let controlScrollObserver: ResizeObserver | null = null
+let unsubscribeFullscreen: (() => void) | null = null
 
 /** 全屏时弹层挂全屏元素内；非全屏必须挂 body，否则会被底部进度条盖住 */
 const popoverTeleportTo = computed(() => {
   if (!isFullscreen.value) return 'body'
-  const fs = document.fullscreenElement
+  const fs = getFullscreenElement()
   if (fs instanceof HTMLElement) return fs
   if (props.videoPanelRef) return props.videoPanelRef
   return 'body'
@@ -199,13 +201,14 @@ watch(loopOpen, (open) => {
 
 onMounted(() => {
   onFullscreenChange()
-  document.addEventListener('fullscreenchange', onFullscreenChange)
+  unsubscribeFullscreen = subscribeFullscreenChange(onFullscreenChange)
   bindControlScrollFade()
 })
 
 onUnmounted(() => {
   unbindDocClick()
-  document.removeEventListener('fullscreenchange', onFullscreenChange)
+  unsubscribeFullscreen?.()
+  unsubscribeFullscreen = null
   controlScrollObserver?.disconnect()
   controlScrollObserver = null
 })
@@ -216,7 +219,7 @@ watch(
 )
 
 function onFullscreenChange() {
-  isFullscreen.value = Boolean(document.fullscreenElement)
+  isFullscreen.value = Boolean(getFullscreenElement())
   if (!isFullscreen.value) {
     moreOpen.value = false
     speedOpen.value = false
@@ -227,22 +230,8 @@ function onFullscreenChange() {
 }
 
 async function toggleFullscreen() {
-  const el = props.videoPanelRef
   try {
-    const current = document.fullscreenElement
-    // 已在全屏：优先退出（不依赖 panel ref，避免 ref 异常时无法退出）
-    if (current) {
-      if (el && current !== el) {
-        // 其它元素占着全屏时先退出再进入视频面板
-        await document.exitFullscreen()
-        if (el.isConnected) await el.requestFullscreen()
-      } else {
-        await document.exitFullscreen()
-      }
-      return
-    }
-    if (!el || !el.isConnected) return
-    await el.requestFullscreen()
+    await toggleAppFullscreen(props.videoPanelRef)
   } catch (err) {
     console.warn('[PlayerControlBar] fullscreen toggle failed', err)
   }
