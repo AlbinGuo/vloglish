@@ -68,6 +68,64 @@ const useOverlay = computed(() => Boolean(props.overlay))
 
 const englishAlign = computed(() => props.align ?? 'center')
 
+const viewportRef = ref<HTMLElement | null>(null)
+const reduceMotion = ref(false)
+const seekSnap = ref(false)
+const cueMotion = computed(() => !reduceMotion.value && !seekSnap.value)
+const slideDir = ref<'up' | 'down'>('up')
+const slideName = computed(() => (slideDir.value === 'down' ? 'csb-slide-down' : 'csb-slide-up'))
+
+let lastCueTime = props.currentTime
+let prevCueStart = props.sub.start
+let snapTimer: ReturnType<typeof setTimeout> | null = null
+
+function armSeekSnap() {
+  seekSnap.value = true
+  if (snapTimer) clearTimeout(snapTimer)
+  snapTimer = setTimeout(() => {
+    seekSnap.value = false
+    snapTimer = null
+  }, 80)
+}
+
+function clearCueLock() {
+  const vp = viewportRef.value
+  if (!vp) return
+  vp.style.height = ''
+}
+
+function onCueBeforeLeave(el: Element) {
+  const node = el as HTMLElement
+  const vp = viewportRef.value
+  if (!cueMotion.value) {
+    clearCueLock()
+    return
+  }
+  const h = Math.max(node.offsetHeight, 1)
+  node.style.top = `${node.offsetTop}px`
+  if (!vp) return
+  vp.style.setProperty('--csb-slide', `${h}px`)
+  if (props.pinChinese || props.overlay) {
+    vp.style.height = `${h}px`
+  }
+}
+
+watch(
+  () => props.currentTime,
+  (t) => {
+    if (Math.abs(t - lastCueTime) > 0.55) armSeekSnap()
+    lastCueTime = t
+  },
+)
+
+watch(
+  () => [props.sub.id, props.sub.start] as const,
+  ([, start]) => {
+    slideDir.value = start >= prevCueStart ? 'up' : 'down'
+    prevCueStart = start
+  },
+)
+
 /** 按英/中篇幅收缩字号，尽量同屏显示（全屏贴底模式） */
 const fluidStyle = computed(() => {
   if (!props.pinChinese && !props.overlay) return undefined
@@ -159,6 +217,12 @@ async function fitEnglishToViewport() {
   }
 }
 
+async function onCueEntered() {
+  clearCueLock()
+  if (scrollRef.value) scrollRef.value.scrollTop = 0
+  await fitEnglishToViewport()
+}
+
 watch(
   () => props.sub.id,
   async () => {
@@ -186,16 +250,26 @@ function onViewportChange() {
   }, 120)
 }
 
+let motionMq: MediaQueryList | null = null
+function onMotionPrefChange() {
+  reduceMotion.value = motionMq?.matches ?? false
+}
+
 onMounted(() => {
   window.addEventListener('resize', onViewportChange)
   window.addEventListener('orientationchange', onViewportChange)
+  motionMq = window.matchMedia('(prefers-reduced-motion: reduce)')
+  onMotionPrefChange()
+  motionMq.addEventListener('change', onMotionPrefChange)
   if (props.pinChinese || props.overlay) void fitEnglishToViewport()
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', onViewportChange)
   window.removeEventListener('orientationchange', onViewportChange)
+  motionMq?.removeEventListener('change', onMotionPrefChange)
   if (fitTimer) clearTimeout(fitTimer)
+  if (snapTimer) clearTimeout(snapTimer)
 })
 </script>
 
@@ -218,78 +292,87 @@ onUnmounted(() => {
     :style="fluidStyle"
     @click="$emit('seek')"
   >
-    <div class="current-subtitle-bar__viewport">
-      <template v-if="usePinLayout">
-        <div ref="scrollRef" class="current-subtitle-bar__scroll subtitle-focus-light">
-          <IntensiveReadingBlock
-            v-if="intensive"
-            class="w-full min-w-0"
-            :english-html="englishHtml"
-            :english="sub.english"
-            :chinese="sub.chinese"
-            :ipa="sub.ipa"
-            :large="!compact"
-            :align="englishAlign"
-            :show-english="showEnglish"
-            :show-chinese="false"
-            :show-ipa="showIpaLine"
-            :lookup-meta="lookupMeta"
-            @click.stop="$emit('click', $event)"
-          />
-          <SubtitleBlock
-            v-else
-            class="w-full min-w-0"
-            :english-html="englishHtml"
-            :chinese="sub.chinese"
-            :ipa="sub.ipa"
-            :large="!compact"
-            :align="englishAlign"
-            :chinese-focus="isChineseOnly()"
-            :show-english="showEnglish"
-            :show-chinese="false"
-            :show-ipa="showIpaLine"
-            @click.stop="$emit('click', $event)"
-          />
+    <div ref="viewportRef" class="current-subtitle-bar__viewport">
+      <Transition
+        :name="slideName"
+        :css="cueMotion"
+        @before-leave="onCueBeforeLeave"
+        @after-enter="onCueEntered"
+      >
+        <div :key="sub.id" class="csb-cue">
+          <template v-if="usePinLayout">
+            <div ref="scrollRef" class="current-subtitle-bar__scroll subtitle-focus-light">
+              <IntensiveReadingBlock
+                v-if="intensive"
+                class="w-full min-w-0"
+                :english-html="englishHtml"
+                :english="sub.english"
+                :chinese="sub.chinese"
+                :ipa="sub.ipa"
+                :large="!compact"
+                :align="englishAlign"
+                :show-english="showEnglish"
+                :show-chinese="false"
+                :show-ipa="showIpaLine"
+                :lookup-meta="lookupMeta"
+                @click.stop="$emit('click', $event)"
+              />
+              <SubtitleBlock
+                v-else
+                class="w-full min-w-0"
+                :english-html="englishHtml"
+                :chinese="sub.chinese"
+                :ipa="sub.ipa"
+                :large="!compact"
+                :align="englishAlign"
+                :chinese-focus="isChineseOnly()"
+                :show-english="showEnglish"
+                :show-chinese="false"
+                :show-ipa="showIpaLine"
+                @click.stop="$emit('click', $event)"
+              />
+            </div>
+            <p
+              v-if="usePinnedChinese"
+              class="subtitle-chinese current-subtitle-bar__chinese-pin max-w-full break-words"
+              :class="intensive ? 'intensive-chinese-block' : ''"
+            >
+              {{ displayChinese }}
+            </p>
+          </template>
+          <div v-else class="subtitle-focus-light current-subtitle-bar__content">
+            <IntensiveReadingBlock
+              v-if="intensive"
+              class="w-full min-w-0"
+              :english-html="englishHtml"
+              :english="sub.english"
+              :chinese="sub.chinese"
+              :ipa="sub.ipa"
+              :large="!compact"
+              :align="englishAlign"
+              :show-english="showEnglish"
+              :show-chinese="showChinese"
+              :show-ipa="showIpaLine"
+              :lookup-meta="lookupMeta"
+              @click.stop="$emit('click', $event)"
+            />
+            <SubtitleBlock
+              v-else
+              class="w-full min-w-0"
+              :english-html="englishHtml"
+              :chinese="sub.chinese"
+              :ipa="sub.ipa"
+              :large="!compact"
+              :align="englishAlign"
+              :chinese-focus="isChineseOnly()"
+              :show-english="showEnglish"
+              :show-chinese="showChinese"
+              :show-ipa="showIpaLine"
+              @click.stop="$emit('click', $event)"
+            />
+          </div>
         </div>
-        <p
-          v-if="usePinnedChinese"
-          class="subtitle-chinese current-subtitle-bar__chinese-pin max-w-full break-words"
-          :class="intensive ? 'intensive-chinese-block' : ''"
-        >
-          {{ displayChinese }}
-        </p>
-      </template>
-      <div v-else class="subtitle-focus-light current-subtitle-bar__content">
-        <IntensiveReadingBlock
-          v-if="intensive"
-          class="w-full min-w-0"
-          :english-html="englishHtml"
-          :english="sub.english"
-          :chinese="sub.chinese"
-          :ipa="sub.ipa"
-          :large="!compact"
-          :align="englishAlign"
-          :show-english="showEnglish"
-          :show-chinese="showChinese"
-          :show-ipa="showIpaLine"
-          :lookup-meta="lookupMeta"
-          @click.stop="$emit('click', $event)"
-        />
-        <SubtitleBlock
-          v-else
-          class="w-full min-w-0"
-          :english-html="englishHtml"
-          :chinese="sub.chinese"
-          :ipa="sub.ipa"
-          :large="!compact"
-          :align="englishAlign"
-          :chinese-focus="isChineseOnly()"
-          :show-english="showEnglish"
-          :show-chinese="showChinese"
-          :show-ipa="showIpaLine"
-          @click.stop="$emit('click', $event)"
-        />
-      </div>
+      </Transition>
     </div>
     <div
       v-if="dictationFrost"
@@ -307,6 +390,55 @@ onUnmounted(() => {
   min-height: 0;
   padding: 0.75rem 1rem;
   box-sizing: border-box;
+  overflow: hidden;
+}
+
+.csb-cue {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  margin-block: auto;
+}
+.current-subtitle-bar--top-align .csb-cue {
+  margin-block: 0;
+}
+
+.csb-slide-up-leave-active,
+.csb-slide-up-enter-active,
+.csb-slide-down-leave-active,
+.csb-slide-down-enter-active {
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+.csb-slide-up-leave-active,
+.csb-slide-down-leave-active {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.csb-slide-up-leave-to {
+  transform: translateY(calc(-1 * var(--csb-slide, 100%)));
+}
+.csb-slide-up-enter-from {
+  transform: translateY(var(--csb-slide, 100%));
+}
+.csb-slide-down-leave-to {
+  transform: translateY(var(--csb-slide, 100%));
+}
+.csb-slide-down-enter-from {
+  transform: translateY(calc(-1 * var(--csb-slide, 100%)));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .csb-slide-up-leave-active,
+  .csb-slide-up-enter-active,
+  .csb-slide-down-leave-active,
+  .csb-slide-down-enter-active {
+    transition: none;
+  }
 }
 
 @media (min-width: 640px) {
@@ -350,7 +482,14 @@ onUnmounted(() => {
   gap: 0.25rem;
   padding: 0.55rem 0.85rem 0.65rem;
   max-height: none;
-  overflow: visible;
+  overflow: hidden;
+}
+
+.current-subtitle-bar--pin-chinese .csb-cue,
+.current-subtitle-bar--overlay .csb-cue,
+.current-subtitle-bar--compact .csb-cue {
+  margin-block: 0;
+  flex: 0 0 auto;
 }
 
 @media (min-width: 640px) {
@@ -419,6 +558,7 @@ onUnmounted(() => {
   inset: auto;
   padding: 0.35rem 0.75rem 0.2rem;
   gap: 0.15rem;
+  overflow: hidden;
 }
 .current-subtitle-bar--overlay .current-subtitle-bar__chinese-pin {
   border-top-color: rgb(255 255 255 / 0.18);
