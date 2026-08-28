@@ -248,6 +248,12 @@ const userRoutes: RouteRecordRaw[] = [
         meta: { requiresAuth: true },
       },
       {
+        path: 'english/study',
+        name: 'StudyGuide',
+        component: () => import('@/pages/StudyGuidePage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
         path: 'english/reading/:articleId/typing',
         name: 'ArticleTyping',
         component: () => import('@/pages/ArticleTypingPage.vue'),

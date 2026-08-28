@@ -20,6 +20,7 @@ const counts = ref<{ videos: number; series: number; articles: number } | null>(
 const hasNew = ref<{ series: boolean; articles: boolean }>({ series: false, articles: false })
 
 const active = computed(() => {
+  if (route.path.startsWith('/english/study')) return 'study'
   if (route.path.startsWith('/english/reading')) return 'reading'
   if (route.path.startsWith('/english/series')) return 'series'
   return 'videos'
@@ -66,11 +67,11 @@ watch(
   <nav
     class="flex items-center gap-1 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-black/5 dark:border-white/10"
     :class="stretch ? 'w-full' : 'w-fit'"
-    aria-label="内容类型"
+    aria-label="主导航"
   >
     <RouterLink
       to="/english"
-      class="relative px-4 py-2 pr-5 rounded-lg text-sm font-medium transition-colors"
+      class="relative px-3 sm:px-4 py-2 pr-5 rounded-lg text-sm font-medium transition-colors"
       :class="[
         stretch ? 'flex-1 text-center' : '',
         active === 'videos'
@@ -89,7 +90,7 @@ watch(
     </RouterLink>
     <RouterLink
       to="/english/series"
-      class="relative px-4 py-2 pr-5 rounded-lg text-sm font-medium transition-colors"
+      class="relative px-3 sm:px-4 py-2 pr-5 rounded-lg text-sm font-medium transition-colors"
       :class="[
         stretch ? 'flex-1 text-center' : '',
         active === 'series'
@@ -114,7 +115,7 @@ watch(
     </RouterLink>
     <RouterLink
       to="/english/reading"
-      class="relative px-4 py-2 pr-5 rounded-lg text-sm font-medium transition-colors"
+      class="relative px-3 sm:px-4 py-2 pr-5 rounded-lg text-sm font-medium transition-colors"
       :class="[
         stretch ? 'flex-1 text-center' : '',
         active === 'reading'
@@ -136,6 +137,18 @@ watch(
       >
         新
       </span>
+    </RouterLink>
+    <RouterLink
+      to="/english/study"
+      class="relative px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+      :class="[
+        stretch ? 'flex-1 text-center' : '',
+        active === 'study'
+          ? 'bg-white dark:bg-neutral-900 text-teal-800 dark:text-teal-200 shadow-sm'
+          : 'text-teal-700 dark:text-teal-300 hover:text-teal-900 dark:hover:text-teal-100',
+      ]"
+    >
+      怎么学
     </RouterLink>
   </nav>
 </template>

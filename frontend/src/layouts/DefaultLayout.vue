@@ -310,6 +310,34 @@ watch(
           <ThemeToggle />
           <template v-if="auth.isLoggedIn">
             <RouterLink
+              to="/english/study"
+              class="inline-flex items-center gap-1.5 rounded-lg transition p-2 sm:px-2 sm:py-1.5"
+              :class="
+                route.path.startsWith('/english/study')
+                  ? 'text-teal-800 bg-teal-50 dark:text-teal-200 dark:bg-teal-950/50'
+                  : 'text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800'
+              "
+              aria-label="怎么学"
+              title="英语学习方法"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                class="w-5 h-5 shrink-0"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"
+                />
+              </svg>
+              <span class="hidden sm:inline">怎么学</span>
+            </RouterLink>
+            <RouterLink
               to="/english/learning"
               class="hidden sm:inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition"
             >
