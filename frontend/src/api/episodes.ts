@@ -30,6 +30,8 @@ export interface EpisodeListParams {
   status?: 'all' | 'learned' | 'unlearned' | 'favorite'
   ordering?: string
   search?: string
+  /** 逗号分隔，指定卡片（可含合集内视频） */
+  video_ids?: string
 }
 
 export interface EpisodeListResponse {

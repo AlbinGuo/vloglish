@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { getEpisodeList } from '@/api/episodes'
 import EnglishCatalogNavBar from '@/components/english/EnglishCatalogNavBar.vue'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
+import EpisodeCard from '@/components/EpisodeCard.vue'
+import { useAuthStore } from '@/stores/auth'
+import type { EpisodeSummary } from '@/types'
 import {
   STUDY_METHODS,
   STUDY_NEEDS,
@@ -12,8 +16,23 @@ import {
 } from '@/data/studyGuide'
 
 const route = useRoute()
+const auth = useAuthStore()
 const activeId = ref('')
+const sampleById = ref<Record<string, EpisodeSummary>>({})
+const samplesLoading = ref(true)
 let observer: IntersectionObserver | null = null
+
+const sampleVideoIds = computed(() =>
+  STUDY_METHODS.map((m) => m.sampleVideoId).filter((id): id is string => Boolean(id)),
+)
+
+function episodePath(ep: EpisodeSummary) {
+  if (!auth.isLoggedIn) {
+    return `/login?next=${encodeURIComponent(`/english/episode/${ep.video_id}`)}`
+  }
+  if (ep.requires_membership) return '/pricing'
+  return `/english/episode/${ep.video_id}`
+}
 
 function scrollToId(id: string) {
   activeId.value = id
@@ -40,6 +59,25 @@ onMounted(async () => {
   for (const m of STUDY_METHODS) {
     const el = document.getElementById(m.id)
     if (el) observer.observe(el)
+  }
+
+  const ids = sampleVideoIds.value
+  if (!ids.length) {
+    samplesLoading.value = false
+    return
+  }
+  try {
+    const data = await getEpisodeList({
+      video_ids: ids.join(','),
+      page_size: Math.max(ids.length, 2),
+    })
+    const map: Record<string, EpisodeSummary> = {}
+    for (const ep of data.results) map[ep.video_id] = ep
+    sampleById.value = map
+  } catch {
+    sampleById.value = {}
+  } finally {
+    samplesLoading.value = false
   }
 })
 
@@ -173,6 +211,35 @@ onUnmounted(() => {
                     <span>{{ step }}</span>
                   </li>
                 </ol>
+                <div
+                  v-if="m.sampleVideoId"
+                  class="px-5 pb-5 sm:px-6 sm:pb-6 border-t border-black/5 dark:border-white/10 pt-4"
+                >
+                  <p class="text-[11px] font-semibold tracking-wide text-neutral-400 uppercase mb-2.5">
+                    {{ m.sampleHint || '推荐示范视频' }}
+                  </p>
+                  <div class="max-w-[17.5rem]">
+                    <EpisodeCard
+                      v-if="sampleById[m.sampleVideoId]"
+                      :episode="sampleById[m.sampleVideoId]"
+                      :to="episodePath(sampleById[m.sampleVideoId])"
+                    />
+                    <div
+                      v-else-if="samplesLoading"
+                      class="rounded-xl overflow-hidden border border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800 animate-pulse"
+                    >
+                      <div class="aspect-video bg-neutral-200 dark:bg-neutral-700" />
+                      <div class="h-16" />
+                    </div>
+                    <RouterLink
+                      v-else
+                      :to="`/english/episode/${m.sampleVideoId}`"
+                      class="block rounded-xl border border-dashed border-black/15 dark:border-white/15 px-4 py-6 text-center text-sm text-teal-700 dark:text-teal-300 hover:bg-teal-50/60 dark:hover:bg-teal-950/30"
+                    >
+                      打开示范视频
+                    </RouterLink>
+                  </div>
+                </div>
               </article>
             </section>
 

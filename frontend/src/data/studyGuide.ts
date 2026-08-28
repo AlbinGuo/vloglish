@@ -17,6 +17,9 @@ export interface StudyMethod {
   value: string
   stepsTitle: string
   steps: string[]
+  /** 站内示范视频 */
+  sampleVideoId?: string
+  sampleHint?: string
 }
 
 export interface StudyPlan {
@@ -120,6 +123,8 @@ export const STUDY_METHODS: StudyMethod[] = [
       '说 100 遍（S）：模仿跟读 100 遍，过程中可随时再回听校准。',
       '自我检视：在第 10、50、100 遍时分别录音，回听对比进步。',
     ],
+    sampleVideoId: 'Js3Df6d8I5oDENw',
+    sampleHint: '示范视频：用这集做单句 100 遍听 + 100 遍说',
   },
   {
     id: 'shangwenjie',
@@ -138,6 +143,8 @@ export const STUDY_METHODS: StudyMethod[] = [
       '语速同步背诵：背到能和原音频同一语速、同一节奏完整复述出来。',
       '循环多篇：建议练完 10 篇不同语料，听说能力会有显著提升。',
     ],
+    sampleVideoId: 'S26GSrESWWCCKRw',
+    sampleHint: '示范视频：用这集做听写、吃透、再按原速复述',
   },
   {
     id: 'intensive',

@@ -67,6 +67,10 @@ def episode_list(
         pattern="^(index|-index|stars|-stars|created_at|-created_at|series_index|-series_index)$",
     ),
     search: str | None = None,
+    video_ids: str | None = Query(
+        None,
+        description="逗号分隔的 video_id，用于指定卡片；含合集内视频",
+    ),
     db: Session = Depends(get_db),
     device_id: str = Depends(get_device_id),
     user: User = Depends(get_current_user),
@@ -123,6 +127,7 @@ def episode_list(
         q = q.filter(Episode.tags.any(Tag.id == tag_id))
     if author_id is not None:
         q = q.filter(Episode.author_id == author_id)
+    video_id_list = [v.strip() for v in (video_ids or "").split(",") if v.strip()][:20]
     if series_id is not None or (series_slug and series_slug.strip()):
         if not can_access_series_content(db, user):
             raise HTTPException(status_code=403, detail="需要开通会员才能查看合集内容")
@@ -130,6 +135,8 @@ def episode_list(
             q = q.filter(Episode.series_id == series_id)
         else:
             q = q.join(EpisodeSeries).filter(EpisodeSeries.slug == series_slug.strip())
+    elif video_id_list:
+        q = q.filter(Episode.video_id.in_(video_id_list))
     else:
         # 视频列表只展示独立单集；合集内视频走 /series
         q = q.filter(Episode.series_id.is_(None))
