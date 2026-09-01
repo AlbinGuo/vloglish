@@ -70,12 +70,15 @@ import {
 import { usePlayerControls } from '@/composables/usePlayerControls'
 import { fetchWordLookup, getCachedWordLookup, makeLookupStub } from '@/composables/useWordLookupCache'
 import { useShadowingRecorder } from '@/composables/useShadowingRecorder'
+import { useClonedSubtitleSpeak } from '@/composables/useClonedSubtitleSpeak'
 import {
   listShadowTracks,
   upsertShadowRecord,
   uploadPracticeAudio,
   type PracticeRecord,
 } from '@/api/practiceRecords'
+import { fetchVoiceCloneStatus, type ClonedVoiceInfo } from '@/api/voiceClone'
+import VoiceCloneSheet from '@/components/voice/VoiceCloneSheet.vue'
 import type { BlankPrintOptions } from '@/utils/blankPrint'
 import type { WordCardPrintOptions } from '@/utils/wordCardPrint'
 import { parseVocabSummary } from '@/utils/vocabSummary'
@@ -100,6 +103,180 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const vocabularyStore = useVocabularyStore()
+
+const VOICE_MODE_KEY = 'vloglish.subtitleVoiceMode'
+const subtitleVoiceMode = ref<'original' | 'cloned'>(
+  typeof localStorage !== 'undefined' && localStorage.getItem(VOICE_MODE_KEY) === 'cloned'
+    ? 'cloned'
+    : 'original',
+)
+const clonedVoice = ref<ClonedVoiceInfo | null>(null)
+const voiceCloneOpen = ref(false)
+const hasClonedVoice = computed(() => Boolean(clonedVoice.value?.voice))
+const {
+  speaking: clonedSpeaking,
+  error: clonedSpeakError,
+  speak: speakCloned,
+  stop: stopClonedSpeak,
+  prefetch: prefetchClonedSpeak,
+} = useClonedSubtitleSpeak()
+
+/** 复刻连续朗读：读完自动接下句，直到停或到末句 */
+const clonedChainActive = ref(false)
+let clonedChainToken = 0
+
+function setSubtitleVoiceMode(mode: 'original' | 'cloned') {
+  if (mode === 'cloned' && !hasClonedVoice.value) {
+    openVoiceClone()
+    return
+  }
+  if (mode === 'original') {
+    stopClonedChain()
+  }
+  subtitleVoiceMode.value = mode
+  try {
+    localStorage.setItem(VOICE_MODE_KEY, mode)
+  } catch {
+    /* ignore */
+  }
+}
+
+function openVoiceClone() {
+  if (!auth.isLoggedIn) {
+    router.push({ path: '/login', query: { redirect: route.fullPath } })
+    return
+  }
+  voiceCloneOpen.value = true
+}
+
+function onClonedVoiceUpdated(voice: ClonedVoiceInfo | null) {
+  clonedVoice.value = voice
+  if (voice?.voice) {
+    setSubtitleVoiceMode('cloned')
+  } else if (subtitleVoiceMode.value === 'cloned') {
+    setSubtitleVoiceMode('original')
+  }
+}
+
+async function refreshClonedVoice() {
+  if (!auth.isLoggedIn || props.adminPreview) {
+    clonedVoice.value = null
+    return
+  }
+  try {
+    const st = await fetchVoiceCloneStatus()
+    clonedVoice.value = st.voice
+    if (subtitleVoiceMode.value === 'cloned' && !st.voice) {
+      setSubtitleVoiceMode('original')
+    }
+  } catch {
+    /* 未登录或服务不可用时静默 */
+  }
+}
+
+function stopClonedChain() {
+  clonedChainActive.value = false
+  clonedChainToken += 1
+  stopClonedSpeak()
+}
+
+function pauseVideoAtSub(sub: { start: number }) {
+  player.seekTo(sub as Subtitle)
+  const v = videoRef.value
+  if (v) {
+    try {
+      v.pause()
+    } catch {
+      /* ignore */
+    }
+  }
+  player.isPlaying.value = false
+}
+
+const clonedPlaybackActive = computed(() => clonedSpeaking.value || clonedChainActive.value)
+
+/**
+ * 从当前句开始复刻连续朗读；再点一次则停止。
+ * 开启「句末停下」时只读一句；否则读完自动下一句。
+ */
+async function playClonedSentence() {
+  if (clonedSpeaking.value || clonedChainActive.value) {
+    stopClonedChain()
+    return
+  }
+  if (!hasClonedVoice.value) {
+    openVoiceClone()
+    return
+  }
+  const startSub = currentSub.value
+  if (!startSub?.english?.trim()) return
+
+  const token = ++clonedChainToken
+  clonedChainActive.value = true
+
+  let idx = sortedSubs.value.findIndex((s) => s.id === startSub.id)
+  if (idx < 0) idx = currentIndex.value
+
+  const stopAfterOne = player.pauseAfterSentence.value
+
+  while (clonedChainActive.value && token === clonedChainToken) {
+    const subs = sortedSubs.value
+    if (idx < 0 || idx >= subs.length) break
+    const sub = subs[idx]
+    if (!sub?.english?.trim()) {
+      idx += 1
+      continue
+    }
+
+    currentIndex.value = idx
+    pauseVideoAtSub(sub)
+
+    const next = !stopAfterOne && idx + 1 < subs.length ? subs[idx + 1] : null
+    if (next?.english?.trim()) prefetchClonedSpeak(next.english)
+
+    const ok = await speakCloned(sub.english)
+    if (!ok || token !== clonedChainToken || !clonedChainActive.value) break
+
+    if (stopAfterOne) break
+    if (idx + 1 >= sortedSubs.value.length) break
+    idx += 1
+  }
+
+  if (token === clonedChainToken) {
+    clonedChainActive.value = false
+    if (clonedSpeakError.value) {
+      flashQuickVocabToast(clonedSpeakError.value)
+    }
+  }
+}
+
+/** 复刻模式下上一句 / 下一句：跳转并继续 TTS 链 */
+function clonedStepSentence(delta: 1 | -1) {
+  if (!hasClonedVoice.value || subtitleVoiceMode.value !== 'cloned') {
+    if (delta > 0) player.nextSentence()
+    else player.prevSentence()
+    return
+  }
+  const subs = sortedSubs.value
+  if (!subs.length) return
+  const nextIdx = Math.max(0, Math.min(subs.length - 1, currentIndex.value + delta))
+  stopClonedChain()
+  currentIndex.value = nextIdx
+  const sub = subs[nextIdx]
+  if (!sub) return
+  pauseVideoAtSub(sub)
+  void Promise.resolve().then(() => {
+    void playClonedSentence()
+  })
+}
+
+watch(
+  () => auth.isLoggedIn,
+  (ok) => {
+    if (ok) void refreshClonedVoice()
+    else clonedVoice.value = null
+  },
+)
 const episodeVocabPracticeCount = computed(() => {
   const vid = props.videoId
   if (!vid || !auth.isLoggedIn) return 0
@@ -344,6 +521,16 @@ const player = usePlayerControls({
       const first = sortedSubs.value[0]
       if (first) openDictationFor(first)
     }
+  },
+  onReplaySentence: () => {
+    if (subtitleVoiceMode.value !== 'cloned' || !hasClonedVoice.value) return false
+    void playClonedSentence()
+    return true
+  },
+  onStepSentence: (delta) => {
+    if (subtitleVoiceMode.value !== 'cloned' || !hasClonedVoice.value) return false
+    clonedStepSentence(delta)
+    return true
   },
 })
 
@@ -1274,9 +1461,11 @@ onMounted(() => {
   window.addEventListener('afterprint', onAfterPrint)
   unsubscribeVideoPanelFullscreen = subscribeFullscreenChange(onVideoPanelFullscreenChange)
   if (props.videoId) void warmEpisodeWordLookups(props.videoId)
+  void refreshClonedVoice()
 })
 
 onUnmounted(() => {
+  stopClonedChain()
   closeShadowSession()
   if (continuousFinishedTimer) clearTimeout(continuousFinishedTimer)
   if (listScrollAnim) cancelAnimationFrame(listScrollAnim)
@@ -2349,11 +2538,16 @@ function subtitleRowClass(index: number) {
           :fullscreen-caption-mode="fullscreenCaptionMode"
           :video-panel-ref="videoPanelRef"
           :compact="isPhone"
+          :subtitle-voice-mode="subtitleVoiceMode"
+          :has-cloned-voice="hasClonedVoice"
+          :cloned-speaking="clonedPlaybackActive"
           @update:show-ipa="showIpa = $event"
           @update:video-hidden="videoHidden = $event"
           @update:subtitles-hidden="subtitlesHidden = $event"
           @update:subtitle-mode="selectSubtitleMode"
           @update:fullscreen-caption-mode="setFullscreenCaptionMode"
+          @update:subtitle-voice-mode="setSubtitleVoiceMode"
+          @open-voice-clone="openVoiceClone"
         />
         <button
           v-if="subtitlesHidden && !isVideoPanelFullscreen"
@@ -2838,10 +3032,15 @@ function subtitleRowClass(index: number) {
             docked
             show-chrome-toggle
             :chrome-visible="mobileChromeVisible"
+            :subtitle-voice-mode="subtitleVoiceMode"
+            :has-cloned-voice="hasClonedVoice"
+            :cloned-speaking="clonedPlaybackActive"
             @update:show-ipa="showIpa = $event"
             @update:video-hidden="videoHidden = $event"
             @update:subtitles-hidden="subtitlesHidden = $event"
+            @update:subtitle-voice-mode="setSubtitleVoiceMode"
             @toggle-chrome="toggleMobileChrome"
+            @open-voice-clone="openVoiceClone"
           />
         </div>
       </div>
@@ -3113,6 +3312,13 @@ function subtitleRowClass(index: number) {
       </Transition>
     </Teleport>
     <KeyboardHelp v-if="player.showHelp.value" @close="player.showHelp.value = false" />
+    <VoiceCloneSheet
+      v-if="auth.isLoggedIn && auth.user"
+      :open="voiceCloneOpen"
+      :user-id="auth.user.id"
+      @close="voiceCloneOpen = false"
+      @updated="onClonedVoiceUpdated"
+    />
     <SettingsPanel
       v-if="showSettings"
       :subtitle-align="subtitleAlign"

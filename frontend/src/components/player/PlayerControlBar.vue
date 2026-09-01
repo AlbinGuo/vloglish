@@ -8,22 +8,33 @@ import {
 import { modeShowsChinese, type FullscreenCaptionMode, type SubtitleDisplayMode } from '@/utils/subtitleHtml'
 import { getFullscreenElement, subscribeFullscreenChange, toggleAppFullscreen } from '@/utils/fullscreen'
 
-const props = defineProps<{
-  player: ReturnType<typeof usePlayerControls>
-  showIpa: boolean
-  videoHidden: boolean
-  subtitlesHidden?: boolean
-  subtitleMode?: SubtitleDisplayMode
-  fullscreenCaptionMode?: FullscreenCaptionMode
-  videoPanelRef: HTMLElement | null | undefined
-  /** 移动端精简控制条 */
-  compact?: boolean
-  /** 贴底栏样式（无圆角背景） */
-  docked?: boolean
-  /** 手机端：控制栏显示/隐藏切换 */
-  showChromeToggle?: boolean
-  chromeVisible?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    player: ReturnType<typeof usePlayerControls>
+    showIpa: boolean
+    videoHidden: boolean
+    subtitlesHidden?: boolean
+    subtitleMode?: SubtitleDisplayMode
+    fullscreenCaptionMode?: FullscreenCaptionMode
+    videoPanelRef: HTMLElement | null | undefined
+    /** 移动端精简控制条 */
+    compact?: boolean
+    /** 贴底栏样式（无圆角背景） */
+    docked?: boolean
+    /** 手机端：控制栏显示/隐藏切换 */
+    showChromeToggle?: boolean
+    chromeVisible?: boolean
+    /** 字幕重播：原声 | 复刻音色 */
+    subtitleVoiceMode?: 'original' | 'cloned'
+    hasClonedVoice?: boolean
+    clonedSpeaking?: boolean
+  }>(),
+  {
+    subtitleVoiceMode: 'original',
+    hasClonedVoice: false,
+    clonedSpeaking: false,
+  },
+)
 
 const emit = defineEmits<{
   'update:showIpa': [value: boolean]
@@ -31,8 +42,12 @@ const emit = defineEmits<{
   'update:subtitlesHidden': [value: boolean]
   'update:subtitleMode': [value: SubtitleDisplayMode]
   'update:fullscreenCaptionMode': [value: FullscreenCaptionMode]
+  'update:subtitleVoiceMode': [value: 'original' | 'cloned']
   toggleChrome: []
+  openVoiceClone: []
 }>()
+
+const voiceSheetOpen = ref(false)
 
 const captionBilingual = computed(() => modeShowsChinese(props.subtitleMode ?? 'both'))
 const fsCaptionMode = computed<FullscreenCaptionMode>(
@@ -350,10 +365,39 @@ function handleMainAction() {
   const p = props.player
   if (p.isPlaying.value) {
     p.togglePlay()
-  } else {
-    p.replayCurrentSentence()
+    return
   }
+  // 暂停 / 复刻朗读中：走 replay（页面 onReplaySentence 会开链或停止）
+  p.replayCurrentSentence()
 }
+
+function openVoiceSheet() {
+  moreOpen.value = false
+  voiceSheetOpen.value = true
+}
+
+function closeVoiceSheet() {
+  voiceSheetOpen.value = false
+}
+
+function selectVoiceMode(mode: 'original' | 'cloned') {
+  if (mode === 'cloned' && !props.hasClonedVoice) {
+    voiceSheetOpen.value = false
+    emit('openVoiceClone')
+    return
+  }
+  emit('update:subtitleVoiceMode', mode)
+  voiceSheetOpen.value = false
+}
+
+function goCloneFromVoiceSheet() {
+  voiceSheetOpen.value = false
+  emit('openVoiceClone')
+}
+
+const voiceModeLabel = computed(() =>
+  props.subtitleVoiceMode === 'cloned' && props.hasClonedVoice ? '我的声音' : '原声',
+)
 </script>
 
 <template>
@@ -391,7 +435,7 @@ function handleMainAction() {
       </button>
 
       <button type="button" class="shrink-0 p-0.5 active:scale-95" :title="player.mainActionLabel.value" @click="handleMainAction">
-        <svg v-if="player.isPlaying.value" class="w-11 h-11" viewBox="0 0 24 24" fill="currentColor">
+        <svg v-if="player.isPlaying.value || clonedSpeaking" class="w-11 h-11" viewBox="0 0 24 24" fill="currentColor">
           <path fill-rule="evenodd" clip-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12ZM9 8.25a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75h.75a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H9Zm5.25 0a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75H15a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-.75Z" />
         </svg>
         <svg v-else class="w-11 h-11" viewBox="0 0 24 24" fill="currentColor">
@@ -620,13 +664,13 @@ function handleMainAction() {
         :title="player.mainActionLabel.value"
         @click="handleMainAction"
       >
-        <svg v-if="player.isPlaying.value" class="w-8 h-8 text-neutral-800 dark:text-neutral-200" viewBox="0 0 24 24" fill="currentColor">
+        <svg v-if="player.isPlaying.value || clonedSpeaking" class="w-8 h-8 text-neutral-800 dark:text-neutral-200" viewBox="0 0 24 24" fill="currentColor">
           <path fill-rule="evenodd" clip-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12ZM9 8.25a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75h.75a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H9Zm5.25 0a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75H15a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-.75Z" />
         </svg>
         <svg v-else class="w-8 h-8 text-neutral-800 dark:text-neutral-200" viewBox="0 0 24 24" fill="currentColor">
           <path fill-rule="evenodd" clip-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm14.024-.983a1.125 1.125 0 0 1 0 1.966l-5.603 3.113A1.125 1.125 0 0 1 9 15.113V8.887c0-.857.921-1.4 1.671-.983l5.603 3.113Z" />
         </svg>
-        <span class="text-[11px] leading-tight mt-0.5">{{ player.mainActionLabel.value }}</span>
+        <span class="text-[11px] leading-tight mt-0.5">{{ clonedSpeaking ? '停止' : player.mainActionLabel.value }}</span>
       </button>
 
       <!-- 下一句 -->
@@ -656,6 +700,22 @@ function handleMainAction() {
           <span class="text-blue-700 text-base font-semibold leading-none">B</span>
         </div>
         <span class="text-[11px] leading-tight mt-0.5">B点</span>
+      </button>
+
+      <!-- 字幕声音：原声 / 我的声音 -->
+      <button
+        type="button"
+        class="flex flex-col items-center shrink-0 min-w-[3rem] text-xs transition-all active:scale-95 focus:outline-none cursor-pointer"
+        :title="`字幕重播声音：${voiceModeLabel}`"
+        @click="openVoiceSheet"
+      >
+        <div
+          class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5 text-[11px] font-medium"
+          :class="subtitleVoiceMode === 'cloned' && hasClonedVoice ? 'text-teal-600 ring-2 ring-teal-400/50' : ''"
+        >
+          声
+        </div>
+        <span class="text-[11px] leading-tight mt-0.5">{{ voiceModeLabel }}</span>
       </button>
 
       <!-- 单句循环（含句末停下等设置） -->
@@ -822,6 +882,15 @@ function handleMainAction() {
                 盲
               </div>
               <span>盲听</span>
+            </button>
+            <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="openVoiceSheet">
+              <div
+                class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-[11px] font-medium"
+                :class="subtitleVoiceMode === 'cloned' && hasClonedVoice ? 'text-teal-600 ring-2 ring-teal-400/50' : ''"
+              >
+                声
+              </div>
+              <span>{{ voiceModeLabel }}</span>
             </button>
             <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="toggleFullscreen(); moreOpen = false">
               <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">⛶</div>
@@ -1197,6 +1266,62 @@ function handleMainAction() {
               />
             </span>
           </button>
+        </div>
+      </div>
+
+      <!-- 字幕声音选择 -->
+      <div
+        v-if="voiceSheetOpen"
+        data-player-popover
+        :class="overlayLayerClass"
+        @click.self="closeVoiceSheet"
+      >
+        <div
+          class="w-full max-w-lg rounded-t-2xl bg-white dark:bg-neutral-900 shadow-2xl border-t border-black/10 dark:border-white/10 pb-[env(safe-area-inset-bottom)] sm:mb-6 sm:rounded-2xl sm:border"
+          @click.stop
+        >
+          <div class="flex justify-center pt-3 pb-2 sm:hidden">
+            <div class="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+          </div>
+          <p class="text-sm font-medium text-center mb-1 px-4">字幕重播声音</p>
+          <p class="text-[11px] text-center text-neutral-500 px-4 mb-3">
+            连续播放视频仍用原声；选「我的声音」后点重播会连读字幕，读完自动下一句
+          </p>
+          <div class="px-4 pb-4 space-y-2">
+            <button
+              type="button"
+              class="w-full flex items-center justify-between rounded-xl border px-3 py-3 text-sm transition-colors"
+              :class="
+                subtitleVoiceMode === 'original'
+                  ? 'border-teal-400 bg-teal-50 dark:bg-teal-950/40 dark:border-teal-600'
+                  : 'border-neutral-200 dark:border-neutral-700'
+              "
+              @click="selectVoiceMode('original')"
+            >
+              <span>视频原声</span>
+              <span v-if="subtitleVoiceMode === 'original'" class="text-teal-600 text-xs">当前</span>
+            </button>
+            <button
+              type="button"
+              class="w-full flex items-center justify-between rounded-xl border px-3 py-3 text-sm transition-colors"
+              :class="
+                subtitleVoiceMode === 'cloned' && hasClonedVoice
+                  ? 'border-teal-400 bg-teal-50 dark:bg-teal-950/40 dark:border-teal-600'
+                  : 'border-neutral-200 dark:border-neutral-700'
+              "
+              @click="selectVoiceMode('cloned')"
+            >
+              <span>{{ hasClonedVoice ? '我的声音（复刻）' : '我的声音（去复刻）' }}</span>
+              <span v-if="subtitleVoiceMode === 'cloned' && hasClonedVoice" class="text-teal-600 text-xs">当前</span>
+            </button>
+            <button
+              type="button"
+              class="w-full rounded-xl border border-dashed border-neutral-300 dark:border-neutral-600 px-3 py-2.5 text-sm text-neutral-600 dark:text-neutral-300"
+              @click="goCloneFromVoiceSheet"
+            >
+              {{ hasClonedVoice ? '管理 / 重新录制' : '录制并复刻我的声音' }}
+            </button>
+          </div>
         </div>
       </div>
     </Teleport>

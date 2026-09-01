@@ -2,7 +2,7 @@ import json
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -14,6 +14,7 @@ from ..services import ai_coach as coach
 from ..services import practice_records as practice_records_svc
 from ..services import practice_tts as practice_tts_svc
 from ..services import oral_eval as oral_eval_svc
+from ..services import voice_clone as voice_clone_svc
 
 router = APIRouter(prefix="/api/ai", tags=["ai-coach"])
 
@@ -72,6 +73,10 @@ class PracticeTtsIn(BaseModel):
     voice: str = Field(min_length=1, max_length=32)
     # word / sentence / passage 长度上限由服务层按 mode 再校验
     mode: str = Field(default="sentence", max_length=16)
+
+
+class VoiceCloneSpeakIn(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
 
 
 class ShadowTrackUpsertIn(BaseModel):
@@ -393,6 +398,127 @@ def practice_tts(
         media_type="audio/mpeg",
         headers={
             "X-Practice-TTS-Cache": "HIT" if cache_hit else "MISS",
+            "Cache-Control": "private, max-age=86400",
+        },
+    )
+
+
+@router.get("/voice-clone/")
+def voice_clone_status(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """当前用户复刻音色状态（不含原始 voice 密钥以外的敏感配置）。"""
+    row = voice_clone_svc.get_row(db, user)
+    return {
+        "configured": voice_clone_svc.voice_clone_ready(),
+        "enrollText": voice_clone_svc.DEFAULT_ENROLL_TEXT,
+        "minDurationMs": voice_clone_svc.MIN_DURATION_MS,
+        "maxDurationMs": voice_clone_svc.RECOMMENDED_MAX_MS,
+        "voice": voice_clone_svc.row_to_dict(row),
+    }
+
+
+@router.post("/voice-clone/")
+async def voice_clone_create(
+    file: UploadFile = File(...),
+    text: str = Form(default=""),
+    language: str = Form(default="en"),
+    duration_ms: int | None = Form(default=None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """上传录音创建/替换复刻音色。每用户仅保留 1 条；重录会先删旧音色。"""
+    from ..services.ai_quota import record_usage
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="录音文件为空")
+    ctype = (file.content_type or "audio/webm").split(";")[0].strip()
+    row = voice_clone_svc.create_or_replace(
+        db,
+        user,
+        audio_data=data,
+        content_type=ctype,
+        text=text,
+        language=language,
+        duration_ms=duration_ms,
+    )
+    record_usage(
+        db,
+        user,
+        action="voice_clone_create",
+        provider="dashscope",
+        billed=True,
+        cache_hit=False,
+        counts_quota=False,
+        meta={"fallback": row.fallback_mode},
+    )
+    return {
+        "ok": True,
+        "voice": voice_clone_svc.row_to_dict(row),
+        "fallbackMode": bool(row.fallback_mode),
+        "message": (
+            "音色已创建，但样本质量一般，建议重新录制以获得更像你的声音"
+            if row.fallback_mode
+            else "音色创建成功"
+        ),
+    }
+
+
+@router.delete("/voice-clone/")
+def voice_clone_delete(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ok = voice_clone_svc.delete_for_user(db, user)
+    if not ok:
+        raise HTTPException(status_code=404, detail="尚未复刻声音")
+    return {"ok": True}
+
+
+@router.get("/voice-clone/sample/")
+def voice_clone_sample(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """回放用户报名时保留的样本录音。"""
+    row = voice_clone_svc.get_row(db, user)
+    if not row:
+        raise HTTPException(status_code=404, detail="尚未复刻声音")
+    data, ctype = voice_clone_svc.read_sample(row)
+    return Response(
+        content=data,
+        media_type=ctype or "audio/mpeg",
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
+
+
+@router.post("/voice-clone/speak/")
+def voice_clone_speak(
+    body: VoiceCloneSpeakIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """用用户复刻音色朗读字幕文本（当前句）。"""
+    from ..services.ai_quota import record_usage
+
+    audio, cache_hit = voice_clone_svc.synthesize_for_user(db, user, body.text)
+    record_usage(
+        db,
+        user,
+        action="voice_clone_speak",
+        provider="dashscope",
+        billed=not cache_hit,
+        cache_hit=cache_hit,
+        counts_quota=False,
+        meta={},
+    )
+    return Response(
+        content=audio,
+        media_type="audio/mpeg",
+        headers={
+            "X-Voice-Clone-Cache": "HIT" if cache_hit else "MISS",
             "Cache-Control": "private, max-age=86400",
         },
     )

@@ -36,6 +36,12 @@ export interface PlayerControlOptions {
   /** 连续跟读整段结束（最后一句次数播完） */
   onContinuousLoopComplete?: (payload: { lastSub: Subtitle; openDictation: boolean }) => void
 
+  /** 返回 true 表示已接管重播（如复刻 TTS 链） */
+  onReplaySentence?: () => boolean
+
+  /** 返回 true 表示已接管上一句/下一句 */
+  onStepSentence?: (delta: 1 | -1) => boolean
+
 }
 
 
@@ -327,6 +333,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
   function prevSentence() {
 
+    if (opts.onStepSentence?.(-1)) return
+
     if (opts.currentIndex.value > 0) {
       sentenceLoopsDone.value = 0
       clearSentenceLoopTimer()
@@ -339,6 +347,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
   function nextSentence() {
+
+    if (opts.onStepSentence?.(1)) return
 
     if (opts.currentIndex.value < opts.sortedSubs.value.length - 1) {
       sentenceLoopsDone.value = 0
@@ -636,6 +646,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
   function replayCurrentSentence() {
+
+    if (opts.onReplaySentence?.()) return
 
     const sub = currentSub.value
 
@@ -1062,6 +1074,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
         if (isPlaying.value) togglePlay()
 
+        else if (opts.onReplaySentence?.()) break
+
         else replayCurrentSentence()
 
         break
@@ -1109,6 +1123,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
       case 'r':
 
       case 'R':
+
+        if (opts.onReplaySentence?.()) break
 
         replayCurrentSentence()
 

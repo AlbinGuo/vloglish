@@ -15,6 +15,7 @@ from .models import (
     AiUsageEvent,
     ExampleTranslationCache,
     UserAuthorSubscription,
+    UserClonedVoice,
     UserPageDwell,
     UserPracticeRecord,
     WishRequest,
@@ -199,6 +200,11 @@ def _migrate_schema():
     if "wish_request_likes" not in insp.get_table_names():
         WishRequestLike.__table__.create(bind=engine, checkfirst=True)
         print("[vloglish] created table wish_request_likes")
+        insp = inspect(engine)
+
+    if "user_cloned_voices" not in insp.get_table_names():
+        UserClonedVoice.__table__.create(bind=engine, checkfirst=True)
+        print("[vloglish] created table user_cloned_voices")
         insp = inspect(engine)
 
     # 早期版本 article_id 为 INTEGER，需改为文章对外 ID（VARCHAR）

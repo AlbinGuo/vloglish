@@ -640,6 +640,26 @@ class ExampleTranslationCache(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class UserClonedVoice(Base):
+    """用户 Qwen-TTS 声音复刻：每用户一条音色 + 保留报名样本录音。"""
+
+    __tablename__ = "user_cloned_voices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
+    voice: Mapped[str] = mapped_column(String(128), default="")
+    tts_model: Mapped[str] = mapped_column(String(64), default="qwen3-tts-vc-2026-01-22")
+    preferred_name: Mapped[str] = mapped_column(String(16), default="")
+    sample_text: Mapped[str] = mapped_column(Text, default="")
+    language: Mapped[str] = mapped_column(String(8), default="en")
+    fallback_mode: Mapped[bool] = mapped_column(Boolean, default=False)
+    # 相对 DATA_DIR 的样本路径，如 voice_clone/12/sample.mp3
+    sample_relpath: Mapped[str] = mapped_column(String(256), default="")
+    sample_content_type: Mapped[str] = mapped_column(String(64), default="audio/mpeg")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class UserPracticeRecord(Base):
     """口语评测 / 单词打分 / 篇章评测练习记录（含可选录音）。"""
 
