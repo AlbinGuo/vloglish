@@ -2,13 +2,14 @@ import { onUnmounted, ref } from 'vue'
 import { fetchClonedSpeak } from '@/api/voiceClone'
 
 export type SpeakReadyInfo = {
+  /** 可能为 0：不再为对齐去阻塞等待 metadata */
   durationSec: number
 }
 
 /**
- * 用复刻音色朗读字幕：可单句，也可由外部循环接下句。
+ * 用复刻音色朗读字幕。
  * speak() 正常播完返回 true；被 stop() 打断返回 false。
- * onReady 在拿到音频时长、即将开播时回调，便于同步驱动视频画面。
+ * onReady 在音频 blob 就绪、即将 play 时立刻回调（不阻塞等 duration）。
  */
 export function useClonedSubtitleSpeak() {
   const speaking = ref(false)
@@ -36,23 +37,6 @@ export function useClonedSubtitleSpeak() {
       objectUrl = null
     }
     speaking.value = false
-  }
-
-  function readDurationSec(el: HTMLAudioElement): Promise<number> {
-    if (Number.isFinite(el.duration) && el.duration > 0) {
-      return Promise.resolve(el.duration)
-    }
-    return new Promise((resolve) => {
-      const done = () => {
-        el.removeEventListener('loadedmetadata', done)
-        el.removeEventListener('durationchange', done)
-        resolve(Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0)
-      }
-      el.addEventListener('loadedmetadata', done)
-      el.addEventListener('durationchange', done)
-      // 部分浏览器需 play/pause 才出时长；给个短超时兜底
-      window.setTimeout(done, 800)
-    })
   }
 
   async function speak(
@@ -90,10 +74,10 @@ export function useClonedSubtitleSpeak() {
       objectUrl = URL.createObjectURL(blob)
       audio = new Audio(objectUrl)
       audio.preload = 'auto'
-      const durationSec = await readDurationSec(audio)
-      if (mySession !== session) return false
+
+      // 立刻回调，避免等 loadedmetadata（手机上可卡数百毫秒）
       if (opts?.onReady) {
-        await opts.onReady({ durationSec: durationSec > 0 ? durationSec : 0 })
+        await opts.onReady({ durationSec: 0 })
       }
       if (mySession !== session) return false
 
@@ -140,7 +124,6 @@ export function useClonedSubtitleSpeak() {
     }
   }
 
-  /** 预取下一句，减少接句等待 */
   function prefetch(text: string) {
     const cleaned = (text || '').trim()
     if (!cleaned) return

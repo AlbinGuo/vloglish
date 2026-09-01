@@ -218,8 +218,10 @@ function beginClonedVideoSync() {
       rate: player.playbackRate.value || v.playbackRate || 1,
     }
   }
+  // 始终用用户原倍速，避免每句改 rate 造成卡顿感
   v.muted = true
-  // 避免单句循环把画面拉回去
+  v.playbackRate = clonedVideoRestore.rate
+  player.playbackRate.value = clonedVideoRestore.rate
   if (player.loopMode.value !== 'off') {
     player.loopMode.value = 'off'
   }
@@ -245,47 +247,56 @@ function endClonedVideoSync() {
 }
 
 /**
- * 句首起静音播放画面；按字幕时长 / TTS 时长调倍速，尽量口型/画面与复刻音对齐。
- * TTS 更长时画面到句末暂停等待；TTS 结束即停画面并接下句。
+ * 静音、按正常倍速播画面。
+ * 已在当前句时间窗内则不 seek，减少句间跳动；复刻音比画面长时在句末轻停等音。
  */
-async function syncVideoToClonedSpeech(sub: Subtitle, ttsDurationSec: number) {
+function ensureClonedVideoPlaying(sub: Subtitle) {
   const v = videoRef.value
   if (!v) return
   beginClonedVideoSync()
   clearClonedVideoHold()
 
-  const subDur = Math.max(0.25, (sub.end || 0) - (sub.start || 0))
-  const ttsDur = Math.max(0.25, ttsDurationSec || subDur)
-  // rate = 画面时长 / 语音时长 → 语音播完时画面大致走到句末
-  const rate = Math.min(2, Math.max(0.5, subDur / ttsDur))
-
-  player.seekTo(sub)
-  v.currentTime = sub.start
-  v.playbackRate = rate
-  player.playbackRate.value = rate
-  v.muted = true
+  const t = v.currentTime
+  const inWindow = t >= sub.start - 0.12 && t <= sub.end + 0.05
+  if (!inWindow) {
+    player.seekTo(sub)
+    try {
+      v.currentTime = sub.start
+    } catch {
+      /* ignore */
+    }
+  } else {
+    // 只更新当前句索引，不强制 seek
+    const idx = sortedSubs.value.findIndex((s) => s.id === sub.id)
+    if (idx >= 0) currentIndex.value = idx
+  }
 
   clonedVideoTimeHandler = () => {
-    if (!videoRef.value) return
-    if (videoRef.value.currentTime >= sub.end - 0.04) {
+    const vid = videoRef.value
+    if (!vid || !clonedChainActive.value) return
+    if (vid.currentTime >= sub.end - 0.05) {
       try {
-        videoRef.value.pause()
-        videoRef.value.currentTime = sub.end
+        vid.pause()
+        vid.currentTime = Math.min(vid.currentTime, sub.end)
       } catch {
         /* ignore */
       }
       player.currentTime.value = sub.end
-      player.isPlaying.value = false
+      // 保持 isPlaying 为 true 语义上「朗读中」，避免主按钮闪成重播
+      player.isPlaying.value = true
       clearClonedVideoHold()
     }
   }
   v.addEventListener('timeupdate', clonedVideoTimeHandler)
 
-  try {
-    await v.play()
+  if (v.paused) {
+    void v.play().then(() => {
+      player.isPlaying.value = true
+    }).catch(() => {
+      player.isPlaying.value = false
+    })
+  } else {
     player.isPlaying.value = true
-  } catch {
-    player.isPlaying.value = false
   }
 }
 
@@ -293,8 +304,7 @@ const clonedPlaybackActive = computed(() => clonedSpeaking.value || clonedChainA
 
 /**
  * 从当前句开始复刻连续朗读；再点一次则停止。
- * 开启「句末停下」时只读一句；否则读完自动下一句。
- * 朗读时静音播放视频画面并尽量与 TTS 对齐。
+ * 画面静音连续播放（正常倍速），不再每句改速 / 强行 pause。
  */
 async function playClonedSentence() {
   if (clonedSpeaking.value || clonedChainActive.value) {
@@ -311,6 +321,8 @@ async function playClonedSentence() {
   const token = ++clonedChainToken
   clonedChainActive.value = true
   beginClonedVideoSync()
+  // 先开画面，避免等首句 TTS 时黑屏定格
+  ensureClonedVideoPlaying(startSub)
 
   let idx = sortedSubs.value.findIndex((s) => s.id === startSub.id)
   if (idx < 0) idx = currentIndex.value
@@ -328,25 +340,23 @@ async function playClonedSentence() {
 
     currentIndex.value = idx
 
-    const next = !stopAfterOne && idx + 1 < subs.length ? subs[idx + 1] : null
-    if (next?.english?.trim()) prefetchClonedSpeak(next.english)
+    // 预取后两句，缩短句间等待
+    if (!stopAfterOne) {
+      const n1 = idx + 1 < subs.length ? subs[idx + 1] : null
+      const n2 = idx + 2 < subs.length ? subs[idx + 2] : null
+      if (n1?.english?.trim()) prefetchClonedSpeak(n1.english)
+      if (n2?.english?.trim()) prefetchClonedSpeak(n2.english)
+    }
 
     const ok = await speakCloned(sub.english, {
-      onReady: async ({ durationSec }) => {
+      onReady: async () => {
         if (token !== clonedChainToken || !clonedChainActive.value) return
-        await syncVideoToClonedSpeech(sub, durationSec)
+        ensureClonedVideoPlaying(sub)
       },
     })
 
     clearClonedVideoHold()
-    const v = videoRef.value
-    if (v) {
-      try {
-        v.pause()
-      } catch {
-        /* ignore */
-      }
-    }
+    // 句间不 pause 视频，交给下一句 ensure 决定是否轻量 seek
 
     if (!ok || token !== clonedChainToken || !clonedChainActive.value) break
 
