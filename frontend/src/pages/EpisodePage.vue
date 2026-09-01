@@ -41,6 +41,7 @@ import { useSourceFocusPulse } from '@/composables/useSourceFocusPulse'
 import { useWordLongPress } from '@/composables/useWordLongPress'
 import { useAuthStore } from '@/stores/auth'
 import { useVocabularyStore } from '@/stores/vocabulary'
+import { useVoiceCloneStore } from '@/stores/voiceClone'
 import type { EntryDetail, EpisodeDetail, EpisodeSummary, Subtitle } from '@/types'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
 import EntryCard from '@/components/EntryCard.vue'
@@ -77,7 +78,6 @@ import {
   uploadPracticeAudio,
   type PracticeRecord,
 } from '@/api/practiceRecords'
-import { fetchVoiceCloneStatus, setVoiceClonePreferPlayback, type ClonedVoiceInfo } from '@/api/voiceClone'
 import VoiceCloneSheet from '@/components/voice/VoiceCloneSheet.vue'
 import type { BlankPrintOptions } from '@/utils/blankPrint'
 import type { WordCardPrintOptions } from '@/utils/wordCardPrint'
@@ -103,16 +103,16 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const vocabularyStore = useVocabularyStore()
+const voiceClone = useVoiceCloneStore()
 
-const VOICE_MODE_KEY = 'vloglish.subtitleVoiceMode'
-const subtitleVoiceMode = ref<'original' | 'cloned'>(
-  typeof localStorage !== 'undefined' && localStorage.getItem(VOICE_MODE_KEY) === 'cloned'
-    ? 'cloned'
-    : 'original',
-)
-const clonedVoice = ref<ClonedVoiceInfo | null>(null)
+const subtitleVoiceMode = computed({
+  get: () => voiceClone.subtitleVoiceMode,
+  set: (mode: 'original' | 'cloned') => {
+    void applySubtitleVoiceMode(mode)
+  },
+})
+const hasClonedVoice = computed(() => voiceClone.hasClonedVoice)
 const voiceCloneOpen = ref(false)
-const hasClonedVoice = computed(() => Boolean(clonedVoice.value?.voice))
 const {
   speaking: clonedSpeaking,
   error: clonedSpeakError,
@@ -125,29 +125,23 @@ const {
 const clonedChainActive = ref(false)
 let clonedChainToken = 0
 
-function setSubtitleVoiceMode(mode: 'original' | 'cloned', opts?: { sync?: boolean; silent?: boolean }) {
-  if (mode === 'cloned' && !hasClonedVoice.value) {
-    openVoiceClone()
-    return
-  }
+async function applySubtitleVoiceMode(mode: 'original' | 'cloned', opts?: { silent?: boolean }) {
   if (mode === 'original') {
     stopClonedChain()
   }
-  subtitleVoiceMode.value = mode
-  try {
-    localStorage.setItem(VOICE_MODE_KEY, mode)
-  } catch {
-    /* ignore */
+  const result = await voiceClone.selectMode(mode)
+  if (result === 'needLogin') {
+    router.push({ path: '/login', query: { redirect: route.fullPath } })
+    return
   }
-  if (opts?.sync !== false && auth.isLoggedIn && hasClonedVoice.value) {
-    void setVoiceClonePreferPlayback(mode === 'cloned').then((voice) => {
-      clonedVoice.value = voice
-    }).catch(() => {
-      /* 偏好同步失败不阻断本地切换 */
-    })
+  if (result === 'needEnroll') {
+    if (voiceClone.error) {
+      flashQuickVocabToast(voiceClone.error)
+    }
+    openVoiceClone()
+    return
   }
   if (mode === 'cloned' && !opts?.silent) {
-    // 切到我的声音：停掉视频原声，提示用播放键听复刻
     const v = videoRef.value
     if (v && !v.paused) {
       try {
@@ -161,6 +155,10 @@ function setSubtitleVoiceMode(mode: 'original' | 'cloned', opts?: { sync?: boole
   }
 }
 
+function setSubtitleVoiceMode(mode: 'original' | 'cloned') {
+  void applySubtitleVoiceMode(mode)
+}
+
 function openVoiceClone() {
   if (!auth.isLoggedIn) {
     router.push({ path: '/login', query: { redirect: route.fullPath } })
@@ -169,10 +167,11 @@ function openVoiceClone() {
   voiceCloneOpen.value = true
 }
 
-function onClonedVoiceUpdated(voice: ClonedVoiceInfo | null) {
-  clonedVoice.value = voice
+function onClonedVoiceUpdated(voice: import('@/api/voiceClone').ClonedVoiceInfo | null) {
+  voiceClone.setLocalVoice(voice)
   if (voice?.voice) {
-    setSubtitleVoiceMode('cloned', { sync: true, silent: true })
+    voiceClone.persistMode('cloned')
+    void voiceClone.setPreferPlayback(true)
     const v = videoRef.value
     if (v && !v.paused) {
       try {
@@ -182,31 +181,7 @@ function onClonedVoiceUpdated(voice: ClonedVoiceInfo | null) {
       }
       player.isPlaying.value = false
     }
-    flashQuickVocabToast('复刻成功：点播放即可用自己的声音读字幕（各端通用）')
-  } else if (subtitleVoiceMode.value === 'cloned') {
-    setSubtitleVoiceMode('original', { sync: false, silent: true })
-  }
-}
-
-async function refreshClonedVoice() {
-  if (!auth.ready || !auth.isLoggedIn || props.adminPreview) {
-    if (!auth.isLoggedIn) clonedVoice.value = null
-    return
-  }
-  try {
-    const st = await fetchVoiceCloneStatus()
-    clonedVoice.value = st.voice
-    if (!st.voice) {
-      if (subtitleVoiceMode.value === 'cloned') {
-        setSubtitleVoiceMode('original', { sync: false, silent: true })
-      }
-      return
-    }
-    // 服务端偏好跨端同步；没有偏好字段时默认用我的声音
-    const prefer = st.voice.preferPlayback !== false
-    setSubtitleVoiceMode(prefer ? 'cloned' : 'original', { sync: false, silent: true })
-  } catch {
-    /* 未登录或服务不可用时静默 */
+    flashQuickVocabToast('复刻成功：各端登录同一账号即可直接使用')
   }
 }
 
@@ -214,10 +189,44 @@ function stopClonedChain() {
   clonedChainActive.value = false
   clonedChainToken += 1
   stopClonedSpeak()
+  endClonedVideoSync()
 }
 
-function pauseVideoAtSub(sub: { start: number }) {
-  player.seekTo(sub as Subtitle)
+/** 复刻朗读期间：静音播画面，倍速贴近 TTS 时长 */
+let clonedVideoRestore: { muted: boolean; rate: number } | null = null
+let clonedVideoHoldTimer: ReturnType<typeof setTimeout> | null = null
+let clonedVideoTimeHandler: ((ev: Event) => void) | null = null
+
+function clearClonedVideoHold() {
+  if (clonedVideoHoldTimer) {
+    clearTimeout(clonedVideoHoldTimer)
+    clonedVideoHoldTimer = null
+  }
+  const v = videoRef.value
+  if (v && clonedVideoTimeHandler) {
+    v.removeEventListener('timeupdate', clonedVideoTimeHandler)
+    clonedVideoTimeHandler = null
+  }
+}
+
+function beginClonedVideoSync() {
+  const v = videoRef.value
+  if (!v) return
+  if (!clonedVideoRestore) {
+    clonedVideoRestore = {
+      muted: v.muted,
+      rate: player.playbackRate.value || v.playbackRate || 1,
+    }
+  }
+  v.muted = true
+  // 避免单句循环把画面拉回去
+  if (player.loopMode.value !== 'off') {
+    player.loopMode.value = 'off'
+  }
+}
+
+function endClonedVideoSync() {
+  clearClonedVideoHold()
   const v = videoRef.value
   if (v) {
     try {
@@ -225,8 +234,59 @@ function pauseVideoAtSub(sub: { start: number }) {
     } catch {
       /* ignore */
     }
+    if (clonedVideoRestore) {
+      v.muted = clonedVideoRestore.muted
+      v.playbackRate = clonedVideoRestore.rate
+      player.playbackRate.value = clonedVideoRestore.rate
+    }
   }
+  clonedVideoRestore = null
   player.isPlaying.value = false
+}
+
+/**
+ * 句首起静音播放画面；按字幕时长 / TTS 时长调倍速，尽量口型/画面与复刻音对齐。
+ * TTS 更长时画面到句末暂停等待；TTS 结束即停画面并接下句。
+ */
+async function syncVideoToClonedSpeech(sub: Subtitle, ttsDurationSec: number) {
+  const v = videoRef.value
+  if (!v) return
+  beginClonedVideoSync()
+  clearClonedVideoHold()
+
+  const subDur = Math.max(0.25, (sub.end || 0) - (sub.start || 0))
+  const ttsDur = Math.max(0.25, ttsDurationSec || subDur)
+  // rate = 画面时长 / 语音时长 → 语音播完时画面大致走到句末
+  const rate = Math.min(2, Math.max(0.5, subDur / ttsDur))
+
+  player.seekTo(sub)
+  v.currentTime = sub.start
+  v.playbackRate = rate
+  player.playbackRate.value = rate
+  v.muted = true
+
+  clonedVideoTimeHandler = () => {
+    if (!videoRef.value) return
+    if (videoRef.value.currentTime >= sub.end - 0.04) {
+      try {
+        videoRef.value.pause()
+        videoRef.value.currentTime = sub.end
+      } catch {
+        /* ignore */
+      }
+      player.currentTime.value = sub.end
+      player.isPlaying.value = false
+      clearClonedVideoHold()
+    }
+  }
+  v.addEventListener('timeupdate', clonedVideoTimeHandler)
+
+  try {
+    await v.play()
+    player.isPlaying.value = true
+  } catch {
+    player.isPlaying.value = false
+  }
 }
 
 const clonedPlaybackActive = computed(() => clonedSpeaking.value || clonedChainActive.value)
@@ -234,6 +294,7 @@ const clonedPlaybackActive = computed(() => clonedSpeaking.value || clonedChainA
 /**
  * 从当前句开始复刻连续朗读；再点一次则停止。
  * 开启「句末停下」时只读一句；否则读完自动下一句。
+ * 朗读时静音播放视频画面并尽量与 TTS 对齐。
  */
 async function playClonedSentence() {
   if (clonedSpeaking.value || clonedChainActive.value) {
@@ -249,6 +310,7 @@ async function playClonedSentence() {
 
   const token = ++clonedChainToken
   clonedChainActive.value = true
+  beginClonedVideoSync()
 
   let idx = sortedSubs.value.findIndex((s) => s.id === startSub.id)
   if (idx < 0) idx = currentIndex.value
@@ -265,12 +327,27 @@ async function playClonedSentence() {
     }
 
     currentIndex.value = idx
-    pauseVideoAtSub(sub)
 
     const next = !stopAfterOne && idx + 1 < subs.length ? subs[idx + 1] : null
     if (next?.english?.trim()) prefetchClonedSpeak(next.english)
 
-    const ok = await speakCloned(sub.english)
+    const ok = await speakCloned(sub.english, {
+      onReady: async ({ durationSec }) => {
+        if (token !== clonedChainToken || !clonedChainActive.value) return
+        await syncVideoToClonedSpeech(sub, durationSec)
+      },
+    })
+
+    clearClonedVideoHold()
+    const v = videoRef.value
+    if (v) {
+      try {
+        v.pause()
+      } catch {
+        /* ignore */
+      }
+    }
+
     if (!ok || token !== clonedChainToken || !clonedChainActive.value) break
 
     if (stopAfterOne) break
@@ -280,6 +357,7 @@ async function playClonedSentence() {
 
   if (token === clonedChainToken) {
     clonedChainActive.value = false
+    endClonedVideoSync()
     if (clonedSpeakError.value) {
       flashQuickVocabToast(clonedSpeakError.value)
     }
@@ -300,7 +378,7 @@ function clonedStepSentence(delta: 1 | -1) {
   currentIndex.value = nextIdx
   const sub = subs[nextIdx]
   if (!sub) return
-  pauseVideoAtSub(sub)
+  player.seekTo(sub)
   void Promise.resolve().then(() => {
     void playClonedSentence()
   })
@@ -310,13 +388,12 @@ watch(
   () => [auth.ready, auth.isLoggedIn] as const,
   ([ready, ok]) => {
     if (!ready) return
-    if (ok) void refreshClonedVoice()
-    else {
-      clonedVoice.value = null
+    if (ok) {
+      if (!props.adminPreview) void voiceClone.refresh()
+    } else {
       stopClonedChain()
     }
   },
-  { immediate: true },
 )
 const episodeVocabPracticeCount = computed(() => {
   const vid = props.videoId
@@ -2594,6 +2671,7 @@ function subtitleRowClass(index: number) {
           @update:fullscreen-caption-mode="setFullscreenCaptionMode"
           @update:subtitle-voice-mode="setSubtitleVoiceMode"
           @open-voice-clone="openVoiceClone"
+          @refresh-voice-clone="() => voiceClone.refresh()"
         />
         <button
           v-if="subtitlesHidden && !isVideoPanelFullscreen"
@@ -3087,6 +3165,7 @@ function subtitleRowClass(index: number) {
             @update:subtitle-voice-mode="setSubtitleVoiceMode"
             @toggle-chrome="toggleMobileChrome"
             @open-voice-clone="openVoiceClone"
+            @refresh-voice-clone="() => voiceClone.refresh()"
           />
         </div>
       </div>

@@ -426,7 +426,7 @@ onUnmounted(() => {
 
         <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-4">
           <p class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
-            录一段英文（推荐 10–20 秒），创建专属音色后各端（手机 / iPad / 电脑）都能选「我的声音」。选中后点播放用复刻音色连读字幕。
+            录一段英文（推荐 10–20 秒）。音色保存在你的账号里，App / 手机浏览器 / iPad / 电脑登录同一账号后都能直接选，不必重录。
           </p>
 
           <div
@@ -443,7 +443,10 @@ onUnmounted(() => {
           >
             <div class="flex items-start justify-between gap-2">
               <div>
-                <p class="text-sm font-medium text-teal-900 dark:text-teal-100">已复刻：我的声音</p>
+                <p class="text-sm font-medium text-teal-900 dark:text-teal-100">已复刻：我的声音（账号通用）</p>
+                <p class="mt-1 text-xs text-teal-800/80 dark:text-teal-200/80">
+                  手机 / App / iPad / 电脑登录同一账号即可直接使用，无需重录
+                </p>
                 <p v-if="remoteVoice.fallbackMode" class="mt-1 text-xs text-amber-700 dark:text-amber-300">
                   样本质量一般，建议重新录制以更像你的声音
                 </p>

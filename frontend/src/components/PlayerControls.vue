@@ -36,6 +36,7 @@ defineEmits<{
   'update:subtitleVoiceMode': [value: 'original' | 'cloned']
   toggleChrome: []
   openVoiceClone: []
+  refreshVoiceClone: []
 }>()
 </script>
 
@@ -63,5 +64,6 @@ defineEmits<{
     @update:subtitle-voice-mode="$emit('update:subtitleVoiceMode', $event)"
     @toggle-chrome="$emit('toggleChrome')"
     @open-voice-clone="$emit('openVoiceClone')"
+    @refresh-voice-clone="$emit('refreshVoiceClone')"
   />
 </template>

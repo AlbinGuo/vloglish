@@ -20,6 +20,7 @@ import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 import { useNotificationStore } from '@/stores/notifications'
 import { useSiteConfigStore } from '@/stores/siteConfig'
 import { useVocabularyStore } from '@/stores/vocabulary'
+import { useVoiceCloneStore } from '@/stores/voiceClone'
 import AppDownloadEntry from '@/components/AppDownloadEntry.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
@@ -30,6 +31,7 @@ const siteConfig = useSiteConfigStore()
 const notifications = useNotificationStore()
 const corpusBadge = useMyCorpusBadgeStore()
 const vocabulary = useVocabularyStore()
+const voiceClone = useVoiceCloneStore()
 const feedbackOpen = ref(false)
 /** 会员，或关内容限制后的登录用户 */
 const canUseMemberTools = computed(() => auth.isMember || siteConfig.memberToolsOpen)
@@ -208,6 +210,7 @@ async function handleLogout() {
   notifications.clear()
   corpusBadge.clear()
   vocabulary.clear()
+  voiceClone.clear()
   await router.replace('/english')
 }
 
@@ -219,6 +222,7 @@ onMounted(() => {
     sendHeartbeat()
     refreshUnreadCount()
     void vocabulary.load()
+    void voiceClone.refresh()
     startPopupPolling()
   }
   pollTimer = setInterval(() => {
@@ -258,11 +262,13 @@ watch(
       sendHeartbeat()
       refreshUnreadCount()
       void vocabulary.load()
+      void voiceClone.refresh()
       startPopupPolling()
     } else if (ready) {
       notifications.clear()
       corpusBadge.clear()
       vocabulary.clear()
+      voiceClone.clear()
       stopPopupPolling()
     }
   },
