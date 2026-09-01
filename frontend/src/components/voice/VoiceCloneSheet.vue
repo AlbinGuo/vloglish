@@ -8,6 +8,7 @@ import {
   fetchVoiceCloneStatus,
   type ClonedVoiceInfo,
 } from '@/api/voiceClone'
+import { getErrorDetail } from '@/api/tokens'
 import {
   clearVoiceCloneDraft,
   loadVoiceCloneDraft,
@@ -328,7 +329,7 @@ async function submitClone() {
     info.value = res.message
     emit('updated', res.voice)
   } catch (e) {
-    error.value = e instanceof Error ? e.message : '复刻失败'
+    error.value = getErrorDetail(e) || (e instanceof Error ? e.message : '复刻失败')
     info.value = ''
   } finally {
     submitting.value = false

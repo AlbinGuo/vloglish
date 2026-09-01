@@ -19,6 +19,7 @@ from . import qwen_voice_clone as qvc
 from . import tts_ssml
 from . import voice_enroll_public as enroll_pub
 from .tts_common import normalize_tts_text
+from ..qiniu_storage import QiniuConfig, sign_url, upload_file
 
 SAMPLE_DIR = DATA_DIR / "voice_clone"
 CACHE_DIR = DATA_DIR / "tts_cache" / "cloned"
@@ -176,6 +177,18 @@ def _save_sample(user_id: int, data: bytes, content_type: str) -> tuple[str, str
     return rel, out_ctype
 
 
+def _enroll_public_audio_url(user_id: int, sample_path: Path, content_type: str) -> str:
+    """优先用七牛可下载地址（阿里云更容易拉取）；失败再走本站短链。"""
+    suffix = sample_path.suffix.lower() or ".mp3"
+    try:
+        cfg = QiniuConfig.from_env()
+        key = cfg.object_key("voice_clone", str(user_id), f"enroll{suffix}")
+        base = upload_file(cfg, sample_path, key)
+        return sign_url(base, expires=900, cfg=cfg)
+    except (RuntimeError, FileNotFoundError, OSError):
+        return enroll_pub.issue_enroll_url(sample_path, content_type)
+
+
 def _delete_local_samples(user_id: int) -> None:
     d = SAMPLE_DIR / str(user_id)
     if d.is_dir():
@@ -217,7 +230,7 @@ def create_or_replace(
     rel, saved_ctype = _save_sample(user.id, converted, out_ctype)
     sample_path = DATA_DIR / rel
     try:
-        audio_url = enroll_pub.issue_enroll_url(sample_path, saved_ctype)
+        audio_url = _enroll_public_audio_url(user.id, sample_path, saved_ctype)
         result = cvc.create_cloned_voice(audio_url=audio_url, language=lang, prefix=preferred)
     except RuntimeError as exc:
         msg = str(exc)

@@ -14,7 +14,7 @@ from .tts_common import ensure_mp3_bytes, normalize_tts_text
 VOICE_CLONE_TTS_MODEL = "cosyvoice-v3-flash"
 VOICE_ENROLLMENT_MODEL = "voice-enrollment"
 
-_PREFIX_RE = re.compile(r"^[A-Za-z0-9]{1,10}$")
+_PREFIX_RE = re.compile(r"^[a-z0-9]{1,10}$")
 
 
 def voice_clone_configured() -> bool:
@@ -53,10 +53,10 @@ def _synthesizer_url() -> str:
 
 
 def sanitize_prefix(name: str, *, fallback: str = "vloglish") -> str:
-    cleaned = re.sub(r"[^A-Za-z0-9]", "", (name or "").strip())[:10]
+    cleaned = re.sub(r"[^a-z0-9]", "", (name or "").strip().lower())[:10]
     if _PREFIX_RE.fullmatch(cleaned):
         return cleaned
-    fb = re.sub(r"[^A-Za-z0-9]", "", fallback)[:10] or "vloglish"
+    fb = re.sub(r"[^a-z0-9]", "", fallback.lower())[:10] or "vloglish"
     return fb[:10]
 
 
@@ -88,7 +88,14 @@ def _post_json(url: str, payload: dict, *, timeout: int = 180) -> dict:
         raw = exc.read().decode("utf-8", errors="replace")
         try:
             detail = json.loads(raw)
-            message = detail.get("message") or raw[:500]
+            message = (
+                detail.get("message")
+                or detail.get("Message")
+                or raw[:500]
+            )
+            code = detail.get("code") or detail.get("Code")
+            if code:
+                message = f"{code}: {message}"
         except json.JSONDecodeError:
             message = raw[:500]
         if exc.code == 401:

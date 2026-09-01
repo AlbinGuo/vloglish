@@ -1,4 +1,5 @@
 import api from '@/api/client'
+import { getErrorDetail } from '@/api/tokens'
 
 export type ClonedVoiceInfo = {
   voice: string
@@ -54,13 +55,18 @@ export async function createVoiceClone(opts: {
   form.append('text', opts.text)
   form.append('language', opts.language || 'en')
   form.append('duration_ms', String(Math.round(opts.durationMs)))
-  const { data } = await api.post<{
-    ok: boolean
-    voice: ClonedVoiceInfo
-    fallbackMode: boolean
-    message: string
-  }>('/api/ai/voice-clone/', form, { timeout: 180000 })
-  return data
+  try {
+    const { data } = await api.post<{
+      ok: boolean
+      voice: ClonedVoiceInfo
+      fallbackMode: boolean
+      message: string
+    }>('/api/ai/voice-clone/', form, { timeout: 180000 })
+    return data
+  } catch (e) {
+    const detail = getErrorDetail(e)
+    throw new Error(detail || (e instanceof Error ? e.message : '复刻失败'))
+  }
 }
 
 export async function deleteVoiceClone(): Promise<void> {
