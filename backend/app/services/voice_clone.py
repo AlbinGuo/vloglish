@@ -39,10 +39,24 @@ def voice_clone_ready() -> bool:
     return cvc.voice_clone_configured()
 
 
+def _has_saved_sample(row: UserClonedVoice) -> bool:
+    return _sample_path(row).is_file()
+
+
+def _model_matches_current(row: UserClonedVoice) -> bool:
+    stored = (row.tts_model or "").strip()
+    return stored == cvc.VOICE_CLONE_TTS_MODEL
+
+
 def needs_reenroll(row: UserClonedVoice | None) -> bool:
+    """旧模型音色无法跨模型合成；有报名样本时可静默升级，不必再录。"""
     if not row or not (row.voice or "").strip():
         return False
-    return not cvc.is_cosyvoice_model(row.tts_model)
+    if not cvc.is_cosyvoice_model(row.tts_model):
+        return True
+    if _model_matches_current(row):
+        return False
+    return not _has_saved_sample(row)
 
 
 def get_row(db: Session, user: User) -> UserClonedVoice | None:
@@ -195,6 +209,34 @@ def _delete_local_samples(user_id: int) -> None:
         shutil.rmtree(d, ignore_errors=True)
 
 
+def _reenroll_from_saved_sample(db: Session, user: User, row: UserClonedVoice) -> UserClonedVoice:
+    """用已保存样本把音色迁到当前 target_model（flash → plus 等）。"""
+    path = _sample_path(row)
+    if not path.is_file():
+        raise HTTPException(status_code=409, detail="当前音色需重新录制后才能用于复刻朗读")
+    preferred = cvc.sanitize_prefix(f"u{user.id}", fallback="vloglish")
+    lang = cvc.normalize_clone_language(row.language or "en")
+    if (row.voice or "").strip():
+        _delete_remote_voice(row.voice, row.tts_model)
+    try:
+        audio_url = _enroll_public_audio_url(user.id, path, row.sample_content_type or "audio/mpeg")
+        result = cvc.create_cloned_voice(audio_url=audio_url, language=lang, prefix=preferred)
+    except RuntimeError as exc:
+        msg = str(exc)
+        status = 503 if "BACKEND_PUBLIC_URL" in msg else 502
+        raise HTTPException(status_code=status, detail=msg) from exc
+
+    row.voice = result["voice"]
+    row.tts_model = result.get("target_model") or cvc.VOICE_CLONE_TTS_MODEL
+    row.preferred_name = preferred
+    row.language = lang
+    row.fallback_mode = bool(result.get("fallback_mode"))
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
 def create_or_replace(
     db: Session,
     user: User,
@@ -340,7 +382,9 @@ def synthesize_for_user(
     if not row or not (row.voice or "").strip():
         raise HTTPException(status_code=404, detail="尚未复刻声音，请先录音创建")
     if needs_reenroll(row):
-        raise HTTPException(status_code=409, detail="当前音色需重新录制后才能用于语速对齐朗读")
+        raise HTTPException(status_code=409, detail="当前音色需重新录制后才能用于复刻朗读")
+    if not _model_matches_current(row):
+        row = _reenroll_from_saved_sample(db, user, row)
 
     try:
         cleaned = normalize_tts_text(text)
@@ -351,9 +395,11 @@ def synthesize_for_user(
 
     model = row.tts_model or cvc.VOICE_CLONE_TTS_MODEL
     lang = row.language or "en"
-    use_ssml = duration_ms is not None and duration_ms > 0
-    synth_text = tts_ssml.build_subtitle_ssml(cleaned, duration_ms) if use_ssml else cleaned
-    cache_payload = synth_text if use_ssml else cleaned
+    # duration_ms 仅兼容旧客户端，不再按字幕窗强行变速（会压平停顿与语气）
+    _ = duration_ms
+    instruction = tts_ssml.speak_instruction(cleaned)
+    synth_text = tts_ssml.build_natural_ssml(cleaned)
+    cache_payload = f"v2|{instruction}|{synth_text}"
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     path = _cache_path(row.voice, cache_payload, model)
@@ -366,10 +412,25 @@ def synthesize_for_user(
             voice=row.voice,
             tts_model=model,
             language=lang,
-            enable_ssml=use_ssml,
+            enable_ssml=True,
+            instruction=instruction,
         )
     except RuntimeError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        msg = str(exc).lower()
+        retryable = any(k in msg for k in ("instruction", "ssml", "parameter", "invalid"))
+        if not retryable:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        try:
+            audio = cvc.synthesize_with_cloned_voice(
+                cleaned,
+                voice=row.voice,
+                tts_model=model,
+                language=lang,
+                enable_ssml=False,
+                instruction=instruction,
+            )
+        except RuntimeError:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     if not audio:
         raise HTTPException(status_code=502, detail="TTS 返回空音频")

@@ -1,4 +1,4 @@
-"""按字幕时间窗生成 CosyVoice SSML（语速 + 标点停顿）。"""
+"""按字幕生成 CosyVoice SSML：保留标点停顿，不按时间窗强行变速。"""
 
 from __future__ import annotations
 
@@ -8,28 +8,34 @@ import xml.sax.saxutils as xml
 from .tts_common import normalize_tts_text
 
 _PUNCT_SPLIT = re.compile(r"([,.;:?!，。；：？！…]+)")
-_WORD_RE = re.compile(r"[A-Za-z0-9']+")
-# 英文约 2.8 词/秒
-_WPS = 2.8
+
+# CosyVoice 克隆音色 instruction 上限约 100 字
+_INSTR_NATURAL = "Narrate in a natural and friendly chat style with emotion and pauses."
+_INSTR_QUESTION = "Speak naturally with a questioning tone, pitch variation, and pauses."
+_INSTR_EXCLAIM = "Speak naturally with energy, emotion, pitch variation, and pauses."
 
 
-def _word_count(text: str) -> int:
-    words = _WORD_RE.findall(text)
-    if words:
-        return len(words)
-    stripped = re.sub(r"\s+", "", text)
-    return max(len(stripped) // 2, 1)
+def speak_instruction(text: str) -> str:
+    """给克隆音色的自然语言指令（情感 / 停顿），不冒充原片表演。"""
+    stripped = (text or "").strip()
+    if stripped.endswith("?") or stripped.endswith("？"):
+        return _INSTR_QUESTION
+    if stripped.endswith("!") or stripped.endswith("！"):
+        return _INSTR_EXCLAIM
+    return _INSTR_NATURAL
 
 
-def _natural_sec(text: str) -> float:
-    return max(_word_count(text) / _WPS, 0.35)
+def _break_ms(punct: str) -> int:
+    if re.search(r"[.?!。？！…]", punct):
+        return 280
+    if re.search(r"[:;：；]", punct):
+        return 200
+    return 160
 
 
-def build_subtitle_ssml(text: str, duration_ms: int | None) -> str:
+def build_natural_ssml(text: str) -> str:
+    """标点处插入短停顿，语速保持默认，避免把韵律拉成匀速。"""
     cleaned = normalize_tts_text(text)
-    if duration_ms is None or duration_ms <= 0:
-        return f"<speak>{xml.escape(cleaned)}</speak>"
-
     chunks = _PUNCT_SPLIT.split(cleaned)
     phrases: list[tuple[str, str]] = []
     i = 0
@@ -42,25 +48,21 @@ def build_subtitle_ssml(text: str, duration_ms: int | None) -> str:
     if not phrases:
         phrases = [(cleaned, "")]
 
-    n_breaks = sum(1 for idx, (body, punct) in enumerate(phrases) if punct and idx < len(phrases) - 1)
-    target_sec = max(duration_ms / 1000.0, 0.2)
-    natural = _natural_sec(cleaned)
-
-    break_budget = min(target_sec * 0.28, n_breaks * 0.18) if n_breaks else 0.0
-    per_break_ms = int(round(break_budget / n_breaks * 1000)) if n_breaks else 0
-    per_break_ms = max(50, min(280, per_break_ms)) if n_breaks else 0
-
-    speech_target = max(target_sec - (per_break_ms * n_breaks / 1000.0), 0.2)
-    rate = max(0.5, min(2.0, natural / speech_target))
-    rate_s = f"{rate:.2f}"
-
     parts: list[str] = []
     for idx, (body, punct) in enumerate(phrases):
         if body:
+            if parts:
+                parts.append(" ")
             parts.append(xml.escape(body))
         if punct:
             parts.append(xml.escape(punct))
-            if idx < len(phrases) - 1 and per_break_ms:
-                parts.append(f'<break time="{per_break_ms}ms"/>')
+            if idx < len(phrases) - 1:
+                parts.append(f'<break time="{_break_ms(punct)}ms"/>')
 
-    return f'<speak rate="{rate_s}">{"".join(parts)}</speak>'
+    return f"<speak>{''.join(parts)}</speak>"
+
+
+def build_subtitle_ssml(text: str, duration_ms: int | None = None) -> str:
+    """兼容旧调用；duration_ms 不再用于整段变速。"""
+    del duration_ms
+    return build_natural_ssml(text)

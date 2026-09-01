@@ -6,8 +6,8 @@ const SILENT_WAV =
   'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
 
 /**
- * 复刻音色朗读：复用同一 Audio（避免句末销毁后下一句被自动播放策略拦住），
- * 按字幕时间窗窄幅微调播速。
+ * 复刻音色朗读：复用同一 Audio（避免句末销毁后下一句被自动播放策略拦住）。
+ * 默认原速播放，只在明显超出本句剩余时长时轻微加速，避免把停顿和语气拉平。
  */
 export function useClonedSubtitleSpeak() {
   const speaking = ref(false)
@@ -22,6 +22,8 @@ export function useClonedSubtitleSpeak() {
     if (!audio) {
       audio = new Audio()
       audio.preload = 'auto'
+      audio.playsInline = true
+      audio.setAttribute('playsinline', 'true')
     }
     return audio
   }
@@ -51,30 +53,31 @@ export function useClonedSubtitleSpeak() {
     }
   }
 
-  /** 必须在用户点击播放的同步调用链里执行，解锁后续换句 play() */
+  /**
+   * 必须在用户点击的同步调用链里执行。
+   * 用同一 Audio 循环播静音样本并保持 playing，后续换 src 才不会被自动播放策略拦住。
+   * 不要在合成完成前 pause，Safari / iOS 会收回播放权限。
+   */
   function unlock(): void {
     const el = ensureAudio()
     try {
       el.muted = true
+      el.loop = true
       if (!unlocked) el.src = SILENT_WAV
       const p = el.play()
       if (p && typeof p.then === 'function') {
         void p
           .then(() => {
             unlocked = true
-            el.muted = false
-            const src = el.currentSrc || el.src || ''
-            if (!speaking.value && src.startsWith('data:audio/wav')) el.pause()
           })
           .catch(() => {
-            el.muted = false
+            /* 仍尝试后续 speakFitted */
           })
       } else {
-        el.muted = false
         unlocked = true
       }
     } catch {
-      el.muted = false
+      /* ignore */
     }
   }
 
@@ -114,31 +117,27 @@ export function useClonedSubtitleSpeak() {
 
     const el = ensureAudio()
     detachHandlers(el)
-    try {
-      el.pause()
-    } catch {
-      /* ignore */
-    }
+    // 合成等待期间保持 Audio 处于 playing（unlock 的静音循环），不要 pause
 
     speaking.value = true
     try {
-      const blob = await fetchClonedSpeak(cleaned, Math.round(Math.max(0.2, wallClockSec) * 1000))
+      const blob = await fetchClonedSpeak(cleaned)
       if (mySession !== session) return false
 
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl)
-        objectUrl = null
-      }
+      const prevUrl = objectUrl
       objectUrl = URL.createObjectURL(blob)
+      el.loop = false
       el.muted = false
       el.src = objectUrl
-      el.load()
+      if (prevUrl) URL.revokeObjectURL(prevUrl)
       const natural = await readDurationSec(el)
       if (mySession !== session) return false
 
       const windowSec = Math.max(0.2, wallClockSec)
-      if (natural > 0.05) {
-        el.playbackRate = Math.min(1.15, Math.max(0.85, natural / windowSec))
+      // 短于时间窗：原速播完，剩余时间就是自然停顿
+      // 明显超窗：最多加速到 1.08，避免整句被拉成匀速
+      if (natural > windowSec * 1.25) {
+        el.playbackRate = Math.min(1.08, natural / windowSec)
       } else {
         el.playbackRate = 1
       }
@@ -156,7 +155,9 @@ export function useClonedSubtitleSpeak() {
         const start = el.play()
         if (start && typeof start.catch === 'function') {
           void start.catch(() => {
-            if (mySession === session) error.value = '音频播放失败'
+            if (mySession === session) {
+              error.value = '浏览器拦截了复刻音，请再点一次播放'
+            }
             resolve(false)
           })
         }
@@ -179,10 +180,10 @@ export function useClonedSubtitleSpeak() {
     return speakFitted(text, 2.5, `loose:${text.slice(0, 24)}`)
   }
 
-  function prefetch(text: string, durationMs?: number) {
+  function prefetch(text: string, _durationMs?: number) {
     const cleaned = (text || '').trim()
     if (!cleaned) return
-    void fetchClonedSpeak(cleaned, durationMs).catch(() => {
+    void fetchClonedSpeak(cleaned).catch(() => {
       /* ignore */
     })
   }

@@ -126,11 +126,18 @@ const {
 const clonedChainActive = ref(false)
 let clonedChainToken = 0
 let clonedSpokenSubId: number | null = null
+let clonedSpeakFailAt = 0
+let clonedSpeakFailToastAt = 0
 
 async function applySubtitleVoiceMode(mode: 'original' | 'cloned', opts?: { silent?: boolean }) {
   if (mode === 'original') {
     stopClonedChain()
   }
+  // 必须在 await 之前解锁 Audio，否则用户手势丢失，后续复刻音会被拦截
+  if (mode === 'cloned' && !opts?.silent) {
+    unlockClonedSpeak()
+  }
+  const resumePlaying = Boolean(videoRef.value && !videoRef.value.paused)
   const result = await voiceClone.selectMode(mode)
   if (result === 'needLogin') {
     router.push({ path: '/login', query: { redirect: route.fullPath } })
@@ -145,15 +152,17 @@ async function applySubtitleVoiceMode(mode: 'original' | 'cloned', opts?: { sile
   }
   if (mode === 'cloned' && !opts?.silent) {
     const v = videoRef.value
-    if (v && !v.paused) {
-      try {
-        v.pause()
-      } catch {
-        /* ignore */
+    if (resumePlaying || (v && !v.paused)) {
+      if (!clonedChainActive.value) {
+        void playClonedSentence({ resume: true })
+      } else {
+        beginClonedVideoSync()
+        clonedSpokenSubId = null
+        syncClonedVoiceToTimeline()
       }
-      player.isPlaying.value = false
+    } else {
+      flashQuickVocabToast('已切换为我的声音：点播放后按字幕时间轴对齐')
     }
-    flashQuickVocabToast('已切换为我的声音：语速/停顿按字幕时间轴对齐')
   }
 }
 
@@ -269,7 +278,7 @@ function prefetchAround(sub: Subtitle) {
   }
 }
 
-/** 按当前视频时间触发对应句的复刻音（拉伸到本句剩余时长） */
+/** 按当前视频时间触发对应句的复刻音（句首对齐，不整句拉伸） */
 function syncClonedVoiceToTimeline() {
   if (!clonedChainActive.value) return
   const v = videoRef.value
@@ -282,14 +291,20 @@ function syncClonedVoiceToTimeline() {
 
   prefetchAround(sub)
   if (clonedSpokenSubId === sub.id) return
+  if (Date.now() - clonedSpeakFailAt < 1200) return
   clonedSpokenSubId = sub.id
 
   const rate = Math.max(0.5, v.playbackRate || clonedVideoRestore?.rate || 1)
-  const fullSec = Math.max(0.25, sub.end - sub.start)
-  const wallSec = fullSec / rate
+  const remainSec = Math.max(0.25, sub.end - v.currentTime)
+  const wallSec = remainSec / rate
   void speakClonedFitted(sub.english, wallSec, `sub:${sub.id}`).then((ok) => {
-    if (!ok && clonedSpeakError.value && clonedChainActive.value) {
-      // 单句失败不打断整段视频
+    if (ok || !clonedChainActive.value) return
+    clonedSpokenSubId = null
+    clonedSpeakFailAt = Date.now()
+    const msg = clonedSpeakError.value
+    if (msg && Date.now() - clonedSpeakFailToastAt > 8000) {
+      clonedSpeakFailToastAt = Date.now()
+      flashQuickVocabToast(msg)
     }
   })
 }
@@ -297,9 +312,9 @@ function syncClonedVoiceToTimeline() {
 const clonedPlaybackActive = computed(() => clonedChainActive.value)
 
 /**
- * 我的声音：视频按原速连续播放（静音原声），复刻音跟随字幕时间轴，不再句末停顿等 TTS。
+ * 我的声音：视频按原速连续播放（静音原声），复刻音在每句句首对齐时间轴，按自然语速朗读。
  */
-async function playClonedSentence() {
+async function playClonedSentence(opts?: { resume?: boolean }) {
   if (clonedChainActive.value) {
     stopClonedChain()
     return
@@ -314,6 +329,7 @@ async function playClonedSentence() {
   const token = ++clonedChainToken
   clonedChainActive.value = true
   clonedSpokenSubId = null
+  clonedSpeakFailAt = 0
   beginClonedVideoSync()
   unlockClonedSpeak()
   if (startSub.english?.trim()) {
@@ -328,25 +344,27 @@ async function playClonedSentence() {
     return
   }
 
-  player.seekTo(startSub)
-  try {
-    v.currentTime = startSub.start
-  } catch {
-    /* ignore */
+  const skipSeek = Boolean(opts?.resume && !v.paused)
+  if (!skipSeek) {
+    player.seekTo(startSub)
+    try {
+      v.currentTime = startSub.start
+    } catch {
+      /* ignore */
+    }
   }
 
   clearClonedVideoTick()
   clonedVideoTimeHandler = () => {
     if (token !== clonedChainToken || !clonedChainActive.value) return
     syncClonedVoiceToTimeline()
-    // 播到片尾结束
     const vid = videoRef.value
     if (vid && vid.ended) stopClonedChain()
   }
   v.addEventListener('timeupdate', clonedVideoTimeHandler)
 
   try {
-    await v.play()
+    if (v.paused) await v.play()
     player.isPlaying.value = true
     syncClonedVoiceToTimeline()
   } catch {

@@ -11,7 +11,9 @@ import urllib.request
 from .qwen_dashscope_tts import qwen_tts_configured
 from .tts_common import ensure_mp3_bytes, normalize_tts_text
 
-VOICE_CLONE_TTS_MODEL = "cosyvoice-v3-flash"
+VOICE_CLONE_TTS_MODEL = (
+    os.getenv("COSYVOICE_TTS_MODEL", "cosyvoice-v3-plus").strip() or "cosyvoice-v3-plus"
+)
 VOICE_ENROLLMENT_MODEL = "voice-enrollment"
 
 _PREFIX_RE = re.compile(r"^[a-z0-9]{1,10}$")
@@ -158,6 +160,7 @@ def synthesize_with_cloned_voice(
     enable_ssml: bool = False,
     rate: float | None = None,
     pitch: float | None = None,
+    instruction: str | None = None,
 ) -> bytes:
     voice_id = (voice or "").strip()
     if not voice_id:
@@ -181,6 +184,9 @@ def synthesize_with_cloned_voice(
         inp["rate"] = max(0.5, min(2.0, float(rate)))
     if pitch is not None:
         inp["pitch"] = max(0.5, min(2.0, float(pitch)))
+    hint = (instruction or "").strip()
+    if hint:
+        inp["instruction"] = hint[:100]
 
     payload = {"model": model, "input": inp}
     body = _post_json(_synthesizer_url(), payload, timeout=120)
