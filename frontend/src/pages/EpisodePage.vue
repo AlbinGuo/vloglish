@@ -119,6 +119,7 @@ const {
   speakFitted: speakClonedFitted,
   stop: stopClonedSpeak,
   prefetch: prefetchClonedSpeak,
+  unlock: unlockClonedSpeak,
 } = useClonedSubtitleSpeak()
 
 /** 复刻模式：视频按原速连续播，TTS 按字幕时间窗拟合 */
@@ -284,8 +285,8 @@ function syncClonedVoiceToTimeline() {
   clonedSpokenSubId = sub.id
 
   const rate = Math.max(0.5, v.playbackRate || clonedVideoRestore?.rate || 1)
-  const remain = Math.max(0.25, sub.end - v.currentTime)
-  const wallSec = remain / rate
+  const fullSec = Math.max(0.25, sub.end - sub.start)
+  const wallSec = fullSec / rate
   void speakClonedFitted(sub.english, wallSec, `sub:${sub.id}`).then((ok) => {
     if (!ok && clonedSpeakError.value && clonedChainActive.value) {
       // 单句失败不打断整段视频
@@ -314,6 +315,12 @@ async function playClonedSentence() {
   clonedChainActive.value = true
   clonedSpokenSubId = null
   beginClonedVideoSync()
+  unlockClonedSpeak()
+  if (startSub.english?.trim()) {
+    const dur = Math.max(200, Math.round((startSub.end - startSub.start) * 1000))
+    prefetchClonedSpeak(startSub.english, dur)
+    prefetchAround(startSub)
+  }
 
   const v = videoRef.value
   if (!v) {
