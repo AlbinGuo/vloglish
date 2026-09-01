@@ -19,13 +19,16 @@ export const useVoiceCloneStore = defineStore('voiceClone', () => {
   const error = ref('')
   const configured = ref(true)
   const enrollText = ref('')
+  const needsReenroll = ref(false)
   const subtitleVoiceMode = ref<'original' | 'cloned'>(
     typeof localStorage !== 'undefined' && localStorage.getItem(VOICE_MODE_KEY) === 'cloned'
       ? 'cloned'
       : 'original',
   )
 
-  const hasClonedVoice = computed(() => Boolean(voice.value?.voice))
+  const hasClonedVoice = computed(
+    () => Boolean(voice.value?.voice) && !needsReenroll.value && !voice.value?.needsReenroll,
+  )
 
   function persistMode(mode: 'original' | 'cloned') {
     subtitleVoiceMode.value = mode
@@ -51,8 +54,9 @@ export const useVoiceCloneStore = defineStore('voiceClone', () => {
       configured.value = st.configured
       if (st.enrollText) enrollText.value = st.enrollText
       voice.value = st.voice
+      needsReenroll.value = Boolean(st.needsReenroll || st.voice?.needsReenroll)
       loaded.value = true
-      if (st.voice?.voice) {
+      if (st.voice?.voice && !needsReenroll.value) {
         const prefer = st.voice.preferPlayback !== false
         persistMode(prefer ? 'cloned' : 'original')
       } else if (subtitleVoiceMode.value === 'cloned') {
@@ -72,7 +76,8 @@ export const useVoiceCloneStore = defineStore('voiceClone', () => {
   function setLocalVoice(next: ClonedVoiceInfo | null) {
     voice.value = next
     loaded.value = true
-    if (next?.voice) {
+    needsReenroll.value = Boolean(next?.needsReenroll)
+    if (next?.voice && !needsReenroll.value) {
       persistMode(next.preferPlayback === false ? 'original' : 'cloned')
     } else if (subtitleVoiceMode.value === 'cloned') {
       persistMode('original')
@@ -110,7 +115,7 @@ export const useVoiceCloneStore = defineStore('voiceClone', () => {
     if (!hasClonedVoice.value) {
       await refresh()
     }
-    if (!hasClonedVoice.value) return 'needEnroll'
+    if (!hasClonedVoice.value || needsReenroll.value) return 'needEnroll'
 
     persistMode('cloned')
     void setPreferPlayback(true)
@@ -122,6 +127,7 @@ export const useVoiceCloneStore = defineStore('voiceClone', () => {
     loaded.value = false
     error.value = ''
     loading.value = false
+    needsReenroll.value = false
   }
 
   return {
@@ -131,6 +137,7 @@ export const useVoiceCloneStore = defineStore('voiceClone', () => {
     error,
     configured,
     enrollText,
+    needsReenroll,
     subtitleVoiceMode,
     hasClonedVoice,
     refresh,

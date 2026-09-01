@@ -426,7 +426,7 @@ onUnmounted(() => {
 
         <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-4">
           <p class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
-            录一段英文（推荐 10–20 秒）。音色保存在你的账号里，App / 手机浏览器 / iPad / 电脑登录同一账号后都能直接选，不必重录。
+            录一段英文（推荐 10–20 秒）。朗读时用你的音色，语速和停顿尽量跟原视频字幕时间对齐。音色保存在账号里，各端登录后可直接选。
           </p>
 
           <div
@@ -436,16 +436,48 @@ onUnmounted(() => {
             服务端尚未配置声音复刻（DASHSCOPE_API_KEY），暂时无法创建音色。
           </div>
 
+          <div
+            v-if="remoteVoice?.needsReenroll"
+            class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+          >
+            需重新录制以启用语速/停顿对齐。旧版音色无法控制节奏，请再录一段后提交。
+          </div>
+
           <!-- 已有音色 -->
           <div
             v-if="remoteVoice"
-            class="rounded-xl border border-teal-200/80 bg-teal-50/80 px-3 py-3 dark:border-teal-800 dark:bg-teal-950/30"
+            class="rounded-xl border px-3 py-3"
+            :class="
+              remoteVoice.needsReenroll
+                ? 'border-amber-200/80 bg-amber-50/70 dark:border-amber-800 dark:bg-amber-950/30'
+                : 'border-teal-200/80 bg-teal-50/80 dark:border-teal-800 dark:bg-teal-950/30'
+            "
           >
             <div class="flex items-start justify-between gap-2">
               <div>
-                <p class="text-sm font-medium text-teal-900 dark:text-teal-100">已复刻：我的声音（账号通用）</p>
-                <p class="mt-1 text-xs text-teal-800/80 dark:text-teal-200/80">
-                  手机 / App / iPad / 电脑登录同一账号即可直接使用，无需重录
+                <p
+                  class="text-sm font-medium"
+                  :class="
+                    remoteVoice.needsReenroll
+                      ? 'text-amber-900 dark:text-amber-100'
+                      : 'text-teal-900 dark:text-teal-100'
+                  "
+                >
+                  {{ remoteVoice.needsReenroll ? '已有旧音色，需重新复刻' : '已复刻：我的声音（账号通用）' }}
+                </p>
+                <p
+                  class="mt-1 text-xs"
+                  :class="
+                    remoteVoice.needsReenroll
+                      ? 'text-amber-800/80 dark:text-amber-200/80'
+                      : 'text-teal-800/80 dark:text-teal-200/80'
+                  "
+                >
+                  {{
+                    remoteVoice.needsReenroll
+                      ? '重新录音后即可用你的声音按原视频节奏朗读字幕'
+                      : '手机 / App / iPad / 电脑登录同一账号即可直接使用，无需重录'
+                  }}
                 </p>
                 <p v-if="remoteVoice.fallbackMode" class="mt-1 text-xs text-amber-700 dark:text-amber-300">
                   样本质量一般，建议重新录制以更像你的声音

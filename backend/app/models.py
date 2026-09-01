@@ -641,14 +641,14 @@ class ExampleTranslationCache(Base):
 
 
 class UserClonedVoice(Base):
-    """用户 Qwen-TTS 声音复刻：每用户一条音色 + 保留报名样本录音。"""
+    """用户声音复刻：每用户一条 CosyVoice 音色 + 保留报名样本录音。"""
 
     __tablename__ = "user_cloned_voices"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
     voice: Mapped[str] = mapped_column(String(128), default="")
-    tts_model: Mapped[str] = mapped_column(String(64), default="qwen3-tts-vc-2026-01-22")
+    tts_model: Mapped[str] = mapped_column(String(64), default="cosyvoice-v3-flash")
     preferred_name: Mapped[str] = mapped_column(String(16), default="")
     sample_text: Mapped[str] = mapped_column(Text, default="")
     language: Mapped[str] = mapped_column(String(8), default="en")

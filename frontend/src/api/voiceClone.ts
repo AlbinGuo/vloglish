@@ -7,6 +7,7 @@ export type ClonedVoiceInfo = {
   preferredName?: string
   fallbackMode: boolean
   preferPlayback?: boolean
+  needsReenroll?: boolean
   hasSample: boolean
   sampleText?: string
   language?: string
@@ -16,6 +17,8 @@ export type ClonedVoiceInfo = {
 
 export type VoiceCloneStatus = {
   configured: boolean
+  provider?: string
+  needsReenroll?: boolean
   enrollText: string
   minDurationMs: number
   maxDurationMs: number
@@ -87,15 +90,27 @@ export async function fetchVoiceCloneSample(): Promise<Blob> {
 const speakCache: { key: string; blob: Blob }[] = []
 const MAX_SPEAK_CACHE = 30
 
-export async function fetchClonedSpeak(text: string): Promise<Blob> {
-  const key = text.trim().replace(/\s+/g, ' ')
+function speakCacheKey(text: string, durationMs?: number): string {
+  const t = text.trim().replace(/\s+/g, ' ')
+  if (durationMs == null || durationMs <= 0) return t
+  const bucket = Math.round(durationMs / 80) * 80
+  return `${t}#${bucket}`
+}
+
+export async function fetchClonedSpeak(text: string, durationMs?: number): Promise<Blob> {
+  const cleaned = text.trim().replace(/\s+/g, ' ')
+  const key = speakCacheKey(cleaned, durationMs)
   const hit = speakCache.find((e) => e.key === key)
   if (hit) return hit.blob
 
   try {
+    const body: { text: string; duration_ms?: number } = { text: cleaned }
+    if (durationMs != null && durationMs > 0) {
+      body.duration_ms = Math.round(durationMs)
+    }
     const { data } = await api.post<Blob>(
       '/api/ai/voice-clone/speak/',
-      { text: key },
+      body,
       { responseType: 'blob', timeout: 60000 },
     )
     if (!(data instanceof Blob)) throw new Error('合成返回无效')

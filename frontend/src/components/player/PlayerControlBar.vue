@@ -1286,7 +1286,7 @@ const voiceModeLabel = computed(() =>
           </div>
           <p class="text-sm font-medium text-center mb-1 px-4">字幕重播声音</p>
           <p class="text-[11px] text-center text-neutral-500 px-4 mb-3">
-            音色绑定账号，手机复刻后电脑 / App / iPad 登录同一账号即可直接选，无需重录。
+            音色绑定账号。选「我的声音」后画面按原速连续播，语速与停顿按字幕时间对齐。
           </p>
           <div class="px-4 pb-4 space-y-2">
             <button
@@ -1314,7 +1314,7 @@ const voiceModeLabel = computed(() =>
             >
               <span>{{ hasClonedVoice ? '我的声音（复刻）' : '我的声音' }}</span>
               <span v-if="subtitleVoiceMode === 'cloned' && hasClonedVoice" class="text-teal-600 text-xs">当前</span>
-              <span v-else-if="!hasClonedVoice" class="text-neutral-400 text-xs">未复刻则去录制</span>
+              <span v-else-if="!hasClonedVoice" class="text-neutral-400 text-xs">未复刻或需重录</span>
             </button>
             <button
               type="button"

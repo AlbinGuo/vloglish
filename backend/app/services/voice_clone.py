@@ -14,7 +14,10 @@ from sqlalchemy.orm import Session
 from ..database import DATA_DIR
 from ..models import User, UserClonedVoice
 from .media_transcode import _ffmpeg_bin, get_ffmpeg_dir
+from . import cosyvoice_clone as cvc
 from . import qwen_voice_clone as qvc
+from . import tts_ssml
+from . import voice_enroll_public as enroll_pub
 from .tts_common import normalize_tts_text
 
 SAMPLE_DIR = DATA_DIR / "voice_clone"
@@ -32,7 +35,13 @@ DEFAULT_ENROLL_TEXT = (
 
 
 def voice_clone_ready() -> bool:
-    return qvc.voice_clone_configured()
+    return cvc.voice_clone_configured()
+
+
+def needs_reenroll(row: UserClonedVoice | None) -> bool:
+    if not row or not (row.voice or "").strip():
+        return False
+    return not cvc.is_cosyvoice_model(row.tts_model)
 
 
 def get_row(db: Session, user: User) -> UserClonedVoice | None:
@@ -44,7 +53,8 @@ def row_to_dict(row: UserClonedVoice | None) -> dict | None:
         return None
     return {
         "voice": row.voice,
-        "ttsModel": row.tts_model or qvc.VOICE_CLONE_TTS_MODEL,
+        "ttsModel": row.tts_model or cvc.VOICE_CLONE_TTS_MODEL,
+        "needsReenroll": needs_reenroll(row),
         "name": "我的声音",
         "preferredName": row.preferred_name,
         "fallbackMode": bool(row.fallback_mode),
@@ -197,31 +207,25 @@ def create_or_replace(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     converted, out_ctype = convert_enrollment_audio(audio_data, content_type)
-    preferred = qvc.sanitize_preferred_name(f"u{user.id}", fallback="vloglish")
-    lang = qvc.normalize_clone_language(language)
+    preferred = cvc.sanitize_prefix(f"u{user.id}", fallback="vloglish")
+    lang = cvc.normalize_clone_language(language)
 
     existing = get_row(db, user)
     if existing and (existing.voice or "").strip():
-        try:
-            qvc.delete_cloned_voice(existing.voice)
-        except RuntimeError:
-            # 远端已删或失效时继续重建
-            pass
-
-    try:
-        result = qvc.create_cloned_voice(
-            audio_data=converted,
-            content_type=out_ctype,
-            text=enroll_text,
-            language=lang,
-            preferred_name=preferred,
-        )
-    except RuntimeError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        _delete_remote_voice(existing.voice, existing.tts_model)
 
     rel, saved_ctype = _save_sample(user.id, converted, out_ctype)
+    sample_path = DATA_DIR / rel
+    try:
+        audio_url = enroll_pub.issue_enroll_url(sample_path, saved_ctype)
+        result = cvc.create_cloned_voice(audio_url=audio_url, language=lang, prefix=preferred)
+    except RuntimeError as exc:
+        msg = str(exc)
+        status = 503 if "BACKEND_PUBLIC_URL" in msg else 502
+        raise HTTPException(status_code=status, detail=msg) from exc
+
     voice = result["voice"]
-    tts_model = result.get("target_model") or qvc.VOICE_CLONE_TTS_MODEL
+    tts_model = result.get("target_model") or cvc.VOICE_CLONE_TTS_MODEL
     fallback = bool(result.get("fallback_mode"))
 
     if existing:
@@ -273,10 +277,7 @@ def delete_for_user(db: Session, user: User) -> bool:
     if not row:
         return False
     if (row.voice or "").strip():
-        try:
-            qvc.delete_cloned_voice(row.voice)
-        except RuntimeError:
-            pass
+        _delete_remote_voice(row.voice, row.tts_model)
     _delete_local_samples(user.id)
     # 清该用户相关合成缓存前缀
     db.delete(row)
@@ -291,17 +292,42 @@ def read_sample(row: UserClonedVoice) -> tuple[bytes, str]:
     return path.read_bytes(), row.sample_content_type or "audio/mpeg"
 
 
+def _delete_remote_voice(voice: str, tts_model: str | None) -> None:
+    model = (tts_model or "").strip()
+    try:
+        if cvc.is_cosyvoice_model(model):
+            cvc.delete_cloned_voice(voice)
+        else:
+            qvc.delete_cloned_voice(voice)
+    except RuntimeError:
+        try:
+            if cvc.is_cosyvoice_model(model):
+                qvc.delete_cloned_voice(voice)
+            else:
+                cvc.delete_cloned_voice(voice)
+        except RuntimeError:
+            pass
+
+
 def _cache_path(voice: str, text: str, model: str) -> Path:
     key = hashlib.sha1(f"{model}\n{voice}\n{text}".encode("utf-8")).hexdigest()
     return CACHE_DIR / f"{key}.mp3"
 
 
-def synthesize_for_user(db: Session, user: User, text: str) -> tuple[bytes, bool]:
+def synthesize_for_user(
+    db: Session,
+    user: User,
+    text: str,
+    *,
+    duration_ms: int | None = None,
+) -> tuple[bytes, bool]:
     if not voice_clone_ready():
         raise HTTPException(status_code=503, detail="声音复刻未配置")
     row = get_row(db, user)
     if not row or not (row.voice or "").strip():
         raise HTTPException(status_code=404, detail="尚未复刻声音，请先录音创建")
+    if needs_reenroll(row):
+        raise HTTPException(status_code=409, detail="当前音色需重新录制后才能用于语速对齐朗读")
 
     try:
         cleaned = normalize_tts_text(text)
@@ -310,18 +336,24 @@ def synthesize_for_user(db: Session, user: User, text: str) -> tuple[bytes, bool
     if len(cleaned) > 500:
         raise HTTPException(status_code=400, detail="文本过长（最多 500 字）")
 
-    model = row.tts_model or qvc.VOICE_CLONE_TTS_MODEL
+    model = row.tts_model or cvc.VOICE_CLONE_TTS_MODEL
+    lang = row.language or "en"
+    use_ssml = duration_ms is not None and duration_ms > 0
+    synth_text = tts_ssml.build_subtitle_ssml(cleaned, duration_ms) if use_ssml else cleaned
+    cache_payload = synth_text if use_ssml else cleaned
+
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    path = _cache_path(row.voice, cleaned, model)
+    path = _cache_path(row.voice, cache_payload, model)
     if path.is_file() and path.stat().st_size > 0:
         return path.read_bytes(), True
 
     try:
-        audio = qvc.synthesize_with_cloned_voice(
-            cleaned,
+        audio = cvc.synthesize_with_cloned_voice(
+            synth_text,
             voice=row.voice,
             tts_model=model,
-            language_type="English",
+            language=lang,
+            enable_ssml=use_ssml,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

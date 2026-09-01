@@ -77,6 +77,7 @@ class PracticeTtsIn(BaseModel):
 
 class VoiceCloneSpeakIn(BaseModel):
     text: str = Field(min_length=1, max_length=500)
+    duration_ms: int | None = Field(default=None, ge=1, le=120_000)
 
 
 class VoiceClonePreferIn(BaseModel):
@@ -416,6 +417,8 @@ def voice_clone_status(
     row = voice_clone_svc.get_row(db, user)
     return {
         "configured": voice_clone_svc.voice_clone_ready(),
+        "provider": "cosyvoice",
+        "needsReenroll": voice_clone_svc.needs_reenroll(row),
         "enrollText": voice_clone_svc.DEFAULT_ENROLL_TEXT,
         "minDurationMs": voice_clone_svc.MIN_DURATION_MS,
         "maxDurationMs": voice_clone_svc.RECOMMENDED_MAX_MS,
@@ -518,7 +521,9 @@ def voice_clone_speak(
     """用用户复刻音色朗读字幕文本（当前句）。"""
     from ..services.ai_quota import record_usage
 
-    audio, cache_hit = voice_clone_svc.synthesize_for_user(db, user, body.text)
+    audio, cache_hit = voice_clone_svc.synthesize_for_user(
+        db, user, body.text, duration_ms=body.duration_ms
+    )
     record_usage(
         db,
         user,
