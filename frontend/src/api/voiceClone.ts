@@ -6,6 +6,7 @@ export type ClonedVoiceInfo = {
   name: string
   preferredName?: string
   fallbackMode: boolean
+  preferPlayback?: boolean
   hasSample: boolean
   sampleText?: string
   language?: string
@@ -61,6 +62,14 @@ export async function createVoiceClone(opts: {
 
 export async function deleteVoiceClone(): Promise<void> {
   await api.delete('/api/ai/voice-clone/')
+}
+
+export async function setVoiceClonePreferPlayback(preferPlayback: boolean): Promise<ClonedVoiceInfo> {
+  const { data } = await api.patch<{ ok: boolean; voice: ClonedVoiceInfo }>(
+    '/api/ai/voice-clone/preference/',
+    { prefer_playback: preferPlayback },
+  )
+  return data.voice
 }
 
 export async function fetchVoiceCloneSample(): Promise<Blob> {

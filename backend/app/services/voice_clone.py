@@ -48,6 +48,7 @@ def row_to_dict(row: UserClonedVoice | None) -> dict | None:
         "name": "我的声音",
         "preferredName": row.preferred_name,
         "fallbackMode": bool(row.fallback_mode),
+        "preferPlayback": bool(getattr(row, "prefer_playback", True)),
         "hasSample": bool(row.sample_relpath) and _sample_path(row).is_file(),
         "sampleText": row.sample_text or "",
         "language": row.language or "en",
@@ -232,6 +233,7 @@ def create_or_replace(
         existing.fallback_mode = fallback
         existing.sample_relpath = rel
         existing.sample_content_type = saved_ctype
+        existing.prefer_playback = True
         db.add(existing)
         db.commit()
         db.refresh(existing)
@@ -247,7 +249,19 @@ def create_or_replace(
         fallback_mode=fallback,
         sample_relpath=rel,
         sample_content_type=saved_ctype,
+        prefer_playback=True,
     )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def set_prefer_playback(db: Session, user: User, prefer: bool) -> UserClonedVoice:
+    row = get_row(db, user)
+    if not row or not (row.voice or "").strip():
+        raise HTTPException(status_code=404, detail="尚未复刻声音")
+    row.prefer_playback = bool(prefer)
     db.add(row)
     db.commit()
     db.refresh(row)

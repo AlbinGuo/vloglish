@@ -363,11 +363,15 @@ function handleBPoint() {
 
 function handleMainAction() {
   const p = props.player
+  // 复刻模式：主按钮始终走 TTS 链（开始/停止），避免误播视频原声
+  if (props.subtitleVoiceMode === 'cloned' && props.hasClonedVoice) {
+    p.replayCurrentSentence()
+    return
+  }
   if (p.isPlaying.value) {
     p.togglePlay()
     return
   }
-  // 暂停 / 复刻朗读中：走 replay（页面 onReplaySentence 会开链或停止）
   p.replayCurrentSentence()
 }
 
@@ -1285,7 +1289,7 @@ const voiceModeLabel = computed(() =>
           </div>
           <p class="text-sm font-medium text-center mb-1 px-4">字幕重播声音</p>
           <p class="text-[11px] text-center text-neutral-500 px-4 mb-3">
-            连续播放视频仍用原声；选「我的声音」后点重播会连读字幕，读完自动下一句
+            音色按账号保存，手机复刻后电脑可直接选。选「我的声音」后点播放用复刻音色连读字幕。
           </p>
           <div class="px-4 pb-4 space-y-2">
             <button

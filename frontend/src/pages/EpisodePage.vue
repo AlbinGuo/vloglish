@@ -77,7 +77,7 @@ import {
   uploadPracticeAudio,
   type PracticeRecord,
 } from '@/api/practiceRecords'
-import { fetchVoiceCloneStatus, type ClonedVoiceInfo } from '@/api/voiceClone'
+import { fetchVoiceCloneStatus, setVoiceClonePreferPlayback, type ClonedVoiceInfo } from '@/api/voiceClone'
 import VoiceCloneSheet from '@/components/voice/VoiceCloneSheet.vue'
 import type { BlankPrintOptions } from '@/utils/blankPrint'
 import type { WordCardPrintOptions } from '@/utils/wordCardPrint'
@@ -125,7 +125,7 @@ const {
 const clonedChainActive = ref(false)
 let clonedChainToken = 0
 
-function setSubtitleVoiceMode(mode: 'original' | 'cloned') {
+function setSubtitleVoiceMode(mode: 'original' | 'cloned', opts?: { sync?: boolean; silent?: boolean }) {
   if (mode === 'cloned' && !hasClonedVoice.value) {
     openVoiceClone()
     return
@@ -138,6 +138,26 @@ function setSubtitleVoiceMode(mode: 'original' | 'cloned') {
     localStorage.setItem(VOICE_MODE_KEY, mode)
   } catch {
     /* ignore */
+  }
+  if (opts?.sync !== false && auth.isLoggedIn && hasClonedVoice.value) {
+    void setVoiceClonePreferPlayback(mode === 'cloned').then((voice) => {
+      clonedVoice.value = voice
+    }).catch(() => {
+      /* 偏好同步失败不阻断本地切换 */
+    })
+  }
+  if (mode === 'cloned' && !opts?.silent) {
+    // 切到我的声音：停掉视频原声，提示用播放键听复刻
+    const v = videoRef.value
+    if (v && !v.paused) {
+      try {
+        v.pause()
+      } catch {
+        /* ignore */
+      }
+      player.isPlaying.value = false
+    }
+    flashQuickVocabToast('已切换为我的声音，点播放用复刻音色读字幕')
   }
 }
 
@@ -152,23 +172,39 @@ function openVoiceClone() {
 function onClonedVoiceUpdated(voice: ClonedVoiceInfo | null) {
   clonedVoice.value = voice
   if (voice?.voice) {
-    setSubtitleVoiceMode('cloned')
+    setSubtitleVoiceMode('cloned', { sync: true, silent: true })
+    const v = videoRef.value
+    if (v && !v.paused) {
+      try {
+        v.pause()
+      } catch {
+        /* ignore */
+      }
+      player.isPlaying.value = false
+    }
+    flashQuickVocabToast('复刻成功：点播放即可用自己的声音读字幕（各端通用）')
   } else if (subtitleVoiceMode.value === 'cloned') {
-    setSubtitleVoiceMode('original')
+    setSubtitleVoiceMode('original', { sync: false, silent: true })
   }
 }
 
 async function refreshClonedVoice() {
-  if (!auth.isLoggedIn || props.adminPreview) {
-    clonedVoice.value = null
+  if (!auth.ready || !auth.isLoggedIn || props.adminPreview) {
+    if (!auth.isLoggedIn) clonedVoice.value = null
     return
   }
   try {
     const st = await fetchVoiceCloneStatus()
     clonedVoice.value = st.voice
-    if (subtitleVoiceMode.value === 'cloned' && !st.voice) {
-      setSubtitleVoiceMode('original')
+    if (!st.voice) {
+      if (subtitleVoiceMode.value === 'cloned') {
+        setSubtitleVoiceMode('original', { sync: false, silent: true })
+      }
+      return
     }
+    // 服务端偏好跨端同步；没有偏好字段时默认用我的声音
+    const prefer = st.voice.preferPlayback !== false
+    setSubtitleVoiceMode(prefer ? 'cloned' : 'original', { sync: false, silent: true })
   } catch {
     /* 未登录或服务不可用时静默 */
   }
@@ -271,11 +307,16 @@ function clonedStepSentence(delta: 1 | -1) {
 }
 
 watch(
-  () => auth.isLoggedIn,
-  (ok) => {
+  () => [auth.ready, auth.isLoggedIn] as const,
+  ([ready, ok]) => {
+    if (!ready) return
     if (ok) void refreshClonedVoice()
-    else clonedVoice.value = null
+    else {
+      clonedVoice.value = null
+      stopClonedChain()
+    }
   },
+  { immediate: true },
 )
 const episodeVocabPracticeCount = computed(() => {
   const vid = props.videoId
@@ -530,6 +571,12 @@ const player = usePlayerControls({
   onStepSentence: (delta) => {
     if (subtitleVoiceMode.value !== 'cloned' || !hasClonedVoice.value) return false
     clonedStepSentence(delta)
+    return true
+  },
+  onTogglePlay: () => {
+    if (subtitleVoiceMode.value !== 'cloned' || !hasClonedVoice.value) return false
+    // 复刻模式：空格/播放键 = 开始或停止 TTS，不再播视频原声
+    void playClonedSentence()
     return true
   },
 })
@@ -1461,7 +1508,6 @@ onMounted(() => {
   window.addEventListener('afterprint', onAfterPrint)
   unsubscribeVideoPanelFullscreen = subscribeFullscreenChange(onVideoPanelFullscreenChange)
   if (props.videoId) void warmEpisodeWordLookups(props.videoId)
-  void refreshClonedVoice()
 })
 
 onUnmounted(() => {

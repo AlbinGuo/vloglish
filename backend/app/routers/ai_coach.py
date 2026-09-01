@@ -79,6 +79,10 @@ class VoiceCloneSpeakIn(BaseModel):
     text: str = Field(min_length=1, max_length=500)
 
 
+class VoiceClonePreferIn(BaseModel):
+    prefer_playback: bool = True
+
+
 class ShadowTrackUpsertIn(BaseModel):
     video_id: str = Field(min_length=1, max_length=32)
     subtitle_id: int
@@ -475,6 +479,17 @@ def voice_clone_delete(
     if not ok:
         raise HTTPException(status_code=404, detail="尚未复刻声音")
     return {"ok": True}
+
+
+@router.patch("/voice-clone/preference/")
+def voice_clone_preference(
+    body: VoiceClonePreferIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """跨端同步：是否用复刻音色朗读字幕。"""
+    row = voice_clone_svc.set_prefer_playback(db, user, body.prefer_playback)
+    return {"ok": True, "voice": voice_clone_svc.row_to_dict(row)}
 
 
 @router.get("/voice-clone/sample/")

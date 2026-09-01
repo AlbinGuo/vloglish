@@ -42,6 +42,9 @@ export interface PlayerControlOptions {
   /** 返回 true 表示已接管上一句/下一句 */
   onStepSentence?: (delta: 1 | -1) => boolean
 
+  /** 返回 true 表示已接管播放/暂停（复刻模式下用 TTS） */
+  onTogglePlay?: () => boolean
+
 }
 
 
@@ -411,6 +414,7 @@ export function usePlayerControls(opts: PlayerControlOptions) {
 
 
   function togglePlay() {
+    if (opts.onTogglePlay?.()) return
     const v = getVideo()
     if (!v) return
     if (gapOnDone) {
@@ -1071,6 +1075,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
       case ' ':
 
         e.preventDefault()
+
+        if (opts.onTogglePlay?.()) break
 
         if (isPlaying.value) togglePlay()
 

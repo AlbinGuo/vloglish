@@ -656,6 +656,8 @@ class UserClonedVoice(Base):
     # 相对 DATA_DIR 的样本路径，如 voice_clone/12/sample.mp3
     sample_relpath: Mapped[str] = mapped_column(String(256), default="")
     sample_content_type: Mapped[str] = mapped_column(String(64), default="audio/mpeg")
+    # 字幕朗读是否优先用复刻音色（跨端同步）
+    prefer_playback: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

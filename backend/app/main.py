@@ -242,6 +242,19 @@ def _migrate_schema():
     bool_default = "false" if is_postgresql() else "0"
     datetime_type = "TIMESTAMP" if is_postgresql() else "DATETIME"
 
+    if "user_cloned_voices" in insp.get_table_names():
+        ucv_cols = {c["name"] for c in insp.get_columns("user_cloned_voices")}
+        if "prefer_playback" not in ucv_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        f"ALTER TABLE user_cloned_voices ADD COLUMN prefer_playback "
+                        f"BOOLEAN NOT NULL DEFAULT { 'true' if is_postgresql() else '1' }"
+                    )
+                )
+            print("[vloglish] migrated user_cloned_voices.prefer_playback")
+            insp = inspect(engine)
+
     cols = {c["name"] for c in insp.get_columns("users")}
     if "is_staff" not in cols:
         with engine.begin() as conn:

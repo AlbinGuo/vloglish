@@ -426,7 +426,7 @@ onUnmounted(() => {
 
         <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-4">
           <p class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
-            录一段英文（推荐 10–20 秒），创建你的专属音色后，可用自己的声音朗读视频字幕。连续播放视频仍用原声；选「我的声音」后点重播会连读当前句并自动接下句。
+            录一段英文（推荐 10–20 秒），创建专属音色后各端（手机 / iPad / 电脑）都能选「我的声音」。选中后点播放用复刻音色连读字幕。
           </p>
 
           <div
