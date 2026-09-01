@@ -395,8 +395,8 @@ def synthesize_for_user(
         cleaned = normalize_tts_text(text)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if len(cleaned) > 500:
-        raise HTTPException(status_code=400, detail="文本过长（最多 500 字）")
+    if len(cleaned) > 2000:
+        raise HTTPException(status_code=400, detail="文本过长（最多 2000 字）")
 
     model = row.tts_model or cvc.VOICE_CLONE_TTS_MODEL
     lang = row.language or "en"

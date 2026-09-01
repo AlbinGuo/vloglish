@@ -76,7 +76,7 @@ class PracticeTtsIn(BaseModel):
 
 
 class VoiceCloneSpeakIn(BaseModel):
-    text: str = Field(min_length=1, max_length=500)
+    text: str = Field(min_length=1, max_length=2000)
     duration_ms: int | None = Field(default=None, ge=1, le=120_000)
 
 

@@ -31,6 +31,8 @@ import { useReadingDualSplit } from '@/composables/useReadingDualSplit'
 import { useCoreVocabulary, type CoreVocabSource } from '@/composables/useCoreVocabulary'
 import { ARTICLE_VOCABULARY_KEY, useArticleVocabulary } from '@/composables/useArticleVocabulary'
 import { useAuthStore } from '@/stores/auth'
+import { useVoiceCloneStore } from '@/stores/voiceClone'
+import VoiceCloneSheet from '@/components/voice/VoiceCloneSheet.vue'
 import { useSourceFocusPulse } from '@/composables/useSourceFocusPulse'
 import { useWordLongPress } from '@/composables/useWordLongPress'
 import type { EntryDetail } from '@/types'
@@ -40,6 +42,8 @@ import { highlightVocabLinkText, parseVocabSummary, type VocabSummaryGroup, type
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const voiceClone = useVoiceCloneStore()
+const voiceCloneOpen = ref(false)
 const {
   focusId: sourceFocusId,
   focusWord: sourceFocusWord,
@@ -285,6 +289,30 @@ const readingTts = useReadingTts({
   scrollToSegment,
 })
 provide(READING_TTS_KEY, readingTts)
+
+watch(
+  () => readingTts.error.value,
+  (msg) => {
+    if (msg) flashQuickVocabToast(msg)
+  },
+)
+
+function openVoiceClone() {
+  if (!auth.isLoggedIn) {
+    router.push({ path: '/login', query: { redirect: route.fullPath } })
+    return
+  }
+  voiceCloneOpen.value = true
+}
+
+function onClonedVoiceUpdated(voice: import('@/api/voiceClone').ClonedVoiceInfo | null) {
+  voiceClone.setLocalVoice(voice)
+  if (voice?.voice) {
+    voiceClone.persistMode('cloned')
+    void voiceClone.setPreferPlayback(true)
+    flashQuickVocabToast('复刻成功：阅读页可选用我的声音')
+  }
+}
 
 function onOralPlay(rate = 1) {
   const indexes = oralBlocks.value
@@ -823,6 +851,8 @@ watch(layoutMode, async () => {
       v-if="article && readingTts.hasAudio.value"
       :current-index="currentIndex"
       :segment-count="segmentCount"
+      @open-voice-clone="openVoiceClone"
+      @need-login="router.push({ path: '/login', query: { redirect: route.fullPath } })"
     />
 
     <EntryCard
@@ -881,6 +911,13 @@ watch(layoutMode, async () => {
       :english="shareEnglish"
       :chinese="shareChinese"
       @close="shareOpen = false"
+    />
+    <VoiceCloneSheet
+      v-if="auth.isLoggedIn && auth.user"
+      :open="voiceCloneOpen"
+      :user-id="auth.user.id"
+      @close="voiceCloneOpen = false"
+      @updated="onClonedVoiceUpdated"
     />
   </div>
 </template>

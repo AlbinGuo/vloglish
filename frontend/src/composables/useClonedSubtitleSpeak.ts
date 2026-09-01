@@ -17,6 +17,7 @@ export function useClonedSubtitleSpeak() {
   let session = 0
   let activeKey = ''
   let unlocked = false
+  let holdPaused = false
 
   function ensureAudio(): HTMLAudioElement {
     if (!audio) {
@@ -39,6 +40,7 @@ export function useClonedSubtitleSpeak() {
     activeKey = ''
     error.value = ''
     speaking.value = false
+    holdPaused = false
     if (audio) {
       try {
         detachHandlers(audio)
@@ -51,6 +53,44 @@ export function useClonedSubtitleSpeak() {
       URL.revokeObjectURL(objectUrl)
       objectUrl = null
     }
+  }
+
+  function isSpeechSrc(el: HTMLAudioElement): boolean {
+    const src = el.currentSrc || el.src || ''
+    return src.startsWith('blob:')
+  }
+
+  /** 跟着视频暂停：不取消当前句，续播时从停住的位置继续。 */
+  function pausePlayback(): void {
+    holdPaused = true
+    if (!audio || !isSpeechSrc(audio)) return
+    try {
+      audio.pause()
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /** 跟着视频继续：从当前句停住的位置接着读。 */
+  function resumePlayback(): void {
+    holdPaused = false
+    if (!audio || !isSpeechSrc(audio) || audio.ended) return
+    const start = audio.play()
+    if (start && typeof start.catch === 'function') {
+      void start.catch(() => {
+        error.value = '浏览器拦截了复刻音，请再点一次播放'
+      })
+    }
+  }
+
+  /** 当前句是否仍在合成或出声（已结束/异常停住不算）。 */
+  function isUtteranceActive(): boolean {
+    if (holdPaused) return true
+    if (audio && isSpeechSrc(audio)) {
+      if (audio.ended) return false
+      if (!audio.paused) return true
+    }
+    return speaking.value && !(audio && isSpeechSrc(audio) && audio.paused)
   }
 
   /**
@@ -108,7 +148,9 @@ export function useClonedSubtitleSpeak() {
       error.value = '当前句没有英文文本'
       return false
     }
-    if (key && key === activeKey && speaking.value) return true
+    if (key && key === activeKey && speaking.value) {
+      return isUtteranceActive()
+    }
 
     error.value = ''
     const mySession = session + 1
@@ -143,22 +185,33 @@ export function useClonedSubtitleSpeak() {
       }
 
       const finished = await new Promise<boolean>((resolve) => {
+        let settled = false
+        const settle = (ok: boolean) => {
+          if (settled) return
+          settled = true
+          resolve(ok)
+        }
         if (mySession !== session) {
-          resolve(false)
+          settle(false)
           return
         }
-        el.onended = () => resolve(mySession === session)
+        el.onended = () => settle(mySession === session && el.ended)
         el.onerror = () => {
           if (mySession === session) error.value = '音频播放失败'
-          resolve(false)
+          settle(false)
         }
+        if (holdPaused) return
         const start = el.play()
+        if (el.ended) {
+          settle(mySession === session)
+          return
+        }
         if (start && typeof start.catch === 'function') {
           void start.catch(() => {
             if (mySession === session) {
               error.value = '浏览器拦截了复刻音，请再点一次播放'
             }
-            resolve(false)
+            settle(false)
           })
         }
       })
@@ -197,5 +250,16 @@ export function useClonedSubtitleSpeak() {
     unlocked = false
   })
 
-  return { speaking, error, speak, speakFitted, stop, prefetch, unlock }
+  return {
+    speaking,
+    error,
+    speak,
+    speakFitted,
+    stop,
+    pausePlayback,
+    resumePlayback,
+    isUtteranceActive,
+    prefetch,
+    unlock,
+  }
 }
