@@ -269,13 +269,8 @@ function prefetchAround(sub: Subtitle) {
   const subs = sortedSubs.value
   const idx = subs.findIndex((s) => s.id === sub.id)
   if (idx < 0) return
-  for (const j of [idx + 1, idx + 2]) {
-    const n = subs[j]
-    if (n?.english?.trim()) {
-      const dur = Math.max(200, Math.round((n.end - n.start) * 1000))
-      prefetchClonedSpeak(n.english, dur)
-    }
-  }
+  const n = subs[idx + 1]
+  if (n?.english?.trim()) prefetchClonedSpeak(n.english)
 }
 
 /** 按当前视频时间触发对应句的复刻音（句首对齐，不整句拉伸） */
@@ -291,7 +286,7 @@ function syncClonedVoiceToTimeline() {
 
   prefetchAround(sub)
   if (clonedSpokenSubId === sub.id) return
-  if (Date.now() - clonedSpeakFailAt < 1200) return
+  if (Date.now() - clonedSpeakFailAt < 2500) return
   clonedSpokenSubId = sub.id
 
   const rate = Math.max(0.5, v.playbackRate || clonedVideoRestore?.rate || 1)
@@ -332,11 +327,7 @@ async function playClonedSentence(opts?: { resume?: boolean }) {
   clonedSpeakFailAt = 0
   beginClonedVideoSync()
   unlockClonedSpeak()
-  if (startSub.english?.trim()) {
-    const dur = Math.max(200, Math.round((startSub.end - startSub.start) * 1000))
-    prefetchClonedSpeak(startSub.english, dur)
-    prefetchAround(startSub)
-  }
+  if (startSub.english?.trim()) prefetchAround(startSub)
 
   const v = videoRef.value
   if (!v) {

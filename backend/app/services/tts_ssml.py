@@ -9,10 +9,19 @@ from .tts_common import normalize_tts_text
 
 _PUNCT_SPLIT = re.compile(r"([,.;:?!，。；：？！…]+)")
 
-# CosyVoice 克隆音色 instruction 上限约 100 字
+# CosyVoice 克隆音色 instruction：v3.5 任意指令；v3-flash 任意指令；v3-plus 复刻音色不支持
 _INSTR_NATURAL = "Narrate in a natural and friendly chat style with emotion and pauses."
 _INSTR_QUESTION = "Speak naturally with a questioning tone, pitch variation, and pauses."
 _INSTR_EXCLAIM = "Speak naturally with energy, emotion, pitch variation, and pauses."
+
+
+def cloned_supports_instruction(model: str | None) -> bool:
+    m = (model or "").strip().lower()
+    if "v3.5" in m:
+        return True
+    if m.startswith("cosyvoice-v3-flash"):
+        return True
+    return False
 
 
 def speak_instruction(text: str) -> str:

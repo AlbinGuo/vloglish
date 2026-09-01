@@ -6,6 +6,7 @@ import hashlib
 import shutil
 import subprocess
 import tempfile
+import threading
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -27,6 +28,7 @@ MAX_SAMPLE_BYTES = 10 * 1024 * 1024
 MIN_DURATION_MS = 10_000
 MAX_DURATION_MS = 60_000
 RECOMMENDED_MAX_MS = 20_000
+_enroll_lock = threading.Lock()
 
 DEFAULT_ENROLL_TEXT = (
     "Hello, this is my voice for English learning. "
@@ -384,7 +386,10 @@ def synthesize_for_user(
     if needs_reenroll(row):
         raise HTTPException(status_code=409, detail="当前音色需重新录制后才能用于复刻朗读")
     if not _model_matches_current(row):
-        row = _reenroll_from_saved_sample(db, user, row)
+        with _enroll_lock:
+            db.refresh(row)
+            if not _model_matches_current(row):
+                row = _reenroll_from_saved_sample(db, user, row)
 
     try:
         cleaned = normalize_tts_text(text)
@@ -397,43 +402,48 @@ def synthesize_for_user(
     lang = row.language or "en"
     # duration_ms 仅兼容旧客户端，不再按字幕窗强行变速（会压平停顿与语气）
     _ = duration_ms
-    instruction = tts_ssml.speak_instruction(cleaned)
+    instruction = (
+        tts_ssml.speak_instruction(cleaned)
+        if tts_ssml.cloned_supports_instruction(model)
+        else None
+    )
     synth_text = tts_ssml.build_natural_ssml(cleaned)
-    cache_payload = f"v2|{instruction}|{synth_text}"
+    cache_payload = f"v3|{instruction or ''}|{synth_text}"
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     path = _cache_path(row.voice, cache_payload, model)
     if path.is_file() and path.stat().st_size > 0:
         return path.read_bytes(), True
 
-    try:
-        audio = cvc.synthesize_with_cloned_voice(
-            synth_text,
-            voice=row.voice,
-            tts_model=model,
-            language=lang,
-            enable_ssml=True,
-            instruction=instruction,
-        )
-    except RuntimeError as exc:
-        msg = str(exc).lower()
-        retryable = any(k in msg for k in ("instruction", "ssml", "parameter", "invalid"))
-        if not retryable:
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
+    audio: bytes | None = None
+    last_err: RuntimeError | None = None
+    attempts: list[tuple[str, bool, str | None]] = [
+        (synth_text, True, instruction),
+        (cleaned, False, None),
+    ]
+    for synth, use_ssml, instr in attempts:
         try:
             audio = cvc.synthesize_with_cloned_voice(
-                cleaned,
+                synth,
                 voice=row.voice,
                 tts_model=model,
                 language=lang,
-                enable_ssml=False,
-                instruction=instruction,
+                enable_ssml=use_ssml,
+                instruction=instr,
             )
-        except RuntimeError:
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
+            last_err = None
+            break
+        except RuntimeError as exc:
+            last_err = exc
+            msg = str(exc).lower()
+            if "繁忙" in str(exc) or "rate" in msg:
+                raise HTTPException(status_code=429, detail="声音合成繁忙，请稍后再试") from exc
+            retryable = any(k in msg for k in ("428", "instruction", "ssml", "parameter", "invalid"))
+            if not retryable:
+                raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    if not audio:
-        raise HTTPException(status_code=502, detail="TTS 返回空音频")
+    if last_err is not None or not audio:
+        raise HTTPException(status_code=502, detail=str(last_err) if last_err else "TTS 返回空音频")
 
     tmp = path.with_suffix(".tmp")
     tmp.write_bytes(audio)
