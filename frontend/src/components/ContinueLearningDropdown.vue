@@ -5,6 +5,7 @@ import { getContinueReadingArticles, type ContinueReadingItem } from '@/api/arti
 import { getRecentEpisodes, type RecentEpisode } from '@/api/learning'
 import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import UserAvatar from '@/components/UserAvatar.vue'
+import BindWechatDialog from '@/components/BindWechatDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
 
@@ -23,6 +24,8 @@ let closeTimer: ReturnType<typeof setTimeout> | undefined
 
 const label = computed(() => auth.user?.nickname || auth.user?.email || '账户')
 const cycling = ref(false)
+const bindOpen = ref(false)
+const wxBound = computed(() => Boolean(auth.user?.wx_bound))
 const hasAny = computed(() => episodes.value.length > 0 || articles.value.length > 0)
 
 async function cycleAvatar() {
@@ -305,6 +308,21 @@ watch(
             需求墙
           </RouterLink>
           <button
+            v-if="!wxBound"
+            type="button"
+            class="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800/80 transition text-left"
+            @click="bindOpen = true; close()"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" class="w-4 h-4 shrink-0 opacity-70" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75h9A2.25 2.25 0 0 1 18.75 6v12A2.25 2.25 0 0 1 16.5 20.25h-9A2.25 2.25 0 0 1 5.25 18V6A2.25 2.25 0 0 1 7.5 3.75Z" />
+            </svg>
+            绑定微信
+          </button>
+          <p
+            v-else
+            class="px-3 py-2 text-[11px] text-neutral-400"
+          >已绑定微信，小程序与网页为同一账号</p>
+          <button
             type="button"
             class="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800/80 transition text-left"
             @click="onFeedback"
@@ -327,5 +345,6 @@ watch(
         </div>
       </div>
     </div>
+    <BindWechatDialog v-model:open="bindOpen" />
   </div>
 </template>

@@ -1,0 +1,6 @@
+<view class="page">
+  <text class="lead">填写网页或 App 注册时的邮箱，两边学习进度和会员会合并到同一个账号。</text>
+  <input class="input" placeholder="邮箱" value="{{email}}" bindinput="onEmail" />
+  <input class="input" password placeholder="密码" value="{{password}}" bindinput="onPassword" />
+  <button class="primary" loading="{{submitting}}" bindtap="onSubmit">关联账号</button>
+</view>

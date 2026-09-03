@@ -12,6 +12,7 @@ from sqlalchemy import inspect, text
 from .database import DATABASE_URL, Base, SessionLocal, engine, is_postgresql
 from .models import (
     ActivationCode,
+    AccountBindToken,
     AiUsageEvent,
     ExampleTranslationCache,
     UserAuthorSubscription,
@@ -25,7 +26,7 @@ from .models import (
     WordPracticeWrong,
 )
 from .schemas import AuthTokensOut
-from .routers import ai_coach, app_download, article_submit, auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, public_voice_enroll, site_config, wish_wall, word_practice, wxpay
+from .routers import ai_coach, app_download, article_submit, auth, account_bind, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, public_voice_enroll, site_config, wish_wall, word_practice, wxpay
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import ai_usage as admin_ai_usage
@@ -60,6 +61,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(account_bind.router)
 app.include_router(site_config.router)
 app.include_router(app_download.router)
 app.include_router(public_voice_enroll.router)

@@ -47,6 +47,7 @@ from ..services.user_avatar import (
     persist_user_avatar,
 )
 from ..services.user_geo import apply_signup_geo, backfill_signup_geo
+from ..services.account_merge import is_wechat_only
 from ..services import wechat_mini as wechat_mini_svc
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -63,6 +64,8 @@ def user_out(user: User) -> UserOut:
         is_member=user_is_member(user),
         avatar_key=user.avatar_key,
         member_until=until,
+        wx_bound=bool((user.wx_openid or "").strip()),
+        wechat_only=is_wechat_only(user),
     )
 
 

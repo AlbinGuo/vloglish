@@ -53,6 +53,14 @@
       <text class="cell-title">{{isMember ? '会员权益' : '开通会员'}}</text>
       <text class="cell-sub">季度 29 · 年度 59 · 永久 99</text>
     </view>
+    <view wx:if="{{wechatOnly}}" class="cell" bindtap="onBindEmail">
+      <text class="cell-title">关联网页账号</text>
+      <text class="cell-sub">用邮箱密码合并进度和会员</text>
+    </view>
+    <view wx:elif="{{wxBound && emailLabel}}" class="cell">
+      <text class="cell-title">已关联网页</text>
+      <text class="cell-sub">{{emailLabel}}</text>
+    </view>
     <view class="cell" bindtap="onFeedback">
       <text class="cell-title">意见反馈</text>
       <text class="cell-sub">告诉我们哪里不好用</text>

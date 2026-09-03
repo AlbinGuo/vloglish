@@ -39,3 +39,19 @@ export function activateMembership(activationCode: string) {
     data: { activation_code: activationCode },
   })
 }
+
+export function bindEmail(email: string, password: string) {
+  return request<AuthTokens>({
+    url: '/api/auth/bind-email/',
+    method: 'POST',
+    data: { email, password },
+  })
+}
+
+export function confirmBindWechat(token: string) {
+  return request<AuthTokens>({
+    url: '/api/auth/bind-wechat/confirm/',
+    method: 'POST',
+    data: { token },
+  })
+}

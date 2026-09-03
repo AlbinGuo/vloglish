@@ -18,6 +18,9 @@ Page({
     vocabCount: 0,
     continueTitle: '',
     continueId: '',
+    wechatOnly: false,
+    wxBound: false,
+    emailLabel: '',
   },
 
   onShow() {
@@ -39,6 +42,9 @@ Page({
             : '会员已开通 · 永久'
           : '普通学员'
         : '登录后同步学习进度',
+      wechatOnly: Boolean(user?.wechat_only),
+      wxBound: Boolean(user?.wx_bound),
+      emailLabel: user && !user.wechat_only ? user.email : '',
     })
   },
 
@@ -146,6 +152,11 @@ Page({
   onSoon() {
     if (!this.requireLogin()) return
     wx.showToast({ title: '小程序下一期开放', icon: 'none' })
+  },
+
+  onBindEmail() {
+    if (!this.requireLogin()) return
+    wx.navigateTo({ url: '/pages/bind-email/bind-email' })
   },
 
   onMembership() {

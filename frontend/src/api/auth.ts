@@ -48,3 +48,23 @@ export async function activateMembership(activationCode: string) {
 export async function logout(refresh: string) {
   await api.post('/api/auth/logout/', { refresh })
 }
+
+export async function prepareBindWechat() {
+  const { data } = await api.post<{ token: string; expires_in: number }>('/api/auth/bind-wechat/prepare/')
+  return data
+}
+
+export async function fetchBindWechatQr(token: string) {
+  const { data } = await api.get<Blob>('/api/auth/bind-wechat/qrcode/', {
+    params: { token },
+    responseType: 'blob',
+  })
+  return data
+}
+
+export async function fetchBindWechatStatus(token: string) {
+  const { data } = await api.get<{ status: string; user?: User | null }>('/api/auth/bind-wechat/status/', {
+    params: { token },
+  })
+  return data
+}

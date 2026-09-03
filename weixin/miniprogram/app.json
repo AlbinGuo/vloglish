@@ -2,6 +2,8 @@
   "pages": [
     "pages/index/index",
     "pages/article/article",
+    "pages/bind/bind",
+    "pages/bind-email/bind-email",
     "pages/profile/profile",
     "pages/vocabulary/vocabulary",
     "pages/membership/membership",

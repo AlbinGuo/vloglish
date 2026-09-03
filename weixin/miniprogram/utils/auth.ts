@@ -8,6 +8,8 @@ export type AuthUser = {
   is_member: boolean
   avatar_key: string | null
   member_until?: string | null
+  wx_bound?: boolean
+  wechat_only?: boolean
 }
 
 function randomId(): string {
@@ -52,5 +54,5 @@ export function clearSession(): void {
 
 export function displayName(user: AuthUser | null): string {
   if (!user) return '未登录'
-  return (user.nickname || '').trim() || `学员 ${user.id}`
+  return (user.nickname || '').trim() || (user.wechat_only ? '微信用户' : `学员 ${user.id}`)
 }

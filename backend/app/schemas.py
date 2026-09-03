@@ -12,6 +12,8 @@ class UserOut(BaseModel):
     is_member: bool
     avatar_key: str | None = None
     member_until: str | None = None
+    wx_bound: bool = False
+    wechat_only: bool = False
 
 
 class SetAvatarIn(BaseModel):

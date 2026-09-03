@@ -5,6 +5,9 @@ export interface User {
   phone: string | null
   is_member: boolean
   avatar_key?: string | null
+  member_until?: string | null
+  wx_bound?: boolean
+  wechat_only?: boolean
 }
 
 export interface Author {

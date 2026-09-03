@@ -8,6 +8,8 @@ interface IMiniUser {
   is_member: boolean
   avatar_key: string | null
   member_until?: string | null
+  wx_bound?: boolean
+  wechat_only?: boolean
 }
 
 interface IAppOption {
