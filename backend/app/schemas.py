@@ -40,6 +40,11 @@ class LoginIn(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class WechatMiniLoginIn(BaseModel):
+    code: str = Field(min_length=4, max_length=128)
+    nickname: str | None = Field(default=None, max_length=64)
+
+
 class RefreshIn(BaseModel):
     refresh: str
 

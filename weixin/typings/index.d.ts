@@ -1,8 +1,18 @@
 /// <reference path="./types/index.d.ts" />
 
+interface IMiniUser {
+  id: number
+  email: string
+  nickname: string | null
+  phone: string | null
+  is_member: boolean
+  avatar_key: string | null
+}
+
 interface IAppOption {
   globalData: {
-    userInfo?: WechatMiniprogram.UserInfo,
+    user: IMiniUser | null
+    loggingIn: boolean
   }
-  userInfoReadyCallback?: WechatMiniprogram.GetUserInfoSuccessCallback,
+  ensureLogin: () => Promise<IMiniUser | null>
 }

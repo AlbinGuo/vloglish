@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -31,6 +32,7 @@ from ..schemas import (
     LoginIn,
     RefreshIn,
     RegisterIn,
+    WechatMiniLoginIn,
     ResetPasswordIn,
     ResetPasswordByEmailIn,
     SetAvatarIn,
@@ -45,6 +47,7 @@ from ..services.user_avatar import (
     persist_user_avatar,
 )
 from ..services.user_geo import apply_signup_geo, backfill_signup_geo
+from ..services import wechat_mini as wechat_mini_svc
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -172,6 +175,63 @@ def login(
     backfill_signup_geo(user, get_client_ip(request))
     ensure_user_avatar(user)
     db.commit()
+    merge_device_favorites(db, user.id, device_id)
+    return issue_tokens(db, user, device_id)
+
+
+@router.post("/wechat/mini/", response_model=AuthTokensOut)
+def wechat_mini_login(
+    body: WechatMiniLoginIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    device_id: str = Depends(get_device_id),
+):
+    """小程序 wx.login code → 同一套 JWT。新用户按 openid 自动建号。"""
+    try:
+        session = wechat_mini_svc.code_to_session(body.code)
+    except RuntimeError as exc:
+        msg = str(exc)
+        status = 503 if "未配置" in msg else 401
+        raise HTTPException(status_code=status, detail=msg) from exc
+
+    openid = session["openid"]
+    unionid = session.get("unionid") or None
+    user = db.query(User).filter(User.wx_openid == openid).first()
+    if not user and unionid:
+        user = db.query(User).filter(User.wx_unionid == unionid).first()
+        if user and not user.wx_openid:
+            user.wx_openid = openid
+
+    if not user:
+        gift_member = not is_membership_gate_enabled(db)
+        nick = (body.nickname or "").strip()[:64] or None
+        user = User(
+            email=f"wx_{openid}@weixin.vloglish.invalid",
+            password_hash=hash_password(secrets.token_urlsafe(32)),
+            nickname=nick,
+            wx_openid=openid,
+            wx_unionid=unionid,
+            is_member=gift_member,
+            member_activated_at=datetime.utcnow() if gift_member else None,
+        )
+        apply_signup_geo(user, get_client_ip(request))
+        db.add(user)
+        db.flush()
+        ensure_user_avatar(user)
+    else:
+        if not user.is_active:
+            raise HTTPException(status_code=403, detail="账号已停用")
+        if unionid and not user.wx_unionid:
+            user.wx_unionid = unionid
+        nick = (body.nickname or "").strip()[:64]
+        if nick and not user.nickname:
+            user.nickname = nick
+        backfill_signup_geo(user, get_client_ip(request))
+        ensure_user_avatar(user)
+
+    user.last_client = "weixin"
+    db.commit()
+    db.refresh(user)
     merge_device_favorites(db, user.id, device_id)
     return issue_tokens(db, user, device_id)
 

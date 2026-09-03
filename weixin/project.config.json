@@ -15,13 +15,13 @@
     "coverView": false,
     "postcss": false,
     "minified": false,
-    "enhance": false,
+    "enhance": true,
     "showShadowRootInWxmlPanel": false,
     "packNpmRelationList": [],
     "ignoreUploadUnusedFiles": true,
     "compileHotReLoad": false,
     "skylineRenderEnable": true,
-    "es6": false,
+    "es6": true,
     "compileWorklet": false,
     "uglifyFileName": false,
     "uploadWithSourceMap": true,
@@ -32,7 +32,10 @@
     "condition": false,
     "swc": false,
     "disableSWC": true,
-    "disableUseStrict": false
+    "disableUseStrict": false,
+    "lessSetting": {
+      "commonUseFilePath": "app.less"
+    }
   },
   "simulatorType": "wechat",
   "simulatorPluginLibVersion": {},
@@ -47,5 +50,5 @@
     "ignore": [],
     "include": []
   },
-  "appid": "wx833d628a9832a0da"
+  "appid": "wx0d61b64f96200f9f"
 }

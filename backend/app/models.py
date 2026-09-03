@@ -202,6 +202,8 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     nickname: Mapped[str | None] = mapped_column(String(64), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    wx_openid: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True, index=True)
+    wx_unionid: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     # 默认头像编号，如 fox / owl；注册或首次登录写入
     avatar_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

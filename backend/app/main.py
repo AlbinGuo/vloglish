@@ -296,6 +296,18 @@ def _migrate_schema():
             conn.execute(
                 text(f"UPDATE users SET my_corpus_seen_at = {now_sql} WHERE my_corpus_seen_at IS NULL")
             )
+    if "wx_openid" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN wx_openid VARCHAR(64)"))
+        print("[vloglish] migrated users.wx_openid")
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("users")}
+    if "wx_unionid" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN wx_unionid VARCHAR(64)"))
+        print("[vloglish] migrated users.wx_unionid")
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("users")}
     for col, col_type in (
         ("signup_country", "VARCHAR(64)"),
         ("signup_region", "VARCHAR(64)"),

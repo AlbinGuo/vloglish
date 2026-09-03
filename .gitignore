@@ -69,7 +69,7 @@ logs/
 .vite/
 
 # --- IDE & OS ---
-.idea/
+.idea/vcs.xml
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
@@ -82,6 +82,7 @@ desktop.ini
 *.njsproj
 *.sln
 
+.idea
 # --- Docker / deploy runtime ---
 docker-compose.override.yml
 
