@@ -81,15 +81,15 @@ def get_access_token() -> str:
     return token
 
 
-def get_bind_wxacode(scene: str) -> bytes:
-    """生成绑定用小程序码（scene ≤ 32）。"""
+def get_wxacode(scene: str, page: str) -> bytes:
+    """生成小程序码（scene ≤ 32）。"""
     token = get_access_token()
     env = (os.getenv("WECHAT_MINI_QR_ENV") or "release").strip() or "release"
     url = f"https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token={urllib.parse.quote(token)}"
     payload = json.dumps(
         {
             "scene": scene[:32],
-            "page": "pages/bind/bind",
+            "page": page,
             "check_path": False,
             "env_version": env,
             "width": 280,
@@ -102,4 +102,8 @@ def get_bind_wxacode(scene: str) -> bytes:
         body = json.loads(data.decode("utf-8"))
         raise RuntimeError(body.get("errmsg") or "生成小程序码失败")
     return data
+
+
+def get_bind_wxacode(scene: str) -> bytes:
+    return get_wxacode(scene, "pages/bind/bind")
 

@@ -21,11 +21,26 @@ export type WxPayOrder = {
   user?: AuthUser | null
 }
 
-export function createWxPayOrder(plan: string, code: string) {
+export function createWxPayOrder(plan: string, code: string, pcToken?: string) {
   return request<WxPayCreate>({
     url: '/api/wxpay/orders/',
     method: 'POST',
-    data: { plan, code },
+    data: { plan, code, pc_token: pcToken || undefined },
+  })
+}
+
+export type PcPaySession = {
+  status: string
+  plan: string
+  plan_name: string
+  amount_cent: number
+  paid: boolean
+  user?: AuthUser | null
+}
+
+export function getPcPaySession(token: string) {
+  return request<PcPaySession>({
+    url: `/api/wxpay/pc-sessions/${encodeURIComponent(token)}/`,
   })
 }
 

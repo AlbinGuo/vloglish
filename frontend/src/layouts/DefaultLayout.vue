@@ -23,6 +23,7 @@ import { useVocabularyStore } from '@/stores/vocabulary'
 import { useVoiceCloneStore } from '@/stores/voiceClone'
 import AppDownloadEntry from '@/components/AppDownloadEntry.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import BindWechatDialog from '@/components/BindWechatDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -33,6 +34,7 @@ const corpusBadge = useMyCorpusBadgeStore()
 const vocabulary = useVocabularyStore()
 const voiceClone = useVoiceCloneStore()
 const feedbackOpen = ref(false)
+const bindWechatOpen = ref(false)
 /** 会员，或关内容限制后的登录用户 */
 const canUseMemberTools = computed(() => auth.isMember || siteConfig.memberToolsOpen)
 
@@ -434,6 +436,14 @@ watch(
               </svg>
               <span class="hidden sm:inline text-sm font-medium">开通会员</span>
             </RouterLink>
+            <button
+              v-if="!auth.user?.wx_bound"
+              type="button"
+              class="inline-flex items-center rounded-lg border border-amber-700/30 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-500/30 px-2 py-1.5 text-xs sm:text-sm font-medium transition"
+              @click="bindWechatOpen = true"
+            >
+              关联小程序
+            </button>
             <ContinueLearningDropdown
               @logout="handleLogout"
               @feedback="feedbackOpen = true"
@@ -470,6 +480,7 @@ watch(
     </main>
     <FavoriteCorpusToast />
     <FeedbackModal v-model:open="feedbackOpen" />
+    <BindWechatDialog v-model:open="bindWechatOpen" />
     <AiQuotaExhaustedModal />
     <EpisodePublishedPopup
       :item="currentPopupItem"

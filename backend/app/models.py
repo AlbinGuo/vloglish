@@ -252,6 +252,22 @@ class AccountBindToken(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class PcPaySession(Base):
+    """网页选套餐后生成的扫码支付会话。"""
+
+    __tablename__ = "pc_pay_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    token: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    plan: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    order_no: Mapped[str] = mapped_column(String(64), default="", index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class UserDailyVisit(Base):
     """用户按自然日（东八区）的到访记录：有心跳/登录即记一天。"""
 

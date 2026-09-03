@@ -1,6 +1,7 @@
 import { activateMembership, wxLoginCode } from '../../api/auth'
-import { createWxPayOrder, queryWxPayOrder } from '../../api/wxpay'
+import { createWxPayOrder } from '../../api/wxpay'
 import { getStoredUser, setSession, getAccessToken, getRefreshToken, type AuthUser } from '../../utils/auth'
+import { assertPayReady, requestVirtualPayment, waitPaid } from '../../utils/virtualPay'
 
 type PlanId = 'quarter' | 'year' | 'forever'
 
@@ -43,54 +44,6 @@ const PLANS: Omit<Plan, 'selected'>[] = [
 
 function withSelection(id: PlanId): Plan[] {
   return PLANS.map((p) => ({ ...p, selected: p.id === id }))
-}
-
-function versionGte(cur: string, need: string): boolean {
-  const a = cur.split('.').map((n) => parseInt(n, 10) || 0)
-  const b = need.split('.').map((n) => parseInt(n, 10) || 0)
-  for (let i = 0; i < Math.max(a.length, b.length); i += 1) {
-    const x = a[i] || 0
-    const y = b[i] || 0
-    if (x > y) return true
-    if (x < y) return false
-  }
-  return true
-}
-
-function assertPayReady() {
-  const info = wx.getSystemInfoSync()
-  if (info.platform === 'ios' && !versionGte(info.version || '', '8.0.68')) {
-    throw new Error('iOS 请升级微信到 8.0.68 及以上')
-  }
-}
-
-function requestVirtualPayment(pay: {
-  sign_data: string
-  pay_sig: string
-  signature: string
-  mode: string
-}): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const api = (wx as unknown as {
-      requestVirtualPayment?: (opts: Record<string, unknown>) => void
-    }).requestVirtualPayment
-    if (!api) {
-      reject(new Error('当前微信版本不支持虚拟支付'))
-      return
-    }
-    api({
-      signData: pay.sign_data,
-      paySig: pay.pay_sig,
-      signature: pay.signature,
-      mode: pay.mode || 'short_series_goods',
-      success: () => resolve(),
-      fail: (err: { errMsg?: string }) => reject(new Error(err.errMsg || '支付取消或失败')),
-    })
-  })
-}
-
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms))
 }
 
 Page({
@@ -144,7 +97,7 @@ Page({
       const code = await wxLoginCode()
       const pay = await createWxPayOrder(plan.id, code)
       await requestVirtualPayment(pay)
-      const paid = await this.waitPaid(pay.out_trade_no)
+      const paid = await waitPaid(pay.out_trade_no)
       if (paid?.user) this.applyUser(paid.user)
       wx.showToast({ title: paid?.paid ? '已开通会员' : '支付成功，权益开通中', icon: 'success' })
     } catch (e) {
@@ -155,19 +108,6 @@ Page({
     } finally {
       this.setData({ paying: false })
     }
-  },
-
-  async waitPaid(outTradeNo: string) {
-    for (let i = 0; i < 8; i += 1) {
-      try {
-        const row = await queryWxPayOrder(outTradeNo)
-        if (row.paid) return row
-      } catch {
-        // 推送可能尚未到达，继续轮询
-      }
-      await sleep(1500)
-    }
-    return null
   },
 
   onCode(e: WechatMiniprogram.Input) {

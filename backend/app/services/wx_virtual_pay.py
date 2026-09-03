@@ -19,7 +19,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from ..demo_access import user_is_member
-from ..models import MembershipOrder, User
+from ..models import MembershipOrder, PcPaySession, User
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +147,17 @@ def deliver_order(db: Session, order: MembershipOrder, *, wx_order_id: str = "",
         order.wx_order_id = wx_order_id[:64]
     if raw:
         order.notify_raw = raw[:8000]
+    if order.order_no:
+        db.query(PcPaySession).filter(
+            PcPaySession.order_no == order.order_no,
+            PcPaySession.status != "paid",
+        ).update(
+            {
+                PcPaySession.status: "paid",
+                PcPaySession.paid_at: datetime.utcnow(),
+            },
+            synchronize_session=False,
+        )
     db.commit()
 
 
@@ -210,7 +221,9 @@ def notify_provide_goods(*, openid: str, wx_order_id: str) -> None:
         logger.exception("notify_provide_goods failed wx_order_id=%s", wx_order_id)
 
 
-def create_pay_order(db: Session, *, user: User, plan: str, login_code: str) -> dict:
+def create_pay_order(
+    db: Session, *, user: User, plan: str, login_code: str, pc_token: str = ""
+) -> dict:
     if not xpay_configured():
         raise HTTPException(status_code=503, detail="未配置虚拟支付（OfferID / AppKey）")
     if plan not in PLANS:
@@ -259,6 +272,18 @@ def create_pay_order(db: Session, *, user: User, plan: str, login_code: str) -> 
     db.add(order)
     db.commit()
     db.refresh(order)
+
+    token = (pc_token or "").strip()
+    if token:
+        sess = db.query(PcPaySession).filter(PcPaySession.token == token).first()
+        if not sess or sess.user_id != user.id:
+            raise HTTPException(status_code=400, detail="支付会话无效")
+        if sess.expires_at <= datetime.utcnow() and sess.status != "paid":
+            raise HTTPException(status_code=400, detail="支付码已过期，请在网页刷新")
+        if sess.plan != plan:
+            raise HTTPException(status_code=400, detail="套餐与网页选择不一致")
+        sess.order_no = order_no
+        db.commit()
 
     sign_obj = {
         "offerId": offer_id(),

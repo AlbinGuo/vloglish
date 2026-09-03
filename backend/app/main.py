@@ -13,6 +13,7 @@ from .database import DATABASE_URL, Base, SessionLocal, engine, is_postgresql
 from .models import (
     ActivationCode,
     AccountBindToken,
+    PcPaySession,
     AiUsageEvent,
     ExampleTranslationCache,
     UserAuthorSubscription,
@@ -186,6 +187,10 @@ def _migrate_schema():
     if "word_practice_stats" not in insp.get_table_names():
         WordPracticeStat.__table__.create(bind=engine, checkfirst=True)
         print("[vloglish] created table word_practice_stats")
+        insp = inspect(engine)
+    if "pc_pay_sessions" not in insp.get_table_names():
+        PcPaySession.__table__.create(bind=engine, checkfirst=True)
+        print("[vloglish] created table pc_pay_sessions")
         insp = inspect(engine)
     if "example_translation_cache" not in insp.get_table_names():
         ExampleTranslationCache.__table__.create(bind=engine, checkfirst=True)

@@ -4,6 +4,7 @@
     "pages/article/article",
     "pages/bind/bind",
     "pages/bind-email/bind-email",
+    "pages/pc-pay/pc-pay",
     "pages/profile/profile",
     "pages/vocabulary/vocabulary",
     "pages/membership/membership",
