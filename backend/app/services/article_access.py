@@ -46,7 +46,6 @@ def opened_article_ids_this_period(
             UserArticleOpen.user_id.is_(None),
         )
         .distinct()
-        .order_by(UserArticleOpen.opened_at.asc())
         .limit(GUEST_ARTICLE_LIMIT)
         .all()
     )

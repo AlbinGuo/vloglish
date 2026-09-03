@@ -1,5 +1,5 @@
 import { listArticles, type ArticleListItem } from '../../api/articles'
-import { resolveMediaUrl } from '../../utils/mediaUrl'
+import { resolveCoverUrl } from '../../utils/mediaUrl'
 
 type Card = ArticleListItem & {
   starsLabel: string
@@ -20,7 +20,7 @@ function mapCard(a: ArticleListItem): Card {
   return {
     ...a,
     starsLabel: starsLabel(a.stars),
-    coverHttps: resolveMediaUrl(a.cover),
+    coverHttps: resolveCoverUrl(a.cover),
     metaLine: summary || [words, segs].filter(Boolean).join(' · '),
     progressLabel: a.progress
       ? a.progress.is_completed

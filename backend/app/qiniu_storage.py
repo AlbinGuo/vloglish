@@ -184,6 +184,9 @@ def sign_url(url: str, *, expires: int | None = None, cfg: QiniuConfig | None = 
         return raw
 
     base = strip_qiniu_download_token(raw)
+    if base.startswith("http://"):
+        # 签名必须按最终访问协议；小程序只能拉 HTTPS
+        base = "https://" + base[len("http://") :]
     ttl = expires if expires is not None else qiniu_media_expires()
     try:
         auth = Auth(conf.access_key, conf.secret_key)
