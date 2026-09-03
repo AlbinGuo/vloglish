@@ -15,6 +15,20 @@ function detailMessage(data: unknown, fallback: string): string {
   if (data && typeof data === 'object' && 'detail' in data) {
     const detail = (data as { detail?: unknown }).detail
     if (typeof detail === 'string' && detail.trim()) return detail
+    if (Array.isArray(detail) && detail.length) {
+      const parts = detail
+        .map((item) => {
+          if (typeof item === 'string') return item.trim()
+          if (item && typeof item === 'object' && 'msg' in item) {
+            return String((item as { msg?: unknown }).msg || '')
+              .replace(/^Value error,\s*/i, '')
+              .trim()
+          }
+          return ''
+        })
+        .filter(Boolean)
+      if (parts.length) return parts.join('；')
+    }
     if (detail && typeof detail === 'object' && 'message' in detail) {
       const msg = (detail as { message?: unknown }).message
       if (typeof msg === 'string' && msg.trim()) return msg

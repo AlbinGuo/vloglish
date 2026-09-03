@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 PLAN_QUARTER = "quarter"
 PLAN_YEAR = "year"
 PLAN_FOREVER = "forever"
+PLAN_TEST = "test"
 
 PLANS: dict[str, dict] = {
     PLAN_QUARTER: {
@@ -48,6 +49,13 @@ PLANS: dict[str, dict] = {
         "price_cent": 9900,
         "product_env": "WECHAT_XPAY_PRODUCT_FOREVER",
         "product_default": "member_forever",
+    },
+    PLAN_TEST: {
+        "name": "测试会员",
+        "days": 1,
+        "price_cent": 1,
+        "product_env": "WECHAT_XPAY_PRODUCT_TEST",
+        "product_default": "member_test",
     },
 }
 

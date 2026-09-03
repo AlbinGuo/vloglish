@@ -768,7 +768,7 @@ class MembershipOrder(Base):
     notify_raw: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    # 小程序虚拟支付：quarter | year | forever
+    # 小程序虚拟支付：quarter | year | forever | test
     plan: Mapped[str] = mapped_column(String(16), default="forever")
     product_id: Mapped[str] = mapped_column(String(64), default="")
     wx_order_id: Mapped[str] = mapped_column(String(64), default="", index=True)

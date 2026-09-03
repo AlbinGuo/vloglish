@@ -22,7 +22,7 @@ PC_PAY_TTL_MINUTES = 15
 
 
 class WxPayCreateIn(BaseModel):
-    plan: str = Field(pattern="^(quarter|year|forever)$")
+    plan: str
     code: str = Field(min_length=4, max_length=128)
     pc_token: str = ""
 
@@ -48,7 +48,7 @@ class WxPayOrderOut(BaseModel):
 
 
 class PcPayCreateIn(BaseModel):
-    plan: str = Field(pattern="^(quarter|year|forever)$")
+    plan: str
 
 
 class PcPayCreateOut(BaseModel):
