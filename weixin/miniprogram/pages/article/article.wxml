@@ -1,0 +1,60 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="state">
+    <text class="state-desc">正在打开这篇…</text>
+  </view>
+
+  <view wx:elif="{{limited}}" class="state">
+    <text class="state-title">本月免费篇数已用完</text>
+    <text class="state-desc">{{error}}</text>
+    <text class="state-action" bindtap="onOpenMember">开通会员继续读</text>
+  </view>
+
+  <view wx:elif="{{error}}" class="state" bindtap="load">
+    <text class="state-title">暂时打不开</text>
+    <text class="state-desc">{{error}}</text>
+    <text class="state-action">轻点重试</text>
+  </view>
+
+  <block wx:else>
+    <view class="hero">
+      <image
+        wx:if="{{coverHttps}}"
+        class="cover"
+        src="{{coverHttps}}"
+        mode="aspectFill"
+        binderror="onCoverError"
+      />
+      <view wx:else class="cover cover-ph"></view>
+      <view class="hero-fade"></view>
+    </view>
+
+    <view class="head">
+      <text class="title">{{title}}</text>
+      <view class="meta">
+        <text wx:if="{{topic}}" class="pill">{{topic}}</text>
+        <text wx:if="{{source}}" class="pill">{{source}}</text>
+        <text wx:if="{{meta}}" class="stat">{{meta}}</text>
+        <text wx:if="{{progressLabel}}" class="stat">{{progressLabel}}</text>
+      </view>
+    </view>
+
+    <view class="paper">
+      <view
+        class="seg {{item.active ? 'is-on' : ''}}"
+        wx:for="{{segments}}"
+        wx:key="id"
+        data-index="{{item.index}}"
+        bindtap="onTapSeg"
+      >
+        <text class="no">{{item.no}}</text>
+        <text class="en">{{item.english}}</text>
+        <text wx:if="{{showZh && item.chinese}}" class="zh">{{item.chinese}}</text>
+      </view>
+    </view>
+
+    <view class="dock">
+      <text class="dock-btn {{showZh ? 'on' : ''}}" bindtap="onToggleZh">{{showZh ? '译文开' : '译文关'}}</text>
+      <text class="dock-hint">点段落记下进度</text>
+    </view>
+  </block>
+</view>

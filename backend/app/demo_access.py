@@ -20,7 +20,14 @@ def free_episode_limit() -> int:
 
 
 def user_is_member(user) -> bool:
-    return user is not None and user.is_member
+    if user is None or not getattr(user, "is_member", False):
+        return False
+    until = getattr(user, "member_until", None)
+    if until is not None:
+        from datetime import datetime
+
+        return until > datetime.utcnow()
+    return True
 
 
 def get_episode_limit(db: Session, user) -> int | None:

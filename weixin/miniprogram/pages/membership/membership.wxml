@@ -1,0 +1,51 @@
+<view class="page">
+  <view class="hero">
+    <text class="kicker">MEMBERSHIP</text>
+    <text class="title">会员权益</text>
+    <text class="lead">读报不限量 · 视频精听 · 生词本与 AI 工具</text>
+  </view>
+
+  <view wx:if="{{isMember}}" class="banner">{{memberHint}}</view>
+
+  <view class="plans">
+    <view
+      class="plan {{item.selected ? 'is-on' : ''}} {{item.recommended ? 'is-hot' : ''}}"
+      wx:for="{{plans}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bindtap="onSelect"
+    >
+      <view class="plan-top">
+        <view>
+          <text class="plan-name">{{item.name}}</text>
+          <text class="plan-period">{{item.period}}</text>
+        </view>
+        <view class="plan-price-wrap">
+          <text class="yen">¥</text>
+          <text class="plan-price">{{item.price}}</text>
+        </view>
+      </view>
+      <view class="plan-bottom">
+        <text class="plan-note">{{item.note}}</text>
+        <text wx:if="{{item.recommended}}" class="badge">推荐</text>
+        <text wx:elif="{{item.selected}}" class="pick">已选</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <text class="h">开通任一档即可</text>
+    <text class="li">全部读报文章不限量</text>
+    <text class="li">网站视频精听、合集与跟读</text>
+    <text class="li">生词本、语料库与 AI 学习工具</text>
+    <text class="li">季度 / 年度到期后续费；永久一次买断</text>
+  </view>
+
+  <button class="buy" loading="{{paying}}" bindtap="onBuy">开通所选套餐</button>
+
+  <view class="card muted">
+    <text class="h">已有激活码</text>
+    <input class="input" placeholder="输入激活码" value="{{code}}" bindinput="onCode" />
+    <button class="ghost" loading="{{submitting}}" bindtap="onActivate">用激活码开通</button>
+  </view>
+</view>

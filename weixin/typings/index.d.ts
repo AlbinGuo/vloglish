@@ -7,6 +7,7 @@ interface IMiniUser {
   phone: string | null
   is_member: boolean
   avatar_key: string | null
+  member_until?: string | null
 }
 
 interface IAppOption {

@@ -1,22 +1,72 @@
-<view class="wrap">
-  <view class="profile">
-    <view class="avatar">{{loggedIn ? '我' : '?'}}</view>
-    <view class="profile-info">
-      <text class="name">{{name}}</text>
-      <text class="muted">{{memberLabel}}</text>
+<view class="page">
+  <view class="hero">
+    <view class="hero-row">
+      <view class="avatar">{{initial}}</view>
+      <view class="hero-info">
+        <text class="name">{{name}}</text>
+        <text class="role">{{memberLabel}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{readQuota || aiQuota}}" class="chips">
+      <text wx:if="{{readQuota}}" class="chip">{{readQuota}}</text>
+      <text wx:if="{{aiQuota}}" class="chip">{{aiQuota}}</text>
+    </view>
+
+    <button
+      wx:if="{{!loggedIn}}"
+      class="login-btn"
+      loading="{{loading}}"
+      bindtap="onLogin"
+    >微信一键登录</button>
+
+    <view wx:elif="{{!isMember}}" class="member-cta" bindtap="onMembership">
+      <text class="cta-kicker">会员权益</text>
+      <text class="cta-title">季度 / 年度 / 永久三档</text>
+      <text class="cta-go">去开通</text>
     </view>
   </view>
 
-  <button
-    wx:if="{{!loggedIn}}"
-    class="login-btn"
-    loading="{{loading}}"
-    bindtap="onLogin"
-  >微信一键登录</button>
+  <view class="group">
+    <text class="group-label">学习</text>
+    <view class="cell" bindtap="onContinue">
+      <text class="cell-title">继续学习</text>
+      <text class="cell-sub">{{continueTitle || '从上次读到的地方接着看'}}</text>
+    </view>
+    <view class="cell" bindtap="onVocab">
+      <text class="cell-title">生词本</text>
+      <text class="cell-sub">{{loggedIn ? (vocabCount + ' 个词') : '登录后查看'}}</text>
+    </view>
+    <view class="cell is-soon" bindtap="onSoon">
+      <text class="cell-title">我的语料库</text>
+      <text class="cell-sub">即将开放</text>
+    </view>
+    <view class="cell is-soon last" bindtap="onSoon">
+      <text class="cell-title">我的声音</text>
+      <text class="cell-sub">即将开放</text>
+    </view>
+  </view>
 
-  <view class="block">
-    <text class="block-title">说明</text>
-    <text class="hint">登录后与网站同一账号体系。首页先开放读报列表；视频精听跟读随后接入。</text>
+  <view class="group">
+    <text class="group-label">服务</text>
+    <view class="cell" bindtap="onMembership">
+      <text class="cell-title">{{isMember ? '会员权益' : '开通会员'}}</text>
+      <text class="cell-sub">季度 29 · 年度 59 · 永久 99</text>
+    </view>
+    <view class="cell" bindtap="onFeedback">
+      <text class="cell-title">意见反馈</text>
+      <text class="cell-sub">告诉我们哪里不好用</text>
+    </view>
+    <view class="cell" bindtap="onContact">
+      <text class="cell-title">联系客服</text>
+      <text class="cell-sub">复制网站地址</text>
+    </view>
+    <view class="cell" data-type="terms" bindtap="onLegal">
+      <text class="cell-title">用户协议</text>
+    </view>
+    <view class="cell last" data-type="privacy" bindtap="onLegal">
+      <text class="cell-title">隐私政策</text>
+    </view>
   </view>
 
   <button wx:if="{{loggedIn}}" class="logout-btn" bindtap="onLogout">退出登录</button>

@@ -210,6 +210,10 @@ class User(Base):
     is_member: Mapped[bool] = mapped_column(Boolean, default=False)
     is_staff: Mapped[bool] = mapped_column(Boolean, default=False)
     member_activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # 到期时间；空且 is_member 表示永久。过期后按非会员处理。
+    member_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # 微信 jscode2session 的 session_key，虚拟支付用户态签名用
+    wx_session_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     session_version: Mapped[int] = mapped_column(Integer, default=1)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # 最近一次心跳客户端：web | android | ios
@@ -735,3 +739,7 @@ class MembershipOrder(Base):
     notify_raw: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # 小程序虚拟支付：quarter | year | forever
+    plan: Mapped[str] = mapped_column(String(16), default="forever")
+    product_id: Mapped[str] = mapped_column(String(64), default="")
+    wx_order_id: Mapped[str] = mapped_column(String(64), default="", index=True)

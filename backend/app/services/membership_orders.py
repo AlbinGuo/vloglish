@@ -148,6 +148,7 @@ def _activate_order_user(db: Session, order: MembershipOrder, code: ActivationCo
     if not user.is_member:
         user.is_member = True
         user.member_activated_at = now
+        user.member_until = None
     if code.used_by_user_id is None:
         code.used_by_user_id = user.id
         code.used_at = now

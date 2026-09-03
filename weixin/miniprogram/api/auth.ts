@@ -31,3 +31,11 @@ export function loginWithWxCode(code: string, nickname?: string) {
 export function fetchMe() {
   return request<AuthUser>({ url: '/api/auth/me/' })
 }
+
+export function activateMembership(activationCode: string) {
+  return request<AuthUser>({
+    url: '/api/auth/activate/',
+    method: 'POST',
+    data: { activation_code: activationCode },
+  })
+}

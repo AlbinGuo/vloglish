@@ -54,13 +54,15 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 def user_out(user: User) -> UserOut:
     ensure_user_avatar(user)
+    until = user.member_until.strftime("%Y-%m-%d %H:%M:%S") if user.member_until else None
     return UserOut(
         id=user.id,
         email=user.email,
         nickname=user.nickname,
         phone=user.phone,
-        is_member=user.is_member,
+        is_member=user_is_member(user),
         avatar_key=user.avatar_key,
+        member_until=until,
     )
 
 
@@ -123,6 +125,7 @@ def apply_activation_code(db: Session, user: User, code_value: str) -> None:
     activation.used_at = datetime.utcnow()
     user.is_member = True
     user.member_activated_at = datetime.utcnow()
+    user.member_until = None
 
 
 @router.post("/register/", response_model=AuthTokensOut)
@@ -230,6 +233,9 @@ def wechat_mini_login(
         ensure_user_avatar(user)
 
     user.last_client = "weixin"
+    wx_sk = (session.get("session_key") or "").strip()
+    if wx_sk:
+        user.wx_session_key = wx_sk
     db.commit()
     db.refresh(user)
     merge_device_favorites(db, user.id, device_id)

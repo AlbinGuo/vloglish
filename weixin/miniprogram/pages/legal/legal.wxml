@@ -1,0 +1,4 @@
+<view class="page">
+  <text class="h">{{heading}}</text>
+  <text class="p" wx:for="{{paragraphs}}" wx:key="*this">{{item}}</text>
+</view>

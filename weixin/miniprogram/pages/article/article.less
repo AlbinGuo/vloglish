@@ -1,0 +1,167 @@
+.page {
+  min-height: 100%;
+  padding-bottom: calc(140rpx + env(safe-area-inset-bottom));
+  background: #efe8dc;
+}
+
+.hero {
+  position: relative;
+  height: 420rpx;
+  background: #1c1917;
+}
+
+.cover {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.cover-ph {
+  background: linear-gradient(145deg, #1e293b, #0b1220);
+}
+
+.hero-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 120rpx;
+  background: linear-gradient(180deg, transparent, #efe8dc);
+}
+
+.head {
+  padding: 8rpx 36rpx 8rpx;
+}
+
+.title {
+  display: block;
+  font-size: 44rpx;
+  font-weight: 800;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: #0b1220;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10rpx;
+  margin-top: 18rpx;
+}
+
+.pill {
+  font-size: 20rpx;
+  color: #3f3a33;
+  background: #fffdf8;
+  padding: 6rpx 14rpx;
+  border-radius: 999rpx;
+}
+
+.stat {
+  font-size: 20rpx;
+  color: #8a8176;
+}
+
+.paper {
+  padding: 20rpx 28rpx 8rpx;
+}
+
+.seg {
+  position: relative;
+  margin-bottom: 20rpx;
+  padding: 28rpx 28rpx 28rpx 36rpx;
+  background: #fffdf8;
+  border-radius: 22rpx;
+  box-shadow: 0 10rpx 28rpx rgba(11, 18, 32, 0.04);
+  border-left: 6rpx solid transparent;
+}
+
+.seg.is-on {
+  border-left-color: #c4a35a;
+  background: #fffaf0;
+}
+
+.no {
+  display: block;
+  font-size: 18rpx;
+  letter-spacing: 0.16em;
+  color: #b8a99a;
+  margin-bottom: 10rpx;
+}
+
+.en {
+  display: block;
+  font-size: 34rpx;
+  line-height: 1.72;
+  color: #16120c;
+  font-family: Georgia, "Times New Roman", "Songti SC", serif;
+}
+
+.zh {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  line-height: 1.65;
+  color: #6b6358;
+}
+
+.dock {
+  position: fixed;
+  left: 28rpx;
+  right: 28rpx;
+  bottom: calc(20rpx + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 22rpx;
+  background: rgba(11, 18, 32, 0.92);
+  border-radius: 999rpx;
+}
+
+.dock-btn {
+  font-size: 24rpx;
+  color: rgba(244, 241, 234, 0.55);
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+}
+
+.dock-btn.on {
+  color: #0b1220;
+  background: #edd577;
+}
+
+.dock-hint {
+  font-size: 20rpx;
+  color: rgba(244, 241, 234, 0.45);
+}
+
+.state {
+  padding: 180rpx 48rpx;
+  text-align: center;
+}
+
+.state-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #0b1220;
+}
+
+.state-desc {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  color: #78716c;
+  line-height: 1.5;
+}
+
+.state-action {
+  display: inline-block;
+  margin-top: 28rpx;
+  font-size: 24rpx;
+  color: #0b1220;
+  padding: 12rpx 28rpx;
+  border: 1rpx solid rgba(11, 18, 32, 0.16);
+  border-radius: 999rpx;
+}

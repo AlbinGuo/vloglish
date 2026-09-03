@@ -7,6 +7,7 @@ export type AuthUser = {
   phone: string | null
   is_member: boolean
   avatar_key: string | null
+  member_until?: string | null
 }
 
 function randomId(): string {

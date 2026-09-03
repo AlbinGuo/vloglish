@@ -1,0 +1,165 @@
+.page {
+  min-height: 100%;
+  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
+  background: #efe8dc;
+}
+
+.hero {
+  padding: 36rpx 36rpx 32rpx;
+  background: #0b1220;
+  color: #f4f1ea;
+}
+
+.hero-row {
+  display: flex;
+  align-items: center;
+}
+
+.avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background: #edd577;
+  color: #0b1220;
+  font-size: 36rpx;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hero-info {
+  margin-left: 22rpx;
+  min-width: 0;
+}
+
+.name {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.role {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: rgba(244, 241, 234, 0.55);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 28rpx;
+}
+
+.chip {
+  font-size: 20rpx;
+  letter-spacing: 0.04em;
+  color: rgba(244, 241, 234, 0.78);
+  background: rgba(244, 241, 234, 0.08);
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+}
+
+.login-btn {
+  margin: 28rpx 0 0;
+  background: #edd577;
+  color: #0b1220;
+  font-size: 30rpx;
+  font-weight: 700;
+  border-radius: 16rpx;
+}
+
+.login-btn::after {
+  border: none;
+}
+
+.member-cta {
+  margin-top: 28rpx;
+  padding: 22rpx 24rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(135deg, #2a2418, #1a140c);
+  border: 1rpx solid rgba(237, 213, 119, 0.28);
+}
+
+.cta-kicker {
+  display: block;
+  font-size: 18rpx;
+  letter-spacing: 0.18em;
+  color: #edd577;
+}
+
+.cta-title {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.cta-go {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: rgba(237, 213, 119, 0.8);
+}
+
+.group {
+  margin: 28rpx 28rpx 0;
+  padding: 8rpx 0;
+  background: #fffdf8;
+  border-radius: 24rpx;
+  box-shadow: 0 12rpx 32rpx rgba(11, 18, 32, 0.05);
+}
+
+.group-label {
+  display: block;
+  padding: 20rpx 28rpx 8rpx;
+  font-size: 20rpx;
+  letter-spacing: 0.16em;
+  color: #8a8176;
+}
+
+.cell {
+  padding: 22rpx 28rpx;
+  border-bottom: 1rpx solid rgba(11, 18, 32, 0.05);
+}
+
+.cell.last {
+  border-bottom: none;
+}
+
+.cell-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #0b1220;
+}
+
+.cell-sub {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #8a8176;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell.is-soon .cell-title,
+.cell.is-soon .cell-sub {
+  color: #a8a29e;
+}
+
+.logout-btn {
+  margin: 48rpx 28rpx 0;
+  background: transparent;
+  color: #b45309;
+  font-size: 26rpx;
+}
+
+.logout-btn::after {
+  border: none;
+}

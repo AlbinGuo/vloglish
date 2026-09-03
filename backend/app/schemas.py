@@ -11,6 +11,7 @@ class UserOut(BaseModel):
     phone: str | None = None
     is_member: bool
     avatar_key: str | None = None
+    member_until: str | None = None
 
 
 class SetAvatarIn(BaseModel):

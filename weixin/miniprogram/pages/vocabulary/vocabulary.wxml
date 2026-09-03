@@ -1,0 +1,30 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="state">
+    <text class="state-desc">正在打开生词本…</text>
+  </view>
+
+  <view wx:elif="{{error}}" class="state" bindtap="reload">
+    <text class="state-title">加载失败</text>
+    <text class="state-desc">{{error}}</text>
+  </view>
+
+  <view wx:elif="{{empty}}" class="state">
+    <text class="state-title">还没有生词</text>
+    <text class="state-desc">在读报或视频里收藏的词会出现在这里</text>
+  </view>
+
+  <view wx:else class="list">
+    <view
+      class="card"
+      wx:for="{{items}}"
+      wx:key="entry_id"
+      data-id="{{item.entry_id}}"
+      data-word="{{item.word}}"
+      bindtap="onRemove"
+    >
+      <text class="word">{{item.word}}</text>
+      <text class="meaning">{{item.meaning}}</text>
+      <text wx:if="{{item.source}}" class="source">{{item.source}}</text>
+    </view>
+  </view>
+</view>

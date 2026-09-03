@@ -1,0 +1,11 @@
+<view class="page">
+  <input class="input" placeholder="标题" maxlength="80" value="{{title}}" bindinput="onTitle" />
+  <textarea
+    class="area"
+    placeholder="遇到了什么问题，或希望我们做什么"
+    maxlength="2000"
+    value="{{body}}"
+    bindinput="onBody"
+  />
+  <button class="primary" loading="{{submitting}}" bindtap="onSubmit">提交反馈</button>
+</view>

@@ -1,48 +1,62 @@
 <view class="page">
-  <view class="hero">
-    <text class="hero-kicker">Vloglish · 读报</text>
-    <text class="hero-title">生活里的英语</text>
-    <text class="hero-lead">分段阅读真实语料，先把句子读顺。</text>
+  <view wx:if="{{loading}}" class="list">
+    <view class="card" wx:for="{{[1,2,3]}}" wx:key="*this">
+      <view class="cover-sk"></view>
+      <view class="body">
+        <view class="sk sk-title"></view>
+        <view class="sk sk-line"></view>
+        <view class="sk sk-line short"></view>
+      </view>
+    </view>
   </view>
 
-  <view wx:if="{{loading}}" class="state">加载中…</view>
-  <view wx:elif="{{error}}" class="state state-error" bindtap="reload">{{error}}\n点此重试</view>
-  <view wx:elif="{{empty}}" class="state">暂无已发布文章</view>
+  <view wx:elif="{{error}}" class="state" bindtap="reload">
+    <text class="state-title">暂时读不到报纸</text>
+    <text class="state-desc">{{error}}</text>
+    <text class="state-action">轻点重试</text>
+  </view>
+
+  <view wx:elif="{{empty}}" class="state">
+    <text class="state-title">还没有新文章</text>
+    <text class="state-desc">后台发布后会出现在这里</text>
+  </view>
 
   <view wx:else class="list">
     <view
-      class="card {{item.accessible ? '' : 'card-locked'}}"
+      class="card {{item.accessible ? '' : 'is-locked'}}"
       wx:for="{{articles}}"
       wx:key="article_id"
       data-id="{{item.article_id}}"
       bindtap="onOpenArticle"
     >
-      <view class="card-main">
-        <view class="card-text">
-          <view class="title-row">
-            <text wx:if="{{item.is_new}}" class="badge-new">新</text>
-            <text class="title">{{item.title}}</text>
-          </view>
-          <text wx:if="{{item.metaLine}}" class="summary">{{item.metaLine}}</text>
+      <view class="cover-box">
+        <image
+          wx:if="{{item.coverHttps}}"
+          class="cover"
+          src="{{item.coverHttps}}"
+          mode="aspectFill"
+          lazy-load
+          data-id="{{item.article_id}}"
+          binderror="onCoverError"
+        />
+        <view wx:else class="cover cover-ph">
+          <text class="ph-mark">V</text>
         </view>
-        <view class="thumb-wrap">
-          <image
-            wx:if="{{item.coverHttps}}"
-            class="thumb"
-            src="{{item.coverHttps}}"
-            mode="aspectFill"
-            lazy-load
-            data-id="{{item.article_id}}"
-            binderror="onCoverError"
-          />
-          <view wx:else class="thumb thumb-ph">Aa</view>
-          <text wx:if="{{item.progressLabel}}" class="progress">{{item.progressLabel}}</text>
-        </view>
+        <view class="cover-fade"></view>
+        <text wx:if="{{item.is_new}}" class="flag-new">NEW</text>
+        <text wx:if="{{item.progressLabel}}" class="flag-read {{item.done ? 'is-done' : ''}}">{{item.progressLabel}}</text>
+        <text wx:if="{{!item.accessible}}" class="flag-lock">会员</text>
       </view>
-      <view class="chips">
-        <text wx:if="{{item.topic}}" class="chip">{{item.topic}}</text>
-        <text wx:if="{{item.source}}" class="chip">{{item.source}}</text>
-        <text class="chip chip-star">{{item.starsLabel}}</text>
+
+      <view class="body">
+        <text class="title">{{item.title}}</text>
+        <text wx:if="{{item.metaLine}}" class="excerpt">{{item.metaLine}}</text>
+        <view class="meta">
+          <text wx:if="{{item.topic}}" class="pill">{{item.topic}}</text>
+          <text wx:if="{{item.source}}" class="pill">{{item.source}}</text>
+          <text wx:if="{{item.countLabel}}" class="stat">{{item.countLabel}}</text>
+          <text class="stat stars">{{item.starsLabel}}</text>
+        </view>
       </view>
     </view>
   </view>

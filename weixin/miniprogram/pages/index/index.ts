@@ -1,4 +1,4 @@
-import { listArticles, type ArticleListItem } from '../../api/articles'
+import { displaySource, listArticles, type ArticleListItem } from '../../api/articles'
 import { resolveCoverUrl } from '../../utils/mediaUrl'
 
 type Card = ArticleListItem & {
@@ -6,6 +6,8 @@ type Card = ArticleListItem & {
   coverHttps: string
   metaLine: string
   progressLabel: string
+  done: boolean
+  countLabel: string
 }
 
 function starsLabel(n: number): string {
@@ -19,14 +21,17 @@ function mapCard(a: ArticleListItem): Card {
   const summary = (a.summary || '').trim()
   return {
     ...a,
+    source: displaySource(a.source),
     starsLabel: starsLabel(a.stars),
     coverHttps: resolveCoverUrl(a.cover),
     metaLine: summary || [words, segs].filter(Boolean).join(' · '),
     progressLabel: a.progress
       ? a.progress.is_completed
-        ? '完'
-        : `${Math.round(a.progress.completion_percent || 0)}%`
+        ? '已读完'
+        : `读到 ${Math.round(a.progress.completion_percent || 0)}%`
       : '',
+    done: Boolean(a.progress?.is_completed),
+    countLabel: [words, segs].filter(Boolean).join(' · '),
   }
 }
 
@@ -76,6 +81,11 @@ Page({
   onOpenArticle(e: WechatMiniprogram.TouchEvent) {
     const id = e.currentTarget.dataset.id as string
     if (!id) return
-    wx.showToast({ title: '阅读页下一期开放', icon: 'none' })
+    const item = this.data.articles.find((a) => a.article_id === id)
+    if (item && !item.accessible) {
+      wx.navigateTo({ url: '/pages/membership/membership' })
+      return
+    }
+    wx.navigateTo({ url: `/pages/article/article?id=${encodeURIComponent(id)}` })
   },
 })

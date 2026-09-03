@@ -1,5 +1,8 @@
 {
   "navigationBarTitleText": "读报",
-  "enablePullDownRefresh": true,
-  "backgroundTextStyle": "dark"
+  "navigationBarBackgroundColor": "#0b1220",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#efe8dc",
+  "backgroundTextStyle": "dark",
+  "enablePullDownRefresh": true
 }

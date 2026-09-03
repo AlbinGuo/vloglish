@@ -25,7 +25,7 @@ from .models import (
     WordPracticeWrong,
 )
 from .schemas import AuthTokensOut
-from .routers import ai_coach, app_download, article_submit, auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, public_voice_enroll, site_config, wish_wall, word_practice
+from .routers import ai_coach, app_download, article_submit, auth, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, public_voice_enroll, site_config, wish_wall, word_practice, wxpay
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import ai_usage as admin_ai_usage
@@ -76,6 +76,7 @@ app.include_router(article_submit.router)
 app.include_router(articles.router)
 app.include_router(presence.router)
 app.include_router(membership.router)
+app.include_router(wxpay.router)
 app.include_router(ai_coach.router)
 app.include_router(admin_auth.router)
 app.include_router(admin_dashboard.router)
@@ -308,6 +309,18 @@ def _migrate_schema():
         print("[vloglish] migrated users.wx_unionid")
         insp = inspect(engine)
         cols = {c["name"] for c in insp.get_columns("users")}
+    if "member_until" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE users ADD COLUMN member_until {datetime_type}"))
+        print("[vloglish] migrated users.member_until")
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("users")}
+    if "wx_session_key" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN wx_session_key VARCHAR(128)"))
+        print("[vloglish] migrated users.wx_session_key")
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("users")}
     for col, col_type in (
         ("signup_country", "VARCHAR(64)"),
         ("signup_region", "VARCHAR(64)"),
@@ -462,6 +475,21 @@ def _migrate_schema():
         if "user_id" not in mo_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE membership_orders ADD COLUMN user_id INTEGER"))
+        if "plan" not in mo_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE membership_orders ADD COLUMN plan VARCHAR(16) NOT NULL DEFAULT 'forever'")
+                )
+        if "product_id" not in mo_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE membership_orders ADD COLUMN product_id VARCHAR(64) NOT NULL DEFAULT ''")
+                )
+        if "wx_order_id" not in mo_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE membership_orders ADD COLUMN wx_order_id VARCHAR(64) NOT NULL DEFAULT ''")
+                )
     if "user_daily_visits" in insp.get_table_names():
         visit_cols = {c["name"] for c in insp.get_columns("user_daily_visits")}
         if "session_count" not in visit_cols:

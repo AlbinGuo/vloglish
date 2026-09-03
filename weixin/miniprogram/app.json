@@ -1,13 +1,18 @@
 {
   "pages": [
     "pages/index/index",
-    "pages/profile/profile"
+    "pages/article/article",
+    "pages/profile/profile",
+    "pages/vocabulary/vocabulary",
+    "pages/membership/membership",
+    "pages/feedback/feedback",
+    "pages/legal/legal"
   ],
   "window": {
     "navigationBarTitleText": "Vloglish",
     "navigationBarBackgroundColor": "#0b1220",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#f4f1ea"
+    "backgroundColor": "#efe8dc"
   },
   "tabBar": {
     "color": "#737373",
