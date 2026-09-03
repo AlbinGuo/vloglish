@@ -11,12 +11,13 @@ const router = useRouter()
 const auth = useAuthStore()
 const catalog = useCatalogStore()
 
-type PlanId = 'quarter' | 'year' | 'forever'
+type PlanId = 'quarter' | 'year' | 'forever' | 'test'
 
 const plans: { id: PlanId; name: string; price: string; period: string; note: string; recommend: boolean }[] = [
   { id: 'quarter', name: '季度会员', price: '29', period: '3 个月', note: '约 ¥9.7 / 月', recommend: false },
   { id: 'year', name: '年度会员', price: '59', period: '12 个月', note: '约 ¥4.9 / 月', recommend: true },
   { id: 'forever', name: '永久会员', price: '99', period: '一次买断', note: '不再续费', recommend: false },
+  { id: 'test', name: '测试会员', price: '1', period: '1 天', note: 'iOS 最低 1 元 · 联调', recommend: false },
 ]
 
 const selected = ref<PlanId>('year')
@@ -49,6 +50,7 @@ function stopPay() {
     objectUrl = ''
   }
   payQr.value = ''
+  payHint.value = ''
 }
 
 onMounted(async () => {
@@ -65,6 +67,12 @@ onUnmounted(stopPay)
 
 watch(bindOpen, (open, wasOpen) => {
   if (wasOpen && !open && auth.user?.wx_bound) void startScanPay()
+})
+
+watch(selected, () => {
+  stopPay()
+  error.value = ''
+  paidOk.value = false
 })
 
 async function startScanPay() {
@@ -149,7 +157,7 @@ async function submitCode() {
         <section
           class="lg:col-span-3 rounded-2xl border border-black/8 dark:border-white/10 bg-white/95 dark:bg-neutral-900/95 overflow-hidden flex flex-col"
         >
-          <div class="px-5 sm:px-7 pt-6 sm:pt-7 pb-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="px-5 sm:px-7 pt-6 sm:pt-7 pb-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               v-for="p in plans"
               :key="p.id"
