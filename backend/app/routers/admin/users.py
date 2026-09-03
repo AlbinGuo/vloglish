@@ -55,6 +55,7 @@ def _user_item(
         is_staff=user.is_staff,
         is_online=is_user_online(user),
         last_client=(user.last_client or None),
+        wx_bound=bool((user.wx_openid or "").strip()),
         member_activated_at=_fmt_dt(user.member_activated_at),
         activation_code=activation_code if user.is_member else None,
         created_at=_fmt_dt(user.created_at) or "",

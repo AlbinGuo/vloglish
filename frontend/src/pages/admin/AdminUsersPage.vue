@@ -59,12 +59,14 @@ function clientLabel(client: string | null | undefined) {
   if (client === 'web') return '浏览器'
   if (client === 'android') return 'App · Android'
   if (client === 'ios') return 'App · iOS'
+  if (client === 'weixin') return '小程序'
   return ''
 }
 
 function clientBadgeClass(client: string | null | undefined) {
   if (client === 'web') return 'bg-sky-100 text-sky-800'
   if (client === 'android' || client === 'ios') return 'bg-violet-100 text-violet-800'
+  if (client === 'weixin') return 'bg-emerald-100 text-emerald-800'
   return 'bg-neutral-100 text-neutral-500'
 }
 
@@ -283,7 +285,10 @@ onUnmounted(() => {
           · 当前在线 {{ onlineUsers }} 人（近 {{ onlineWindowSec }} 秒有活动，含非会员）
         </span>
         <span class="ml-2">
-          · 「访问端」来自最近心跳：浏览器 / App；在线时为当前端，离线时为离线前最后一端
+          · 「访问端」来自最近心跳：浏览器 / App / 小程序；在线时为当前端，离线时为离线前最后一端
+        </span>
+        <span class="ml-2">
+          · 「微信」表示该账号是否已绑定小程序 openid，用于扫码支付与小程序登录
         </span>
         <span class="ml-2">
           · 「到访天数」按东八区自然日；「到访次数」为会话数（距上次活动超过 30 分钟再上线计为新一次，上线后才开始累计）
@@ -299,8 +304,11 @@ onUnmounted(() => {
         <thead class="bg-neutral-50 text-neutral-500">
           <tr>
             <th class="text-left px-4 py-3 font-medium">邮箱</th>
-            <th class="text-left px-4 py-3 font-medium whitespace-nowrap" title="最近心跳来自浏览器或 App">
+            <th class="text-left px-4 py-3 font-medium whitespace-nowrap" title="最近心跳来自浏览器、App 或小程序">
               访问端
+            </th>
+            <th class="text-left px-4 py-3 font-medium whitespace-nowrap" title="账号是否已绑定微信小程序">
+              微信
             </th>
             <th class="text-left px-4 py-3 font-medium">会员</th>
             <th class="text-left px-4 py-3 font-medium">状态</th>
@@ -364,6 +372,19 @@ onUnmounted(() => {
                 <div v-if="!user.is_online" class="mt-1 text-[10px] text-neutral-400">离线前</div>
               </template>
               <span v-else class="text-neutral-400">—</span>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span
+                class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium leading-none"
+                :class="
+                  user.wx_bound
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-neutral-100 text-neutral-500'
+                "
+                :title="user.wx_bound ? '已绑定微信小程序' : '未绑定微信小程序'"
+              >
+                {{ user.wx_bound ? '已关联' : '未关联' }}
+              </span>
             </td>
             <td class="px-4 py-3">
               <div class="space-y-1.5">
@@ -454,7 +475,7 @@ onUnmounted(() => {
             </td>
           </tr>
           <tr v-if="!rows.length">
-            <td colspan="16" class="px-4 py-8 text-center text-neutral-500">暂无数据</td>
+            <td colspan="17" class="px-4 py-8 text-center text-neutral-500">暂无数据</td>
           </tr>
         </tbody>
       </table>

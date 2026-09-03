@@ -268,6 +268,7 @@ class AdminUserListItemOut(BaseModel):
     is_staff: bool
     is_online: bool = False
     last_client: str | None = None
+    wx_bound: bool = False
     member_activated_at: str | None = None
     activation_code: str | None = None
     created_at: str

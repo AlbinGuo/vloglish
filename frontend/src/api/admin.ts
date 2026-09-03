@@ -197,8 +197,10 @@ export interface UserRow {
   is_active: boolean
   is_staff: boolean
   is_online?: boolean
-  /** 最近心跳客户端：web | android | ios */
+  /** 最近心跳客户端：web | android | ios | weixin */
   last_client?: string | null
+  /** 是否已关联微信小程序 */
+  wx_bound?: boolean
   member_activated_at: string | null
   /** 会员对应激活码（若有） */
   activation_code?: string | null
