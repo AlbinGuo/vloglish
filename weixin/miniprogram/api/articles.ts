@@ -13,6 +13,10 @@ export type ArticleListItem = {
   published_at: string | null
   is_new: boolean
   accessible: boolean
+  progress?: {
+    is_completed: boolean
+    completion_percent: number
+  } | null
 }
 
 export type ArticleListOut = {

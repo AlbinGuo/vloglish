@@ -1,34 +1,48 @@
 <view class="page">
   <view class="hero">
-    <text class="hero-kicker">Vloglish</text>
-    <text class="hero-title">读报</text>
-    <text class="hero-lead">真实语料分段阅读，先听懂生活里的英语。</text>
+    <text class="hero-kicker">Vloglish · 读报</text>
+    <text class="hero-title">生活里的英语</text>
+    <text class="hero-lead">分段阅读真实语料，先把句子读顺。</text>
   </view>
 
   <view wx:if="{{loading}}" class="state">加载中…</view>
-  <view wx:elif="{{error}}" class="state state-error" bindtap="reload">{{error}}，点此重试</view>
+  <view wx:elif="{{error}}" class="state state-error" bindtap="reload">{{error}}\n点此重试</view>
   <view wx:elif="{{empty}}" class="state">暂无已发布文章</view>
 
   <view wx:else class="list">
     <view
-      class="card"
+      class="card {{item.accessible ? '' : 'card-locked'}}"
       wx:for="{{articles}}"
       wx:key="article_id"
       data-id="{{item.article_id}}"
       bindtap="onOpenArticle"
     >
-      <image wx:if="{{item.cover}}" class="cover" src="{{item.cover}}" mode="aspectFill" />
-      <view class="card-body">
-        <view class="meta">
-          <text wx:if="{{item.source}}" class="source">{{item.source}}</text>
-          <text wx:if="{{item.is_new}}" class="badge">新</text>
+      <view class="card-main">
+        <view class="card-text">
+          <view class="title-row">
+            <text wx:if="{{item.is_new}}" class="badge-new">新</text>
+            <text class="title">{{item.title}}</text>
+          </view>
+          <text wx:if="{{item.metaLine}}" class="summary">{{item.metaLine}}</text>
         </view>
-        <text class="title">{{item.title}}</text>
-        <text wx:if="{{item.summary}}" class="summary">{{item.summary}}</text>
-        <view class="foot">
-          <text class="stars">{{item.starsLabel}}</text>
-          <text class="words" wx:if="{{item.word_count}}">{{item.word_count}} 词</text>
+        <view class="thumb-wrap">
+          <image
+            wx:if="{{item.coverHttps}}"
+            class="thumb"
+            src="{{item.coverHttps}}"
+            mode="aspectFill"
+            lazy-load
+            data-id="{{item.article_id}}"
+            binderror="onCoverError"
+          />
+          <view wx:else class="thumb thumb-ph">Aa</view>
+          <text wx:if="{{item.progressLabel}}" class="progress">{{item.progressLabel}}</text>
         </view>
+      </view>
+      <view class="chips">
+        <text wx:if="{{item.topic}}" class="chip">{{item.topic}}</text>
+        <text wx:if="{{item.source}}" class="chip">{{item.source}}</text>
+        <text class="chip chip-star">{{item.starsLabel}}</text>
       </view>
     </view>
   </view>

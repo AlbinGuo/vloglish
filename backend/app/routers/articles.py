@@ -8,6 +8,7 @@ from ..database import get_db
 from ..deps import get_current_user, get_current_user_optional, get_device_id
 from ..models import Article, User
 from ..schemas import ArticleProgressUpdateIn
+from ..media import resolve_cover_url
 from ..serializers import article_detail, article_list_item, article_progress_out, article_segment_out
 from ..services.article_access import (
     can_access_article,
@@ -153,7 +154,7 @@ def continue_reading(
                 "article_id": article.article_id,
                 "title": article.title,
                 "source": article.source or "",
-                "cover": article.cover or "",
+                "cover": resolve_cover_url(article.cover or ""),
                 "completion_percent": round(row.completion_percent, 1),
                 "last_read_at": row.last_read_at.isoformat() if row.last_read_at else None,
             }
