@@ -39,7 +39,6 @@ from ..schemas import (
     UserOut,
 )
 from ..services.daily_visits import record_daily_visit
-from ..services.site_settings import is_membership_gate_enabled
 from ..services.user_avatar import (
     DEFAULT_AVATAR_KEYS,
     ensure_user_avatar,
@@ -144,13 +143,10 @@ def register(
         raise HTTPException(status_code=400, detail="该邮箱已注册")
 
     code_value = (body.activation_code or "").strip()
-    # 关会员内容门槛期间注册：永久赠会员（含 AI 不限）；门槛再开后仍保留
-    gift_member = not is_membership_gate_enabled(db)
     user = User(
         email=email,
         password_hash=hash_password(body.password),
-        is_member=gift_member,
-        member_activated_at=datetime.utcnow() if gift_member else None,
+        is_member=False,
     )
     apply_signup_geo(user, get_client_ip(request))
     db.add(user)
@@ -209,7 +205,6 @@ def wechat_mini_login(
             user.wx_openid = openid
 
     if not user:
-        gift_member = not is_membership_gate_enabled(db)
         nick = (body.nickname or "").strip()[:64] or None
         user = User(
             email=f"wx_{openid}@weixin.vloglish.invalid",
@@ -217,8 +212,7 @@ def wechat_mini_login(
             nickname=nick,
             wx_openid=openid,
             wx_unionid=unionid,
-            is_member=gift_member,
-            member_activated_at=datetime.utcnow() if gift_member else None,
+            is_member=False,
         )
         apply_signup_geo(user, get_client_ip(request))
         db.add(user)

@@ -85,8 +85,8 @@ async function toggleMembershipGate() {
   if (gateSaving.value) return
   const next = !membershipGateEnabled.value
   const confirmMsg = next
-    ? '开启后：非会员立即恢复视频/合集/文章限量；关开关期间注册并获赠的会员不受影响。确认开启？'
-    : '关闭后：已登录用户可看全部视频、合集与文章；AI 仍限量。期间新注册用户永久获赠会员。确认关闭？'
+    ? '开启后：非会员立即恢复视频/合集/文章限量。确认开启？'
+    : '关闭后：已登录用户可看全部视频、合集与文章；AI 仍限量。新注册用户仍是普通用户。确认关闭？'
   if (!window.confirm(confirmMsg)) return
 
   gateSaving.value = true
@@ -194,7 +194,7 @@ function barWidth(rate: number) {
         <div class="min-w-0 flex-1">
           <h2 class="font-medium text-neutral-900">会员内容限制</h2>
           <p class="mt-1 text-sm text-neutral-600 leading-relaxed max-w-2xl">
-            开启时按 Freemium：非会员视频/合集/文章限量，AI 每日限额。关闭时：已登录可看全部视频、合集与文章，AI 仍限；关闭期间新注册用户永久获赠会员。
+            开启时按 Freemium：非会员视频/合集/文章限量，AI 每日限额。关闭时：已登录可看全部视频、合集与文章，AI 仍限；新注册用户仍是普通用户，不会自动成为会员。
           </p>
           <p class="mt-2 text-sm font-medium" :class="membershipGateEnabled ? 'text-amber-800' : 'text-sky-800'">
             当前：{{ membershipGateEnabled ? '已开启（内容限量）' : '已关闭（登录用户内容全开）' }}
