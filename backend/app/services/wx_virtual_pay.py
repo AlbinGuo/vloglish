@@ -53,7 +53,8 @@ PLANS: dict[str, dict] = {
     PLAN_TEST: {
         "name": "测试会员",
         "days": 1,
-        "price_cent": 1,
+        # iOS 虚拟支付最低 1 元（100 分），1 分会报 IOS_ORDER_PRICE_TOO_LOW
+        "price_cent": 100,
         "product_env": "WECHAT_XPAY_PRODUCT_TEST",
         "product_default": "member_test",
     },

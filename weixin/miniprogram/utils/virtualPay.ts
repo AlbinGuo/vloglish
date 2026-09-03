@@ -24,6 +24,9 @@ function payFailMessage(err: { errMsg?: string; errCode?: number }): string {
   if (/尚未开启\s*IOS支付|尚未开启iOS支付|IOS支付/i.test(raw)) {
     return '苹果手机需先在微信后台开通 iOS 支付。可先用安卓测试。'
   }
+  if (/IOS_ORDER_PRICE_TOO_LOW|PRICE_TOO_LOW/i.test(raw)) {
+    return '苹果支付最低 1 元，请改用 1 元测试档或正式套餐'
+  }
   if (/cancel|取消/i.test(raw)) return '已取消支付'
   const msg = (err.errMsg || '').replace(/^requestVirtualPayment:fail\s*/i, '').trim()
   return msg || '支付取消或失败'

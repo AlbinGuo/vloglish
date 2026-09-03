@@ -43,9 +43,9 @@ const PLANS: Omit<Plan, 'selected'>[] = [
   {
     id: 'test',
     name: '测试会员',
-    price: '0.01',
+    price: '1',
     period: '1 天',
-    note: '支付联调用',
+    note: 'iOS 最低 1 元 · 联调',
     recommended: false,
   },
 ]
