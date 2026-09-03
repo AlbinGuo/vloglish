@@ -441,7 +441,7 @@ onUnmounted(() => {
             v-if="remoteVoice?.needsReenroll"
             class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
           >
-            需重新录制以启用语速/停顿对齐。旧版音色无法控制节奏，请再录一段后提交。
+            当前音色绑定的是旧合成模型，无法直接用于新模型，请再录一段后提交。
           </div>
 
           <!-- 已有音色 -->

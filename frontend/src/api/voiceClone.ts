@@ -94,38 +94,43 @@ export async function fetchVoiceCloneSample(): Promise<Blob> {
 }
 
 const speakCache: { key: string; blob: Blob }[] = []
+const speakInflight = new Map<string, Promise<Blob>>()
 const MAX_SPEAK_CACHE = 30
 
-function speakCacheKey(text: string, durationMs?: number): string {
-  const t = text.trim().replace(/\s+/g, ' ')
-  if (durationMs == null || durationMs <= 0) return t
-  const bucket = Math.round(durationMs / 80) * 80
-  return `${t}#${bucket}`
+function speakCacheKey(text: string): string {
+  return text.trim().replace(/\s+/g, ' ')
 }
 
-export async function fetchClonedSpeak(text: string, durationMs?: number): Promise<Blob> {
+async function requestClonedSpeak(cleaned: string, key: string): Promise<Blob> {
+  const { data } = await api.post<Blob>(
+    '/api/ai/voice-clone/speak/',
+    { text: cleaned },
+    { responseType: 'blob', timeout: 120000 },
+  )
+  if (!(data instanceof Blob)) throw new Error('合成返回无效')
+  if (data.type && data.type.includes('application/json')) {
+    throw new Error(await detailFromBlob(data, '合成失败'))
+  }
+  speakCache.push({ key, blob: data })
+  while (speakCache.length > MAX_SPEAK_CACHE) speakCache.shift()
+  return data
+}
+
+export async function fetchClonedSpeak(text: string): Promise<Blob> {
   const cleaned = text.trim().replace(/\s+/g, ' ')
-  const key = speakCacheKey(cleaned, durationMs)
+  const key = speakCacheKey(cleaned)
   const hit = speakCache.find((e) => e.key === key)
   if (hit) return hit.blob
 
+  const pending = speakInflight.get(key)
+  if (pending) return pending
+
+  const task = requestClonedSpeak(cleaned, key).finally(() => {
+    speakInflight.delete(key)
+  })
+  speakInflight.set(key, task)
   try {
-    const body: { text: string; duration_ms?: number } = { text: cleaned }
-    if (durationMs != null && durationMs > 0) {
-      body.duration_ms = Math.round(durationMs)
-    }
-    const { data } = await api.post<Blob>(
-      '/api/ai/voice-clone/speak/',
-      body,
-      { responseType: 'blob', timeout: 60000 },
-    )
-    if (!(data instanceof Blob)) throw new Error('合成返回无效')
-    if (data.type && data.type.includes('application/json')) {
-      throw new Error(await detailFromBlob(data, '合成失败'))
-    }
-    speakCache.push({ key, blob: data })
-    while (speakCache.length > MAX_SPEAK_CACHE) speakCache.shift()
-    return data
+    return await task
   } catch (e: unknown) {
     const err = e as { response?: { data?: unknown }; message?: string }
     const data = err.response?.data

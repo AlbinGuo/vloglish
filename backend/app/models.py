@@ -650,7 +650,7 @@ class UserClonedVoice(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
     voice: Mapped[str] = mapped_column(String(128), default="")
-    tts_model: Mapped[str] = mapped_column(String(64), default="cosyvoice-v3-flash")
+    tts_model: Mapped[str] = mapped_column(String(64), default="cosyvoice-v3-plus")
     preferred_name: Mapped[str] = mapped_column(String(16), default="")
     sample_text: Mapped[str] = mapped_column(Text, default="")
     language: Mapped[str] = mapped_column(String(8), default="en")

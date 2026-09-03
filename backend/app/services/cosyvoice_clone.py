@@ -5,16 +5,21 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
+import time
 import urllib.error
 import urllib.request
 
 from .qwen_dashscope_tts import qwen_tts_configured
 from .tts_common import ensure_mp3_bytes, normalize_tts_text
 
-VOICE_CLONE_TTS_MODEL = "cosyvoice-v3-flash"
+VOICE_CLONE_TTS_MODEL = (
+    os.getenv("COSYVOICE_TTS_MODEL", "cosyvoice-v3-plus").strip() or "cosyvoice-v3-plus"
+)
 VOICE_ENROLLMENT_MODEL = "voice-enrollment"
 
 _PREFIX_RE = re.compile(r"^[a-z0-9]{1,10}$")
+_tts_lock = threading.Lock()
 
 
 def voice_clone_configured() -> bool:
@@ -69,46 +74,73 @@ def normalize_clone_language(language: str | None) -> str:
     return "en"
 
 
+def _is_rate_limited(status: int | None, message: str, code: str = "") -> bool:
+    blob = f"{code} {message}".lower()
+    return (
+        status == 429
+        or "throttling" in blob
+        or "ratequota" in blob
+        or "rate limit" in blob
+    )
+
+
 def _post_json(url: str, payload: dict, *, timeout: int = 180) -> dict:
     if not voice_clone_configured():
         raise RuntimeError("未配置有效的 DASHSCOPE_API_KEY")
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        method="POST",
-        headers={
-            "Authorization": f"Bearer {_api_key()}",
-            "Content-Type": "application/json",
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        raw = exc.read().decode("utf-8", errors="replace")
+    raw_body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    delay = 0.8
+    last_message = ""
+    for attempt in range(4):
+        req = urllib.request.Request(
+            url,
+            data=raw_body,
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {_api_key()}",
+                "Content-Type": "application/json",
+            },
+        )
         try:
-            detail = json.loads(raw)
-            message = (
-                detail.get("message")
-                or detail.get("Message")
-                or raw[:500]
-            )
-            code = detail.get("code") or detail.get("Code")
-            if code:
-                message = f"{code}: {message}"
-        except json.JSONDecodeError:
-            message = raw[:500]
-        if exc.code == 401:
-            raise RuntimeError("DashScope API Key 无效或已失效") from exc
-        raise RuntimeError(f"DashScope 请求失败 ({exc.code}): {message}") from exc
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            raw = exc.read().decode("utf-8", errors="replace")
+            code = ""
+            try:
+                detail = json.loads(raw)
+                message = (
+                    detail.get("message")
+                    or detail.get("Message")
+                    or raw[:500]
+                )
+                code = str(detail.get("code") or detail.get("Code") or "")
+                if code:
+                    message = f"{code}: {message}"
+            except json.JSONDecodeError:
+                message = raw[:500]
+            last_message = message
+            if exc.code == 401:
+                raise RuntimeError("DashScope API Key 无效或已失效") from exc
+            if _is_rate_limited(exc.code, message, code) and attempt < 3:
+                time.sleep(delay)
+                delay *= 2
+                continue
+            if _is_rate_limited(exc.code, message, code):
+                raise RuntimeError("声音合成繁忙，请稍后再试") from exc
+            raise RuntimeError(f"DashScope 请求失败 ({exc.code}): {message}") from exc
+    raise RuntimeError(last_message or "声音合成繁忙，请稍后再试")
 
 
 def _raise_if_error(body: dict) -> None:
     status = body.get("status_code")
     if status is not None and int(status) != 200:
         raise RuntimeError(body.get("message") or f"DashScope 失败 (HTTP {status})")
-    if body.get("code"):
-        raise RuntimeError(body.get("message") or f"DashScope 错误: {body.get('code')}")
+    code = str(body.get("code") or "")
+    message = str(body.get("message") or "")
+    if _is_rate_limited(None, message, code):
+        raise RuntimeError("声音合成繁忙，请稍后再试")
+    if code:
+        raise RuntimeError(message or f"DashScope 错误: {code}")
 
 
 def create_cloned_voice(*, audio_url: str, language: str = "en", prefix: str = "vloglish") -> dict:
@@ -158,6 +190,7 @@ def synthesize_with_cloned_voice(
     enable_ssml: bool = False,
     rate: float | None = None,
     pitch: float | None = None,
+    instruction: str | None = None,
 ) -> bytes:
     voice_id = (voice or "").strip()
     if not voice_id:
@@ -181,9 +214,13 @@ def synthesize_with_cloned_voice(
         inp["rate"] = max(0.5, min(2.0, float(rate)))
     if pitch is not None:
         inp["pitch"] = max(0.5, min(2.0, float(pitch)))
+    hint = (instruction or "").strip()
+    if hint:
+        inp["instruction"] = hint[:100]
 
     payload = {"model": model, "input": inp}
-    body = _post_json(_synthesizer_url(), payload, timeout=120)
+    with _tts_lock:
+        body = _post_json(_synthesizer_url(), payload, timeout=120)
     _raise_if_error(body)
     audio = (body.get("output") or {}).get("audio") or {}
     url = audio.get("url")

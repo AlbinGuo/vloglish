@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject } from 'vue'
+import { computed, inject } from 'vue'
 import { READING_TTS_KEY } from '@/composables/useReadingTts'
 
 const props = defineProps<{
@@ -9,8 +9,15 @@ const props = defineProps<{
 
 const tts = inject(READING_TTS_KEY, null)
 
+const playable = computed(() => tts?.canPlaySegment(props.segmentIndex) ?? props.hasAudio)
+const active = computed(
+  () =>
+    tts?.playingIndex.value === props.segmentIndex &&
+    Boolean(tts?.isPlaying.value || tts?.synthesizing.value),
+)
+
 function onClick() {
-  if (!tts || !props.hasAudio) return
+  if (!tts || !playable.value) return
   if (tts.isPlaying.value && tts.playingIndex.value === props.segmentIndex) {
     tts.pause()
     return
@@ -21,19 +28,19 @@ function onClick() {
 
 <template>
   <button
-    v-if="hasAudio"
+    v-if="playable"
     type="button"
     class="shrink-0 mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-black/8 dark:border-white/10 text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-neutral-100 dark:hover:bg-neutral-800 transition-colors"
     :class="
-      tts?.playingIndex.value === segmentIndex && tts?.isPlaying.value
+      active
         ? 'text-amber-600 border-amber-300/60 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/20'
         : ''
     "
-    :aria-label="tts?.playingIndex.value === segmentIndex && tts?.isPlaying.value ? '暂停朗读' : '朗读本段'"
+    :aria-label="active ? '暂停朗读' : '朗读本段'"
     @click.stop="onClick"
   >
     <svg
-      v-if="tts?.playingIndex.value === segmentIndex && tts?.isPlaying.value"
+      v-if="active"
       width="14"
       height="14"
       viewBox="0 0 24 24"
