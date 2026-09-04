@@ -2,6 +2,7 @@ import secrets
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..auth_utils import (
@@ -46,7 +47,7 @@ from ..services.user_avatar import (
     persist_user_avatar,
 )
 from ..services.user_geo import apply_signup_geo, backfill_signup_geo
-from ..services.account_merge import is_wechat_only
+from ..services.account_merge import is_wechat_only, wechat_placeholder_email
 from ..services import wechat_mini as wechat_mini_svc
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -198,16 +199,26 @@ def wechat_mini_login(
 
     openid = session["openid"]
     unionid = session.get("unionid") or None
+    placeholder_email = wechat_placeholder_email(openid)
     user = db.query(User).filter(User.wx_openid == openid).first()
     if not user and unionid:
         user = db.query(User).filter(User.wx_unionid == unionid).first()
         if user and not user.wx_openid:
             user.wx_openid = openid
+    # 合并进邮箱后影子号仍占着占位邮箱；管理端解绑后再登录不能再插一条
+    if not user:
+        user = db.query(User).filter(User.email == placeholder_email).first()
+        if user:
+            user.wx_openid = openid
+            if unionid:
+                user.wx_unionid = unionid
+            if not user.is_active:
+                user.is_active = True
 
     if not user:
         nick = (body.nickname or "").strip()[:64] or None
         user = User(
-            email=f"wx_{openid}@weixin.vloglish.invalid",
+            email=placeholder_email,
             password_hash=hash_password(secrets.token_urlsafe(32)),
             nickname=nick,
             wx_openid=openid,
@@ -216,8 +227,24 @@ def wechat_mini_login(
         )
         apply_signup_geo(user, get_client_ip(request))
         db.add(user)
-        db.flush()
-        ensure_user_avatar(user)
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            user = (
+                db.query(User).filter(User.wx_openid == openid).first()
+                or db.query(User).filter(User.email == placeholder_email).first()
+            )
+            if not user:
+                raise HTTPException(status_code=409, detail="微信登录冲突，请重试") from None
+            user.wx_openid = openid
+            if unionid:
+                user.wx_unionid = unionid
+            if not user.is_active:
+                user.is_active = True
+            ensure_user_avatar(user)
+        else:
+            ensure_user_avatar(user)
     else:
         if not user.is_active:
             raise HTTPException(status_code=403, detail="账号已停用")

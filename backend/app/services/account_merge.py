@@ -43,6 +43,10 @@ from ..models import (
 WECHAT_EMAIL_SUFFIX = "@weixin.vloglish.invalid"
 
 
+def wechat_placeholder_email(openid: str) -> str:
+    return f"wx_{(openid or '').strip()}{WECHAT_EMAIL_SUFFIX}"
+
+
 def is_wechat_only(user: User) -> bool:
     email = (user.email or "").strip().lower()
     return email.endswith(WECHAT_EMAIL_SUFFIX)
