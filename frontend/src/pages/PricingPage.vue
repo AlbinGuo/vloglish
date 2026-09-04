@@ -145,10 +145,10 @@ async function submitCode() {
         >
           微信扫码支付
         </p>
-        <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight text-neutral-900 dark:text-white">
+        <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight text-[#111111] dark:text-[#f7f3ea]">
           选套餐，手机扫码开通
         </h1>
-        <p class="mt-2 text-sm sm:text-base text-neutral-500 dark:text-neutral-400 max-w-lg mx-auto leading-relaxed">
+        <p class="mt-2 text-sm sm:text-base text-neutral-700 dark:text-neutral-300 max-w-lg mx-auto leading-relaxed">
           请先关联网页账号与小程序。支付完成后本页会自动跳转。
         </p>
       </header>
