@@ -201,6 +201,8 @@ export interface UserRow {
   last_client?: string | null
   /** 是否已关联微信小程序 */
   wx_bound?: boolean
+  /** 仅微信影子账号（无网页邮箱） */
+  wechat_only?: boolean
   member_activated_at: string | null
   /** 会员对应激活码（若有） */
   activation_code?: string | null
@@ -423,6 +425,11 @@ export async function adminUpdateUser(
   payload: Partial<Pick<UserRow, 'is_member' | 'is_active' | 'nickname' | 'phone'>>,
 ) {
   const { data } = await adminApi.patch<AdminUser>(`/api/admin/users/${userId}/`, payload)
+  return data
+}
+
+export async function adminUnbindWechat(userId: number) {
+  const { data } = await adminApi.post<AdminUser>(`/api/admin/users/${userId}/unbind-wechat/`)
   return data
 }
 

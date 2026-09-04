@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from ...database import get_db
 from ...deps import get_current_admin
-from ...models import ActivationCode, User
+from ...models import AccountBindToken, ActivationCode, User
 from ...schemas import (
     AdminUserGeoStatsOut,
     AdminUserListItemOut,
@@ -20,6 +20,7 @@ from ...schemas import (
 from ...services.daily_visits import visit_hourly_stats, visit_stats_for_users
 from ...services.page_dwell import top_pages_for_users, user_page_dwell_top
 from ...services.presence import is_user_online
+from ...services.account_merge import is_wechat_only
 from ...services.user_geo import user_geo_stats
 from ...services.user_segments import (
     VALID_SEGMENTS,
@@ -56,6 +57,7 @@ def _user_item(
         is_online=is_user_online(user),
         last_client=(user.last_client or None),
         wx_bound=bool((user.wx_openid or "").strip()),
+        wechat_only=is_wechat_only(user),
         member_activated_at=_fmt_dt(user.member_activated_at),
         activation_code=activation_code if user.is_member else None,
         created_at=_fmt_dt(user.created_at) or "",
@@ -225,6 +227,43 @@ def update_user(
     if body.phone is not None:
         user.phone = body.phone or None
 
+    db.commit()
+    db.refresh(user)
+    return AdminUserOut(
+        id=user.id,
+        email=user.email,
+        nickname=user.nickname,
+        phone=user.phone,
+        is_member=user.is_member,
+        is_staff=user.is_staff,
+    )
+
+
+@router.post("/{user_id}/unbind-wechat/", response_model=AdminUserOut)
+def unbind_wechat(
+    user_id: int,
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    if not (user.wx_openid or "").strip():
+        raise HTTPException(status_code=400, detail="该账号未关联微信")
+    if is_wechat_only(user):
+        raise HTTPException(
+            status_code=400,
+            detail="该账号仅能用微信登录，解绑后将无法进入。请先让用户在小程序关联网页邮箱",
+        )
+
+    user.wx_openid = None
+    user.wx_unionid = None
+    user.wx_session_key = None
+    now = datetime.utcnow()
+    db.query(AccountBindToken).filter(
+        AccountBindToken.user_id == user.id,
+        AccountBindToken.consumed_at.is_(None),
+    ).update({AccountBindToken.expires_at: now}, synchronize_session=False)
     db.commit()
     db.refresh(user)
     return AdminUserOut(

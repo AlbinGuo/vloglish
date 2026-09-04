@@ -5,6 +5,7 @@ import {
   adminFetchUserSegments,
   adminFetchVisitHourlyStats,
   adminListUsers,
+  adminUnbindWechat,
   adminUpdateUser,
   type AdminUserSegment,
   type AdminUserSegmentKey,
@@ -148,6 +149,30 @@ async function toggleActive(user: UserRow) {
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
     error.value = msg || '更新失败'
+  } finally {
+    savingId.value = null
+  }
+}
+
+async function unbindWechat(user: UserRow) {
+  if (user.wechat_only) {
+    error.value = '该账号仅能用微信登录，请先让用户在小程序关联网页邮箱'
+    return
+  }
+  if (
+    !confirm(
+      `确定解除 ${user.email} 的微信关联？解绑后该微信可重新绑定其他网页账号，本账号也无法再扫码支付。`,
+    )
+  ) {
+    return
+  }
+  savingId.value = user.id
+  try {
+    await adminUnbindWechat(user.id)
+    await Promise.all([load(), loadSegments()])
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+    error.value = msg || '解绑失败'
   } finally {
     savingId.value = null
   }
@@ -471,6 +496,20 @@ onUnmounted(() => {
                 @click="toggleActive(user)"
               >
                 {{ user.is_active ? '停用' : '启用' }}
+              </button>
+              <button
+                v-if="user.wx_bound"
+                type="button"
+                class="text-neutral-600 hover:underline disabled:opacity-50"
+                :disabled="savingId === user.id || user.wechat_only"
+                :title="
+                  user.wechat_only
+                    ? '仅微信账号，请先关联网页邮箱'
+                    : '解除微信与该网页账号的绑定'
+                "
+                @click="unbindWechat(user)"
+              >
+                解绑微信
               </button>
             </td>
           </tr>
