@@ -77,35 +77,6 @@
   border: none;
 }
 
-.member-cta {
-  margin-top: 28rpx;
-  padding: 22rpx 24rpx;
-  border-radius: 20rpx;
-  background: linear-gradient(135deg, #2a2418, #1a140c);
-  border: 1rpx solid rgba(237, 213, 119, 0.28);
-}
-
-.cta-kicker {
-  display: block;
-  font-size: 18rpx;
-  letter-spacing: 0.18em;
-  color: #edd577;
-}
-
-.cta-title {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 30rpx;
-  font-weight: 700;
-}
-
-.cta-go {
-  display: block;
-  margin-top: 10rpx;
-  font-size: 22rpx;
-  color: rgba(237, 213, 119, 0.8);
-}
-
 .group {
   margin: 28rpx 28rpx 0;
   padding: 8rpx 0;

@@ -1,6 +1,5 @@
 <view class="page">
   <view class="block records">
-    <text class="h">我的学习记录</text>
     <view class="demo" wx:for="{{demos}}" wx:key="en">
       <text class="demo-en">{{item.en}}</text>
       <text class="demo-zh">{{item.zh}}</text>

@@ -1,6 +1,4 @@
 import { loginWithWxCode, wxLoginCode } from '../../api/auth'
-import { continueReading } from '../../api/articles'
-import { getLearningSummary } from '../../api/learning'
 import { clearSession, displayName, getStoredUser, setSession, type AuthUser } from '../../utils/auth'
 
 Page({
@@ -11,9 +9,6 @@ Page({
     isMember: false,
     memberLabel: '登录后同步学习进度',
     loading: false,
-    vocabCount: 0,
-    continueTitle: '',
-    continueId: '',
     wechatOnly: false,
     wxBound: false,
     emailLabel: '',
@@ -22,7 +17,6 @@ Page({
 
   onShow() {
     this.syncUser(getApp<IAppOption>().globalData.user || getStoredUser())
-    void this.refreshExtras()
   },
 
   syncUser(user: AuthUser | null) {
@@ -45,31 +39,6 @@ Page({
     })
   },
 
-  async refreshExtras() {
-    const user = getApp<IAppOption>().globalData.user || getStoredUser()
-    if (!user) {
-      this.setData({ vocabCount: 0, continueTitle: '', continueId: '' })
-      return
-    }
-
-    const [summary, cont] = await Promise.allSettled([
-      getLearningSummary(),
-      continueReading(),
-    ])
-
-    this.setData({
-      vocabCount: summary.status === 'fulfilled' ? summary.value.vocabulary_count || 0 : 0,
-      continueTitle:
-        cont.status === 'fulfilled' && cont.value.results?.[0]
-          ? cont.value.results[0].title
-          : '',
-      continueId:
-        cont.status === 'fulfilled' && cont.value.results?.[0]
-          ? cont.value.results[0].article_id
-          : '',
-    })
-  },
-
   async onLogin() {
     if (this.data.loading) return
     this.setData({ loading: true })
@@ -79,7 +48,6 @@ Page({
       setSession(tokens.access, tokens.refresh, tokens.user)
       getApp<IAppOption>().globalData.user = tokens.user
       this.syncUser(tokens.user)
-      await this.refreshExtras()
       wx.showToast({ title: '已登录', icon: 'success' })
     } catch (e) {
       wx.showToast({
@@ -95,8 +63,6 @@ Page({
     clearSession()
     getApp<IAppOption>().globalData.user = null
     this.syncUser(null)
-    this.setData({ vocabCount: 0, continueTitle: '', continueId: '' })
-    void this.refreshExtras()
     wx.showToast({ title: '已退出', icon: 'none' })
   },
 
@@ -104,26 +70,6 @@ Page({
     if (this.data.loggedIn) return true
     wx.showToast({ title: '请先登录', icon: 'none' })
     return false
-  },
-
-  onContinue() {
-    if (!this.requireLogin()) return
-    if (!this.data.continueTitle) {
-      wx.showToast({ title: '还没有阅读进度', icon: 'none' })
-      return
-    }
-    if (!this.data.continueId) {
-      wx.showToast({ title: '还没有阅读进度', icon: 'none' })
-      return
-    }
-    wx.navigateTo({
-      url: `/pages/article/article?id=${encodeURIComponent(this.data.continueId)}`,
-    })
-  },
-
-  onVocab() {
-    if (!this.requireLogin()) return
-    wx.navigateTo({ url: '/pages/vocabulary/vocabulary' })
   },
 
   onBindEmail() {

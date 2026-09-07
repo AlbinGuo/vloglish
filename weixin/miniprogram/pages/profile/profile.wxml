@@ -14,20 +14,6 @@
       loading="{{loading}}"
       bindtap="onLogin"
     >微信一键登录</button>
-
-    <view wx:elif="{{!isMember}}" class="member-cta" bindtap="onMembership">
-      <text class="cta-kicker">会员权益</text>
-      <text class="cta-title">季度 / 年度 / 永久三档</text>
-      <text class="cta-go">去开通</text>
-    </view>
-  </view>
-
-  <view class="group">
-    <text class="group-label">学习</text>
-    <view class="cell last" bindtap="onVocab">
-      <text class="cell-title">生词本</text>
-      <text class="cell-sub">{{loggedIn ? (vocabCount + ' 个词') : '登录后查看'}}</text>
-    </view>
   </view>
 
   <view class="group">
