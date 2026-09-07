@@ -903,6 +903,7 @@ watch(layoutMode, async () => {
       :has-next="false"
       @close="oralOpen = false"
       @play="onOralPlay"
+      @pause="readingTts.stop()"
       @next="oralOpen = false"
     />
     <ReadingShareCard

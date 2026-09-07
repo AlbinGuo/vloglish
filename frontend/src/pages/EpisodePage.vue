@@ -930,13 +930,35 @@ const aiShadowHasNext = computed(() => {
 })
 
 let shadowRateBefore: number | null = null
+let shadowVideoMuteRestore: boolean | null = null
 
 function onShadowPlay(rate = 1) {
   const sub = aiShadowSub.value
   if (!sub) return
+  const v = videoRef.value
+  if (v && shadowVideoMuteRestore != null) v.muted = false
   if (shadowRateBefore == null) shadowRateBefore = player.playbackRate.value
   player.setRate(rate)
   player.playSentenceOnce(sub)
+}
+
+function onShadowPause() {
+  pauseForDictationSheet()
+}
+
+function onShadowRecording(on: boolean) {
+  pauseForDictationSheet()
+  const v = videoRef.value
+  if (!v) return
+  if (on) {
+    if (shadowVideoMuteRestore == null) shadowVideoMuteRestore = v.muted
+    v.muted = true
+    return
+  }
+  if (shadowVideoMuteRestore != null) {
+    v.muted = shadowVideoMuteRestore
+    shadowVideoMuteRestore = null
+  }
 }
 
 watch(aiShadowOpen, (open) => {
@@ -947,6 +969,11 @@ watch(aiShadowOpen, (open) => {
   if (shadowRateBefore != null) {
     player.setRate(shadowRateBefore)
     shadowRateBefore = null
+  }
+  if (shadowVideoMuteRestore != null) {
+    const v = videoRef.value
+    if (v) v.muted = shadowVideoMuteRestore
+    shadowVideoMuteRestore = null
   }
 })
 
@@ -3453,6 +3480,8 @@ function subtitleRowClass(index: number) {
       :has-next="aiShadowHasNext"
       @close="aiShadowOpen = false; aiShadowSub = null"
       @play="onShadowPlay"
+      @pause="onShadowPause"
+      @recording="onShadowRecording"
       @next="nextAiShadowing"
     />
     <AiClozeSheet

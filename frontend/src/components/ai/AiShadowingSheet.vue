@@ -64,7 +64,13 @@ const props = withDefaults(
   },
 )
 
-const emit = defineEmits<{ close: []; play: [rate: number]; next: [] }>()
+const emit = defineEmits<{
+  close: []
+  play: [rate: number]
+  pause: []
+  next: []
+  recording: [on: boolean]
+}>()
 
 const router = useRouter()
 
@@ -495,9 +501,18 @@ function scheduleFeedbackTts(r: AiShadowingResult) {
   }, 420)
 }
 
+function silencePlaybackForMic() {
+  stopSpeaking()
+  stopDemoAudio()
+  stopFeedbackTts()
+  stopPlaybackAudio()
+  emit('pause')
+}
+
 function stopDemoAudio() {
   clearDemoPlayingTimer()
   endDemoSession()
+  emit('pause')
   if (demoAudio) {
     try {
       demoAudio.pause()
@@ -1135,7 +1150,7 @@ function setDemoRate(rate: 0.5 | 1) {
 }
 
 function goRecord() {
-  stopDemoAudio()
+  silencePlaybackForMic()
   error.value = ''
   result.value = null
   step.value = 'record'
@@ -1201,12 +1216,16 @@ async function startOralRecording() {
   fallbackHint.value = ''
   autoSubmitArmed.value = true
   step.value = 'record'
+  silencePlaybackForMic()
+  emit('recording', true)
+  oral.resetEngine()
 
   // 口语 SDK 自己申请麦克风；不要先 getUserMedia 再 stop，否则易抢占/弄死 stream
   if (typeof window !== 'undefined' && !window.isSecureContext) {
     engineMode.value = 'llm'
     micUnsupported.value = true
     error.value = '需要 HTTPS 或 localhost 才能录音'
+    emit('recording', false)
     return
   }
   try {
@@ -1216,6 +1235,7 @@ async function startOralRecording() {
         engineMode.value = 'llm'
         micUnsupported.value = true
         error.value = '麦克风权限被拒绝，请在浏览器地址栏允许后重试'
+        emit('recording', false)
         return
       }
     }
@@ -1225,7 +1245,10 @@ async function startOralRecording() {
 
   listening.value = true
   loading.value = false
+  let handedToLlm = false
   try {
+    // 等视频/示范音释放音频会话，否则回声消除常把跟读声抹掉
+    await new Promise((r) => setTimeout(r, 280))
     const oralRaw = await oral.evaluate(targetText.value, coreType.value)
     listening.value = false
     loading.value = true
@@ -1251,11 +1274,15 @@ async function startOralRecording() {
       ? `发音评测暂不可用（${detail.slice(0, 80)}），已切换为识别点评`
       : '发音评测暂不可用，已切换为识别点评'
     error.value = ''
-    void startListening()
+    handedToLlm = true
+    await startListening()
   } finally {
-    autoSubmitArmed.value = false
-    listening.value = false
-    loading.value = false
+    if (!handedToLlm) {
+      autoSubmitArmed.value = false
+      listening.value = false
+      loading.value = false
+      emit('recording', false)
+    }
   }
 }
 
@@ -1265,11 +1292,14 @@ async function startListening() {
   transcript.value = ''
   autoSubmitArmed.value = true
   step.value = 'record'
+  silencePlaybackForMic()
+  emit('recording', true)
 
   const Ctor = getRecognitionCtor()
   if (!Ctor) {
     micUnsupported.value = true
     error.value = '当前浏览器不支持语音识别，请输入内容后点评'
+    emit('recording', false)
     return
   }
 
@@ -1277,6 +1307,7 @@ async function startListening() {
   if (micErr) {
     micUnsupported.value = true
     error.value = micErr
+    emit('recording', false)
     return
   }
 
@@ -1297,6 +1328,7 @@ async function startListening() {
   }
   recognition.onerror = (event) => {
     listening.value = false
+    emit('recording', false)
     const code = String(event?.error || '')
     if (code === 'aborted') return
     if (transcript.value) return
@@ -1309,6 +1341,7 @@ async function startListening() {
   }
   recognition.onend = () => {
     listening.value = false
+    emit('recording', false)
     const text = transcript.value.trim()
     if (text && autoSubmitArmed.value && !loading.value && !result.value) {
       autoSubmitArmed.value = false
@@ -1321,6 +1354,7 @@ async function startListening() {
     recognition.start()
   } catch (e: unknown) {
     listening.value = false
+    emit('recording', false)
     autoSubmitArmed.value = false
     const name = (e as { name?: string })?.name || ''
     if (name === 'InvalidStateError') {
@@ -1337,6 +1371,7 @@ function toggleMic() {
   if (listening.value) {
     autoSubmitArmed.value = true
     stopListening(false)
+    emit('recording', false)
     return
   }
   if (useOral.value) {

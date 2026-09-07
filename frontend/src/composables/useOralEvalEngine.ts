@@ -72,7 +72,21 @@ async function getWarrant(): Promise<OralEvalWarrant> {
 }
 
 function streamIsLive(stream: MediaStream | null | undefined): stream is MediaStream {
-  return Boolean(stream && typeof stream.getTracks === 'function' && stream.getTracks().some((t) => t.readyState === 'live'))
+  if (!stream || typeof stream.getTracks !== 'function') return false
+  return stream.getTracks().some((t) => t.readyState === 'live' && t.enabled)
+}
+
+async function resumeEngineContext(engine: EngineInstance | null) {
+  const audio = (engine as unknown as { _audio?: { context?: AudioContext; audioContext?: AudioContext } } | null)
+    ?._audio
+  const ctx = audio?.context || audio?.audioContext
+  if (ctx && ctx.state === 'suspended') {
+    try {
+      await ctx.resume()
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 function b64ChunksToObjectUrl(chunks: string[]): string | null {
@@ -224,6 +238,7 @@ export function useOralEvalEngine() {
     }
 
     if (micReadyPromise) await micReadyPromise
+    await resumeEngineContext(engine)
 
     const liveStream = (engine as unknown as { _audio?: { stream?: MediaStream } } | null)?._audio?.stream
     if (liveStream != null && !streamIsLive(liveStream)) {
