@@ -1,5 +1,5 @@
 import { wxLoginCode } from '../../api/auth'
-import { createWxPayOrder, getPcPaySession } from '../../api/wxpay'
+import { claimPcPaySession, createWxPayOrder } from '../../api/wxpay'
 import { getAccessToken, getRefreshToken, setSession } from '../../utils/auth'
 import { assertPayReady, requestVirtualPayment, waitPaid } from '../../utils/virtualPay'
 
@@ -22,12 +22,10 @@ Page({
     }
     try {
       await getApp<IAppOption>().ensureLogin()
-      const sess = await getPcPaySession(token)
+      const sess = await claimPcPaySession(token)
+      setSession(sess.access, sess.refresh, sess.user)
+      getApp<IAppOption>().globalData.user = sess.user
       if (sess.paid) {
-        if (sess.user) {
-          setSession(getAccessToken(), getRefreshToken(), sess.user)
-          getApp<IAppOption>().globalData.user = sess.user
-        }
         this.setData({
           busy: false,
           done: true,
@@ -56,12 +54,7 @@ Page({
       this.setData({ busy: false, done: true })
     } catch (e) {
       const msg = e instanceof Error ? e.message : '支付失败'
-      this.setData({
-        busy: false,
-        error: /不存在|404/.test(msg)
-          ? '这不是当前微信绑定的网页账号。请用已关联的微信扫，或先在小程序关联网页账号。'
-          : msg,
-      })
+      this.setData({ busy: false, error: msg })
     }
   },
 

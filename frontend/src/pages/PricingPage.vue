@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import BindWechatDialog from '@/components/BindWechatDialog.vue'
 import { createPcPaySession, fetchPcPayQr, fetchPcPayStatus } from '@/api/wxpay'
 import { getErrorDetail } from '@/api/tokens'
 import { useAuthStore } from '@/stores/auth'
@@ -11,19 +10,17 @@ const router = useRouter()
 const auth = useAuthStore()
 const catalog = useCatalogStore()
 
-type PlanId = 'quarter' | 'year' | 'forever' | 'test'
+type PlanId = 'quarter' | 'year' | 'forever'
 
 const plans: { id: PlanId; name: string; price: string; period: string; note: string; recommend: boolean }[] = [
   { id: 'quarter', name: '季度会员', price: '29', period: '3 个月', note: '约 ¥9.7 / 月', recommend: false },
   { id: 'year', name: '年度会员', price: '59', period: '12 个月', note: '约 ¥4.9 / 月', recommend: true },
   { id: 'forever', name: '永久会员', price: '99', period: '一次买断', note: '不再续费', recommend: false },
-  { id: 'test', name: '测试会员', price: '1', period: '1 天', note: 'iOS 最低 1 元 · 联调', recommend: false },
 ]
 
 const selected = ref<PlanId>('year')
 const error = ref('')
 const loading = ref(false)
-const bindOpen = ref(false)
 const payQr = ref('')
 const payHint = ref('')
 const paidOk = ref(false)
@@ -37,7 +34,7 @@ const benefits = [
   '解锁全部视频与合集精听',
   '上传油管视频到个人语料库',
   '视频语境、词卡、挖空等完整学习工具',
-  '电脑扫码，用已关联的微信完成支付',
+  '电脑扫码，用微信完成支付（未关联会自动绑定）',
 ]
 
 function stopPay() {
@@ -65,10 +62,6 @@ onMounted(async () => {
 
 onUnmounted(stopPay)
 
-watch(bindOpen, (open, wasOpen) => {
-  if (wasOpen && !open && auth.user?.wx_bound) void startScanPay()
-})
-
 watch(selected, () => {
   stopPay()
   error.value = ''
@@ -78,10 +71,6 @@ watch(selected, () => {
 async function startScanPay() {
   error.value = ''
   paidOk.value = false
-  if (!auth.user?.wx_bound) {
-    bindOpen.value = true
-    return
-  }
   const plan = selected.value
   loading.value = true
   stopPay()
@@ -90,7 +79,7 @@ async function startScanPay() {
     const blob = await fetchPcPayQr(sess.token)
     objectUrl = URL.createObjectURL(blob)
     payQr.value = objectUrl
-    payHint.value = `用已关联的微信扫码，支付「${sess.plan_name}」¥${(sess.amount_cent / 100).toFixed(0)}`
+    payHint.value = `微信扫码支付「${sess.plan_name}」¥${(sess.amount_cent / 100).toFixed(0)}`
     pollTimer = setInterval(async () => {
       try {
         const st = await fetchPcPayStatus(sess.token)
@@ -149,7 +138,7 @@ async function submitCode() {
           选套餐，手机扫码开通
         </h1>
         <p class="mt-2 text-sm sm:text-base text-neutral-700 dark:text-neutral-300 max-w-lg mx-auto leading-relaxed">
-          请先关联网页账号与小程序。支付完成后本页会自动跳转。
+          选套餐后生成小程序码，微信扫一下即可支付。未关联时会自动绑到当前网页账号。
         </p>
       </header>
 
@@ -157,7 +146,7 @@ async function submitCode() {
         <section
           class="lg:col-span-3 rounded-2xl border border-black/8 dark:border-white/10 bg-white/95 dark:bg-neutral-900/95 overflow-hidden flex flex-col"
         >
-          <div class="px-5 sm:px-7 pt-6 sm:pt-7 pb-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="px-5 sm:px-7 pt-6 sm:pt-7 pb-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               v-for="p in plans"
               :key="p.id"
@@ -205,11 +194,7 @@ async function submitCode() {
         >
           <h2 class="text-lg font-semibold text-neutral-900 dark:text-white mb-1">扫码支付</h2>
           <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-4 leading-relaxed">
-            {{
-              auth.user?.wx_bound
-                ? '用已关联的微信扫描下方小程序码，在手机上完成虚拟支付。'
-                : '当前账号尚未关联小程序，请先绑定微信。'
-            }}
+            用微信扫描下方小程序码完成支付。若尚未关联，扫码时会自动绑定到当前网页账号。
           </p>
 
           <div class="flex justify-center min-h-[12rem] items-center rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-black/5 dark:border-white/10 p-4">
@@ -228,7 +213,7 @@ async function submitCode() {
             :disabled="loading"
             @click="startScanPay"
           >
-            {{ auth.user?.wx_bound ? (payQr ? '刷新支付码' : '生成支付码') : '先关联小程序' }}
+            {{ payQr ? '刷新支付码' : '生成支付码' }}
           </button>
 
           <form class="mt-8 pt-5 border-t border-black/5 dark:border-white/10 space-y-3" @submit.prevent="submitCode">
@@ -258,7 +243,6 @@ async function submitCode() {
         </RouterLink>
       </p>
     </div>
-    <BindWechatDialog v-model:open="bindOpen" />
   </div>
 </template>
 

@@ -3,7 +3,7 @@ import { createWxPayOrder } from '../../api/wxpay'
 import { getStoredUser, setSession, getAccessToken, getRefreshToken, type AuthUser } from '../../utils/auth'
 import { assertPayReady, requestVirtualPayment, waitPaid } from '../../utils/virtualPay'
 
-type PlanId = 'quarter' | 'year' | 'forever' | 'test'
+type PlanId = 'quarter' | 'year' | 'forever'
 
 type Plan = {
   id: PlanId
@@ -38,14 +38,6 @@ const PLANS: Omit<Plan, 'selected'>[] = [
     price: '99',
     period: '一次买断',
     note: '不再续费',
-    recommended: false,
-  },
-  {
-    id: 'test',
-    name: '测试会员',
-    price: '1',
-    period: '1 天',
-    note: 'iOS 最低 1 元 · 联调',
     recommended: false,
   },
 ]

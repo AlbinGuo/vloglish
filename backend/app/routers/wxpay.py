@@ -9,12 +9,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..deps import get_current_user
+from ..deps import get_current_user, get_device_id
 from ..models import MembershipOrder, PcPaySession, User
-from ..routers.auth import user_out
+from ..routers.auth import issue_tokens, user_out
 from ..schemas import UserOut
 from ..services import wechat_mini as wechat_mini_svc
 from ..services import wx_virtual_pay as xpay
+from ..services.account_merge import is_wechat_only, merge_users
 
 router = APIRouter(prefix="/api/wxpay", tags=["wxpay"])
 
@@ -66,6 +67,12 @@ class PcPayStatusOut(BaseModel):
     amount_cent: int
     paid: bool
     user: UserOut | None = None
+
+
+class PcPayClaimOut(PcPayStatusOut):
+    access: str
+    refresh: str
+    user: UserOut
 
 
 def _plan_public(plan: str) -> tuple[str, int]:
@@ -156,8 +163,6 @@ def create_pc_session(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if not (user.wx_openid or "").strip():
-        raise HTTPException(status_code=400, detail="请先关联小程序，再用微信扫码支付")
     from ..demo_access import user_is_member
 
     if user_is_member(user) and user.member_until is None:
@@ -207,6 +212,54 @@ def get_pc_session(
         amount_cent=amount,
         paid=sess.status == "paid",
         user=user_out(owner) if sess.status == "paid" else None,
+    )
+
+
+@router.post("/pc-sessions/{token}/claim/", response_model=PcPayClaimOut)
+def claim_pc_session(
+    token: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    device_id: str = Depends(get_device_id),
+):
+    """小程序扫支付码：未绑定则把当前微信并入网页账号，再继续支付。"""
+    sess = db.query(PcPaySession).filter(PcPaySession.token == (token or "").strip()).first()
+    if not sess:
+        raise HTTPException(status_code=404, detail="支付会话不存在")
+    sess = _refresh_pc_session(db, sess)
+    if sess.status == "expired":
+        raise HTTPException(status_code=400, detail="支付码已过期，请在网页刷新后再扫")
+
+    owner = db.query(User).filter(User.id == sess.user_id).first()
+    if not owner or not owner.is_active:
+        raise HTTPException(status_code=400, detail="网页账号不存在或已停用")
+
+    if user.id != owner.id:
+        if not (user.wx_openid or "").strip():
+            raise HTTPException(status_code=400, detail="请用微信登录后再扫码支付")
+        if owner.wx_openid and owner.wx_openid != user.wx_openid:
+            raise HTTPException(status_code=400, detail="该网页账号已绑定其他微信，请用已关联的微信扫码")
+        if not is_wechat_only(user) and user.email != owner.email:
+            raise HTTPException(status_code=400, detail="当前微信已关联其他网页账号")
+        try:
+            merge_users(db, source=user, target=owner)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        db.commit()
+        db.refresh(owner)
+
+    tokens = issue_tokens(db, owner, device_id)
+    sess = _refresh_pc_session(db, sess)
+    name, amount = _plan_public(sess.plan)
+    return PcPayClaimOut(
+        status=sess.status,
+        plan=sess.plan,
+        plan_name=name,
+        amount_cent=amount,
+        paid=sess.status == "paid",
+        access=tokens.access,
+        refresh=tokens.refresh,
+        user=tokens.user,
     )
 
 

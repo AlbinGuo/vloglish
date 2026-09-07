@@ -44,6 +44,19 @@ export function getPcPaySession(token: string) {
   })
 }
 
+export type PcPayClaim = PcPaySession & {
+  access: string
+  refresh: string
+  user: AuthUser
+}
+
+export function claimPcPaySession(token: string) {
+  return request<PcPayClaim>({
+    url: `/api/wxpay/pc-sessions/${encodeURIComponent(token)}/claim/`,
+    method: 'POST',
+  })
+}
+
 export function getWxPayOrder(outTradeNo: string) {
   return request<WxPayOrder>({
     url: `/api/wxpay/orders/${encodeURIComponent(outTradeNo)}/`,
