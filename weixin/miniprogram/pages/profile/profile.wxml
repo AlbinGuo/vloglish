@@ -55,7 +55,7 @@
     </view>
     <view wx:if="{{wechatOnly}}" class="cell" bindtap="onBindEmail">
       <text class="cell-title">关联网页账号</text>
-      <text class="cell-sub">用邮箱密码合并进度和会员</text>
+      <text class="cell-sub">备用：填邮箱密码，或去电脑扫关联码</text>
     </view>
     <view wx:elif="{{wxBound && emailLabel}}" class="cell">
       <text class="cell-title">已关联网页</text>

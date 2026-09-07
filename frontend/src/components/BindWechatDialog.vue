@@ -9,7 +9,7 @@ const auth = useAuthStore()
 const loading = ref(false)
 const error = ref('')
 const qrUrl = ref('')
-const hint = ref('微信扫码后，在小程序里确认绑定')
+const hint = ref('用微信扫一下即可关联，无需在小程序里再确认')
 let timer: ReturnType<typeof setInterval> | undefined
 let objectUrl = ''
 
@@ -34,7 +34,7 @@ async function start() {
     const blob = await fetchBindWechatQr(token)
     objectUrl = URL.createObjectURL(blob)
     qrUrl.value = objectUrl
-    hint.value = '打开微信扫一扫，确认后网页会自动更新'
+    hint.value = '打开微信扫一扫即可。扫完网页会自动更新'
     timer = setInterval(async () => {
       try {
         const st = await fetchBindWechatStatus(token)
@@ -74,7 +74,7 @@ onUnmounted(stop)
       @click.self="open = false"
     >
       <div class="w-full max-w-sm rounded-2xl bg-white dark:bg-neutral-900 p-5 shadow-xl">
-        <h2 class="text-base font-semibold text-neutral-900 dark:text-white">绑定微信</h2>
+        <h2 class="text-base font-semibold text-neutral-900 dark:text-white">扫码关联微信</h2>
         <p class="mt-1 text-sm text-neutral-500 leading-relaxed">{{ hint }}</p>
         <div class="mt-4 flex justify-center min-h-[11rem] items-center">
           <p v-if="loading" class="text-sm text-neutral-400">正在生成小程序码…</p>

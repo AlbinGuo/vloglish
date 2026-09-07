@@ -1,9 +1,8 @@
 <view class="page">
-  <text wx:if="{{busy}}" class="lead">正在打开网页选的套餐…</text>
+  <text wx:if="{{busy}}" class="lead">正在关联并打开支付…</text>
   <block wx:elif="{{done}}">
     <text class="title">支付成功</text>
-    <text class="lead">{{planName}} 已开通。请回到电脑，页面会自动更新。</text>
-    <text class="action" bindtap="onHome">回到我的</text>
+    <text class="lead">{{planName}} 已开通。回到电脑即可，页面会自动更新。</text>
   </block>
   <block wx:else>
     <text class="title">无法完成支付</text>

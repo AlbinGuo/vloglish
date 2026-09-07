@@ -1,12 +1,11 @@
 <view class="page">
-  <text wx:if="{{busy}}" class="lead">正在绑定网页账号…</text>
+  <text wx:if="{{busy}}" class="lead">正在关联网页账号…</text>
   <block wx:elif="{{done}}">
-    <text class="title">绑定成功</text>
-    <text class="lead">小程序和网页已经是同一个账号。回到电脑刷新即可。</text>
-    <text class="action" bindtap="onHome">回到我的</text>
+    <text class="title">已连通</text>
+    <text class="lead">{{email ? email + ' 已和小程序是同一个账号。' : '小程序和网页已经是同一个账号。'}}回到电脑即可，页面会自动更新。</text>
   </block>
   <block wx:else>
-    <text class="title">绑定失败</text>
+    <text class="title">没有关联上</text>
     <text class="lead">{{error}}</text>
     <text class="action" bindtap="onHome">回到我的</text>
   </block>

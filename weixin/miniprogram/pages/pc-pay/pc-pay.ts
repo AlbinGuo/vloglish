@@ -3,6 +3,15 @@ import { claimPcPaySession, createWxPayOrder } from '../../api/wxpay'
 import { getAccessToken, getRefreshToken, setSession } from '../../utils/auth'
 import { assertPayReady, requestVirtualPayment, waitPaid } from '../../utils/virtualPay'
 
+let goHomeTimer: ReturnType<typeof setTimeout> | undefined
+
+function goProfileSoon() {
+  if (goHomeTimer) clearTimeout(goHomeTimer)
+  goHomeTimer = setTimeout(() => {
+    wx.switchTab({ url: '/pages/profile/profile' })
+  }, 1600)
+}
+
 Page({
   data: {
     busy: true,
@@ -32,6 +41,7 @@ Page({
           planName: sess.plan_name,
           amount: (sess.amount_cent / 100).toFixed(0),
         })
+        goProfileSoon()
         return
       }
       if (sess.status === 'expired') {
@@ -52,13 +62,25 @@ Page({
         getApp<IAppOption>().globalData.user = paid.user
       }
       this.setData({ busy: false, done: true })
+      goProfileSoon()
     } catch (e) {
       const msg = e instanceof Error ? e.message : '支付失败'
       this.setData({ busy: false, error: msg })
     }
   },
 
+  onUnload() {
+    if (goHomeTimer) {
+      clearTimeout(goHomeTimer)
+      goHomeTimer = undefined
+    }
+  },
+
   onHome() {
+    if (goHomeTimer) {
+      clearTimeout(goHomeTimer)
+      goHomeTimer = undefined
+    }
     wx.switchTab({ url: '/pages/profile/profile' })
   },
 })

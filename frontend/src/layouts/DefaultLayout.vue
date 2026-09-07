@@ -440,6 +440,7 @@ watch(
               v-if="!auth.user?.wx_bound"
               type="button"
               class="inline-flex items-center rounded-lg border border-amber-700/30 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-500/30 px-2 py-1.5 text-xs sm:text-sm font-medium transition"
+              title="扫一下即关联微信"
               @click="bindWechatOpen = true"
             >
               关联小程序

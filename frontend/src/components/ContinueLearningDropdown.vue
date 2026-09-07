@@ -203,7 +203,7 @@ watch(
         >
           关联小程序
           <span class="block text-[11px] font-normal text-amber-800/80 dark:text-amber-200/70 mt-0.5">
-            扫码绑定微信，和小程序、App 用同一个账号
+            扫一下即关联，和小程序用同一个账号
           </span>
         </button>
         <p
