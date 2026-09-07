@@ -1,63 +1,24 @@
 <view class="page">
-  <view wx:if="{{loading}}" class="list">
-    <view class="card" wx:for="{{[1,2,3]}}" wx:key="*this">
-      <view class="cover-sk"></view>
-      <view class="body">
-        <view class="sk sk-title"></view>
-        <view class="sk sk-line"></view>
-        <view class="sk sk-line short"></view>
-      </view>
+  <view class="block records">
+    <text class="h">我的学习记录</text>
+    <view class="demo" wx:for="{{demos}}" wx:key="en">
+      <text class="demo-en">{{item.en}}</text>
+      <text class="demo-zh">{{item.zh}}</text>
     </view>
   </view>
 
-  <view wx:elif="{{error}}" class="state" bindtap="reload">
-    <text class="state-title">暂时读不到报纸</text>
-    <text class="state-desc">{{error}}</text>
-    <text class="state-action">轻点重试</text>
-  </view>
-
-  <view wx:elif="{{empty}}" class="state">
-    <text class="state-title">还没有新文章</text>
-    <text class="state-desc">后台发布后会出现在这里</text>
-  </view>
-
-  <view wx:else class="list">
-    <view
-      class="card {{item.accessible ? '' : 'is-locked'}}"
-      wx:for="{{articles}}"
-      wx:key="article_id"
-      data-id="{{item.article_id}}"
-      bindtap="onOpenArticle"
-    >
-      <view class="cover-box">
-        <image
-          wx:if="{{item.coverHttps}}"
-          class="cover"
-          src="{{item.coverHttps}}"
-          mode="aspectFill"
-          lazy-load
-          data-id="{{item.article_id}}"
-          binderror="onCoverError"
-        />
-        <view wx:else class="cover cover-ph">
-          <text class="ph-mark">V</text>
+  <view class="block">
+    <text class="h">会员档位</text>
+    <view class="plans">
+      <view class="plan {{item.hot ? 'is-hot' : ''}}" wx:for="{{plans}}" wx:key="name">
+        <text class="plan-name">{{item.name}}</text>
+        <view class="plan-price-row">
+          <text class="yen">¥</text>
+          <text class="plan-price">{{item.price}}</text>
         </view>
-        <view class="cover-fade"></view>
-        <text wx:if="{{item.is_new}}" class="flag-new">NEW</text>
-        <text wx:if="{{item.progressLabel}}" class="flag-read {{item.done ? 'is-done' : ''}}">{{item.progressLabel}}</text>
-        <text wx:if="{{!item.accessible}}" class="flag-lock">会员</text>
-      </view>
-
-      <view class="body">
-        <text class="title">{{item.title}}</text>
-        <text wx:if="{{item.metaLine}}" class="excerpt">{{item.metaLine}}</text>
-        <view class="meta">
-          <text wx:if="{{item.topic}}" class="pill">{{item.topic}}</text>
-          <text wx:if="{{item.source}}" class="pill">{{item.source}}</text>
-          <text wx:if="{{item.countLabel}}" class="stat">{{item.countLabel}}</text>
-          <text class="stat stars">{{item.starsLabel}}</text>
-        </view>
+        <text class="plan-note">{{item.note}}</text>
       </view>
     </view>
+    <button class="ghost" bindtap="onOpenMember">去选择套餐</button>
   </view>
 </view>

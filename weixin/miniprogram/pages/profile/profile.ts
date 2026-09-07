@@ -1,8 +1,6 @@
 import { loginWithWxCode, wxLoginCode } from '../../api/auth'
-import { continueReading, listArticles } from '../../api/articles'
-import { getAiQuota } from '../../api/ai'
+import { continueReading } from '../../api/articles'
 import { getLearningSummary } from '../../api/learning'
-import { SITE_URL } from '../../config'
 import { clearSession, displayName, getStoredUser, setSession, type AuthUser } from '../../utils/auth'
 
 Page({
@@ -13,14 +11,13 @@ Page({
     isMember: false,
     memberLabel: '登录后同步学习进度',
     loading: false,
-    readQuota: '',
-    aiQuota: '',
     vocabCount: 0,
     continueTitle: '',
     continueId: '',
     wechatOnly: false,
     wxBound: false,
     emailLabel: '',
+    showBindAccount: false,
   },
 
   onShow() {
@@ -49,39 +46,19 @@ Page({
   },
 
   async refreshExtras() {
-    try {
-      const list = await listArticles(1, 1)
-      const q = list.quota
-      let readQuota = ''
-      if (q) {
-        if (q.remaining == null) readQuota = '读报不限量'
-        else readQuota = `本月还可读 ${q.remaining} 篇`
-      }
-      this.setData({ readQuota })
-    } catch {
-      this.setData({ readQuota: '' })
-    }
-
     const user = getApp<IAppOption>().globalData.user || getStoredUser()
     if (!user) {
-      this.setData({ aiQuota: '', vocabCount: 0, continueTitle: '', continueId: '' })
+      this.setData({ vocabCount: 0, continueTitle: '', continueId: '' })
       return
     }
 
-    const [summary, ai, cont] = await Promise.allSettled([
+    const [summary, cont] = await Promise.allSettled([
       getLearningSummary(),
-      getAiQuota(),
       continueReading(),
     ])
 
-    let aiQuota = ''
-    if (ai.status === 'fulfilled') {
-      aiQuota = ai.value.remaining == null ? 'AI 不限量' : `AI 今日剩 ${ai.value.remaining} 次`
-    }
-
     this.setData({
       vocabCount: summary.status === 'fulfilled' ? summary.value.vocabulary_count || 0 : 0,
-      aiQuota,
       continueTitle:
         cont.status === 'fulfilled' && cont.value.results?.[0]
           ? cont.value.results[0].title
@@ -118,7 +95,7 @@ Page({
     clearSession()
     getApp<IAppOption>().globalData.user = null
     this.syncUser(null)
-    this.setData({ aiQuota: '', vocabCount: 0, continueTitle: '', continueId: '' })
+    this.setData({ vocabCount: 0, continueTitle: '', continueId: '' })
     void this.refreshExtras()
     wx.showToast({ title: '已退出', icon: 'none' })
   },
@@ -149,11 +126,6 @@ Page({
     wx.navigateTo({ url: '/pages/vocabulary/vocabulary' })
   },
 
-  onSoon() {
-    if (!this.requireLogin()) return
-    wx.showToast({ title: '小程序下一期开放', icon: 'none' })
-  },
-
   onBindEmail() {
     if (!this.requireLogin()) return
     wx.navigateTo({ url: '/pages/bind-email/bind-email' })
@@ -166,13 +138,6 @@ Page({
   onFeedback() {
     if (!this.requireLogin()) return
     wx.navigateTo({ url: '/pages/feedback/feedback' })
-  },
-
-  onContact() {
-    wx.setClipboardData({
-      data: SITE_URL,
-      success: () => wx.showToast({ title: '已复制网站地址', icon: 'none' }),
-    })
   },
 
   onLegal(e: WechatMiniprogram.TouchEvent) {

@@ -1,91 +1,47 @@
-import { displaySource, listArticles, type ArticleListItem } from '../../api/articles'
-import { resolveCoverUrl } from '../../utils/mediaUrl'
-
-type Card = ArticleListItem & {
-  starsLabel: string
-  coverHttps: string
-  metaLine: string
-  progressLabel: string
-  done: boolean
-  countLabel: string
-}
-
-function starsLabel(n: number): string {
-  const s = Math.max(0, Math.min(5, n || 0))
-  return '★'.repeat(s) + '☆'.repeat(5 - s)
-}
-
-function mapCard(a: ArticleListItem): Card {
-  const words = a.word_count ? `${a.word_count} 词` : ''
-  const segs = a.segment_count ? `${a.segment_count} 段` : ''
-  const summary = (a.summary || '').trim()
-  return {
-    ...a,
-    source: displaySource(a.source),
-    starsLabel: starsLabel(a.stars),
-    coverHttps: resolveCoverUrl(a.cover),
-    metaLine: summary || [words, segs].filter(Boolean).join(' · '),
-    progressLabel: a.progress
-      ? a.progress.is_completed
-        ? '已读完'
-        : `读到 ${Math.round(a.progress.completion_percent || 0)}%`
-      : '',
-    done: Boolean(a.progress?.is_completed),
-    countLabel: [words, segs].filter(Boolean).join(' · '),
-  }
-}
-
 Page({
   data: {
-    loading: true,
-    error: '',
-    articles: [] as Card[],
-    empty: false,
+    demos: [
+      {
+        en: 'The more you speak, the more natural it becomes.',
+        zh: '说得越多，就会越自然。',
+      },
+      {
+        en: 'Let me think about that for a second.',
+        zh: '让我想一下。',
+      },
+      {
+        en: 'That actually makes a lot of sense.',
+        zh: '这其实很说得通。',
+      },
+      {
+        en: 'I see what you mean.',
+        zh: '我明白你的意思了。',
+      },
+      {
+        en: "I'm not sure I follow. Could you say that again?",
+        zh: '我没太跟上，你能再说一遍吗？',
+      },
+      {
+        en: "That's a good point. I hadn't thought of it that way.",
+        zh: '说得对，我之前没这么想过。',
+      },
+      {
+        en: "Give me a minute. I'll get back to you.",
+        zh: '给我一分钟，我稍后回复你。',
+      },
+      {
+        en: "To be honest, I'm still working on it.",
+        zh: '说实话，我还在做这件事。',
+      },
+    ],
+    plans: [
+      { name: '季度', price: '29', note: '3 个月' },
+      { name: '年度', price: '59', note: '更划算', hot: true },
+      { name: '永久', price: '99', note: '一次买断' },
+    ],
   },
 
-  onShow() {
-    if (!this.data.articles.length) void this.reload()
-  },
-
-  onPullDownRefresh() {
-    void this.reload().finally(() => wx.stopPullDownRefresh())
-  },
-
-  async reload() {
-    this.setData({ loading: true, error: '' })
-    try {
-      const out = await listArticles(1, 30)
-      const articles = (out.results || []).map(mapCard)
-      this.setData({
-        articles,
-        empty: articles.length === 0,
-        loading: false,
-      })
-    } catch (e) {
-      this.setData({
-        loading: false,
-        error: e instanceof Error ? e.message : '加载失败',
-      })
-    }
-  },
-
-  onCoverError(e: WechatMiniprogram.TouchEvent) {
-    const id = e.currentTarget.dataset.id as string
-    if (!id) return
-    const articles = this.data.articles.map((a) =>
-      a.article_id === id ? { ...a, coverHttps: '' } : a,
-    )
-    this.setData({ articles })
-  },
-
-  onOpenArticle(e: WechatMiniprogram.TouchEvent) {
-    const id = e.currentTarget.dataset.id as string
-    if (!id) return
-    const item = this.data.articles.find((a) => a.article_id === id)
-    if (item && !item.accessible) {
-      wx.navigateTo({ url: '/pages/membership/membership' })
-      return
-    }
-    wx.navigateTo({ url: `/pages/article/article?id=${encodeURIComponent(id)}` })
+  onOpenMember() {
+    wx.navigateTo({ url: '/pages/membership/membership' })
   },
 })

@@ -10,7 +10,7 @@
 
   <view wx:elif="{{empty}}" class="state">
     <text class="state-title">还没有生词</text>
-    <text class="state-desc">在读报或视频里收藏的词会出现在这里</text>
+    <text class="state-desc">在电脑网页收藏的词会出现在这里</text>
   </view>
 
   <view wx:else class="list">

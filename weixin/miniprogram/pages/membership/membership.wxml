@@ -2,7 +2,7 @@
   <view class="hero">
     <text class="kicker">MEMBERSHIP</text>
     <text class="title">会员权益</text>
-    <text class="lead">读报不限量 · 视频精听 · 生词本与 AI 工具</text>
+    <text class="lead">电脑网页学习 · 生词本 · 会员与扫码支付</text>
   </view>
 
   <view wx:if="{{isMember}}" class="banner">{{memberHint}}</view>
@@ -35,8 +35,8 @@
 
   <view class="card">
     <text class="h">开通任一档即可</text>
-    <text class="li">全部读报文章不限量</text>
-    <text class="li">网站视频精听、合集与跟读</text>
+    <text class="li">电脑网页完整英语学习功能</text>
+    <text class="li">视频精听、合集与跟读（网页）</text>
     <text class="li">生词本、语料库与 AI 学习工具</text>
     <text class="li">季度 / 年度到期后续费；永久一次买断</text>
   </view>

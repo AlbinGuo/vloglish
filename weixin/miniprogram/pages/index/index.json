@@ -1,8 +1,6 @@
 {
-  "navigationBarTitleText": "读报",
+  "navigationBarTitleText": "Vloglish",
   "navigationBarBackgroundColor": "#0b1220",
   "navigationBarTextStyle": "white",
-  "backgroundColor": "#efe8dc",
-  "backgroundTextStyle": "dark",
-  "enablePullDownRefresh": true
+  "backgroundColor": "#efe8dc"
 }
