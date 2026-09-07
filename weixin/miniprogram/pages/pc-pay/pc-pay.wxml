@@ -1,12 +1,32 @@
 <view class="page">
-  <text wx:if="{{busy}}" class="lead">正在关联并打开支付…</text>
-  <block wx:elif="{{done}}">
-    <text class="title">支付成功</text>
-    <text class="lead">{{planName}} 已开通。回到电脑即可，页面会自动更新。</text>
-  </block>
-  <block wx:else>
-    <text class="title">无法完成支付</text>
-    <text class="lead">{{error}}</text>
-    <text class="action" bindtap="onHome">回到我的</text>
-  </block>
+  <view class="card">
+    <view wx:if="{{phase === 'loading'}}" class="state">
+      <view class="mark mark-wait"></view>
+      <text class="title">正在打开支付</text>
+      <text class="lead">请稍候，即将唤起微信支付</text>
+    </view>
+
+    <view wx:elif="{{phase === 'success'}}" class="state">
+      <view class="mark mark-ok">✓</view>
+      <text class="title">支付成功</text>
+      <text class="lead">{{planName}}已开通</text>
+      <text wx:if="{{amount}}" class="amount">¥{{amount}}</text>
+      <text class="sub">电脑页面会自动更新</text>
+      <button class="btn" bindtap="onHome">回到我的</button>
+    </view>
+
+    <view wx:elif="{{phase === 'cancel'}}" class="state">
+      <view class="mark mark-cancel"></view>
+      <text class="title">已取消支付</text>
+      <text class="lead">未扣款，可回到网页重新扫码</text>
+      <button class="btn" bindtap="onHome">回到我的</button>
+    </view>
+
+    <view wx:else class="state">
+      <view class="mark mark-fail">!</view>
+      <text class="title">未能完成支付</text>
+      <text class="lead">{{error || '请稍后重试，或回到网页刷新支付码'}}</text>
+      <button class="btn" bindtap="onHome">回到我的</button>
+    </view>
+  </view>
 </view>

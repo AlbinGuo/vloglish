@@ -1,7 +1,7 @@
 import { wxLoginCode } from '../../api/auth'
 import { claimPcPaySession, createWxPayOrder } from '../../api/wxpay'
 import { getAccessToken, getRefreshToken, setSession } from '../../utils/auth'
-import { assertPayReady, requestVirtualPayment, waitPaid } from '../../utils/virtualPay'
+import { assertPayReady, classifyPayError, requestVirtualPayment, waitPaid } from '../../utils/virtualPay'
 
 let goHomeTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -9,14 +9,13 @@ function goProfileSoon() {
   if (goHomeTimer) clearTimeout(goHomeTimer)
   goHomeTimer = setTimeout(() => {
     wx.switchTab({ url: '/pages/profile/profile' })
-  }, 1600)
+  }, 2800)
 }
 
 Page({
   data: {
-    busy: true,
+    phase: 'loading' as 'loading' | 'success' | 'cancel' | 'fail',
     error: '',
-    done: false,
     planName: '',
     amount: '',
     token: '',
@@ -26,7 +25,7 @@ Page({
     const token = decodeURIComponent((query.scene || query.token || '').trim())
     this.setData({ token })
     if (!token) {
-      this.setData({ busy: false, error: '缺少支付码，请回到网页重新扫码' })
+      this.setData({ phase: 'fail', error: '缺少支付码，请回到网页重新扫码' })
       return
     }
     try {
@@ -36,8 +35,7 @@ Page({
       getApp<IAppOption>().globalData.user = sess.user
       if (sess.paid) {
         this.setData({
-          busy: false,
-          done: true,
+          phase: 'success',
           planName: sess.plan_name,
           amount: (sess.amount_cent / 100).toFixed(0),
         })
@@ -45,7 +43,7 @@ Page({
         return
       }
       if (sess.status === 'expired') {
-        this.setData({ busy: false, error: '支付码已过期，请在网页刷新后再扫' })
+        this.setData({ phase: 'fail', error: '支付码已过期，请在网页刷新后再扫' })
         return
       }
       this.setData({
@@ -61,11 +59,14 @@ Page({
         setSession(getAccessToken(), getRefreshToken(), paid.user)
         getApp<IAppOption>().globalData.user = paid.user
       }
-      this.setData({ busy: false, done: true })
+      this.setData({ phase: 'success' })
       goProfileSoon()
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '支付失败'
-      this.setData({ busy: false, error: msg })
+      const kind = classifyPayError(e)
+      this.setData({
+        phase: kind === 'cancel' ? 'cancel' : 'fail',
+        error: e instanceof Error ? e.message : '支付失败',
+      })
     }
   },
 

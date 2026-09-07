@@ -32,6 +32,12 @@ function payFailMessage(err: { errMsg?: string; errCode?: number }): string {
   return msg || '支付取消或失败'
 }
 
+export function classifyPayError(err: unknown): 'cancel' | 'fail' {
+  const msg = err instanceof Error ? err.message : String(err || '')
+  if (/取消|cancel/i.test(msg)) return 'cancel'
+  return 'fail'
+}
+
 export function requestVirtualPayment(pay: {
   sign_data: string
   pay_sig: string

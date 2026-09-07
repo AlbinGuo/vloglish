@@ -1,7 +1,7 @@
 import { activateMembership, wxLoginCode } from '../../api/auth'
 import { createWxPayOrder } from '../../api/wxpay'
 import { getStoredUser, setSession, getAccessToken, getRefreshToken, type AuthUser } from '../../utils/auth'
-import { assertPayReady, requestVirtualPayment, waitPaid } from '../../utils/virtualPay'
+import { assertPayReady, classifyPayError, requestVirtualPayment, waitPaid } from '../../utils/virtualPay'
 
 type PlanId = 'quarter' | 'year' | 'forever'
 
@@ -55,6 +55,8 @@ Page({
     code: '',
     submitting: false,
     paying: false,
+    result: '' as '' | 'success' | 'pending' | 'cancel' | 'fail',
+    resultMsg: '',
   },
 
   onShow() {
@@ -99,15 +101,27 @@ Page({
       await requestVirtualPayment(pay)
       const paid = await waitPaid(pay.out_trade_no)
       if (paid?.user) this.applyUser(paid.user)
-      wx.showToast({ title: paid?.paid ? '已开通会员' : '支付成功，权益开通中', icon: 'success' })
-    } catch (e) {
-      wx.showToast({
-        title: e instanceof Error ? e.message : '支付失败',
-        icon: 'none',
+      this.setData({
+        paying: false,
+        result: paid?.paid ? 'success' : 'pending',
+        resultMsg: paid?.paid ? `${plan.name}已开通` : '支付已完成，权益开通中',
       })
-    } finally {
-      this.setData({ paying: false })
+    } catch (e) {
+      const kind = classifyPayError(e)
+      this.setData({
+        paying: false,
+        result: kind === 'cancel' ? 'cancel' : 'fail',
+        resultMsg: e instanceof Error ? e.message : '支付失败',
+      })
     }
+  },
+
+  onClearResult() {
+    this.setData({ result: '', resultMsg: '' })
+  },
+
+  onBackMine() {
+    wx.switchTab({ url: '/pages/profile/profile' })
   },
 
   onCode(e: WechatMiniprogram.Input) {
@@ -125,8 +139,11 @@ Page({
     try {
       const user = await activateMembership(code)
       this.applyUser(user)
-      this.setData({ code: '' })
-      wx.showToast({ title: '已开通会员', icon: 'success' })
+      this.setData({
+        code: '',
+        result: 'success',
+        resultMsg: '会员已开通',
+      })
     } catch (e) {
       wx.showToast({
         title: e instanceof Error ? e.message : '激活失败',

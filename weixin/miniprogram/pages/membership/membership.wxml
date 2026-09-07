@@ -1,4 +1,19 @@
 <view class="page">
+  <view wx:if="{{result}}" class="result">
+    <view class="result-card">
+      <view wx:if="{{result === 'success' || result === 'pending'}}" class="mark mark-ok">✓</view>
+      <view wx:elif="{{result === 'cancel'}}" class="mark mark-cancel"></view>
+      <view wx:else class="mark mark-fail">!</view>
+      <text class="result-title">
+        {{result === 'success' || result === 'pending' ? '支付成功' : (result === 'cancel' ? '已取消支付' : '未能完成支付')}}
+      </text>
+      <text class="result-lead">{{resultMsg}}</text>
+      <button wx:if="{{result === 'success' || result === 'pending'}}" class="buy" bindtap="onBackMine">回到我的</button>
+      <button wx:else class="buy" bindtap="onClearResult">重新选择</button>
+    </view>
+  </view>
+
+  <block wx:if="{{!result}}">
   <view class="hero">
     <text class="kicker">MEMBERSHIP</text>
     <text class="title">会员权益</text>
@@ -39,4 +54,5 @@
     <input class="input" placeholder="输入激活码" value="{{code}}" bindinput="onCode" />
     <button class="ghost" loading="{{submitting}}" bindtap="onActivate">用激活码开通</button>
   </view>
+  </block>
 </view>

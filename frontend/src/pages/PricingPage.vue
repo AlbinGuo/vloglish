@@ -16,7 +16,7 @@ const plans: { id: PlanId; name: string; price: string; period: string; note: st
   { id: 'quarter', name: '季度会员', price: '29', period: '3 个月', note: '约 ¥9.7 / 月', recommend: false },
   { id: 'year', name: '年度会员', price: '59', period: '12 个月', note: '约 ¥4.9 / 月', recommend: true },
   { id: 'forever', name: '永久会员', price: '99', period: '一次买断', note: '不再续费', recommend: false },
-  { id: 'test', name: '测试会员', price: '1', period: '1 天', note: '联调付款', recommend: false },
+  // { id: 'test', name: '测试会员', price: '1', period: '1 天', note: '联调付款', recommend: false },
 ]
 
 const selected = ref<PlanId>('year')
@@ -236,7 +236,7 @@ async function submitCode() {
       </div>
 
       <p class="text-sm text-neutral-500 dark:text-neutral-400 text-center mt-7">
-        <RouterLink to="/english" class="text-neutral-800 dark:text-neutral-200 font-medium hover:underline underline-offset-2">
+        <RouterLink style="color: #333;" to="/english" class="text-neutral-800 dark:text-neutral-200 font-medium hover:underline underline-offset-2">
           返回学习
         </RouterLink>
       </p>
