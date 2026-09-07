@@ -10,12 +10,13 @@ const router = useRouter()
 const auth = useAuthStore()
 const catalog = useCatalogStore()
 
-type PlanId = 'quarter' | 'year' | 'forever'
+type PlanId = 'quarter' | 'year' | 'forever' | 'test'
 
 const plans: { id: PlanId; name: string; price: string; period: string; note: string; recommend: boolean }[] = [
   { id: 'quarter', name: '季度会员', price: '29', period: '3 个月', note: '约 ¥9.7 / 月', recommend: false },
   { id: 'year', name: '年度会员', price: '59', period: '12 个月', note: '约 ¥4.9 / 月', recommend: true },
   { id: 'forever', name: '永久会员', price: '99', period: '一次买断', note: '不再续费', recommend: false },
+  { id: 'test', name: '测试会员', price: '1', period: '1 天', note: '联调付款', recommend: false },
 ]
 
 const selected = ref<PlanId>('year')
@@ -33,9 +34,10 @@ let paySeq = 0
 
 const benefits = [
   '解锁全部视频与合集精听',
-  '上传油管视频到个人语料库',
-  '视频语境、词卡、挖空等完整学习工具',
-  '电脑扫码，用微信完成支付（未关联会自动绑定）',
+  '读报文章不限量',
+  // 油管上传上线后再加回：'上传油管视频到个人语料库',
+  'AI 讲解、挖空、跟读、问答不限次数',
+  '生词本、词卡与视频语境完整工具',
 ]
 
 function stopPay() {
@@ -152,7 +154,7 @@ async function submitCode() {
         <section
           class="lg:col-span-3 rounded-2xl border border-black/8 dark:border-white/10 bg-white/95 dark:bg-neutral-900/95 overflow-hidden flex flex-col"
         >
-          <div class="px-5 sm:px-7 pt-6 sm:pt-7 pb-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="px-5 sm:px-7 pt-6 sm:pt-7 pb-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               v-for="p in plans"
               :key="p.id"
