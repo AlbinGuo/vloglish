@@ -8,7 +8,6 @@ import json
 import logging
 import os
 import secrets
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -63,7 +62,6 @@ PLANS: dict[str, dict] = {
 # query_order.status：2 已支付待发货，3 发货中，4 已发货
 PAID_STATUSES = {2, 3, 4}
 
-_token_cache: dict[str, object] = {"token": "", "exp": 0.0}
 
 
 def offer_id() -> str:
@@ -170,45 +168,36 @@ def deliver_order(db: Session, order: MembershipOrder, *, wx_order_id: str = "",
     db.commit()
 
 
-def _access_token() -> str:
-    now = time.time()
-    if _token_cache["token"] and float(_token_cache["exp"] or 0) > now:
-        return str(_token_cache["token"])
-    qs = urllib.parse.urlencode(
-        {"grant_type": "client_credential", "appid": app_id(), "secret": app_secret()}
-    )
-    url = f"https://api.weixin.qq.com/cgi-bin/token?{qs}"
-    with urllib.request.urlopen(url, timeout=15) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
-    token = (body.get("access_token") or "").strip()
-    if not token:
-        raise RuntimeError(body.get("errmsg") or "无法获取微信 access_token")
-    _token_cache["token"] = token
-    _token_cache["exp"] = now + max(60, int(body.get("expires_in") or 7200) - 200)
-    return token
-
-
 def _xpay_post(path: str, payload: dict) -> dict:
+    from . import wechat_mini as wechat_mini_svc
+
     body = compact_json(payload)
     sig = calc_pay_sig(path, body)
-    token = _access_token()
-    url = f"https://api.weixin.qq.com{path}?access_token={urllib.parse.quote(token)}&pay_sig={sig}"
-    req = urllib.request.Request(
-        url,
-        data=body.encode("utf-8"),
-        method="POST",
-        headers={"Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        raw = exc.read().decode("utf-8", errors="replace")
-        logger.warning("xpay %s http %s %s", path, exc.code, raw)
+
+    def _call(token: str) -> dict:
+        url = f"https://api.weixin.qq.com{path}?access_token={urllib.parse.quote(token)}&pay_sig={sig}"
+        req = urllib.request.Request(
+            url,
+            data=body.encode("utf-8"),
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
         try:
-            return json.loads(raw)
-        except json.JSONDecodeError:
-            raise RuntimeError(f"微信接口失败 ({exc.code})") from exc
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            raw = exc.read().decode("utf-8", errors="replace")
+            logger.warning("xpay %s http %s %s", path, exc.code, raw)
+            try:
+                return json.loads(raw)
+            except json.JSONDecodeError:
+                raise RuntimeError(f"微信接口失败 ({exc.code})") from exc
+
+    result = _call(wechat_mini_svc.get_access_token())
+    err = result.get("errcode")
+    if err in (40001, 42001):
+        result = _call(wechat_mini_svc.get_access_token(force_refresh=True))
+    return result
 
 
 def query_wx_order(*, openid: str, out_trade_no: str) -> dict:

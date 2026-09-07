@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -61,18 +62,35 @@ def code_to_session(js_code: str) -> dict:
 _token_cache = {"token": "", "exp": 0.0}
 
 
-def get_access_token() -> str:
-    import time
+def _token_invalid(msg: str) -> bool:
+    raw = (msg or "").lower()
+    return "40001" in raw or "42001" in raw or "invalid credential" in raw or "access_token is invalid" in raw
 
+
+def get_access_token(*, force_refresh: bool = False) -> str:
+    """用稳定接口取 token，避免 /cgi-bin/token 互相顶掉。"""
     now = time.time()
-    if _token_cache["token"] and float(_token_cache["exp"] or 0) > now:
+    if not force_refresh and _token_cache["token"] and float(_token_cache["exp"] or 0) > now:
         return str(_token_cache["token"])
-    qs = urllib.parse.urlencode(
-        {"grant_type": "client_credential", "appid": _app_id(), "secret": _secret()}
+    payload = json.dumps(
+        {
+            "grant_type": "client_credential",
+            "appid": _app_id(),
+            "secret": _secret(),
+            "force_refresh": bool(force_refresh),
+        }
+    ).encode("utf-8")
+    req = urllib.request.Request(
+        "https://api.weixin.qq.com/cgi-bin/stable_token",
+        data=payload,
+        method="POST",
+        headers={"Content-Type": "application/json"},
     )
-    url = f"https://api.weixin.qq.com/cgi-bin/token?{qs}"
-    with urllib.request.urlopen(url, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=15) as resp:
         body = json.loads(resp.read().decode("utf-8"))
+    err = body.get("errcode")
+    if err:
+        raise RuntimeError(body.get("errmsg") or f"无法获取微信 access_token ({err})")
     token = (body.get("access_token") or "").strip()
     if not token:
         raise RuntimeError(body.get("errmsg") or "无法获取微信 access_token")
@@ -83,9 +101,7 @@ def get_access_token() -> str:
 
 def get_wxacode(scene: str, page: str) -> bytes:
     """生成小程序码（scene ≤ 32）。"""
-    token = get_access_token()
     env = (os.getenv("WECHAT_MINI_QR_ENV") or "release").strip() or "release"
-    url = f"https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token={urllib.parse.quote(token)}"
     payload = json.dumps(
         {
             "scene": scene[:32],
@@ -95,12 +111,26 @@ def get_wxacode(scene: str, page: str) -> bytes:
             "width": 280,
         }
     ).encode("utf-8")
-    req = urllib.request.Request(url, data=payload, method="POST", headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        data = resp.read()
+
+    def _call(token: str) -> bytes:
+        url = f"https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token={urllib.parse.quote(token)}"
+        req = urllib.request.Request(
+            url, data=payload, method="POST", headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            return resp.read()
+
+    data = _call(get_access_token())
     if data[:1] == b"{":
         body = json.loads(data.decode("utf-8"))
-        raise RuntimeError(body.get("errmsg") or "生成小程序码失败")
+        msg = str(body.get("errmsg") or "生成小程序码失败")
+        if _token_invalid(msg) or body.get("errcode") in (40001, 42001):
+            data = _call(get_access_token(force_refresh=True))
+            if data[:1] != b"{":
+                return data
+            body = json.loads(data.decode("utf-8"))
+            msg = str(body.get("errmsg") or "生成小程序码失败")
+        raise RuntimeError(msg)
     return data
 
 
