@@ -378,6 +378,13 @@ def _migrate_schema():
                 conn.execute(
                     text(f"ALTER TABLE episodes ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT {bool_default}")
                 )
+        if "open_to_free_users" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        f"ALTER TABLE episodes ADD COLUMN open_to_free_users BOOLEAN NOT NULL DEFAULT {bool_default}"
+                    )
+                )
         if "vocab_summary" not in ep_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE episodes ADD COLUMN vocab_summary TEXT NOT NULL DEFAULT ''"))

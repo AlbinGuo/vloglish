@@ -5,6 +5,7 @@ import {
   adminDeleteEpisode,
   adminListEpisodes,
   adminListSeries,
+  adminUpdateEpisode,
   type AdminEpisodeListItem,
   type AdminEpisodeSortField,
   type AdminSeries,
@@ -12,6 +13,7 @@ import {
 
 const loading = ref(true)
 const deletingId = ref<number | null>(null)
+const togglingFreeId = ref<number | null>(null)
 const search = ref('')
 const status = ref('')
 /** '' = 全部；'user' = 用户投稿；'official' = 官方 */
@@ -107,6 +109,20 @@ function goToPage(target: number) {
   if (next === page.value) return
   page.value = next
   load()
+}
+
+async function toggleOpenToFree(row: AdminEpisodeListItem) {
+  const next = !row.open_to_free_users
+  togglingFreeId.value = row.id
+  try {
+    const data = await adminUpdateEpisode(row.id, { open_to_free_users: next })
+    row.open_to_free_users = Boolean(data.open_to_free_users)
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+    error.value = msg || '更新失败'
+  } finally {
+    togglingFreeId.value = null
+  }
 }
 
 async function remove(row: AdminEpisodeListItem) {
@@ -271,6 +287,7 @@ onMounted(async () => {
                 <span v-if="row.series_index != null"> · 第 {{ row.series_index }} 集</span>
               </div>
               <div v-if="row.is_pinned" class="text-xs text-amber-700 mt-0.5">置顶</div>
+              <div v-if="row.open_to_free_users" class="text-xs text-sky-700 mt-0.5">普通用户可看</div>
               <div v-if="row.is_demo" class="text-xs text-amber-600 mt-0.5">Demo</div>
               <div v-if="row.is_user_submitted" class="text-xs text-violet-700 mt-0.5">
                 用户投稿 · {{ row.is_catalog_public ? '全站可见' : '仅投稿者可见' }}
@@ -306,6 +323,21 @@ onMounted(async () => {
             </td>
             <td class="px-4 py-3 text-right whitespace-nowrap space-x-3">
               <RouterLink :to="`/gnadmin/episodes/${row.id}`" class="text-neutral-900 hover:underline">编辑</RouterLink>
+              <button
+                type="button"
+                class="hover:underline disabled:opacity-50"
+                :class="row.open_to_free_users ? 'text-sky-700' : 'text-neutral-500'"
+                :disabled="togglingFreeId === row.id"
+                @click="toggleOpenToFree(row)"
+              >
+                {{
+                  togglingFreeId === row.id
+                    ? '保存中…'
+                    : row.open_to_free_users
+                      ? '取消开放'
+                      : '对普通用户开放'
+                }}
+              </button>
               <a
                 v-if="row.video_id"
                 :href="`/gnadmin/preview/${encodeURIComponent(row.video_id)}`"

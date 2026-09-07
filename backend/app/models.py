@@ -86,6 +86,8 @@ class Episode(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # 管理员指定：普通用户是否可播放该集（会员限制开启时生效）
+    open_to_free_users: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     status: Mapped[str] = mapped_column(String(16), default="published")
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # 全站上线弹窗是否已推送过（首次进入公共目录时写入）

@@ -1,6 +1,6 @@
 """AI 功能日额度 + 调用计量落库。
 
-普通用户共享每日额度（FREE_AI_DAILY_LIMIT，默认 10）；会员不限但同样记用量。
+普通用户共享每日额度（FREE_AI_DAILY_LIMIT，默认 3）；会员不限但同样记用量。
 计量事件写入 ai_usage_events，供管理端看板与对账。
 """
 
@@ -22,7 +22,7 @@ from .daily_visits import visit_date_now
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_FREE_DAILY = 10
+DEFAULT_FREE_DAILY = 3
 
 # 展示用中文名（管理端）
 ACTION_LABELS: dict[str, str] = {

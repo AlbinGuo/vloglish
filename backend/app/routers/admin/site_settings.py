@@ -21,5 +21,9 @@ def patch_site_settings(
     _admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    enabled = set_membership_gate_enabled(db, body.membership_gate_enabled)
+    enabled = (
+        set_membership_gate_enabled(db, body.membership_gate_enabled)
+        if body.membership_gate_enabled is not None
+        else is_membership_gate_enabled(db)
+    )
     return AdminSiteSettingsOut(membership_gate_enabled=enabled)

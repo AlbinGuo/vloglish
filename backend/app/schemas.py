@@ -394,6 +394,7 @@ class AdminEpisodeCreateIn(BaseModel):
     original_video_url: str = ""
     is_demo: bool = False
     is_pinned: bool = False
+    open_to_free_users: bool = False
     status: str = Field(default="draft", pattern=EPISODE_STATUS_PATTERN)
     rejection_reason: str = ""
     series_id: int | None = None
@@ -419,6 +420,7 @@ class AdminEpisodeUpdateIn(BaseModel):
     original_video_url: str | None = None
     is_demo: bool | None = None
     is_pinned: bool | None = None
+    open_to_free_users: bool | None = None
     status: str | None = Field(default=None, pattern=EPISODE_STATUS_PATTERN)
     rejection_reason: str | None = None
     series_id: int | None = None
@@ -444,6 +446,7 @@ class AdminEpisodeListItemOut(BaseModel):
     cover: str
     is_demo: bool
     is_pinned: bool = False
+    open_to_free_users: bool = False
     is_user_submitted: bool = False
     is_catalog_public: bool = False
     tag_names: list[str] = []
@@ -488,6 +491,7 @@ class AdminEpisodeDetailOut(BaseModel):
     original_video_url: str
     is_demo: bool
     is_pinned: bool = False
+    open_to_free_users: bool = False
     status: str
     rejection_reason: str = ""
     is_user_submitted: bool = False
@@ -1610,7 +1614,7 @@ class AdminSiteSettingsOut(BaseModel):
 
 
 class AdminSiteSettingsPatchIn(BaseModel):
-    membership_gate_enabled: bool
+    membership_gate_enabled: bool | None = None
 
 
 class AppReleaseOut(BaseModel):

@@ -1,22 +1,8 @@
 from sqlalchemy.orm import Session, joinedload
-import os
 
 from .models import DemoCode, Episode
 from .episode_visibility import can_view_published_episode, published_visibility_filter
 from .services.site_settings import content_access_unlocked
-
-# 普通用户（含未登录按「无会员」处理时）首页单集列表可见数量；会员为不限
-DEFAULT_FREE_EPISODE_LIMIT = 8
-
-
-def free_episode_limit() -> int:
-    raw = (os.getenv("FREE_EPISODE_LIMIT") or "").strip()
-    if not raw:
-        return DEFAULT_FREE_EPISODE_LIMIT
-    try:
-        return max(0, int(raw))
-    except ValueError:
-        return DEFAULT_FREE_EPISODE_LIMIT
 
 
 def user_is_member(user) -> bool:
@@ -31,12 +17,9 @@ def user_is_member(user) -> bool:
 
 
 def get_episode_limit(db: Session, user) -> int | None:
-    """会员不限；关门槛期间登录用户不限；其余返回免费额度。"""
-    if user_is_member(user):
-        return None
-    if content_access_unlocked(db, user):
-        return None
-    return free_episode_limit()
+    """已不再按固定集数截断；None 表示目录总量不截断。"""
+    _ = (db, user)
+    return None
 
 
 def episode_order(ordering: str):
@@ -52,16 +35,15 @@ def episode_order(ordering: str):
 
 
 def get_visible_episode_ids(db: Session, user, ordering: str = "created_at") -> set[int]:
-    limit = get_episode_limit(db, user)
-    if limit is None:
+    """普通用户可播放的剧集（管理员勾选了对普通用户开放）。"""
+    if user_is_member(user) or content_access_unlocked(db, user):
         return set()
+    _ = ordering
     rows = (
         db.query(Episode.id)
         .filter(Episode.status == "published")
-        .filter(Episode.series_id.is_(None))
         .filter(published_visibility_filter(user))
-        .order_by(Episode.is_pinned.desc(), episode_order(ordering))
-        .limit(limit)
+        .filter(Episode.open_to_free_users.is_(True))
         .all()
     )
     return {row[0] for row in rows}
@@ -89,10 +71,9 @@ def get_demo_episodes(db: Session) -> list[Episode]:
 
 def get_visible_demo_episodes(db: Session, user) -> list[Episode]:
     episodes = sorted(get_demo_episodes(db), key=lambda e: e.index, reverse=True)
-    limit = get_episode_limit(db, user)
-    if limit is None:
+    if user_is_member(user) or content_access_unlocked(db, user):
         return episodes
-    return episodes[:limit]
+    return [ep for ep in episodes if getattr(ep, "open_to_free_users", False)]
 
 
 def can_access_episode(db: Session, episode: Episode, user, ordering: str = "created_at") -> bool:
@@ -110,14 +91,11 @@ def can_access_episode(db: Session, episode: Episode, user, ordering: str = "cre
         return True
     if content_access_unlocked(db, user):
         return True
-    # 合集内容仅会员可看
-    if episode.series_id is not None:
-        return False
     # 未登录不可看
     if user is None:
         return False
-    # 普通用户：仅免费列表内的独立单集可进详情/播放
-    return episode.id in get_visible_episode_ids(db, user, ordering)
+    # 普通用户：仅管理员勾选「对普通用户开放」的剧集可播放
+    return bool(getattr(episode, "open_to_free_users", False))
 
 
 def can_access_series_content(db: Session, user) -> bool:

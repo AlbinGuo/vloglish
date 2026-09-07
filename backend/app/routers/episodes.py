@@ -11,7 +11,6 @@ from ..demo_access import (
     can_access_episode,
     can_access_series_content,
     get_episode_limit,
-    get_visible_episode_ids,
     user_is_member,
 )
 from ..deps import get_current_user, get_current_user_optional, get_device_id
@@ -178,11 +177,14 @@ def episode_list(
         "series_index": Episode.series_index.asc().nulls_last(),
         "-series_index": Episode.series_index.desc().nulls_last(),
     }
-    # 置顶视频始终排在最前（同置顶再按所选排序）
-    q = q.order_by(Episode.is_pinned.desc(), order_map.get(ordering, Episode.created_at.desc()))
+    # 置顶最先，其次对普通用户开放，再按所选排序
+    q = q.order_by(
+        Episode.is_pinned.desc(),
+        Episode.open_to_free_users.desc(),
+        order_map.get(ordering, Episode.created_at.desc()),
+    )
 
     # 普通用户也返回完整目录；不可播放项与 can_access_episode 对齐，标记 requires_membership
-    free_ids = None if get_episode_limit(db, user) is None else get_visible_episode_ids(db, user)
     start = offset if offset is not None else (page - 1) * page_size
     total = q.count()
     items = q.offset(start).limit(page_size).all()
@@ -190,15 +192,7 @@ def episode_list(
     learner_map = learner_count_map_for_episodes(db, [ep.id for ep in items])
 
     def _requires_membership(ep: Episode) -> bool:
-        if free_ids is None:
-            return False
-        if (
-            ep.submitted_by_user_id is not None
-            and user is not None
-            and ep.submitted_by_user_id == user.id
-        ):
-            return False
-        return ep.id not in free_ids
+        return not can_access_episode(db, ep, user)
 
     return {
         "count": total,
@@ -271,11 +265,10 @@ def english_nav_counts(
     """用户端顶栏：视频 / 合集 / 文章阅读 可见数量。"""
     from ..models import Article
 
-    # 顶栏数量展示全站可见总量（不受普通用户列表限额影响）
+    # 顶栏「视频」数量：独立视频 + 合集内视频（全站已发布总量）
     videos = (
         db.query(Episode)
         .filter(Episode.status == "published")
-        .filter(Episode.series_id.is_(None))
         .filter(published_visibility_filter(user))
         .count()
     )
@@ -692,7 +685,11 @@ def authors_catalog(
     elif status == "favorite":
         q = q.filter(Episode.video_id.in_(fav_ids) if fav_ids else Episode.id < 0)
 
-    q = q.order_by(Episode.is_pinned.desc(), Episode.created_at.desc())
+    q = q.order_by(
+        Episode.is_pinned.desc(),
+        Episode.open_to_free_users.desc(),
+        Episode.created_at.desc(),
+    )
     episodes = q.all()
 
     grouped: dict[int, dict] = {}
@@ -738,7 +735,11 @@ def author_detail(
             Episode.series_id.is_(None),
         )
         .filter(published_visibility_filter(user))
-        .order_by(Episode.is_pinned.desc(), Episode.created_at.desc())
+        .order_by(
+            Episode.is_pinned.desc(),
+            Episode.open_to_free_users.desc(),
+            Episode.created_at.desc(),
+        )
     )
     episodes = q.all()
     covers = [ep.cover for ep in episodes if ep.cover][:3]

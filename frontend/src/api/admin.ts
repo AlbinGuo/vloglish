@@ -292,7 +292,7 @@ export async function adminFetchSiteSettings() {
   return data
 }
 
-export async function adminPatchSiteSettings(payload: { membership_gate_enabled: boolean }) {
+export async function adminPatchSiteSettings(payload: Partial<AdminSiteSettings>) {
   const { data } = await adminApi.patch<AdminSiteSettings>('/api/admin/site-settings/', payload)
   return data
 }
@@ -473,6 +473,7 @@ export interface AdminEpisodeListItem {
   cover: string
   is_demo: boolean
   is_pinned?: boolean
+  open_to_free_users?: boolean
   is_user_submitted: boolean
   is_catalog_public?: boolean
   tag_names: string[]
@@ -518,6 +519,7 @@ export interface AdminEpisodeDetail {
   original_video_url: string
   is_demo: boolean
   is_pinned?: boolean
+  open_to_free_users?: boolean
   status: string
   rejection_reason?: string
   is_user_submitted?: boolean
@@ -551,6 +553,7 @@ export type AdminEpisodePayload = {
   original_video_url: string
   is_demo: boolean
   is_pinned?: boolean
+  open_to_free_users?: boolean
   status: string
   rejection_reason?: string
   series_id?: number | null

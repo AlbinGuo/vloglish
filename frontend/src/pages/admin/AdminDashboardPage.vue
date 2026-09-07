@@ -194,7 +194,7 @@ function barWidth(rate: number) {
         <div class="min-w-0 flex-1">
           <h2 class="font-medium text-neutral-900">会员内容限制</h2>
           <p class="mt-1 text-sm text-neutral-600 leading-relaxed max-w-2xl">
-            开启时按 Freemium：非会员视频/合集/文章限量，AI 每日限额。关闭时：已登录可看全部视频、合集与文章，AI 仍限；新注册用户仍是普通用户，不会自动成为会员。
+            开启时：非会员只能播放管理员勾选「对普通用户开放」的剧集，合集/文章仍需会员，AI 每日限额。关闭时：已登录可看全部视频、合集与文章，AI 仍限；新注册用户仍是普通用户，不会自动成为会员。
           </p>
           <p class="mt-2 text-sm font-medium" :class="membershipGateEnabled ? 'text-amber-800' : 'text-sky-800'">
             当前：{{ membershipGateEnabled ? '已开启（内容限量）' : '已关闭（登录用户内容全开）' }}

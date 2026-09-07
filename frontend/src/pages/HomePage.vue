@@ -79,7 +79,7 @@ const previewBanner = computed(() => {
   // 关会员内容门槛期间：已登录即可看全部视频/合集，不展示限量引导
   if (!siteConfig.isContentGated) return null
   return {
-    text: '当前为普通用户，可观看最新 8 个独立视频；会员可观看全部内容及合集。',
+    text: '开通会员可观看全部视频内容及合集。',
     showLogin: false,
     showSignup: false,
     showPricing: true,

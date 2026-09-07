@@ -74,6 +74,7 @@ const form = ref<AdminEpisodePayload>({
   original_video_url: '',
   is_demo: false,
   is_pinned: false,
+  open_to_free_users: false,
   status: 'draft',
   rejection_reason: '',
   series_id: null,
@@ -180,6 +181,7 @@ async function loadEpisode() {
       original_video_url: data.original_video_url,
       is_demo: data.is_demo,
       is_pinned: Boolean(data.is_pinned),
+      open_to_free_users: Boolean(data.open_to_free_users),
       status: data.status,
       rejection_reason: data.rejection_reason || '',
       series_id: data.series_id ?? null,
@@ -870,6 +872,10 @@ watch(
           <label class="block text-sm flex items-end gap-2 pb-2 md:col-span-2">
             <input v-model="form.is_pinned" type="checkbox" class="rounded" />
             <span>置顶（用户端视频列表固定靠前，并显示置顶角标）</span>
+          </label>
+          <label class="block text-sm flex items-end gap-2 pb-2 md:col-span-2">
+            <input v-model="form.open_to_free_users" type="checkbox" class="rounded" />
+            <span>对普通用户开放（勾选后非会员也可播放本集；未勾选则需开通会员）</span>
           </label>
           <label class="block text-sm md:col-span-2">
             <span class="text-neutral-500">摘要</span>
