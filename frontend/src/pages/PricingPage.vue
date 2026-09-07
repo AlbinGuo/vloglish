@@ -29,6 +29,7 @@ const activating = ref(false)
 
 let pollTimer: ReturnType<typeof setInterval> | undefined
 let objectUrl = ''
+let paySeq = 0
 
 const benefits = [
   '解锁全部视频与合集精听',
@@ -57,32 +58,37 @@ onMounted(async () => {
   }
   if (auth.isMember) {
     await router.replace('/english')
+    return
   }
+  await startScanPay()
 })
 
 onUnmounted(stopPay)
 
 watch(selected, () => {
-  stopPay()
-  error.value = ''
-  paidOk.value = false
+  void startScanPay()
 })
 
 async function startScanPay() {
+  const seq = ++paySeq
+  const plan = selected.value
   error.value = ''
   paidOk.value = false
-  const plan = selected.value
   loading.value = true
   stopPay()
   try {
     const sess = await createPcPaySession(plan)
+    if (seq !== paySeq) return
     const blob = await fetchPcPayQr(sess.token)
+    if (seq !== paySeq) return
     objectUrl = URL.createObjectURL(blob)
     payQr.value = objectUrl
     payHint.value = `微信扫码支付「${sess.plan_name}」¥${(sess.amount_cent / 100).toFixed(0)}`
     pollTimer = setInterval(async () => {
+      if (seq !== paySeq) return
       try {
         const st = await fetchPcPayStatus(sess.token)
+        if (seq !== paySeq) return
         if (st.paid) {
           stopPay()
           paidOk.value = true
@@ -90,17 +96,17 @@ async function startScanPay() {
           await catalog.loadEpisodes(true)
           await router.replace('/english')
         } else if (st.status === 'expired') {
-          error.value = '支付码已过期，请重新生成'
-          stopPay()
+          void startScanPay()
         }
       } catch {
         /* keep polling */
       }
     }, 2000)
   } catch (e) {
+    if (seq !== paySeq) return
     error.value = getErrorDetail(e) || '无法生成支付码'
   } finally {
-    loading.value = false
+    if (seq === paySeq) loading.value = false
   }
 }
 
@@ -134,12 +140,12 @@ async function submitCode() {
         >
           微信扫码支付
         </p>
-        <h1 class="text-2xl sm:text-3xl font-semibold tracking-tight text-[#111111] dark:text-[#f7f3ea]">
-          选套餐，手机扫码开通
+        <h1 class="pricing-title text-2xl sm:text-3xl font-semibold tracking-tight">
+          选套餐，手机微信扫码开通
         </h1>
-        <p class="mt-2 text-sm sm:text-base text-neutral-700 dark:text-neutral-300 max-w-lg mx-auto leading-relaxed">
-          选套餐后生成小程序码，微信扫一下即可支付。未关联时会自动绑到当前网页账号。
-        </p>
+<!--        <p class="pricing-lead mt-2 text-sm sm:text-base max-w-lg mx-auto leading-relaxed">-->
+<!--          选套餐后生成小程序码，微信扫一下即可支付。未关联时会自动绑到当前网页账号。-->
+<!--        </p>-->
       </header>
 
       <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-5 items-stretch">
@@ -192,48 +198,38 @@ async function submitCode() {
         <section
           class="lg:col-span-2 rounded-2xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 p-5 sm:p-6 flex flex-col"
         >
-          <h2 class="text-lg font-semibold text-neutral-900 dark:text-white mb-1">扫码支付</h2>
-          <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-4 leading-relaxed">
-            用微信扫描下方小程序码完成支付。若尚未关联，扫码时会自动绑定到当前网页账号。
-          </p>
+          <h2 class="text-lg font-semibold text-neutral-900 dark:text-white mb-1">微信扫码支付</h2>
+<!--          <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-4 leading-relaxed">-->
+<!--            用微信扫描下方小程序码完成支付。若尚未关联，扫码时会自动绑定到当前网页账号。-->
+<!--          </p>-->
 
           <div class="flex justify-center min-h-[12rem] items-center rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-black/5 dark:border-white/10 p-4">
             <p v-if="loading" class="text-sm text-neutral-400">正在生成支付码…</p>
             <img v-else-if="payQr" :src="payQr" alt="支付小程序码" class="w-48 h-48 object-contain bg-white rounded-lg" />
-            <p v-else class="text-sm text-neutral-400 text-center px-4">选择套餐后点下方按钮生成小程序码</p>
+            <p v-else class="text-sm text-neutral-400 text-center px-4">正在准备支付码…</p>
           </div>
           <p v-if="payHint" class="mt-2 text-center text-xs text-neutral-500">{{ payHint }}</p>
           <p v-if="paidOk" class="mt-2 text-center text-sm text-emerald-600">支付成功，正在进入学习…</p>
           <p v-if="error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{ error }}</p>
 
-          <button
-            type="button"
-            class="mt-4 w-full rounded-xl py-3 text-sm font-semibold transition disabled:opacity-60"
-            style="background-color: #111111; color: #edd577"
-            :disabled="loading"
-            @click="startScanPay"
-          >
-            {{ payQr ? '刷新支付码' : '生成支付码' }}
-          </button>
-
-          <form class="mt-8 pt-5 border-t border-black/5 dark:border-white/10 space-y-3" @submit.prevent="submitCode">
-            <p class="text-xs font-medium tracking-wide text-neutral-400">或使用激活码</p>
-            <input
-              v-model="activationCode"
-              type="text"
-              autocomplete="off"
-              placeholder="请输入激活码"
-              class="w-full rounded-xl border border-black/10 dark:border-white/10 dark:bg-neutral-950 dark:text-white px-3.5 py-3 text-sm uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-[#edd577]/40"
-              @input="activationCode = activationCode.toUpperCase()"
-            />
-            <button
-              type="submit"
-              class="w-full rounded-xl py-2.5 text-sm font-medium border border-black/10 dark:border-white/15 disabled:opacity-60"
-              :disabled="activating"
-            >
-              {{ activating ? '开通中…' : '用激活码开通' }}
-            </button>
-          </form>
+<!--          <form class="mt-8 pt-5 border-t border-black/5 dark:border-white/10 space-y-3" @submit.prevent="submitCode">-->
+<!--            <p class="text-xs font-medium tracking-wide text-neutral-400">或使用激活码</p>-->
+<!--            <input-->
+<!--              v-model="activationCode"-->
+<!--              type="text"-->
+<!--              autocomplete="off"-->
+<!--              placeholder="请输入激活码"-->
+<!--              class="w-full rounded-xl border border-black/10 dark:border-white/10 dark:bg-neutral-950 dark:text-white px-3.5 py-3 text-sm uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-[#edd577]/40"-->
+<!--              @input="activationCode = activationCode.toUpperCase()"-->
+<!--            />-->
+<!--            <button-->
+<!--              type="submit"-->
+<!--              class="w-full rounded-xl py-2.5 text-sm font-medium border border-black/10 dark:border-white/15 disabled:opacity-60"-->
+<!--              :disabled="activating"-->
+<!--            >-->
+<!--              {{ activating ? '开通中…' : '用激活码开通' }}-->
+<!--            </button>-->
+<!--          </form>-->
         </section>
       </div>
 
@@ -253,10 +249,22 @@ async function submitCode() {
     radial-gradient(ellipse 60% 40% at 100% 100%, rgba(0, 0, 0, 0.04), transparent 50%),
     #fafaf9;
 }
+.pricing-title {
+  color: #111111;
+}
+.pricing-lead {
+  color: #3f3a32;
+}
 :global(.dark) .pricing-page {
   background:
     radial-gradient(ellipse 80% 50% at 50% -10%, rgba(237, 213, 119, 0.08), transparent 55%),
     radial-gradient(ellipse 50% 40% at 0% 100%, rgba(255, 255, 255, 0.03), transparent 45%),
     #0a0a0a;
+}
+:global(.dark) .pricing-title {
+  color: #ffffff;
+}
+:global(.dark) .pricing-lead {
+  color: #e7e5e4;
 }
 </style>

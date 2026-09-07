@@ -1,9 +1,17 @@
 <view class="page">
-  <view class="block records">
-    <view class="demo" wx:for="{{demos}}" wx:key="en">
-      <text class="demo-en">{{item.en}}</text>
-      <text class="demo-zh">{{item.zh}}</text>
-    </view>
+  <view class="bg" aria-hidden="true">
+    <view class="mesh"></view>
+    <view class="orb a"></view>
+    <view class="orb b"></view>
+    <view class="orb c"></view>
+    <view class="ring a"></view>
+    <view class="ring b"></view>
+    <view class="spark s1"></view>
+    <view class="spark s2"></view>
+    <view class="spark s3"></view>
+    <view class="spark s4"></view>
+    <view class="spark s5"></view>
+    <view class="spark s6"></view>
   </view>
 
   <view class="block">

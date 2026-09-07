@@ -1,13 +1,115 @@
 .page {
+  position: relative;
   min-height: 100%;
-  padding: 28rpx 28rpx calc(40rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  padding: 160rpx 28rpx calc(80rpx + env(safe-area-inset-bottom));
+  overflow: hidden;
   background: #efe8dc;
 }
 
+.bg {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.mesh {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  opacity: 0.55;
+  background-image:
+    radial-gradient(circle at 20% 18%, rgba(237, 213, 119, 0.28) 0 18%, transparent 42%),
+    radial-gradient(circle at 86% 72%, rgba(11, 18, 32, 0.08) 0 16%, transparent 40%),
+    repeating-linear-gradient(
+      135deg,
+      rgba(11, 18, 32, 0.035) 0 1rpx,
+      transparent 1rpx 28rpx
+    ),
+    repeating-radial-gradient(
+      circle at 12rpx 12rpx,
+      rgba(196, 163, 90, 0.16) 0 1.5rpx,
+      transparent 1.6rpx 26rpx
+    );
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.orb.a {
+  top: -80rpx;
+  left: -60rpx;
+  width: 420rpx;
+  height: 420rpx;
+  background: radial-gradient(circle, rgba(237, 213, 119, 0.5) 0%, rgba(237, 213, 119, 0) 70%);
+}
+
+.orb.b {
+  top: 38%;
+  right: -140rpx;
+  width: 460rpx;
+  height: 460rpx;
+  background: radial-gradient(circle, rgba(11, 18, 32, 0.1) 0%, rgba(11, 18, 32, 0) 68%);
+}
+
+.orb.c {
+  bottom: -40rpx;
+  left: 18%;
+  width: 340rpx;
+  height: 340rpx;
+  background: radial-gradient(circle, rgba(196, 163, 90, 0.28) 0%, rgba(196, 163, 90, 0) 70%);
+}
+
+.ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2rpx solid rgba(196, 163, 90, 0.28);
+}
+
+.ring.a {
+  top: 88rpx;
+  right: 48rpx;
+  width: 180rpx;
+  height: 180rpx;
+}
+
+.ring.b {
+  bottom: 120rpx;
+  left: 36rpx;
+  width: 240rpx;
+  height: 240rpx;
+  border-color: rgba(11, 18, 32, 0.08);
+}
+
+.spark {
+  position: absolute;
+  width: 14rpx;
+  height: 14rpx;
+  background: #edd577;
+  transform: rotate(45deg);
+  opacity: 0.7;
+}
+
+.spark.s1 { top: 72rpx; left: 92rpx; }
+.spark.s2 { top: 220rpx; right: 120rpx; width: 10rpx; height: 10rpx; opacity: 0.45; }
+.spark.s3 { top: 56%; left: 48rpx; width: 12rpx; height: 12rpx; }
+.spark.s4 { bottom: 220rpx; right: 72rpx; }
+.spark.s5 { bottom: 88rpx; left: 38%; width: 10rpx; height: 10rpx; opacity: 0.4; }
+.spark.s6 { top: 42%; right: 28%; width: 8rpx; height: 8rpx; opacity: 0.35; }
+
 .block {
-  margin-bottom: 24rpx;
+  position: relative;
+  z-index: 1;
   padding: 36rpx 32rpx 32rpx;
-  background: #fffdf8;
+  background: rgba(255, 253, 248, 0.94);
   border-radius: 28rpx;
   box-shadow:
     0 1rpx 0 rgba(11, 18, 32, 0.04),
@@ -23,10 +125,6 @@
   color: #a16207;
 }
 
-.records .demo:first-child {
-  margin-top: 0;
-}
-
 .ghost {
   margin-top: 28rpx;
   font-size: 28rpx;
@@ -38,29 +136,6 @@
 
 .ghost::after {
   border: none;
-}
-
-.demo {
-  margin-top: 16rpx;
-  padding: 22rpx 20rpx;
-  background: #efe8dc;
-  border-radius: 20rpx;
-}
-
-.demo-en {
-  display: block;
-  font-size: 40rpx;
-  font-weight: 700;
-  line-height: 1.5;
-  color: #0b1220;
-}
-
-.demo-zh {
-  display: block;
-  margin-top: 10rpx;
-  font-size: 30rpx;
-  color: #6b6358;
-  line-height: 1.6;
 }
 
 .plans {

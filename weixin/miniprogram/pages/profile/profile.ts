@@ -7,7 +7,7 @@ Page({
     name: '未登录',
     initial: '?',
     isMember: false,
-    memberLabel: '登录后同步学习进度',
+    memberLabel: '请先登录',
     loading: false,
     wechatOnly: false,
     wxBound: false,
@@ -32,7 +32,7 @@ Page({
             ? `会员至 ${user.member_until}`
             : '会员已开通 · 永久'
           : '普通学员'
-        : '登录后同步学习进度',
+        : '请先登录',
       wechatOnly: Boolean(user?.wechat_only),
       wxBound: Boolean(user?.wx_bound),
       emailLabel: user && !user.wechat_only ? user.email : '',
