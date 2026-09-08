@@ -14,6 +14,14 @@
     <view class="spark s6"></view>
   </view>
 
+  <view class="site">
+    <text class="site-lead">长按下方地址，复制后到浏览器打开</text>
+    <view class="site-row">
+      <text class="site-url" selectable>{{siteUrl}}</text>
+      <text class="site-hint">长按复制</text>
+    </view>
+  </view>
+
   <view class="block">
     <text class="h">会员档位</text>
     <view class="plans">
