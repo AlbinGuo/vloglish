@@ -181,3 +181,14 @@ export async function updateSubtitleProgress(subtitleId: number, isMarkedLearned
   })
   return data
 }
+
+export async function completeDailySentence(videoId: string, subtitleId: number) {
+  const { data } = await api.post<{
+    completed: boolean
+    streak_days: number
+  }>('/api/learning/daily-sentence/complete/', {
+    video_id: videoId,
+    subtitle_id: subtitleId,
+  })
+  return data
+}

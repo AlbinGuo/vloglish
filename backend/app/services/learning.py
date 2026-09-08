@@ -400,15 +400,17 @@ def learning_summary(db: Session, user_id: int) -> dict:
     vocab_count = len(dedupe_vocabulary_by_word(vocab_rows))
     lookup_count = db.query(UserWordLookup).filter(UserWordLookup.user_id == user_id).count()
 
+    from .daily_sentence import as_cst_date, completed_days, cst_today
+
     active_days = (
-        db.query(func.date(UserEpisodeProgress.last_watched_at))
+        db.query(UserEpisodeProgress.last_watched_at)
         .filter(UserEpisodeProgress.user_id == user_id)
-        .distinct()
         .all()
     )
-    day_set = {str(r[0]) for r in active_days if r[0]}
+    day_set = {str(as_cst_date(r[0])) for r in active_days if r[0] and as_cst_date(r[0])}
+    day_set |= completed_days(db, user_id)
     streak = 0
-    cursor = today.date()
+    cursor = cst_today()
     while str(cursor) in day_set:
         streak += 1
         cursor -= timedelta(days=1)

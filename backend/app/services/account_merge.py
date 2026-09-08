@@ -22,6 +22,7 @@ from ..models import (
     UserArticleProgress,
     UserAuthorSubscription,
     UserClonedVoice,
+    UserDailySentence,
     UserDailyVisit,
     UserEpisodeFavorite,
     UserEpisodeProgress,
@@ -154,6 +155,19 @@ def merge_users(db: Session, *, source: User, target: User) -> User:
             dest.is_completed = dest.is_completed or row.is_completed
             if row.last_read_at and (not dest.last_read_at or row.last_read_at > dest.last_read_at):
                 dest.last_read_at = row.last_read_at
+            db.delete(row)
+        else:
+            row.user_id = tid
+
+    for row in db.query(UserDailySentence).filter(UserDailySentence.user_id == sid).all():
+        dest = (
+            db.query(UserDailySentence)
+            .filter(UserDailySentence.user_id == tid, UserDailySentence.day == row.day)
+            .first()
+        )
+        if dest:
+            if row.completed_at and (not dest.completed_at or row.completed_at < dest.completed_at):
+                dest.completed_at = dest.completed_at or row.completed_at
             db.delete(row)
         else:
             row.user_id = tid

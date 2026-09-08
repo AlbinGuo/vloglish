@@ -331,7 +331,7 @@ watch(
 
       <DailyPathCard
         v-if="auth.isLoggedIn"
-        class="mb-3 sm:mb-4"
+        class="mb-2 sm:mb-3"
         variant="compact"
       />
 

@@ -659,9 +659,16 @@ def daily_learning_path(db: Session, user: User) -> dict:
         db.query(UserVocabularyItem).filter(UserVocabularyItem.user_id == user.id).count()
     )
 
+    from .daily_sentence import daily_sentence_payload, vocab_preview
+
+    today_sentence = daily_sentence_payload(db, user)
+    preview = vocab_preview(db, user, limit=3)
+
     return {
         "continue_item": continue_item,
         "recommend": recommend,
+        "today_sentence": today_sentence,
+        "vocab_preview": preview,
         "vocab_review": {
             "available": vocab_count > 0,
             "count": vocab_count,
@@ -669,9 +676,10 @@ def daily_learning_path(db: Session, user: User) -> dict:
             "reason": "去生词本复习（不会自动消耗 AI）" if vocab_count else "生词本为空，学视频时点词可收藏",
         },
         "tips": [
-            "先用「讲解」吃透难句，再用「跟读」开口",
+            "先跟读今日一句，再接着上次的视频",
             "听写 / AI 挖空巩固听力细节",
         ],
+        "daily_streak": (today_sentence or {}).get("streak_days") or 0,
     }
 
 

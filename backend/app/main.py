@@ -19,6 +19,7 @@ from .models import (
     UserAuthorSubscription,
     UserClonedVoice,
     UserPageDwell,
+    UserDailySentence,
     UserPracticeRecord,
     WishRequest,
     WishRequestLike,
@@ -164,6 +165,11 @@ def _migrate_schema():
     if "user_practice_records" not in insp.get_table_names():
         UserPracticeRecord.__table__.create(bind=engine, checkfirst=True)
         print("[vloglish] created table user_practice_records")
+        insp = inspect(engine)
+
+    if "user_daily_sentences" not in insp.get_table_names():
+        UserDailySentence.__table__.create(bind=engine, checkfirst=True)
+        print("[vloglish] created table user_daily_sentences")
         insp = inspect(engine)
 
     if "ai_usage_events" not in insp.get_table_names():

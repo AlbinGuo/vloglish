@@ -101,6 +101,19 @@ export interface DailyPathResult {
     cover: string
     reason: string
   }[]
+  today_sentence: {
+    day: string
+    video_id: string
+    subtitle_id: number
+    english: string
+    chinese: string
+    cover: string
+    episode_title: string
+    completed: boolean
+    path: string
+    streak_days: number
+  } | null
+  vocab_preview: { word: string; meaning: string; path: string }[]
   vocab_review: {
     available: boolean
     count: number
@@ -108,6 +121,7 @@ export interface DailyPathResult {
     reason: string
   }
   tips: string[]
+  daily_streak: number
 }
 
 export interface ReadingQaResult {

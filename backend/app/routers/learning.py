@@ -12,6 +12,8 @@ from ..models import Article, Entry, Episode, User, UserEpisodeProgress, UserSub
 from ..schemas import (
     EpisodeProgressOut,
     EpisodeProgressUpdateIn,
+    DailySentenceCompleteIn,
+    DailySentenceOut,
     LearningCalendarOut,
     LearningSessionOut,
     LearningSessionStartIn,
@@ -192,6 +194,22 @@ def put_progress(
 @router.get("/summary/", response_model=LearningSummaryOut)
 def get_summary(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return LearningSummaryOut(**learning_summary(db, user.id))
+
+
+@router.post("/daily-sentence/complete/", response_model=DailySentenceOut)
+def complete_daily_sentence(
+    body: DailySentenceCompleteIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from ..services.daily_sentence import complete_if_matches, daily_sentence_payload, ensure_today_sentence
+
+    ensure_today_sentence(db, user)
+    complete_if_matches(db, user, video_id=body.video_id, subtitle_id=body.subtitle_id)
+    payload = daily_sentence_payload(db, user)
+    if not payload:
+        raise HTTPException(status_code=404, detail="今日暂无可用句子")
+    return DailySentenceOut(**payload)
 
 
 @router.get("/recent/", response_model=list[RecentEpisodeOut])

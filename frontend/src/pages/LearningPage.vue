@@ -5,6 +5,7 @@ import LearningHeatmapChart from '@/components/charts/LearningHeatmapChart.vue'
 import LearningStatCard from '@/components/learning/LearningStatCard.vue'
 import PracticeRecordCard from '@/components/learning/PracticeRecordCard.vue'
 import PracticeRecordDetailSheet from '@/components/learning/PracticeRecordDetailSheet.vue'
+import DailyPathCard from '@/components/ai/DailyPathCard.vue'
 import { useIsPhone } from '@/composables/useBreakpoint'
 import {
   getLearningCalendar,
@@ -350,6 +351,8 @@ onUnmounted(() => {
         生词本
       </RouterLink>
     </div>
+
+    <DailyPathCard variant="full" />
 
     <div v-if="loading" class="text-neutral-500 text-sm">加载中...</div>
 

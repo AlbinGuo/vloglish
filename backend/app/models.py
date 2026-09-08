@@ -732,6 +732,25 @@ class UserPracticeRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 
+class UserDailySentence(Base):
+    """每日一句跟读：同一用户同一自然日（东八区）只分配一句。"""
+
+    __tablename__ = "user_daily_sentences"
+    __table_args__ = (UniqueConstraint("user_id", "day", name="uq_user_daily_sentence_day"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    day: Mapped[date] = mapped_column(Date, index=True)
+    video_id: Mapped[str] = mapped_column(String(32), index=True)
+    subtitle_id: Mapped[int] = mapped_column(Integer)
+    english: Mapped[str] = mapped_column(Text, default="")
+    chinese: Mapped[str] = mapped_column(Text, default="")
+    cover: Mapped[str] = mapped_column(Text, default="")
+    episode_title: Mapped[str] = mapped_column(String(256), default="")
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class AiUsageEvent(Base):
     """AI / 外部语音能力调用计量（含缓存命中；供配额与运营看板）。"""
 

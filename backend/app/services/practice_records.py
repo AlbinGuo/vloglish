@@ -353,6 +353,12 @@ def create_practice_record(
     _prune_records(db, user.id)
     db.commit()
     db.refresh(row)
+    try:
+        from .daily_sentence import complete_if_matches
+
+        complete_if_matches(db, user, video_id=video_id, subtitle_id=subtitle_id)
+    except Exception:
+        logger.exception("今日一句打卡失败 user=%s subtitle=%s", user.id, subtitle_id)
     return row
 
 
@@ -490,6 +496,12 @@ def upsert_shadow_record(
         db.add(existing)
         db.commit()
         db.refresh(existing)
+        try:
+            from .daily_sentence import complete_if_matches
+
+            complete_if_matches(db, user, video_id=vid, subtitle_id=subtitle_id)
+        except Exception:
+            logger.exception("今日一句打卡失败 user=%s subtitle=%s", user.id, subtitle_id)
         return existing
 
     return create_practice_record(

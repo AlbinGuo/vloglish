@@ -1053,6 +1053,24 @@ class LearningSummaryOut(BaseModel):
     week_watch_time_sec: int
 
 
+class DailySentenceOut(BaseModel):
+    day: str
+    video_id: str
+    subtitle_id: int
+    english: str
+    chinese: str = ""
+    cover: str = ""
+    episode_title: str = ""
+    completed: bool = False
+    path: str = ""
+    streak_days: int = 0
+
+
+class DailySentenceCompleteIn(BaseModel):
+    video_id: str = ""
+    subtitle_id: int | None = None
+
+
 class RecentEpisodeOut(BaseModel):
     video_id: str
     short_title: str

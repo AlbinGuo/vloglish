@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
-import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
+import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, completeDailySentence, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
 import { getEpisodeList, setAuthorSubscribe, setEpisodeFavorite, warmEpisodeWordLookups } from '@/api/episodes'
 import { useFavoriteToastStore } from '@/stores/favoriteToast'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
@@ -1201,6 +1201,7 @@ async function finishShadowTake() {
         audio_source: 'upload',
       },
     }
+    void completeDailySentence(props.videoId, subId).catch(() => {})
   } catch {
     /* 上传失败：重新打开会话条便于重试 */
     shadowActiveSubId.value = subId
@@ -2005,6 +2006,12 @@ async function applyVocabDeepLink(): Promise<boolean> {
   window.setTimeout(() => {
     triggerSourceFocus(sub.id, word)
   }, 100)
+
+  const shadowRaw = route.query.shadow
+  const shadowFlag = String(Array.isArray(shadowRaw) ? shadowRaw[0] : shadowRaw || '')
+  if (shadowFlag === '1') {
+    window.setTimeout(() => startShadowPractice(sub), 450)
+  }
   return true
 }
 
