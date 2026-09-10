@@ -5,7 +5,7 @@ Page({
     siteUrl: `${SITE_URL.replace(/\/$/, '')}/`,
     plans: [
       { name: '季度', price: '29', note: '3 个月' },
-      { name: '年度', price: '59', note: '更划算', hot: true },
+      { name: '年度', price: '59', note: '更划算' },
       { name: '永久', price: '99', note: '一次买断' },
     ],
   },

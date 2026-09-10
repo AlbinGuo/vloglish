@@ -11,15 +11,18 @@ const auth = useAuthStore()
 const catalog = useCatalogStore()
 
 type PlanId = 'quarter' | 'year' | 'forever' | 'test'
+type PayChoice = PlanId | 'author'
+
+const AUTHOR_QR = '/author-wechat-qr.png'
 
 const plans: { id: PlanId; name: string; price: string; period: string; note: string; recommend: boolean }[] = [
   { id: 'quarter', name: '季度会员', price: '29', period: '3 个月', note: '约 ¥9.7 / 月', recommend: false },
-  { id: 'year', name: '年度会员', price: '59', period: '12 个月', note: '约 ¥4.9 / 月', recommend: true },
+  { id: 'year', name: '年度会员', price: '59', period: '12 个月', note: '约 ¥4.9 / 月', recommend: false },
   { id: 'forever', name: '永久会员', price: '99', period: '一次买断', note: '不再续费', recommend: false },
   // { id: 'test', name: '测试会员', price: '1', period: '1 天', note: '联调付款', recommend: false },
 ]
 
-const selected = ref<PlanId>('year')
+const selected = ref<PayChoice>('author')
 const error = ref('')
 const loading = ref(false)
 const payQr = ref('')
@@ -62,16 +65,23 @@ onMounted(async () => {
     await router.replace('/english')
     return
   }
-  await startScanPay()
+  if (selected.value !== 'author') await startScanPay()
 })
 
 onUnmounted(stopPay)
 
-watch(selected, () => {
+watch(selected, (choice) => {
+  if (choice === 'author') {
+    stopPay()
+    error.value = ''
+    loading.value = false
+    return
+  }
   void startScanPay()
 })
 
 async function startScanPay() {
+  if (selected.value === 'author') return
   const seq = ++paySeq
   const plan = selected.value
   error.value = ''
@@ -174,6 +184,49 @@ async function submitCode() {
               <p class="mt-1 text-2xl font-semibold tracking-tight">¥{{ p.price }}</p>
               <p class="mt-1 text-xs opacity-70">{{ p.period }} · {{ p.note }}</p>
             </button>
+            <button
+              type="button"
+              class="rounded-xl border px-4 py-4 text-left transition h-full min-h-[7.25rem] flex flex-col justify-between"
+              :class="
+                selected === 'author'
+                  ? 'border-[#edd577] bg-[#111] text-white'
+                  : 'border-[#edd577]/70 bg-[#fffaf0] dark:border-[#edd577]/30 dark:bg-[#1a1814]'
+              "
+              @click="selected = 'author'"
+            >
+              <span
+                class="text-[10px] font-bold"
+                :style="{ color: selected === 'author' ? '#edd577' : '#a16207' }"
+              >
+                推荐
+              </span>
+              <div class="flex items-start justify-between gap-3 mt-1">
+                <div class="min-w-0">
+                  <p
+                    class="text-[11px] font-medium tracking-wide"
+                    :class="selected === 'author' ? 'text-white/70' : 'text-neutral-500 dark:text-neutral-400'"
+                  >
+                    加作者微信
+                  </p>
+                  <p
+                    class="mt-1 text-lg font-bold tracking-tight leading-snug"
+                    :class="selected === 'author' ? 'text-[#edd577]' : 'text-neutral-900 dark:text-[#edd577]'"
+                  >
+                    开通永久会员
+                  </p>
+                </div>
+                <p class="shrink-0 flex items-start leading-none">
+                  <span class="mt-1 mr-0.5 text-sm font-semibold">¥</span>
+                  <span class="text-[1.75rem] font-semibold tracking-tight">79</span>
+                </p>
+              </div>
+              <p
+                class="mt-3 text-xs leading-relaxed"
+                :class="selected === 'author' ? 'text-white/55' : 'text-neutral-500 dark:text-neutral-400'"
+              >
+                付款后请备注登录邮箱
+              </p>
+            </button>
           </div>
 
           <div class="px-5 sm:px-7 py-5 sm:py-6 flex-1 flex flex-col border-t border-black/5 dark:border-white/10">
@@ -200,19 +253,32 @@ async function submitCode() {
         <section
           class="lg:col-span-2 rounded-2xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 p-5 sm:p-6 flex flex-col"
         >
-          <h2 class="text-lg font-semibold text-neutral-900 dark:text-white mb-1">微信扫码支付</h2>
+          <h2 class="text-lg font-semibold text-neutral-900 dark:text-white mb-1">
+            {{ selected === 'author' ? '加作者微信' : '微信扫码支付' }}
+          </h2>
 <!--          <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-4 leading-relaxed">-->
 <!--            用微信扫描下方小程序码完成支付。若尚未关联，扫码时会自动绑定到当前网页账号。-->
 <!--          </p>-->
 
           <div class="flex justify-center min-h-[12rem] items-center rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-black/5 dark:border-white/10 p-4">
-            <p v-if="loading" class="text-sm text-neutral-400">正在生成支付码…</p>
+            <img
+              v-if="selected === 'author'"
+              :src="AUTHOR_QR"
+              alt="作者微信二维码"
+              class="w-48 h-48 object-contain bg-white rounded-lg"
+            />
+            <p v-else-if="loading" class="text-sm text-neutral-400">正在生成支付码…</p>
             <img v-else-if="payQr" :src="payQr" alt="支付小程序码" class="w-48 h-48 object-contain bg-white rounded-lg" />
             <p v-else class="text-sm text-neutral-400 text-center px-4">正在准备支付码…</p>
           </div>
-          <p v-if="payHint" class="mt-2 text-center text-xs text-neutral-500">{{ payHint }}</p>
-          <p v-if="paidOk" class="mt-2 text-center text-sm text-emerald-600">支付成功，正在进入学习…</p>
-          <p v-if="error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{ error }}</p>
+          <p v-if="selected === 'author'" class="mt-2 text-center text-xs text-neutral-500 leading-relaxed">
+            微信扫码添加作者，¥79
+            <span class="font-bold text-neutral-800 dark:text-neutral-200">开通永久会员</span>
+            ，付款后请备注登录邮箱
+          </p>
+          <p v-else-if="payHint" class="mt-2 text-center text-xs text-neutral-500">{{ payHint }}</p>
+          <p v-if="selected !== 'author' && paidOk" class="mt-2 text-center text-sm text-emerald-600">支付成功，正在进入学习…</p>
+          <p v-if="selected !== 'author' && error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{ error }}</p>
 
 <!--          <form class="mt-8 pt-5 border-t border-black/5 dark:border-white/10 space-y-3" @submit.prevent="submitCode">-->
 <!--            <p class="text-xs font-medium tracking-wide text-neutral-400">或使用激活码</p>-->

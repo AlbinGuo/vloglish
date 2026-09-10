@@ -30,7 +30,7 @@ const PLANS: Omit<Plan, 'selected'>[] = [
     price: '59',
     period: '12 个月',
     note: '约 ¥4.9 / 月 · 更划算',
-    recommended: true,
+    recommended: false,
   },
   {
     id: 'forever',

@@ -2987,7 +2987,7 @@ function subtitleRowClass(index: number) {
       <!-- 字幕区：全屏时侧栏不可见且勿强行 v-show，避免牵动全屏元素所在 flex 布局 -->
       <section
         v-show="!subtitlesHidden && !isVideoPanelFullscreen"
-        class="subtitle-panel flex-1 min-h-0 flex overflow-hidden bg-neutral-50 dark:bg-neutral-900 border-t lg:border-t-0 border-black/5 dark:border-white/10 max-lg:min-h-0"
+        class="subtitle-panel flex-1 min-h-0 flex overflow-hidden bg-neutral-50 dark:bg-neutral-900 max-lg:min-h-0"
       >
         <div class="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden">
         <!-- 桌面 / Pad：完整工具栏 -->
@@ -3098,32 +3098,6 @@ function subtitleRowClass(index: number) {
               显示侧栏
             </button>
           </div>
-        </div>
-
-        <div
-          v-if="isPhone && auth.isLoggedIn && !adminPreview && contentView === 'subtitles' && !subtitlesHidden"
-          class="shrink-0 flex items-center gap-2 px-3 py-2 bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10"
-        >
-          <button
-            type="button"
-            class="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition"
-            :class="
-              clipSelectMode
-                ? 'bg-sky-600 text-white'
-                : 'bg-sky-50 text-sky-800 border border-sky-200 dark:bg-sky-950/50 dark:text-sky-200 dark:border-sky-800'
-            "
-            :aria-pressed="clipSelectMode"
-            @click="toggleClipSelectMode"
-          >
-            划选
-          </button>
-          <p class="min-w-0 text-[11px] leading-snug text-neutral-500 dark:text-neutral-400">
-            {{
-              clipSelectMode
-                ? '长按字幕圈出词或句子，再点加入摘录。再点划选可关闭。'
-                : '打开后可自己圈词、短语或句子加入摘录'
-            }}
-          </p>
         </div>
 
         <IntensiveReadingStatsBar

@@ -45,6 +45,26 @@
         <text wx:elif="{{item.selected}}" class="pick">已选</text>
       </view>
     </view>
+    <view class="wx-card">
+      <view class="wx-main">
+        <view class="wx-text">
+          <text class="wx-badge">推荐</text>
+          <text class="wx-kicker">加作者微信</text>
+          <text class="wx-highlight">开通永久会员</text>
+        </view>
+        <view class="wx-price-wrap">
+          <text class="wx-yen">¥</text>
+          <text class="wx-price">79</text>
+        </view>
+      </view>
+      <text class="wx-note">付款后请备注登录邮箱</text>
+      <image
+        class="wx-qr"
+        src="/assets/author-wechat-qr.png"
+        mode="aspectFit"
+        show-menu-by-longpress="{{true}}"
+      />
+    </view>
   </view>
 
   <button class="buy" loading="{{paying}}" bindtap="onBuy">开通所选套餐</button>
