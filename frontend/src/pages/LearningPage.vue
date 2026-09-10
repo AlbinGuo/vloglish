@@ -343,13 +343,20 @@ onUnmounted(() => {
         <span class="text-neutral-300 dark:text-neutral-600">|</span>
         <span class="font-medium">学习统计</span>
       </div>
-      <RouterLink
-        v-if="!isPhone"
-        to="/english/vocabulary"
-        class="text-sm text-amber-700 dark:text-amber-400 hover:underline"
-      >
-        生词本
-      </RouterLink>
+      <div v-if="!isPhone" class="flex items-center gap-3">
+        <RouterLink
+          to="/english/vocabulary"
+          class="text-sm text-amber-700 dark:text-amber-400 hover:underline"
+        >
+          生词本
+        </RouterLink>
+        <RouterLink
+          to="/english/clips"
+          class="text-sm text-sky-700 dark:text-sky-400 hover:underline"
+        >
+          我的摘录
+        </RouterLink>
+      </div>
     </div>
 
     <DailyPathCard variant="full" />

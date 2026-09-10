@@ -495,6 +495,28 @@ class UserVocabularyItem(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class UserSubtitleClip(Base):
+    """用户自选字幕摘录（与生词本独立，不绑定词条、不写回字幕 HTML）。"""
+
+    __tablename__ = "user_subtitle_clips"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    episode_id: Mapped[int | None] = mapped_column(ForeignKey("episodes.id"), nullable=True, index=True)
+    subtitle_id: Mapped[int | None] = mapped_column(ForeignKey("subtitles.id"), nullable=True, index=True)
+    video_id: Mapped[str] = mapped_column(String(32), default="", index=True)
+    text: Mapped[str] = mapped_column(Text, default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    context_english: Mapped[str] = mapped_column(Text, default="")
+    context_chinese: Mapped[str] = mapped_column(Text, default="")
+    episode_title: Mapped[str] = mapped_column(String(256), default="")
+    original_text: Mapped[str] = mapped_column(Text, default="")
+    examples_json: Mapped[str] = mapped_column(Text, default="[]")
+    examples_for: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class LearningSession(Base):
     __tablename__ = "learning_sessions"
 

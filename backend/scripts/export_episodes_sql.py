@@ -48,6 +48,8 @@ def episode_cleanup_sql(vid: str) -> list[str]:
         f"WHERE subtitle_id IN ({sub_ids});",
         f"UPDATE user_vocabulary_items SET source_subtitle_id = NULL "
         f"WHERE source_subtitle_id IN ({sub_ids});",
+        f"UPDATE user_subtitle_clips SET subtitle_id = NULL "
+        f"WHERE subtitle_id IN ({sub_ids});",
         f"DELETE FROM user_subtitle_progress WHERE subtitle_id IN ({sub_ids});",
         f"DELETE FROM user_subtitle_progress WHERE episode_id = {ep_id};",
         f"DELETE FROM subtitles WHERE episode_id = {ep_id};",

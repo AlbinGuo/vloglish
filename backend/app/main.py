@@ -21,6 +21,7 @@ from .models import (
     UserPageDwell,
     UserDailySentence,
     UserPracticeRecord,
+    UserSubtitleClip,
     WishRequest,
     WishRequestLike,
     WordPracticeSession,
@@ -28,7 +29,7 @@ from .models import (
     WordPracticeWrong,
 )
 from .schemas import AuthTokensOut
-from .routers import ai_coach, app_download, article_submit, auth, account_bind, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, public_voice_enroll, site_config, wish_wall, word_practice, wxpay
+from .routers import ai_coach, app_download, article_submit, auth, account_bind, clips, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, public_voice_enroll, site_config, wish_wall, word_practice, wxpay
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import ai_usage as admin_ai_usage
@@ -74,6 +75,7 @@ app.include_router(notifications.router)
 app.include_router(feedback.router)
 app.include_router(wish_wall.router)
 app.include_router(learning.router)
+app.include_router(clips.router)
 app.include_router(word_practice.router)
 app.include_router(entries.router)
 app.include_router(article_submit.router)
@@ -171,6 +173,23 @@ def _migrate_schema():
         UserDailySentence.__table__.create(bind=engine, checkfirst=True)
         print("[vloglish] created table user_daily_sentences")
         insp = inspect(engine)
+
+    if "user_subtitle_clips" not in insp.get_table_names():
+        UserSubtitleClip.__table__.create(bind=engine, checkfirst=True)
+        print("[vloglish] created table user_subtitle_clips")
+        insp = inspect(engine)
+    elif "user_subtitle_clips" in insp.get_table_names():
+        clip_cols = {c["name"] for c in insp.get_columns("user_subtitle_clips")}
+        if "original_text" not in clip_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE user_subtitle_clips ADD COLUMN original_text TEXT NOT NULL DEFAULT ''"))
+                conn.execute(text("UPDATE user_subtitle_clips SET original_text = text WHERE original_text = ''"))
+        if "examples_json" not in clip_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE user_subtitle_clips ADD COLUMN examples_json TEXT NOT NULL DEFAULT '[]'"))
+        if "examples_for" not in clip_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE user_subtitle_clips ADD COLUMN examples_for TEXT NOT NULL DEFAULT ''"))
 
     if "ai_usage_events" not in insp.get_table_names():
         AiUsageEvent.__table__.create(bind=engine, checkfirst=True)

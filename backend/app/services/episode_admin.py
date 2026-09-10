@@ -15,6 +15,7 @@ from ..models import (
     UserEpisodeFavorite,
     UserEpisodeProgress,
     UserNotification,
+    UserSubtitleClip,
     UserSubtitleProgress,
     UserVocabularyItem,
     UserWordLookup,
@@ -99,6 +100,10 @@ def _detach_subtitle_refs(db: Session, subtitle_ids: list[int]) -> None:
     )
     db.query(UserVocabularyItem).filter(UserVocabularyItem.source_subtitle_id.in_(subtitle_ids)).update(
         {UserVocabularyItem.source_subtitle_id: None},
+        synchronize_session=False,
+    )
+    db.query(UserSubtitleClip).filter(UserSubtitleClip.subtitle_id.in_(subtitle_ids)).update(
+        {UserSubtitleClip.subtitle_id: None},
         synchronize_session=False,
     )
 
@@ -224,6 +229,13 @@ def delete_episode_with_dependencies(db: Session, episode: Episode) -> None:
         {
             UserVocabularyItem.source_episode_id: None,
             UserVocabularyItem.source_subtitle_id: None,
+        },
+        synchronize_session=False,
+    )
+    db.query(UserSubtitleClip).filter(UserSubtitleClip.episode_id == episode_id).update(
+        {
+            UserSubtitleClip.episode_id: None,
+            UserSubtitleClip.subtitle_id: None,
         },
         synchronize_session=False,
     )

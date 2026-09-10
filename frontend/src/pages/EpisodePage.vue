@@ -39,8 +39,10 @@ import { useLearningProgress } from '@/composables/useLearningProgress'
 import { consumeEpisodeAutoplay, requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useSourceFocusPulse } from '@/composables/useSourceFocusPulse'
 import { useWordLongPress } from '@/composables/useWordLongPress'
+import { useSubtitleClipSelect } from '@/composables/useSubtitleClipSelect'
 import { useAuthStore } from '@/stores/auth'
 import { useVocabularyStore } from '@/stores/vocabulary'
+import { useClipsStore } from '@/stores/clips'
 import { useVoiceCloneStore } from '@/stores/voiceClone'
 import type { EntryDetail, EpisodeDetail, EpisodeSummary, Subtitle } from '@/types'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
@@ -54,6 +56,7 @@ import KeyboardHelp from '@/components/KeyboardHelp.vue'
 import SettingsButton from '@/components/SettingsButton.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import CurrentSubtitleBar from '@/components/CurrentSubtitleBar.vue'
+import ClipSelectToolbar from '@/components/episode/ClipSelectToolbar.vue'
 import SubtitleBlock from '@/components/SubtitleBlock.vue'
 import SubtitleWordTooltipHost from '@/components/SubtitleWordTooltipHost.vue'
 import IntensiveReadingBlock from '@/components/intensive/IntensiveReadingBlock.vue'
@@ -96,6 +99,7 @@ import {
   type SubtitleDisplayMode,
   type FullscreenCaptionMode,
 } from '@/utils/subtitleHtml'
+import { applyUserClipMarks, clipMarkSnippet } from '@/utils/clipMarks'
 import { exitAppFullscreen, getFullscreenElement, subscribeFullscreenChange } from '@/utils/fullscreen'
 
 const props = defineProps<{ videoId: string; backTo?: string; adminPreview?: boolean }>()
@@ -103,6 +107,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const vocabularyStore = useVocabularyStore()
+const clipsStore = useClipsStore()
 const voiceClone = useVoiceCloneStore()
 
 const subtitleVoiceMode = computed({
@@ -609,6 +614,8 @@ const listRef = ref<HTMLElement | null>(null)
 const showSettings = ref(false)
 const isPhone = useIsPhone()
 const isPad = useIsPad()
+/** 手机划选模式：默认关，打开后才能触控圈字加入摘录 */
+const clipSelectMode = ref(false)
 const isSplitRow = useMediaQuery(
   '(min-width: 1024px), (min-width: 768px) and (max-width: 1023px) and (orientation: landscape)',
 )
@@ -1905,6 +1912,7 @@ async function load() {
     }
     if (!props.adminPreview && auth.isLoggedIn) {
       await initLearning()
+      void clipsStore.load()
       void loadLookupHistory()
       void loadShadowTracks()
       try {
@@ -2176,8 +2184,27 @@ async function reopenLookup(record: WordLookupRecord) {
   }
 }
 
-function renderHtml(html: string) {
-  return preprocessSubtitleHtml(html, { blank: modeUsesBlank(subtitleMode.value) })
+const clipSnippetsBySubtitle = computed(() => {
+  const map = new Map<number, string[]>()
+  if (props.adminPreview) return map
+  for (const item of clipsStore.items) {
+    if (item.video_id !== props.videoId || !item.subtitle_id) continue
+    const snippet = clipMarkSnippet(item)
+    if (!snippet) continue
+    const list = map.get(item.subtitle_id)
+    if (list) list.push(snippet)
+    else map.set(item.subtitle_id, [snippet])
+  }
+  return map
+})
+
+function renderHtml(html: string, subtitleId?: number | null) {
+  const blank = modeUsesBlank(subtitleMode.value)
+  let result = preprocessSubtitleHtml(html, { blank })
+  if (blank || props.adminPreview || !subtitleId) return result
+  const snippets = clipSnippetsBySubtitle.value.get(subtitleId)
+  if (!snippets?.length) return result
+  return applyUserClipMarks(result, snippets)
 }
 
 /** 列表模式：当前句贴在顶部；手机端用动画滚动 */
@@ -2320,7 +2347,7 @@ async function quickFavoriteFromPointer(e: PointerEvent) {
 }
 
 const wordLongPress = useWordLongPress({
-  enabled: () => auth.isLoggedIn && !props.adminPreview,
+  enabled: () => auth.isLoggedIn && !props.adminPreview && !clipSelectMode.value,
   onLongPress: (e) => {
     void quickFavoriteFromPointer(e)
   },
@@ -2328,14 +2355,99 @@ const wordLongPress = useWordLongPress({
 
 const wordLongPressHandlers = {
   pointerdown: (e: PointerEvent) => {
+    if (clipSelectMode.value) return
     prefetchWordFromEvent(e)
     wordLongPress.onPointerDown(e)
   },
   pointermove: wordLongPress.onPointerMove,
   pointerup: wordLongPress.onPointerUp,
   pointercancel: wordLongPress.onPointerCancel,
-  contextmenu: wordLongPress.onContextMenu,
+  contextmenu: (e: Event) => {
+    if (clipSelectMode.value) {
+      e.preventDefault()
+      return
+    }
+    wordLongPress.onContextMenu(e)
+  },
 }
+
+const {
+  target: clipSelectTarget,
+  hide: hideClipSelect,
+  shouldSuppressClick: clipSelectShouldSuppressClick,
+} = useSubtitleClipSelect({
+  enabled: () => auth.isLoggedIn && !props.adminPreview,
+  touchEnabled: () => clipSelectMode.value,
+  resolveSubtitleId: (el) => resolveSubtitleFromTarget(el)?.id ?? null,
+})
+const clipSaving = ref(false)
+const clipToast = ref('')
+let clipToastTimer: ReturnType<typeof setTimeout> | null = null
+
+function flashClipToast(message: string) {
+  if (clipToastTimer != null) clearTimeout(clipToastTimer)
+  clipToast.value = message
+  clipToastTimer = setTimeout(() => {
+    clipToast.value = ''
+    clipToastTimer = null
+  }, 2800)
+}
+
+async function saveClipFromSelection() {
+  const selected = clipSelectTarget.value
+  if (!selected || clipSaving.value) return
+  clipSaving.value = true
+  try {
+    const row = await clipsStore.add({
+      text: selected.text,
+      video_id: props.videoId,
+      subtitle_id: selected.subtitleId,
+    })
+    hideClipSelect()
+    window.getSelection()?.removeAllRanges()
+    flashClipToast(row.already_saved ? '该摘录已在摘录本' : '已加入摘录')
+  } catch {
+    flashClipToast('加入摘录失败，请重试')
+  } finally {
+    clipSaving.value = false
+  }
+}
+
+function stopClipSelectMode() {
+  if (!clipSelectMode.value) return
+  clipSelectMode.value = false
+  hideClipSelect()
+  window.getSelection()?.removeAllRanges()
+}
+
+function toggleClipSelectMode() {
+  if (clipSelectMode.value) {
+    stopClipSelectMode()
+    return
+  }
+  clipSelectMode.value = true
+}
+
+function onSubtitleRowSeek(sub: Subtitle) {
+  if (clipSelectMode.value) return
+  player.seekTo(sub)
+}
+
+watch(isPhone, (phone) => {
+  if (!phone) stopClipSelectMode()
+})
+watch(contentView, (view) => {
+  if (view !== 'subtitles') stopClipSelectMode()
+})
+watch(subtitlesHidden, (hidden) => {
+  if (hidden) stopClipSelectMode()
+})
+watch(
+  () => auth.isLoggedIn,
+  (ok) => {
+    if (!ok) stopClipSelectMode()
+  },
+)
 
 function prefetchWordFromEvent(e: Event) {
   const hit = resolveWordHitFromEvent(e)
@@ -2378,6 +2490,8 @@ async function openWordEntry(payload: {
 }
 
 async function onSubtitleClick(e: MouseEvent) {
+  if (clipSelectMode.value) return
+  if (clipSelectShouldSuppressClick()) return
   if (wordLongPress.consumeIfFired()) return
 
   const hit = resolveWordHitFromEvent(e)
@@ -2436,10 +2550,15 @@ const backFrom = computed(() => {
 })
 const fromVocabulary = computed(() => backFrom.value === 'vocab')
 const fromLearning = computed(() => backFrom.value === 'learning')
+const fromClips = computed(() => backFrom.value === 'clips')
 
 function goBack() {
   if (fromVocabulary.value) {
     router.push('/english/vocabulary')
+    return
+  }
+  if (fromClips.value) {
+    router.push('/english/clips')
     return
   }
   if (fromLearning.value) {
@@ -2475,7 +2594,7 @@ function subtitleRowClass(index: number) {
   <!-- h-dvh + overflow-hidden：整页不滚动，仅字幕列表区域滚动 -->
   <div
     class="no-print flex flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-950"
-    :class="[adminPreview ? 'h-dvh' : 'h-full', intensivePageClass]"
+    :class="[adminPreview ? 'h-dvh' : 'h-full', intensivePageClass, clipSelectMode ? 'clip-select-mode' : '']"
   >
     <header
       class="flex items-center gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10 z-30 transition-transform duration-300 ease-out"
@@ -2489,7 +2608,7 @@ function subtitleRowClass(index: number) {
       "
     >
       <button class="text-sm text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white" @click="goBack">
-        {{ fromVocabulary ? '← 生词本' : fromLearning ? '← 学习统计' : '← 返回' }}
+        {{ fromVocabulary ? '← 生词本' : fromClips ? '← 我的摘录' : fromLearning ? '← 学习统计' : '← 返回' }}
       </button>
       <div v-if="episode" class="flex-1 min-w-0">
         <p class="font-semibold truncate flex items-center gap-2">
@@ -2761,7 +2880,7 @@ function subtitleRowClass(index: number) {
                 :current-time="playbackTime"
                 :subtitle-mode="fullscreenCaptionMode === 'both' ? 'both' : 'en'"
                 :show-ipa="false"
-                :english-html="renderHtml(displaySub.english_html)"
+                :english-html="renderHtml(displaySub.english_html, displaySub.id)"
                 :dictation-frost="isDictationFrost(displaySub.id)"
                 :data-subtitle-context="displaySub.english"
                 @seek="player.seekTo(displaySub)"
@@ -2828,7 +2947,7 @@ function subtitleRowClass(index: number) {
               :current-time="playbackTime"
               :subtitle-mode="subtitleMode"
               :show-ipa="showIpa"
-              :english-html="renderHtml(displaySub.english_html)"
+              :english-html="renderHtml(displaySub.english_html, displaySub.id)"
               :dictation-frost="isDictationFrost(displaySub.id)"
               :data-subtitle-context="displaySub.english"
               @seek="player.seekTo(displaySub)"
@@ -2981,6 +3100,32 @@ function subtitleRowClass(index: number) {
           </div>
         </div>
 
+        <div
+          v-if="isPhone && auth.isLoggedIn && !adminPreview && contentView === 'subtitles' && !subtitlesHidden"
+          class="shrink-0 flex items-center gap-2 px-3 py-2 bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10"
+        >
+          <button
+            type="button"
+            class="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition"
+            :class="
+              clipSelectMode
+                ? 'bg-sky-600 text-white'
+                : 'bg-sky-50 text-sky-800 border border-sky-200 dark:bg-sky-950/50 dark:text-sky-200 dark:border-sky-800'
+            "
+            :aria-pressed="clipSelectMode"
+            @click="toggleClipSelectMode"
+          >
+            划选
+          </button>
+          <p class="min-w-0 text-[11px] leading-snug text-neutral-500 dark:text-neutral-400">
+            {{
+              clipSelectMode
+                ? '长按字幕圈出词或句子，再点加入摘录。再点划选可关闭。'
+                : '打开后可自己圈词、短语或句子加入摘录'
+            }}
+          </p>
+        </div>
+
         <IntensiveReadingStatsBar
           v-if="intensiveMode && contentView === 'subtitles'"
           :title="episode.short_title"
@@ -3029,7 +3174,7 @@ function subtitleRowClass(index: number) {
               <IntensiveReadingBlock
                 v-if="intensiveMode"
                 :key="currentSub.id"
-                :english-html="renderHtml(currentSub.english_html)"
+                :english-html="renderHtml(currentSub.english_html, currentSub.id)"
                 :english="currentSub.english"
                 :chinese="currentSub.chinese"
                 :ipa="currentSub.ipa"
@@ -3046,7 +3191,7 @@ function subtitleRowClass(index: number) {
               <SubtitleBlock
                 v-else
                 :key="currentSub.id"
-                :english-html="renderHtml(currentSub.english_html)"
+                :english-html="renderHtml(currentSub.english_html, currentSub.id)"
                 :chinese="currentSub.chinese"
                 :ipa="currentSub.ipa"
                 :active="false"
@@ -3074,8 +3219,8 @@ function subtitleRowClass(index: number) {
         <div
           v-else
           ref="listRef"
-          class="subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] touch-pan-y px-3 pt-2 lg:p-4 lg:pb-4"
-          :class="mobileListBottomPad"
+          class="subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] px-3 pt-2 lg:p-4 lg:pb-4"
+          :class="[mobileListBottomPad, clipSelectMode ? '' : 'touch-pan-y']"
         >
           <div
             class="flex flex-col gap-2"
@@ -3090,7 +3235,7 @@ function subtitleRowClass(index: number) {
             :data-sub-index="row.index"
             class="flex flex-col cursor-pointer scroll-mt-2"
             :class="subtitleAlign === 'left' ? 'items-stretch' : 'items-center'"
-            @click="player.seekTo(row.sub)"
+            @click="onSubtitleRowSeek(row.sub)"
           >
             <div
               class="w-full relative transition-colors duration-200 ease-out pr-2 sm:pr-4"
@@ -3123,7 +3268,7 @@ function subtitleRowClass(index: number) {
               </button>
               <IntensiveReadingBlock
                 v-if="intensiveMode"
-                :english-html="renderHtml(row.sub.english_html)"
+                :english-html="renderHtml(row.sub.english_html, row.sub.id)"
                 :english="row.sub.english"
                 :chinese="row.sub.chinese"
                 :ipa="row.sub.ipa"
@@ -3139,7 +3284,7 @@ function subtitleRowClass(index: number) {
               />
               <SubtitleBlock
                 v-else
-                :english-html="renderHtml(row.sub.english_html)"
+                :english-html="renderHtml(row.sub.english_html, row.sub.id)"
                 :chinese="row.sub.chinese"
                 :ipa="row.sub.ipa"
                 :active="row.index === currentIndex"
@@ -3331,6 +3476,15 @@ function subtitleRowClass(index: number) {
               字幕 / 词卡 / 汇总 / 视频语境
               <span class="ml-1.5 align-middle px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none bg-red-500 text-white">新</span>
               <span class="float-right text-neutral-400">{{ currentModeLabel }}</span>
+            </button>
+            <button
+              v-if="auth.isLoggedIn"
+              type="button"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              @click="closeMobileMore(); toggleClipSelectMode()"
+            >
+              {{ clipSelectMode ? '关闭划选' : '划选加入摘录' }}
+              <span class="float-right text-neutral-400">{{ clipSelectMode ? '开' : '关' }}</span>
             </button>
             <button
               type="button"
@@ -3545,6 +3699,27 @@ function subtitleRowClass(index: number) {
     </Teleport>
 
     <Teleport to="body">
+      <ClipSelectToolbar
+        v-if="clipSelectTarget && auth.isLoggedIn && !adminPreview"
+        :target="clipSelectTarget"
+        :saving="clipSaving"
+        @save="saveClipFromSelection"
+        @dismiss="hideClipSelect"
+      />
+      <Transition name="continuous-finished-fade">
+        <div
+          v-if="clipToast"
+          class="fixed inset-x-0 bottom-24 sm:bottom-28 z-[420] flex justify-center px-4"
+          role="status"
+        >
+          <div
+            class="rounded-full bg-sky-700/95 dark:bg-sky-100/95 text-white dark:text-sky-950 text-sm px-4 py-2 shadow-lg max-w-sm text-center inline-flex items-center gap-2"
+          >
+            <span>{{ clipToast }}</span>
+            <RouterLink to="/english/clips" class="underline underline-offset-2 font-medium">查看</RouterLink>
+          </div>
+        </div>
+      </Transition>
       <Transition name="continuous-finished-fade">
         <div
           v-if="quickVocabToast"

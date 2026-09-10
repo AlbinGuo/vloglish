@@ -51,6 +51,18 @@ READING_QA_SYSTEM = """你是英语新闻阅读助教。根据文章段落回答
 quiz 最多 2 题；key_phrases 最多 4 条。"""
 
 
+CLIP_EXAMPLES_SYSTEM = """你是英语句式教练。根据学习者收藏的表达，写出 2～3 个举一反三的新例句。
+仅返回合法 JSON：
+{"examples":[{"en":"英文例句","zh":"自然口语中文"}]}
+要求：
+- 保留同一结构/句式，更换场景、主语或时态
+- 难度接近原句，不要明显变难或变长
+- 每句英文独立完整；中文短、口语
+- 必须 2 或 3 条
+- 不要重复收藏原文
+- 不要解释过程"""
+
+
 VOCAB_REVIEW_SYSTEM = """你是英语词汇教练。根据生词列表生成间隔复习题。
 仅返回合法 JSON：
 {
@@ -343,6 +355,47 @@ def vocab_review_cards(words: list[str]) -> dict:
             }
         )
     return {"cards": cards}
+
+
+def clip_examples(
+    *,
+    text: str,
+    note: str = "",
+    context_english: str = "",
+    context_chinese: str = "",
+) -> dict:
+    user = (
+        f"收藏表达：{text}\n"
+        f"学习者备注：{note or '（无）'}\n"
+        f"原句英文：{context_english or '（无）'}\n"
+        f"原句中文：{context_chinese or '（无）'}"
+    )
+    raw = _chat_completion(
+        system=CLIP_EXAMPLES_SYSTEM,
+        user=user,
+        response_format={"type": "json_object"},
+        temperature=0.6,
+        timeout=90,
+        thinking=False,
+    )
+    data = _extract_json(raw)
+    raw_examples = data.get("examples") if isinstance(data.get("examples"), list) else []
+    examples = []
+    seen: set[str] = set()
+    origin = (text or "").strip().lower()
+    for item in raw_examples[:3]:
+        if not isinstance(item, dict):
+            continue
+        en = str(item.get("en") or "").strip()
+        zh = str(item.get("zh") or "").strip()
+        if not en:
+            continue
+        key = en.lower()
+        if key in seen or key == origin:
+            continue
+        seen.add(key)
+        examples.append({"en": en[:280], "zh": zh[:280]})
+    return {"examples": examples[:3]}
 
 
 def _normalize_pairs(raw) -> list[dict]:

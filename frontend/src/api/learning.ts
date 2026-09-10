@@ -192,3 +192,69 @@ export async function completeDailySentence(videoId: string, subtitleId: number)
   })
   return data
 }
+
+export interface ClipExample {
+  en: string
+  zh: string
+}
+
+export interface SubtitleClip {
+  id: number
+  text: string
+  note: string
+  video_id: string
+  subtitle_id: number | null
+  episode_title: string
+  context_english: string
+  context_chinese: string
+  original_text?: string
+  examples?: ClipExample[]
+  examples_stale?: boolean
+  created_at: string
+  updated_at: string
+  already_saved?: boolean
+}
+
+export interface SubtitleClipExamples extends SubtitleClip {
+  from_cache: boolean
+  quota: {
+    is_member: boolean
+    limit: number | null
+    used: number
+    remaining: number | null
+  } | null
+}
+
+export async function getSubtitleClips() {
+  const { data } = await api.get<SubtitleClip[]>('/api/learning/clips/')
+  return data
+}
+
+export async function saveSubtitleClip(payload: {
+  text: string
+  video_id: string
+  subtitle_id?: number | null
+  note?: string
+}) {
+  const { data } = await api.post<SubtitleClip>('/api/learning/clips/', payload)
+  return data
+}
+
+export async function updateSubtitleClip(
+  clipId: number,
+  payload: { text?: string; note?: string },
+) {
+  const { data } = await api.patch<SubtitleClip>(`/api/learning/clips/${clipId}/`, payload)
+  return data
+}
+
+export async function removeSubtitleClip(clipId: number) {
+  await api.delete(`/api/learning/clips/${clipId}/`)
+}
+
+export async function generateClipExamples(clipId: number, force = false) {
+  const { data } = await api.post<SubtitleClipExamples>(`/api/learning/clips/${clipId}/examples/`, {}, {
+    params: { force },
+  })
+  return data
+}

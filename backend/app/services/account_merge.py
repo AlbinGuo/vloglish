@@ -31,6 +31,7 @@ from ..models import (
     UserPageDwell,
     UserPracticeRecord,
     UserSubtitleProgress,
+    UserSubtitleClip,
     UserVocabularyItem,
     UserVisitSession,
     UserWordLookup,
@@ -123,6 +124,18 @@ def merge_users(db: Session, *, source: User, target: User) -> User:
     _take_if_free(db, WishRequestLike, sid, tid, "wish_id")
     _take_if_free(db, UserVocabularyItem, sid, tid, "entry_id")
     _take_if_free(db, UserSubtitleProgress, sid, tid, "subtitle_id")
+
+    dest_clip_keys = {
+        (r.subtitle_id, (r.text or "").strip().lower())
+        for r in db.query(UserSubtitleClip).filter(UserSubtitleClip.user_id == tid).all()
+    }
+    for row in db.query(UserSubtitleClip).filter(UserSubtitleClip.user_id == sid).all():
+        key = (row.subtitle_id, (row.text or "").strip().lower())
+        if key in dest_clip_keys:
+            db.delete(row)
+        else:
+            row.user_id = tid
+            dest_clip_keys.add(key)
 
     for row in db.query(UserEpisodeProgress).filter(UserEpisodeProgress.user_id == sid).all():
         dest = (

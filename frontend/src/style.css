@@ -213,6 +213,71 @@ select:disabled {
 }
 
 /* 字幕 token 样式（对齐 teco-lab.com） */
+@media (pointer: fine) {
+  .subtitle-english {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+}
+
+/* 手机划选模式：打开后才允许触控圈字，不改默认点词 / 长按 */
+.clip-select-mode .subtitle-english,
+.clip-select-mode .subtitle-english span {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+/* 用户摘录原句打标：天空蓝浅底 + 底边，区别于系统 highlight-a */
+.subtitle-english span.user-clip-mark {
+  background-color: rgb(186 230 253 / 0.55);
+  box-shadow: inset 0 -2px 0 rgb(14 165 233 / 0.92);
+  border-radius: 0.15rem;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.subtitle-english span.user-clip-mark:hover {
+  background-color: rgb(125 211 252 / 0.62);
+}
+
+.subtitle-english--active span.user-clip-mark {
+  background-color: rgb(56 189 248 / 0.32);
+  box-shadow: inset 0 -2px 0 rgb(186 230 253 / 0.95);
+}
+
+.subtitle-english--active span.user-clip-mark:hover {
+  background-color: rgb(56 189 248 / 0.42);
+}
+
+.dark .subtitle-english span.user-clip-mark {
+  background-color: rgb(7 89 133 / 0.42);
+  box-shadow: inset 0 -2px 0 rgb(56 189 248 / 0.88);
+}
+
+.dark .subtitle-english span.user-clip-mark:hover {
+  background-color: rgb(7 89 133 / 0.55);
+}
+
+.dark .subtitle-english--active span.user-clip-mark {
+  background-color: rgb(56 189 248 / 0.28);
+  box-shadow: inset 0 -2px 0 rgb(186 230 253 / 0.9);
+}
+
+html.highlight-style-background .subtitle-english span.user-clip-mark {
+  box-shadow: inset 0 -2px 0 rgb(14 165 233 / 0.95);
+}
+
+.subtitle-panel .subtitle-english span.user-clip-mark {
+  background-color: rgb(186 230 253 / 0.5);
+  box-shadow: inset 0 -2px 0 rgb(2 132 199 / 0.95);
+}
+
+.subtitle-panel .subtitle-english--active span.user-clip-mark {
+  background-color: rgb(56 189 248 / 0.34);
+  box-shadow: inset 0 -2px 0 rgb(186 230 253);
+}
+
 .subtitle-english span {
   cursor: pointer;
   border-radius: 0.125rem;

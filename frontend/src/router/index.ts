@@ -303,6 +303,12 @@ const userRoutes: RouteRecordRaw[] = [
         meta: { requiresAuth: true },
       },
       {
+        path: 'english/clips',
+        name: 'Clips',
+        component: () => import('@/pages/ClipsPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
         path: 'english/word-practice',
         name: 'WordPractice',
         component: () => import('@/pages/WordPracticePage.vue'),

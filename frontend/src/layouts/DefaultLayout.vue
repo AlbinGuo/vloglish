@@ -20,6 +20,7 @@ import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 import { useNotificationStore } from '@/stores/notifications'
 import { useSiteConfigStore } from '@/stores/siteConfig'
 import { useVocabularyStore } from '@/stores/vocabulary'
+import { useClipsStore } from '@/stores/clips'
 import { useVoiceCloneStore } from '@/stores/voiceClone'
 import AppDownloadEntry from '@/components/AppDownloadEntry.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
@@ -32,6 +33,7 @@ const siteConfig = useSiteConfigStore()
 const notifications = useNotificationStore()
 const corpusBadge = useMyCorpusBadgeStore()
 const vocabulary = useVocabularyStore()
+const clips = useClipsStore()
 const voiceClone = useVoiceCloneStore()
 const feedbackOpen = ref(false)
 const bindWechatOpen = ref(false)
@@ -41,6 +43,9 @@ const canUseMemberTools = computed(() => auth.isMember || siteConfig.memberTools
 const vocabCount = computed(() => vocabulary.items.length)
 const vocabBadgeLabel = computed(() => (vocabCount.value > 99 ? '99+' : String(vocabCount.value)))
 const vocabNavActive = computed(() => route.path.startsWith('/english/vocabulary'))
+const clipCount = computed(() => clips.items.length)
+const clipBadgeLabel = computed(() => (clipCount.value > 99 ? '99+' : String(clipCount.value)))
+const clipNavActive = computed(() => route.path.startsWith('/english/clips'))
 
 type PopupUnit =
   | { kind: 'single'; item: EpisodePublishedPopupItem }
@@ -212,6 +217,7 @@ async function handleLogout() {
   notifications.clear()
   corpusBadge.clear()
   vocabulary.clear()
+  clips.clear()
   voiceClone.clear()
   await router.replace('/english')
 }
@@ -224,6 +230,7 @@ onMounted(() => {
     sendHeartbeat()
     refreshUnreadCount()
     void vocabulary.load()
+    void clips.load()
     void voiceClone.refresh()
     startPopupPolling()
   }
@@ -264,12 +271,14 @@ watch(
       sendHeartbeat()
       refreshUnreadCount()
       void vocabulary.load()
+      void clips.load()
       void voiceClone.refresh()
       startPopupPolling()
     } else if (ready) {
       notifications.clear()
       corpusBadge.clear()
       vocabulary.clear()
+      clips.clear()
       voiceClone.clear()
       stopPopupPolling()
     }
@@ -395,6 +404,40 @@ watch(
                 class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none"
               >
                 {{ vocabBadgeLabel }}
+              </span>
+            </RouterLink>
+            <RouterLink
+              to="/english/clips"
+              class="relative inline-flex items-center gap-1.5 rounded-lg transition"
+              :class="[
+                clipNavActive
+                  ? 'text-sky-800 bg-sky-50 dark:text-sky-200 dark:bg-sky-950/50'
+                  : 'text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800',
+                'p-2 sm:px-2 sm:py-1.5',
+              ]"
+              aria-label="我的摘录"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                class="w-5 h-5 shrink-0"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h4.5M3.75 6.75A2.25 2.25 0 0 1 6 4.5h12A2.25 2.25 0 0 1 20.25 6.75v10.5A2.25 2.25 0 0 1 18 19.5H6a2.25 2.25 0 0 1-2.25-2.25V6.75Z"
+                />
+              </svg>
+              <span class="hidden sm:inline">摘录</span>
+              <span
+                v-if="clipCount > 0"
+                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-sky-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none"
+              >
+                {{ clipBadgeLabel }}
               </span>
             </RouterLink>
             <RouterLink

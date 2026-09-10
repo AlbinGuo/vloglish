@@ -37,6 +37,7 @@ ACTION_LABELS: dict[str, str] = {
     "practice_tts": "练习 TTS",
     "lookup_deepseek": "查词 DeepSeek",
     "example_translate": "例句翻译",
+    "clip_examples": "摘录举一反三",
 }
 
 

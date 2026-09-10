@@ -1097,6 +1097,45 @@ class VocabularyItemOut(BaseModel):
     source_segment_id: int | None = None
 
 
+class ClipExampleOut(BaseModel):
+    en: str
+    zh: str = ""
+
+
+class SubtitleClipOut(BaseModel):
+    id: int
+    text: str
+    note: str = ""
+    video_id: str
+    subtitle_id: int | None = None
+    episode_title: str = ""
+    context_english: str = ""
+    context_chinese: str = ""
+    original_text: str = ""
+    examples: list[ClipExampleOut] = []
+    examples_stale: bool = False
+    created_at: str
+    updated_at: str
+    already_saved: bool = False
+
+
+class SubtitleClipExamplesOut(SubtitleClipOut):
+    from_cache: bool = False
+    quota: dict | None = None
+
+
+class SubtitleClipSaveIn(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+    video_id: str = Field(min_length=1, max_length=32)
+    subtitle_id: int | None = Field(default=None, ge=1)
+    note: str = Field(default="", max_length=500)
+
+
+class SubtitleClipUpdateIn(BaseModel):
+    text: str | None = Field(default=None, min_length=1, max_length=500)
+    note: str | None = Field(default=None, max_length=500)
+
+
 class VocabularySaveIn(BaseModel):
     """entry_id 可省略：服务端按 word 快速解析，避免客户端先查词再收藏。"""
 

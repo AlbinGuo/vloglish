@@ -35,6 +35,7 @@ SERIAL_TABLES = [
     "user_subtitle_progress",
     "user_word_lookups",
     "user_vocabulary_items",
+    "user_subtitle_clips",
     "learning_sessions",
 ]
 
