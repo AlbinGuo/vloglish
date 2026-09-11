@@ -392,25 +392,18 @@ def series_detail(
     if not can_access_series_content(db, user):
         raise HTTPException(status_code=403, detail="需要开通会员才能查看合集内容")
 
-    # 列表按上传/发布时间倒序；上一集/下一集导航仍按 series_index（list_series_episodes）
-    episodes_by_time = sorted(
-        episodes,
-        key=lambda ep: ep.published_at or ep.created_at or datetime.min,
-        reverse=True,
-    )
-
     fav_ids = favorite_video_ids(db, device_id, user.id)
-    prog_map = progress_map_for_episodes(db, user.id, [ep.id for ep in episodes_by_time])
-    learner_map = learner_count_map_for_episodes(db, [ep.id for ep in episodes_by_time])
+    prog_map = progress_map_for_episodes(db, user.id, [ep.id for ep in episodes])
+    learner_map = learner_count_map_for_episodes(db, [ep.id for ep in episodes])
 
-    series_cover = series.cover or (episodes_by_time[0].cover if episodes_by_time else "")
+    series_cover = series.cover or next((ep.cover for ep in episodes if ep.cover), "")
     return {
         "id": series.id,
         "slug": series.slug,
         "title": series.title,
         "summary": series.summary or "",
         "cover": resolve_cover_url(series_cover),
-        "episode_count": len(episodes_by_time),
+        "episode_count": len(episodes),
         "episodes": [
             episode_summary(
                 ep,
@@ -419,7 +412,7 @@ def series_detail(
                 progress_percent=prog_map.get(ep.id).completion_percent if prog_map.get(ep.id) else 0,
                 learner_count=learner_map.get(ep.id, 0),
             )
-            for ep in episodes_by_time
+            for ep in episodes
         ],
     }
 
