@@ -121,7 +121,6 @@ watch(slug, load)
             <div class="flex-1 min-w-0 py-0.5">
               <p class="text-xs text-neutral-500 mb-1">
                 第 {{ ep.series_index ?? ep.index }} 集
-                <span v-if="ep.author?.name"> · @{{ ep.author.name }}</span>
               </p>
               <p class="font-medium leading-snug line-clamp-2 group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors">
                 {{ ep.short_title }}
