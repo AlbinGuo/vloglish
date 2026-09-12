@@ -25,6 +25,7 @@ import { useVoiceCloneStore } from '@/stores/voiceClone'
 import AppDownloadEntry from '@/components/AppDownloadEntry.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import BindWechatDialog from '@/components/BindWechatDialog.vue'
+import ContactAuthorDialog from '@/components/ContactAuthorDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -37,6 +38,7 @@ const clips = useClipsStore()
 const voiceClone = useVoiceCloneStore()
 const feedbackOpen = ref(false)
 const bindWechatOpen = ref(false)
+const contactAuthorOpen = ref(false)
 /** 会员，或关内容限制后的登录用户 */
 const canUseMemberTools = computed(() => auth.isMember || siteConfig.memberToolsOpen)
 
@@ -323,6 +325,30 @@ watch(
         </RouterLink>
 
         <div class="flex items-center gap-1 sm:gap-3 text-sm shrink-0">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg transition p-2 sm:px-2 sm:py-1.5 text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800"
+            aria-label="联系作者"
+            title="联系作者"
+            @click="contactAuthorOpen = true"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              class="w-5 h-5 shrink-0"
+              aria-hidden="true"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M7.5 8.25h9m-9 3.75h5.25M21 12c0 4.556-4.03 8.25-9 8.25a9.76 9.76 0 0 1-2.53-.33l-3.97 1.32a.75.75 0 0 1-.95-.95l1.32-3.97A8.7 8.7 0 0 1 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"
+              />
+            </svg>
+            <span class="hidden sm:inline">联系作者</span>
+          </button>
           <AppDownloadEntry variant="header" />
           <ThemeToggle />
           <template v-if="auth.isLoggedIn">
@@ -525,6 +551,7 @@ watch(
     <FavoriteCorpusToast />
     <FeedbackModal v-model:open="feedbackOpen" />
     <BindWechatDialog v-model:open="bindWechatOpen" />
+    <ContactAuthorDialog v-model:open="contactAuthorOpen" />
     <AiQuotaExhaustedModal />
     <EpisodePublishedPopup
       :item="currentPopupItem"
