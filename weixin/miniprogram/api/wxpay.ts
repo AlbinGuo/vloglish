@@ -1,5 +1,6 @@
 import { request } from '../utils/request'
 import type { AuthUser } from '../utils/auth'
+import { wxPlatform } from '../utils/device'
 
 export type WxPayCreate = {
   out_trade_no: string
@@ -21,11 +22,20 @@ export type WxPayOrder = {
   user?: AuthUser | null
 }
 
+export function wxPayPlatform(): string {
+  return wxPlatform()
+}
+
 export function createWxPayOrder(plan: string, code: string, pcToken?: string) {
   return request<WxPayCreate>({
     url: '/api/wxpay/orders/',
     method: 'POST',
-    data: { plan, code, pc_token: pcToken || undefined },
+    data: {
+      plan,
+      code,
+      pc_token: pcToken || undefined,
+      platform: wxPlatform() || undefined,
+    },
   })
 }
 

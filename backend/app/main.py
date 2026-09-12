@@ -158,6 +158,49 @@ def startup():
         db.close()
 
 
+def _backfill_member_plans() -> None:
+    from sqlalchemy import or_
+
+    from .models import MembershipOrder, User
+
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(User)
+            .filter(User.is_member.is_(True), or_(User.member_plan.is_(None), User.member_plan == ""))
+            .all()
+        )
+        if not rows:
+            return
+        user_ids = [u.id for u in rows]
+        orders = (
+            db.query(MembershipOrder)
+            .filter(MembershipOrder.user_id.in_(user_ids), MembershipOrder.status == "paid")
+            .order_by(MembershipOrder.paid_at.desc().nullslast(), MembershipOrder.id.desc())
+            .all()
+        )
+        latest: dict[int, str] = {}
+        for order in orders:
+            if not order.user_id or order.user_id in latest:
+                continue
+            if order.plan in ("quarter", "year", "forever"):
+                latest[order.user_id] = order.plan
+        for user in rows:
+            if user.member_until is None:
+                user.member_plan = "forever"
+            elif latest.get(user.id) in ("quarter", "year"):
+                user.member_plan = latest[user.id]
+            else:
+                user.member_plan = "custom"
+        db.commit()
+        print(f"[vloglish] backfilled users.member_plan n={len(rows)}")
+    except Exception:
+        db.rollback()
+        print("[vloglish] backfill users.member_plan skipped")
+    finally:
+        db.close()
+
+
 def _migrate_schema():
     insp = inspect(engine)
     if "users" not in insp.get_table_names():
@@ -318,6 +361,26 @@ def _migrate_schema():
     if "last_client" not in cols:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN last_client VARCHAR(16)"))
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("users")}
+    if "last_device" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN last_device VARCHAR(16)"))
+            conn.execute(
+                text(
+                    "UPDATE users SET last_device = last_client "
+                    "WHERE last_client IN ('ios', 'android')"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE users SET last_device = 'pc' "
+                    "WHERE last_client = 'web' AND last_device IS NULL"
+                )
+            )
+        print("[vloglish] migrated users.last_device")
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("users")}
     if "avatar_key" not in cols:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN avatar_key VARCHAR(32)"))
@@ -347,6 +410,13 @@ def _migrate_schema():
         print("[vloglish] migrated users.member_until")
         insp = inspect(engine)
         cols = {c["name"] for c in insp.get_columns("users")}
+    if "member_plan" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN member_plan VARCHAR(16)"))
+        print("[vloglish] migrated users.member_plan")
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("users")}
+    _backfill_member_plans()
     if "wx_session_key" not in cols:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN wx_session_key VARCHAR(128)"))
@@ -529,6 +599,12 @@ def _migrate_schema():
                 conn.execute(
                     text("ALTER TABLE membership_orders ADD COLUMN wx_order_id VARCHAR(64) NOT NULL DEFAULT ''")
                 )
+        if "pay_client" not in mo_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE membership_orders ADD COLUMN pay_client VARCHAR(16) NOT NULL DEFAULT ''")
+                )
+            print("[vloglish] migrated membership_orders.pay_client")
     if "user_daily_visits" in insp.get_table_names():
         visit_cols = {c["name"] for c in insp.get_columns("user_daily_visits")}
         if "session_count" not in visit_cols:

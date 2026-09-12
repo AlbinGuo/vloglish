@@ -13,6 +13,16 @@ export function isNativePlatform(): boolean {
   }
 }
 
+export function getDeviceKind(): 'ios' | 'android' | 'pc' {
+  const native = getNativePlatform()
+  if (native === 'ios' || native === 'android') return native
+  if (typeof navigator === 'undefined') return 'pc'
+  const ua = navigator.userAgent || ''
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'ios'
+  if (/Android/i.test(ua)) return 'android'
+  return 'pc'
+}
+
 export function getNativePlatform(): 'ios' | 'android' | 'web' {
   try {
     const Cap = (window as unknown as { Capacitor?: { getPlatform?: () => string } }).Capacitor

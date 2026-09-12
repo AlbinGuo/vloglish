@@ -9,7 +9,8 @@ from .page_dwell import add_page_dwell, dwell_delta_seconds, normalize_page_key
 # 最近 N 秒内有心跳视为在线
 ONLINE_WINDOW_SEC = 90
 
-ALLOWED_CLIENTS = frozenset({"web", "android", "ios"})
+ALLOWED_CLIENTS = frozenset({"web", "android", "ios", "weixin"})
+ALLOWED_DEVICES = frozenset({"ios", "android", "pc"})
 
 
 def normalize_client(raw: str | None) -> str | None:
@@ -21,12 +22,24 @@ def normalize_client(raw: str | None) -> str | None:
     return key if key in ALLOWED_CLIENTS else None
 
 
+def normalize_device(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    key = str(raw).strip().lower()
+    if key in ("iphone", "ipad", "ipod"):
+        key = "ios"
+    if key in ("windows", "mac", "devtools", "desktop"):
+        key = "pc"
+    return key if key in ALLOWED_DEVICES else None
+
+
 def touch_presence(
     db: Session,
     user: User,
     *,
     page_key: str | None = None,
     client: str | None = None,
+    device: str | None = None,
 ) -> None:
     if user.is_staff:
         return
@@ -34,10 +47,13 @@ def touch_presence(
     delta = dwell_delta_seconds(user.last_seen_at, now)
     key = normalize_page_key(page_key)
     client_key = normalize_client(client)
+    device_key = normalize_device(device)
 
     user.last_seen_at = now
     if client_key:
         user.last_client = client_key
+    if device_key:
+        user.last_device = device_key
     record_daily_visit(db, user, now_utc=now)
     if key and delta > 0:
         add_page_dwell(db, user.id, key, delta, now_utc=now)

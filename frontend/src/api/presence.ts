@@ -1,5 +1,5 @@
 import api from '@/api/client'
-import { getNativePlatform } from '@/utils/platform'
+import { getDeviceKind, getNativePlatform, isNativePlatform } from '@/utils/platform'
 
 /** 与后端 page_dwell.ALLOWED_PAGE_KEYS 对齐的路由名 */
 export const TRACKED_PAGE_KEYS = new Set([
@@ -28,9 +28,11 @@ export function normalizePresencePageKey(name: unknown): string | undefined {
 
 export async function sendPresenceHeartbeat(pageKey?: string | null) {
   const page_key = pageKey && TRACKED_PAGE_KEYS.has(pageKey) ? pageKey : undefined
-  const client = getNativePlatform()
+  const native = getNativePlatform()
+  const client = isNativePlatform() && (native === 'ios' || native === 'android') ? native : 'web'
   await api.post('/api/presence/heartbeat/', {
     ...(page_key ? { page_key } : {}),
     client,
+    device: getDeviceKind(),
   })
 }

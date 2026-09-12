@@ -1,5 +1,6 @@
 import { request } from '../utils/request'
 import type { AuthUser } from '../utils/auth'
+import { wxPlatform } from '../utils/device'
 
 export type AuthTokens = {
   access: string
@@ -23,7 +24,7 @@ export function loginWithWxCode(code: string, nickname?: string) {
   return request<AuthTokens>({
     url: '/api/auth/wechat/mini/',
     method: 'POST',
-    data: { code, nickname: nickname || undefined },
+    data: { code, nickname: nickname || undefined, platform: wxPlatform() || undefined },
     auth: false,
   })
 }

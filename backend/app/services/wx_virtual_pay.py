@@ -12,13 +12,14 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from ..demo_access import user_is_member
 from ..models import MembershipOrder, PcPaySession, User
+from .account_merge import normalize_pay_client
 
 logger = logging.getLogger(__name__)
 
@@ -109,19 +110,10 @@ def new_out_trade_no() -> str:
 
 
 def grant_membership(user: User, plan: str) -> None:
-    now = datetime.utcnow()
-    user.is_member = True
-    if user.member_activated_at is None:
-        user.member_activated_at = now
-    meta = PLANS[plan]
-    days = meta["days"]
-    if days is None:
-        user.member_until = None
-        return
-    base = now
-    if user.member_until and user.member_until > now:
-        base = user.member_until
-    user.member_until = base + timedelta(days=int(days))
+    from .membership import apply_membership
+
+    meta = PLANS.get(plan) or PLANS[PLAN_FOREVER]
+    apply_membership(user, meta["days"], plan=plan if plan in PLANS else PLAN_FOREVER)
 
 
 def deliver_order(db: Session, order: MembershipOrder, *, wx_order_id: str = "", raw: str = "") -> None:
@@ -220,7 +212,13 @@ def notify_provide_goods(*, openid: str, wx_order_id: str) -> None:
 
 
 def create_pay_order(
-    db: Session, *, user: User, plan: str, login_code: str, pc_token: str = ""
+    db: Session,
+    *,
+    user: User,
+    plan: str,
+    login_code: str,
+    pc_token: str = "",
+    pay_client: str = "",
 ) -> dict:
     if not xpay_configured():
         raise HTTPException(status_code=503, detail="未配置虚拟支付（OfferID / AppKey）")
@@ -256,6 +254,7 @@ def create_pay_order(
         order_no = new_out_trade_no()
 
     attach = compact_json({"uid": user.id, "plan": plan})
+    client = normalize_pay_client(pay_client) or "weixin"
     order = MembershipOrder(
         order_no=order_no,
         user_id=user.id,
@@ -266,6 +265,7 @@ def create_pay_order(
         channel="wx_virtual",
         plan=plan,
         product_id=product_id,
+        pay_client=client,
     )
     db.add(order)
     db.commit()

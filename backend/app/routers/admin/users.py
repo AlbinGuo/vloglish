@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session
 from ...database import get_db
 from ...deps import get_current_admin
 from ...models import AccountBindToken, ActivationCode, User
+from ...demo_access import user_is_member
 from ...schemas import (
+    AdminMembershipIn,
     AdminUserGeoStatsOut,
     AdminUserListItemOut,
     AdminUserListOut,
@@ -17,12 +19,15 @@ from ...schemas import (
     AdminUserUpdateIn,
     AdminVisitHourlyStatsOut,
 )
+from ...services.membership import PLAN_FILTERS, apply_membership, revoke_membership
+from ...services.wx_virtual_pay import PLANS
 from ...services.daily_visits import visit_hourly_stats, visit_stats_for_users
 from ...services.page_dwell import top_pages_for_users, user_page_dwell_top
 from ...services.presence import is_user_online
 from ...services.account_merge import is_wechat_only
 from ...services.user_geo import user_geo_stats
 from ...services.user_segments import (
+    ACCESS_CLIENT_FILTERS,
     VALID_SEGMENTS,
     admin_user_list_query,
     row_stats_from_user_query,
@@ -56,9 +61,12 @@ def _user_item(
         is_staff=user.is_staff,
         is_online=is_user_online(user),
         last_client=(user.last_client or None),
+        last_device=(user.last_device or None),
         wx_bound=bool((user.wx_openid or "").strip()),
         wechat_only=is_wechat_only(user),
         member_activated_at=_fmt_dt(user.member_activated_at),
+        member_until=_fmt_dt(user.member_until),
+        member_plan=user.member_plan,
         activation_code=activation_code if user.is_member else None,
         created_at=_fmt_dt(user.created_at) or "",
         last_active_at=_fmt_dt(last_active if isinstance(last_active, datetime) else None),
@@ -128,13 +136,25 @@ def list_users(
     page_size: int = Query(20, ge=1, le=100),
     search: str | None = None,
     segment: str | None = Query(None),
+    member_plan: str | None = Query(None),
+    access_client: str | None = Query(None),
     _admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
     if segment and segment not in VALID_SEGMENTS:
         raise HTTPException(status_code=400, detail="无效的分群")
+    if member_plan and member_plan not in PLAN_FILTERS:
+        raise HTTPException(status_code=400, detail="无效的会员筛选")
+    if access_client and access_client not in ACCESS_CLIENT_FILTERS:
+        raise HTTPException(status_code=400, detail="无效的访问端筛选")
 
-    q = admin_user_list_query(db, search=search, segment=segment)
+    q = admin_user_list_query(
+        db,
+        search=search,
+        segment=segment,
+        member_plan=member_plan,
+        access_client=access_client,
+    )
     total = q.count()
     rows = q.offset((page - 1) * page_size).limit(page_size).all()
     user_ids = [row[0].id for row in rows]
@@ -215,17 +235,65 @@ def update_user(
         raise HTTPException(status_code=400, detail="不能停用当前登录的管理员")
 
     if body.is_member is not None:
-        user.is_member = body.is_member
-        if body.is_member and not user.member_activated_at:
-            user.member_activated_at = datetime.utcnow()
-        if not body.is_member:
-            user.member_activated_at = None
+        if body.is_member:
+            apply_membership(user, None, plan="forever")
+        else:
+            revoke_membership(user)
     if body.is_active is not None:
         user.is_active = body.is_active
     if body.nickname is not None:
         user.nickname = body.nickname or None
     if body.phone is not None:
         user.phone = body.phone or None
+
+    db.commit()
+    db.refresh(user)
+    return AdminUserOut(
+        id=user.id,
+        email=user.email,
+        nickname=user.nickname,
+        phone=user.phone,
+        is_member=user.is_member,
+        is_staff=user.is_staff,
+    )
+
+
+@router.post("/{user_id}/membership/", response_model=AdminUserOut)
+def grant_user_membership(
+    user_id: int,
+    body: AdminMembershipIn,
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    if body.plan == "revoke":
+        revoke_membership(user)
+        db.commit()
+        db.refresh(user)
+        return AdminUserOut(
+            id=user.id,
+            email=user.email,
+            nickname=user.nickname,
+            phone=user.phone,
+            is_member=user.is_member,
+            is_staff=user.is_staff,
+        )
+
+    if user_is_member(user) and user.member_until is None and body.plan != "forever":
+        raise HTTPException(status_code=400, detail="该用户已是永久会员，无需再开通限期会员")
+
+    if body.plan == "custom":
+        if not body.days:
+            raise HTTPException(status_code=400, detail="请填写赠送天数")
+        apply_membership(user, body.days, plan="custom")
+    else:
+        meta = PLANS.get(body.plan)
+        if not meta:
+            raise HTTPException(status_code=400, detail="无效套餐")
+        apply_membership(user, meta["days"], plan=body.plan)
 
     db.commit()
     db.refresh(user)

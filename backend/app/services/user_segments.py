@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import case, func, or_
+from sqlalchemy import and_, case, func, or_
 from sqlalchemy.orm import Query, Session
 
 from ..models import ActivationCode, LearningSession, User, UserEpisodeProgress, UserWordLookup
@@ -115,11 +115,70 @@ def _apply_segment_filter(q: Query, segment: str, db: Session) -> Query:
     return q
 
 
+def _apply_member_plan_filter(q: Query, member_plan: str) -> Query:
+    now = datetime.utcnow()
+    active_until = or_(User.member_until.is_(None), User.member_until > now)
+    if member_plan == "none":
+        return q.filter(
+            or_(
+                User.is_member.is_(False),
+                and_(User.member_until.isnot(None), User.member_until <= now),
+            )
+        )
+    if member_plan == "expired":
+        return q.filter(User.is_member.is_(True), User.member_until.isnot(None), User.member_until <= now)
+    if member_plan == "forever":
+        return q.filter(User.is_member.is_(True), User.member_until.is_(None))
+    return q.filter(
+        User.is_member.is_(True),
+        User.member_plan == member_plan,
+        active_until,
+    )
+
+
+ACCESS_CLIENT_FILTERS = frozenset({"ios", "android", "pc", "weixin", "web", "app", "none"})
+
+
+def _apply_access_client_filter(q: Query, access_client: str) -> Query:
+    if access_client == "ios":
+        return q.filter(
+            or_(
+                User.last_device == "ios",
+                and_(User.last_device.is_(None), User.last_client == "ios"),
+            )
+        )
+    if access_client == "android":
+        return q.filter(
+            or_(
+                User.last_device == "android",
+                and_(User.last_device.is_(None), User.last_client == "android"),
+            )
+        )
+    if access_client == "pc":
+        return q.filter(
+            or_(
+                User.last_device == "pc",
+                and_(User.last_device.is_(None), User.last_client == "web"),
+            )
+        )
+    if access_client == "weixin":
+        return q.filter(User.last_client == "weixin")
+    if access_client == "web":
+        return q.filter(User.last_client == "web")
+    if access_client == "app":
+        return q.filter(User.last_client.in_(("android", "ios")))
+    if access_client == "none":
+        return q.filter(or_(User.last_client.is_(None), User.last_client == ""))
+    return q
+
+
 def admin_user_list_query(
     db: Session,
     *,
     search: str | None = None,
     segment: str | None = None,
+    member_plan: str | None = None,
+    access_client: str | None = None,
 ) -> Query:
     progress_sq, session_7d_sq, lookup_sq = _learning_subqueries(db)
 
@@ -148,6 +207,10 @@ def admin_user_list_query(
 
     if segment and segment in VALID_SEGMENTS:
         q = _apply_segment_filter(q, segment, db)
+    if member_plan:
+        q = _apply_member_plan_filter(q, member_plan)
+    if access_client:
+        q = _apply_access_client_filter(q, access_client)
 
     online_since = datetime.utcnow() - timedelta(seconds=ONLINE_WINDOW_SEC)
     online_first = case(

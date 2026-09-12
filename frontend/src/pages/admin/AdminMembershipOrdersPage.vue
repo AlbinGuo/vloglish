@@ -18,6 +18,38 @@ const statusLabel: Record<string, string> = {
   refunded: '已退款',
 }
 
+function planLabel(plan?: string) {
+  if (plan === 'quarter') return '季度'
+  if (plan === 'year') return '年度'
+  if (plan === 'test') return '测试'
+  return '永久'
+}
+
+function channelLabel(row: MembershipOrderRow) {
+  if (row.channel === 'wx_virtual') return '小程序'
+  if (row.channel === 'alipay') return '支付宝'
+  return row.channel || '—'
+}
+
+function paySourceLabel(row: MembershipOrderRow) {
+  const client = (row.pay_client || '').toLowerCase()
+  if (client === 'ios') return 'iOS'
+  if (client === 'android') return 'Android'
+  if (client === 'devtools') return '开发者工具'
+  if (client === 'windows') return 'Windows'
+  if (client === 'mac') return 'Mac'
+  if (client === 'wap') return '手机浏览器'
+  if (client === 'web') return '浏览器'
+  if (row.via_pc) return '网页扫码'
+  if (row.channel === 'wx_virtual') return '小程序'
+  if (row.channel === 'alipay') return '浏览器'
+  return '—'
+}
+
+function tradeNo(row: MembershipOrderRow) {
+  return row.alipay_trade_no || row.wx_order_id || ''
+}
+
 async function load() {
   loading.value = true
   error.value = ''
@@ -67,28 +99,39 @@ onMounted(load)
         <thead class="bg-neutral-50 text-left text-neutral-500">
           <tr>
             <th class="px-3 py-2 font-medium">订单号</th>
-            <th class="px-3 py-2 font-medium">邮箱</th>
+            <th class="px-3 py-2 font-medium">账号</th>
+            <th class="px-3 py-2 font-medium">套餐</th>
             <th class="px-3 py-2 font-medium">金额</th>
             <th class="px-3 py-2 font-medium">状态</th>
+            <th class="px-3 py-2 font-medium">渠道</th>
+            <th class="px-3 py-2 font-medium">访问端</th>
             <th class="px-3 py-2 font-medium">激活码</th>
-            <th class="px-3 py-2 font-medium">支付宝单号</th>
+            <th class="px-3 py-2 font-medium">支付单号</th>
             <th class="px-3 py-2 font-medium">支付时间</th>
             <th class="px-3 py-2 font-medium">创建时间</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="!rows.length">
-            <td colspan="8" class="px-3 py-10 text-center text-neutral-400">暂无订单</td>
+            <td colspan="11" class="px-3 py-10 text-center text-neutral-400">暂无订单</td>
           </tr>
           <tr v-for="row in rows" :key="row.id" class="border-t border-black/5">
             <td class="px-3 py-2 font-mono text-xs">{{ row.order_no }}</td>
-            <td class="px-3 py-2">{{ row.email }}</td>
+            <td class="px-3 py-2">
+              <div :title="row.email">{{ row.email_display || row.email }}</div>
+              <div v-if="row.wechat_only" class="text-[11px] text-neutral-400">未绑网页邮箱</div>
+            </td>
+            <td class="px-3 py-2 whitespace-nowrap">{{ planLabel(row.plan) }}</td>
             <td class="px-3 py-2">¥{{ row.amount_yuan }}</td>
             <td class="px-3 py-2">{{ statusLabel[row.status] || row.status }}</td>
+            <td class="px-3 py-2 whitespace-nowrap">{{ channelLabel(row) }}</td>
+            <td class="px-3 py-2 whitespace-nowrap">{{ paySourceLabel(row) }}</td>
             <td class="px-3 py-2 font-mono">{{ row.activation_code || '—' }}</td>
-            <td class="px-3 py-2 font-mono text-xs">{{ row.alipay_trade_no || '—' }}</td>
-            <td class="px-3 py-2 text-neutral-500">{{ row.paid_at || '—' }}</td>
-            <td class="px-3 py-2 text-neutral-500">{{ row.created_at }}</td>
+            <td class="px-3 py-2 font-mono text-xs" :title="tradeNo(row)">
+              {{ tradeNo(row) || '—' }}
+            </td>
+            <td class="px-3 py-2 text-neutral-500 whitespace-nowrap">{{ row.paid_at || '—' }}</td>
+            <td class="px-3 py-2 text-neutral-500 whitespace-nowrap">{{ row.created_at }}</td>
           </tr>
         </tbody>
       </table>

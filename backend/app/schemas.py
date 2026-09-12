@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
+from typing import Literal
 
 EPISODE_STATUS_PATTERN = "^(draft|published|archived|rejected)$"
 
@@ -46,6 +47,7 @@ class LoginIn(BaseModel):
 class WechatMiniLoginIn(BaseModel):
     code: str = Field(min_length=4, max_length=128)
     nickname: str | None = Field(default=None, max_length=64)
+    platform: str | None = Field(default=None, max_length=16)
 
 
 class RefreshIn(BaseModel):
@@ -268,9 +270,12 @@ class AdminUserListItemOut(BaseModel):
     is_staff: bool
     is_online: bool = False
     last_client: str | None = None
+    last_device: str | None = None
     wx_bound: bool = False
     wechat_only: bool = False
     member_activated_at: str | None = None
+    member_until: str | None = None
+    member_plan: str | None = None
     activation_code: str | None = None
     created_at: str
     last_active_at: str | None = None
@@ -358,6 +363,11 @@ class AdminUserUpdateIn(BaseModel):
     is_active: bool | None = None
     nickname: str | None = None
     phone: str | None = None
+
+
+class AdminMembershipIn(BaseModel):
+    plan: Literal["quarter", "year", "forever", "custom", "revoke"]
+    days: int | None = Field(default=None, ge=1, le=3650)
 
 
 class AdminAuthorIn(BaseModel):
@@ -1645,11 +1655,18 @@ class AdminMembershipOrderOut(BaseModel):
     id: int
     order_no: str
     email: str
+    email_display: str
+    wechat_only: bool = False
+    nickname: str | None = None
     amount_yuan: str
     amount_cent: int
     status: str
     channel: str
+    plan: str = "forever"
+    pay_client: str = ""
+    via_pc: bool = False
     alipay_trade_no: str = ""
+    wx_order_id: str = ""
     activation_code: str | None = None
     paid_at: str | None = None
     created_at: str = ""

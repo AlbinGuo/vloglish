@@ -214,12 +214,16 @@ class User(Base):
     member_activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # 到期时间；空且 is_member 表示永久。过期后按非会员处理。
     member_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # 最近开通档：quarter | year | forever | custom
+    member_plan: Mapped[str | None] = mapped_column(String(16), nullable=True)
     # 微信 jscode2session 的 session_key，虚拟支付用户态签名用
     wx_session_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     session_version: Mapped[int] = mapped_column(Integer, default=1)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    # 最近一次心跳客户端：web | android | ios
+    # 最近一次心跳客户端：web | android | ios | weixin
     last_client: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # 最近一次设备：ios | android | pc
+    last_device: Mapped[str | None] = mapped_column(String(16), nullable=True)
     # 上次进入「我的语料库」的时间；用于首页「新」角标
     my_corpus_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     signup_country: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -815,3 +819,5 @@ class MembershipOrder(Base):
     plan: Mapped[str] = mapped_column(String(16), default="forever")
     product_id: Mapped[str] = mapped_column(String(64), default="")
     wx_order_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+    # 付款端：web | android | ios | weixin | devtools | windows | mac
+    pay_client: Mapped[str] = mapped_column(String(16), default="")

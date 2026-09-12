@@ -54,6 +54,19 @@ def is_wechat_only(user: User) -> bool:
     return email.endswith(WECHAT_EMAIL_SUFFIX)
 
 
+def is_wechat_placeholder_email(email: str | None) -> bool:
+    return (email or "").strip().lower().endswith(WECHAT_EMAIL_SUFFIX)
+
+
+def normalize_pay_client(raw: str | None) -> str:
+    key = (raw or "").strip().lower()
+    if key in ("iphone", "ipad"):
+        key = "ios"
+    if key in {"web", "wap", "android", "ios", "weixin", "devtools", "windows", "mac"}:
+        return key
+    return ""
+
+
 def merge_membership(target: User, source: User) -> None:
     src_member = user_is_member(source)
     dst_member = user_is_member(target)
@@ -68,9 +81,16 @@ def merge_membership(target: User, source: User) -> None:
     dst_forever = dst_member and target.member_until is None and target.is_member
     if src_forever or dst_forever:
         target.member_until = None
+        target.member_plan = "forever"
         return
-    untils = [t for t in (source.member_until, target.member_until) if t]
+    src_until = source.member_until
+    dst_until = target.member_until
+    untils = [t for t in (src_until, dst_until) if t]
     target.member_until = max(untils) if untils else None
+    if src_until and (not dst_until or src_until >= dst_until):
+        target.member_plan = source.member_plan or target.member_plan
+    elif not target.member_plan:
+        target.member_plan = source.member_plan
 
 
 def _move_wx_identity(target: User, source: User) -> None:

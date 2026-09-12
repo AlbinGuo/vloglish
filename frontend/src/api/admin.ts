@@ -199,11 +199,17 @@ export interface UserRow {
   is_online?: boolean
   /** 最近心跳客户端：web | android | ios | weixin */
   last_client?: string | null
+  /** 最近设备：ios | android | pc */
+  last_device?: string | null
   /** 是否已关联微信小程序 */
   wx_bound?: boolean
   /** 仅微信影子账号（无网页邮箱） */
   wechat_only?: boolean
   member_activated_at: string | null
+  /** 到期时间；空且 is_member 表示永久 */
+  member_until?: string | null
+  /** 最近开通档：quarter | year | forever | custom */
+  member_plan?: string | null
   /** 会员对应激活码（若有） */
   activation_code?: string | null
   created_at: string
@@ -348,11 +354,18 @@ export interface MembershipOrderRow {
   id: number
   order_no: string
   email: string
+  email_display?: string
+  wechat_only?: boolean
+  nickname?: string | null
   amount_yuan: string
   amount_cent: number
   status: string
   channel: string
+  plan?: string
+  pay_client?: string
+  via_pc?: boolean
   alipay_trade_no: string
+  wx_order_id?: string
   activation_code: string | null
   paid_at: string | null
   created_at: string
@@ -408,11 +421,17 @@ export async function adminFetchUserSegments() {
   return data.segments
 }
 
+export type AdminMemberPlanFilter = 'none' | 'quarter' | 'year' | 'forever' | 'custom' | 'expired'
+
+export type AdminAccessClientFilter = 'ios' | 'android' | 'pc' | 'weixin' | 'web' | 'app' | 'none'
+
 export async function adminListUsers(params: {
   page?: number
   page_size?: number
   search?: string
   segment?: AdminUserSegmentKey | ''
+  member_plan?: AdminMemberPlanFilter | ''
+  access_client?: AdminAccessClientFilter | ''
 }) {
   const { data } = await adminApi.get<{ count: number; results: UserRow[] }>('/api/admin/users/', {
     params,
@@ -425,6 +444,16 @@ export async function adminUpdateUser(
   payload: Partial<Pick<UserRow, 'is_member' | 'is_active' | 'nickname' | 'phone'>>,
 ) {
   const { data } = await adminApi.patch<AdminUser>(`/api/admin/users/${userId}/`, payload)
+  return data
+}
+
+export type AdminMembershipPlan = 'quarter' | 'year' | 'forever' | 'custom' | 'revoke'
+
+export async function adminGrantMembership(
+  userId: number,
+  payload: { plan: AdminMembershipPlan; days?: number },
+) {
+  const { data } = await adminApi.post<AdminUser>(`/api/admin/users/${userId}/membership/`, payload)
   return data
 }
 

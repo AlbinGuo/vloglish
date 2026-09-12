@@ -124,11 +124,11 @@ def apply_activation_code(db: Session, user: User, code_value: str) -> None:
     activation = db.query(ActivationCode).filter(ActivationCode.code == code_value).first()
     if not activation or activation.used_by_user_id is not None:
         raise HTTPException(status_code=400, detail="无效或已使用的激活码")
+    from ..services.membership import apply_membership
+
     activation.used_by_user_id = user.id
     activation.used_at = datetime.utcnow()
-    user.is_member = True
-    user.member_activated_at = datetime.utcnow()
-    user.member_until = None
+    apply_membership(user, None, plan="forever")
 
 
 @router.post("/register/", response_model=AuthTokensOut)
@@ -257,6 +257,11 @@ def wechat_mini_login(
         ensure_user_avatar(user)
 
     user.last_client = "weixin"
+    from ..services.presence import normalize_device
+
+    device = normalize_device(body.platform)
+    if device:
+        user.last_device = device
     wx_sk = (session.get("session_key") or "").strip()
     if wx_sk:
         user.wx_session_key = wx_sk

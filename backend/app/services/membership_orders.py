@@ -66,6 +66,8 @@ def create_order(
         currency="CNY",
         status="pending",
         channel="alipay",
+        plan="forever",
+        pay_client="wap" if channel == "wap" else "web",
     )
     db.add(order)
     db.commit()
@@ -146,9 +148,9 @@ def _activate_order_user(db: Session, order: MembershipOrder, code: ActivationCo
 
     now = datetime.utcnow()
     if not user.is_member:
-        user.is_member = True
-        user.member_activated_at = now
-        user.member_until = None
+        from .membership import apply_membership
+
+        apply_membership(user, None, plan="forever")
     if code.used_by_user_id is None:
         code.used_by_user_id = user.id
         code.used_at = now

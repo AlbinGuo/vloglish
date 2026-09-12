@@ -26,6 +26,7 @@ class WxPayCreateIn(BaseModel):
     plan: str
     code: str = Field(min_length=4, max_length=128)
     pc_token: str = ""
+    platform: str = ""
 
 
 class WxPayCreateOut(BaseModel):
@@ -106,7 +107,12 @@ def create_wx_order(
     user: User = Depends(get_current_user),
 ):
     data = xpay.create_pay_order(
-        db, user=user, plan=body.plan, login_code=body.code, pc_token=body.pc_token
+        db,
+        user=user,
+        plan=body.plan,
+        login_code=body.code,
+        pc_token=body.pc_token,
+        pay_client=body.platform,
     )
     return WxPayCreateOut(**data)
 

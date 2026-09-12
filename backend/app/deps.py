@@ -83,7 +83,9 @@ def get_current_member(
     db: Session = Depends(get_db),
 ) -> User:
     """会员，或关会员内容限制时的登录用户（上传视频/文章/语料库等）。"""
-    if user.is_member:
+    from .demo_access import user_is_member
+
+    if user_is_member(user):
         return user
     from .services.site_settings import content_access_unlocked
 
