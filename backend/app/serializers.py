@@ -61,6 +61,7 @@ def episode_summary(
         "is_pinned": bool(getattr(episode, "is_pinned", False)),
         "learner_count": int(learner_count or 0),
         "requires_membership": bool(requires_membership),
+        "open_to_free_users": bool(getattr(episode, "open_to_free_users", False)),
         **_series_brief(episode),
     }
 

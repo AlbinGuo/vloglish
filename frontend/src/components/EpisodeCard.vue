@@ -9,6 +9,8 @@ import StarIcon from '@/components/icons/StarIcon.vue'
 import type { EpisodeSummary } from '@/types'
 import { displayLearnerCount } from '@/utils/displayLearnerCount'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
+import { isOpenToFreeUsers } from '@/utils/episodeAccess'
+import EpisodeAccessBadge from '@/components/EpisodeAccessBadge.vue'
 
 const props = defineProps<{ episode: EpisodeSummary; to: string }>()
 
@@ -54,12 +56,7 @@ function learnerLabel() {
           {{ formatDuration(episode.clip_length) }}
         </span>
         <div class="absolute top-2 left-2 flex flex-row items-center gap-1.5 z-10">
-          <span
-            v-if="episode.requires_membership"
-            class="text-sm px-2.5 py-1 rounded-md bg-black/75 text-amber-200 font-semibold tracking-wide shadow-md backdrop-blur-[2px] leading-none"
-          >
-            会员
-          </span>
+          <EpisodeAccessBadge :free="isOpenToFreeUsers(episode)" />
           <span
             v-if="episode.is_pinned"
             class="text-sm px-2.5 py-1 rounded-md bg-amber-500 text-white font-bold shadow-md leading-none"

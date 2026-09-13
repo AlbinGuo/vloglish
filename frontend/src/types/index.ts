@@ -65,6 +65,8 @@ export interface EpisodeSummary {
   series_index?: number | null
   /** 普通用户不可看，需开通会员 */
   requires_membership?: boolean
+  /** 管理员勾选「对普通用户开放」 */
+  open_to_free_users?: boolean
 }
 
 export interface EpisodeSeriesNav {

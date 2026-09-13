@@ -811,6 +811,8 @@ class EpisodeSummaryOut(BaseModel):
     series_slug: str = ""
     series_title: str = ""
     series_index: int | None = None
+    requires_membership: bool = False
+    open_to_free_users: bool = False
 
 
 class SubtitleOut(BaseModel):

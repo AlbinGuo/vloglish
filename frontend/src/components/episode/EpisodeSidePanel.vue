@@ -2,6 +2,8 @@
 import { nextTick, ref, watch } from 'vue'
 import type { EpisodeSummary } from '@/types'
 import type { WordLookupRecord } from '@/api/learning'
+import EpisodeAccessBadge from '@/components/EpisodeAccessBadge.vue'
+import { isOpenToFreeUsers } from '@/utils/episodeAccess'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
 
 const props = defineProps<{
@@ -135,18 +137,12 @@ watch(
             >
               播放中
             </span>
-            <span
-              v-else-if="ep.requires_membership"
-              class="absolute top-0.5 left-0.5 text-[10px] px-1.5 py-0.5 rounded bg-black/75 text-amber-200 font-semibold leading-none"
-            >
-              会员
-            </span>
-            <span
-              v-else-if="ep.is_new"
-              class="absolute top-0.5 left-0.5 text-[9px] px-1 py-0.5 rounded bg-red-500 text-white font-bold leading-none"
-            >
-              新
-            </span>
+            <EpisodeAccessBadge
+              v-else
+              class="absolute top-0.5 left-0.5"
+              :free="isOpenToFreeUsers(ep)"
+              compact
+            />
           </div>
           <div class="flex-1 min-w-0">
             <p class="text-[11px] text-neutral-400 mb-0.5">

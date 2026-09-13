@@ -5,6 +5,8 @@ import { getSeriesDetail } from '@/api/episodes'
 import EnglishCatalogNavBar from '@/components/english/EnglishCatalogNavBar.vue'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
+import EpisodeAccessBadge from '@/components/EpisodeAccessBadge.vue'
+import { isOpenToFreeUsers } from '@/utils/episodeAccess'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
 import type { SeriesDetail } from '@/types'
 
@@ -109,23 +111,28 @@ watch(slug, load)
               <span class="absolute bottom-1 right-1 text-[10px] text-white bg-black/60 px-1 rounded">
                 {{ formatDuration(ep.clip_length) }}
               </span>
-              <span
-                v-if="ep.is_learned"
-                class="absolute top-1 left-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-600 text-white font-medium"
-              >
-                已学完
-              </span>
-              <span
-                v-else-if="ep.is_new"
-                class="absolute top-1 left-1 text-base px-3 py-1 rounded-md bg-red-500 text-white font-bold leading-none shadow"
-              >
-                新
-              </span>
+              <div class="absolute top-1 left-1 flex flex-wrap items-center gap-1">
+                <EpisodeAccessBadge :free="isOpenToFreeUsers(ep)" compact />
+                <span
+                  v-if="ep.is_learned"
+                  class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-600 text-white font-medium leading-none"
+                >
+                  已学完
+                </span>
+                <span
+                  v-else-if="ep.is_new"
+                  class="text-[10px] px-1.5 py-0.5 rounded bg-red-500 text-white font-bold leading-none"
+                >
+                  新
+                </span>
+              </div>
             </div>
             <div class="flex-1 min-w-0 py-0.5">
               <p class="text-xs text-neutral-500 mb-1">
                 第 {{ ep.series_index ?? ep.index }} 集
-                <span v-if="ep.requires_membership" class="text-amber-700 dark:text-amber-400"> · 会员</span>
+                <span :class="isOpenToFreeUsers(ep) ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'">
+                  · {{ isOpenToFreeUsers(ep) ? '免费' : '会员' }}
+                </span>
               </p>
               <p class="font-medium leading-snug line-clamp-2 group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors">
                 {{ ep.short_title }}
