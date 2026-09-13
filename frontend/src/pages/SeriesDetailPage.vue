@@ -85,7 +85,7 @@ watch(slug, load)
             ← 全部合集
           </RouterLink>
           <h1 class="mt-2 text-2xl font-semibold tracking-tight">{{ series.title }}</h1>
-          <p class="mt-1 text-sm text-neutral-500">共 {{ series.episode_count }} 集 · 按集数排列</p>
+          <p class="mt-1 text-sm text-neutral-500">已更新至第 {{ series.episode_count }} 集，持续更新中</p>
           <p v-if="series.summary" class="mt-3 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
             {{ series.summary }}
           </p>
