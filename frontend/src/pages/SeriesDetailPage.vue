@@ -23,6 +23,13 @@ function episodePath(videoId: string) {
   return `/english/episode/${videoId}`
 }
 
+function episodeLink(ep: { video_id: string; requires_membership?: boolean }) {
+  if (ep.requires_membership) {
+    return { path: '/pricing', query: { next: episodePath(ep.video_id) } }
+  }
+  return episodePath(ep.video_id)
+}
+
 function formatDuration(sec: number) {
   const m = Math.floor(sec / 60)
   const s = Math.floor(sec % 60)
@@ -38,14 +45,11 @@ async function load() {
   } catch (e: unknown) {
     series.value = null
     const status = (e as { response?: { status?: number } })?.response?.status
-    if (status === 403) {
-      await router.replace({
-        path: '/pricing',
-        query: { next: route.fullPath },
-      })
+    if (status === 401) {
+      await router.replace({ path: '/login', query: { next: route.fullPath } })
       return
     }
-    error.value = '合集不存在或加载失败'
+    error.value = status === 403 ? '合集目录暂时无法打开，请稍后重试' : '合集不存在或加载失败'
   } finally {
     loading.value = false
   }
@@ -91,9 +95,9 @@ watch(slug, load)
       <ol class="space-y-2">
         <li v-for="ep in series.episodes" :key="ep.video_id">
           <RouterLink
-            :to="episodePath(ep.video_id)"
+            :to="episodeLink(ep)"
             class="flex gap-3 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-3 hover:shadow-sm transition group"
-            @click="requestEpisodeAutoplay"
+            @click="ep.requires_membership ? undefined : requestEpisodeAutoplay"
           >
             <div class="relative w-28 sm:w-36 shrink-0 aspect-video rounded-lg overflow-hidden bg-neutral-200 dark:bg-neutral-800">
               <img
@@ -121,6 +125,7 @@ watch(slug, load)
             <div class="flex-1 min-w-0 py-0.5">
               <p class="text-xs text-neutral-500 mb-1">
                 第 {{ ep.series_index ?? ep.index }} 集
+                <span v-if="ep.requires_membership" class="text-amber-700 dark:text-amber-400"> · 会员</span>
               </p>
               <p class="font-medium leading-snug line-clamp-2 group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors">
                 {{ ep.short_title }}

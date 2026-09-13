@@ -2,24 +2,18 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import CoverStack from '@/components/catalog/CoverStack.vue'
-import { useAuthStore } from '@/stores/auth'
 import type { SeriesSummary } from '@/types'
 
 const props = defineProps<{
   series: SeriesSummary
 }>()
 
-const auth = useAuthStore()
-
 const covers = computed(() => {
   if (props.series.covers?.length) return props.series.covers
   return props.series.cover ? [props.series.cover] : []
 })
 
-const linkTo = computed(() => {
-  if (props.series.requires_membership && !auth.isMember) return '/pricing'
-  return `/english/series/${props.series.slug}`
-})
+const linkTo = computed(() => `/english/series/${props.series.slug}`)
 
 const stackActive = ref(false)
 </script>

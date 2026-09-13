@@ -9,7 +9,6 @@ from ..episode_visibility import published_visibility_filter
 from ..database import get_db
 from ..demo_access import (
     can_access_episode,
-    can_access_series_content,
     get_episode_limit,
     user_is_member,
 )
@@ -128,8 +127,6 @@ def episode_list(
         q = q.filter(Episode.author_id == author_id)
     video_id_list = [v.strip() for v in (video_ids or "").split(",") if v.strip()][:20]
     if series_id is not None or (series_slug and series_slug.strip()):
-        if not can_access_series_content(db, user):
-            raise HTTPException(status_code=403, detail="需要开通会员才能查看合集内容")
         if series_id is not None:
             q = q.filter(Episode.series_id == series_id)
         else:
@@ -334,7 +331,7 @@ def series_list(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """合集列表：登录用户可见；内容仍须会员才能进入详情。"""
+    """合集列表：登录用户可见；点进合集可看目录，未开放剧集再引导开通。"""
     from ..services.content_new import content_is_new, fmt_dt, latest_dt
 
     _ = user
@@ -364,7 +361,7 @@ def series_list(
                 "covers": covers,
                 "episode_count": len(episodes),
                 "sort_order": series.sort_order or 0,
-                "requires_membership": not can_access_series_content(db, user),
+                "requires_membership": not any(can_access_episode(db, ep, user) for ep in episodes),
                 "published_at": fmt_dt(series.published_at or series.created_at),
                 "latest_content_at": fmt_dt(latest),
                 "is_new": content_is_new(latest),
@@ -389,8 +386,6 @@ def series_detail(
         raise HTTPException(status_code=404, detail="合集不存在")
 
     episodes = list_series_episodes(db, series.id, published_only=True)
-    if not can_access_series_content(db, user):
-        raise HTTPException(status_code=403, detail="需要开通会员才能查看合集内容")
 
     fav_ids = favorite_video_ids(db, device_id, user.id)
     prog_map = progress_map_for_episodes(db, user.id, [ep.id for ep in episodes])
@@ -411,6 +406,7 @@ def series_detail(
                 is_learned=prog_map.get(ep.id).is_completed if prog_map.get(ep.id) else False,
                 progress_percent=prog_map.get(ep.id).completion_percent if prog_map.get(ep.id) else 0,
                 learner_count=learner_map.get(ep.id, 0),
+                requires_membership=not can_access_episode(db, ep, user),
             )
             for ep in episodes
         ],
