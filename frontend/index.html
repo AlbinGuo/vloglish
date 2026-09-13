@@ -12,7 +12,7 @@
       (function () {
         try {
           if (location.pathname.startsWith('/gnadmin')) return
-          var mode = localStorage.getItem('teco-theme')
+          var mode = localStorage.getItem('teco-theme') || 'dark'
           var dark =
             mode === 'dark' ||
             (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)

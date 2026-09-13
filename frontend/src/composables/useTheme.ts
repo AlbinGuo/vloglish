@@ -19,7 +19,7 @@ function loadThemeMode(): ThemeMode {
   } catch {
     /* ignore */
   }
-  return 'light'
+  return 'dark'
 }
 
 function resolveTheme(mode: ThemeMode): 'light' | 'dark' {
