@@ -88,12 +88,20 @@ async function handleForcedLogout() {
   }
 }
 
+function isBinaryBody(data: unknown): boolean {
+  if (typeof Blob !== 'undefined' && data instanceof Blob) return true
+  if (typeof ArrayBuffer !== 'undefined' && data instanceof ArrayBuffer) return true
+  if (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView(data)) return true
+  return false
+}
+
 /** App WebView 为 https，把接口里的 http 媒体链升级为 https，避免图片/视频被混合内容拦截 */
 function upgradeMediaUrlsInData(data: unknown): unknown {
   if (typeof data === 'string') {
     if (data.startsWith('http://') || data.startsWith('//')) return resolveMediaUrl(data)
     return data
   }
+  if (isBinaryBody(data)) return data
   if (Array.isArray(data)) return data.map((item) => upgradeMediaUrlsInData(item))
   if (data && typeof data === 'object') {
     const out: Record<string, unknown> = {}
@@ -107,7 +115,7 @@ function upgradeMediaUrlsInData(data: unknown): unknown {
 
 api.interceptors.response.use(
   (response) => {
-    if (isMobileAppBuild() && response.data != null) {
+    if (isMobileAppBuild() && response.data != null && !isBinaryBody(response.data)) {
       response.data = upgradeMediaUrlsInData(response.data)
     }
     return response

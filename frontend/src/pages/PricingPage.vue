@@ -5,6 +5,8 @@ import { createPcPaySession, fetchPcPayQr, fetchPcPayStatus } from '@/api/wxpay'
 import { getErrorDetail } from '@/api/tokens'
 import { useAuthStore } from '@/stores/auth'
 import { useCatalogStore } from '@/stores/catalog'
+import { copyText } from '@/utils/clipboard'
+import { isMobileAppBuild, isNativePlatform } from '@/utils/platform'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -28,8 +30,36 @@ const loading = ref(false)
 const payQr = ref('')
 const payHint = ref('')
 const paidOk = ref(false)
+const payOnComputer = ref(false)
 const activationCode = ref('')
 const activating = ref(false)
+
+const WEB_PAY_URL = 'https://en.yunankexun.com/'
+const copiedUrl = ref(false)
+let copiedTimer: ReturnType<typeof setTimeout> | undefined
+
+function isAppClient() {
+  return isMobileAppBuild() || isNativePlatform()
+}
+
+async function copyWebPayUrl() {
+  const ok = await copyText(WEB_PAY_URL)
+  copiedUrl.value = ok
+  if (copiedTimer) clearTimeout(copiedTimer)
+  copiedTimer = setTimeout(() => {
+    copiedUrl.value = false
+  }, 2000)
+}
+
+async function syncIfPaidOnWeb() {
+  await auth.fetchMe()
+  if (!auth.isMember) return false
+  stopPay()
+  paidOk.value = true
+  await catalog.loadEpisodes(true)
+  await router.replace('/english')
+  return true
+}
 
 let pollTimer: ReturnType<typeof setInterval> | undefined
 let objectUrl = ''
@@ -68,13 +98,17 @@ onMounted(async () => {
   if (selected.value !== 'author') await startScanPay()
 })
 
-onUnmounted(stopPay)
+onUnmounted(() => {
+  stopPay()
+  if (copiedTimer) clearTimeout(copiedTimer)
+})
 
 watch(selected, (choice) => {
   if (choice === 'author') {
     stopPay()
     error.value = ''
     loading.value = false
+    payOnComputer.value = false
     return
   }
   void startScanPay()
@@ -86,6 +120,7 @@ async function startScanPay() {
   const plan = selected.value
   error.value = ''
   paidOk.value = false
+  payOnComputer.value = false
   loading.value = true
   stopPay()
   try {
@@ -102,11 +137,7 @@ async function startScanPay() {
         const st = await fetchPcPayStatus(sess.token)
         if (seq !== paySeq) return
         if (st.paid) {
-          stopPay()
-          paidOk.value = true
-          await auth.fetchMe()
-          await catalog.loadEpisodes(true)
-          await router.replace('/english')
+          await syncIfPaidOnWeb()
         } else if (st.status === 'expired') {
           void startScanPay()
         }
@@ -116,7 +147,20 @@ async function startScanPay() {
     }, 2000)
   } catch (e) {
     if (seq !== paySeq) return
-    error.value = getErrorDetail(e) || '无法生成支付码'
+    if (isAppClient()) {
+      payOnComputer.value = true
+      error.value = ''
+      pollTimer = setInterval(async () => {
+        if (seq !== paySeq) return
+        try {
+          await syncIfPaidOnWeb()
+        } catch {
+          /* keep waiting for web payment */
+        }
+      }, 4000)
+    } else {
+      error.value = getErrorDetail(e) || '无法生成支付码'
+    }
   } finally {
     if (seq === paySeq) loading.value = false
   }
@@ -254,7 +298,7 @@ async function submitCode() {
           class="lg:col-span-2 rounded-2xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 p-5 sm:p-6 flex flex-col"
         >
           <h2 class="text-lg font-semibold text-neutral-900 dark:text-white mb-1">
-            {{ selected === 'author' ? '加作者微信' : '微信扫码支付' }}
+            {{ selected === 'author' ? '加作者微信' : payOnComputer ? '请在电脑上支付' : '微信扫码支付' }}
           </h2>
 <!--          <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-4 leading-relaxed">-->
 <!--            用微信扫描下方小程序码完成支付。若尚未关联，扫码时会自动绑定到当前网页账号。-->
@@ -269,6 +313,28 @@ async function submitCode() {
             />
             <p v-else-if="loading" class="text-sm text-neutral-400">正在生成支付码…</p>
             <img v-else-if="payQr" :src="payQr" alt="支付小程序码" class="w-48 h-48 object-contain bg-white rounded-lg" />
+            <div
+              v-else-if="payOnComputer"
+              class="w-full max-w-[18rem] text-center text-sm leading-relaxed text-neutral-600 dark:text-neutral-300 px-1"
+            >
+              <p class="font-medium text-neutral-800 dark:text-white">App 内暂时无法生成支付码</p>
+              <p class="mt-2">请用当前账号在电脑浏览器打开下面网址，进入开通页扫码支付。</p>
+              <div class="mt-3 flex items-center gap-2 rounded-lg bg-white dark:bg-neutral-900 border border-black/8 dark:border-white/10 px-2.5 py-2">
+                <span class="min-w-0 flex-1 text-left text-xs font-medium text-neutral-800 dark:text-white break-all">
+                  {{ WEB_PAY_URL }}
+                </span>
+                <button
+                  type="button"
+                  class="shrink-0 rounded-md px-2 py-1 text-xs font-medium border border-black/10 dark:border-white/15 text-neutral-700 dark:text-neutral-200"
+                  @click="copyWebPayUrl"
+                >
+                  {{ copiedUrl ? '已复制' : '复制' }}
+                </button>
+              </div>
+              <p class="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                电脑开通后，手机 App 会同步成为会员，无需再买一次。
+              </p>
+            </div>
             <p v-else class="text-sm text-neutral-400 text-center px-4">正在准备支付码…</p>
           </div>
           <p v-if="selected === 'author'" class="mt-2 text-center text-xs text-neutral-500 leading-relaxed">
