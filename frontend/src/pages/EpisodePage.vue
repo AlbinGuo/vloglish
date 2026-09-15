@@ -496,18 +496,33 @@ const fullscreenCaptionMode = ref<FullscreenCaptionMode>(
     return 'both'
   })(),
 )
-const fullscreenCaptionBottomPct = ref(
+function readStoredNum(key: string, fallback: number, min: number, max: number) {
+  try {
+    const n = Number(localStorage.getItem(key) || '')
+    if (Number.isFinite(n)) return Math.min(max, Math.max(min, n))
+  } catch {
+    /* ignore */
+  }
+  return fallback
+}
+
+const fullscreenCaptionBottomPct = ref(readStoredNum('teco-fs-caption-bottom', 12, 4, 78))
+/** 用户调过的毛玻璃高度；null 表示随内容 */
+const fullscreenCaptionHeightPx = ref<number | null>(
   (() => {
-    try {
-      const n = Number(localStorage.getItem('teco-fs-caption-bottom') || '12')
-      if (Number.isFinite(n)) return Math.min(78, Math.max(4, n))
-    } catch {
-      /* ignore */
-    }
-    return 12
+    const n = readStoredNum('teco-fs-caption-height', 0, 0, 900)
+    return n >= 72 ? n : null
   })(),
 )
+/** 相对播放器宽度的百分比；0 表示用默认 CSS 宽度 */
+const fullscreenCaptionWidthPct = ref(readStoredNum('teco-fs-caption-width', 0, 0, 96))
 const captionDragging = ref(false)
+const captionResizing = ref(false)
+const captionOverlayRef = ref<HTMLElement | null>(null)
+let captionGestureMoved = false
+let captionResizeEdge: 'n' | 'e' | 'w' | null = null
+let captionResizeStart = { x: 0, y: 0, w: 0, h: 0, playerW: 0 }
+let captionMoveStart = { y: 0, bottomPct: 0, playerH: 1 }
 const contentView = ref<'subtitles' | 'wordcards' | 'summary' | 'context'>('subtitles')
 const showWordCards = computed(() => contentView.value === 'wordcards')
 const vocabSummaryGroups = computed(() => {
@@ -1341,6 +1356,7 @@ const dictationFrostClass =
 let resumePlaybackAfterWordHover = false
 
 function onSubtitleWordHoverStart() {
+  if (isVideoPanelFullscreen.value) return
   if (!player.isPlaying.value) return
   resumePlaybackAfterWordHover = true
   player.togglePlay()
@@ -1398,46 +1414,143 @@ function setFullscreenCaptionMode(mode: FullscreenCaptionMode) {
   if (mode === 'both' || mode === 'en') selectSubtitleMode(mode)
 }
 
-function persistCaptionBottom() {
+const fullscreenCaptionStyle = computed(() => {
+  const style: Record<string, string> = {
+    bottom: `${fullscreenCaptionBottomPct.value}%`,
+  }
+  if (fullscreenCaptionWidthPct.value >= 28) {
+    style.width = `min(${fullscreenCaptionWidthPct.value}%, calc(100% - 1.5rem))`
+  }
+  if (fullscreenCaptionHeightPx.value != null) {
+    style.height = `${fullscreenCaptionHeightPx.value}px`
+    style.maxHeight = 'none'
+  }
+  return style
+})
+
+function persistCaptionLayout() {
   try {
     localStorage.setItem(
       'teco-fs-caption-bottom',
       String(Math.round(fullscreenCaptionBottomPct.value)),
     )
+    if (fullscreenCaptionHeightPx.value != null) {
+      localStorage.setItem('teco-fs-caption-height', String(Math.round(fullscreenCaptionHeightPx.value)))
+    }
+    if (fullscreenCaptionWidthPct.value >= 28) {
+      localStorage.setItem('teco-fs-caption-width', String(Math.round(fullscreenCaptionWidthPct.value)))
+    }
   } catch {
     /* ignore */
   }
 }
 
-function updateCaptionBottomFromPointer(e: PointerEvent) {
+function captionPlayerRect() {
   const playerEl = videoPanelRef.value?.querySelector('.video-panel__player') as HTMLElement | null
-  if (!playerEl) return
-  const rect = playerEl.getBoundingClientRect()
-  if (rect.height < 8) return
-  const fromBottom = rect.bottom - e.clientY
-  fullscreenCaptionBottomPct.value = Math.min(78, Math.max(4, (fromBottom / rect.height) * 100))
+  return playerEl?.getBoundingClientRect() ?? null
 }
 
-function onCaptionPointerDown(e: PointerEvent) {
+function isCaptionChromeTarget(target: EventTarget | null) {
+  if (!(target instanceof Element)) return false
+  if (target.closest('button, a, input, textarea, select')) return false
+  if (target.closest('.video-panel__caption-resize')) return false
+  if (
+    target.closest(
+      '.subtitle-english, .subtitle-chinese, .intensive-english, .intensive-chinese-block, .intensive-gloss-unit, .subtitle-ipa',
+    )
+  ) {
+    return false
+  }
+  return true
+}
+
+function suppressNextClick() {
+  const stop = (ev: MouseEvent) => {
+    ev.stopPropagation()
+    ev.preventDefault()
+    document.removeEventListener('click', stop, true)
+  }
+  document.addEventListener('click', stop, true)
+}
+
+function onCaptionOverlayPointerDown(e: PointerEvent) {
   if (e.button !== 0) return
+  if (!isCaptionChromeTarget(e.target)) return
+  const el = captionOverlayRef.value
+  const rect = captionPlayerRect()
+  if (!el || !rect) return
   e.preventDefault()
-  const el = e.currentTarget as HTMLElement
+  wordLongPress.onPointerCancel(e)
   el.setPointerCapture(e.pointerId)
   captionDragging.value = true
-  updateCaptionBottomFromPointer(e)
+  captionGestureMoved = false
+  captionMoveStart = {
+    y: e.clientY,
+    bottomPct: fullscreenCaptionBottomPct.value,
+    playerH: rect.height,
+  }
 }
 
-function onCaptionPointerMove(e: PointerEvent) {
-  if (!captionDragging.value) return
-  updateCaptionBottomFromPointer(e)
+function onCaptionResizePointerDown(e: PointerEvent, edge: 'n' | 'e' | 'w') {
+  if (e.button !== 0) return
+  const el = captionOverlayRef.value
+  const rect = captionPlayerRect()
+  if (!el || !rect) return
+  e.preventDefault()
+  e.stopPropagation()
+  el.setPointerCapture(e.pointerId)
+  captionResizing.value = true
+  captionResizeEdge = edge
+  captionGestureMoved = false
+  captionResizeStart = {
+    x: e.clientX,
+    y: e.clientY,
+    w: el.offsetWidth,
+    h: el.offsetHeight,
+    playerW: rect.width,
+  }
 }
 
-function onCaptionPointerUp(e: PointerEvent) {
+function applyCaptionResize(e: PointerEvent) {
+  const edge = captionResizeEdge
+  const rect = captionPlayerRect()
+  if (!edge || !rect) return
+  if (edge === 'n') {
+    const next = captionResizeStart.h + (captionResizeStart.y - e.clientY)
+    fullscreenCaptionHeightPx.value = Math.min(
+      Math.round(rect.height * 0.62),
+      Math.max(72, Math.round(next)),
+    )
+    return
+  }
+  const centerX = rect.left + rect.width / 2
+  const half = Math.abs(e.clientX - centerX)
+  const pct = ((half * 2) / Math.max(rect.width, 1)) * 100
+  fullscreenCaptionWidthPct.value = Math.min(96, Math.max(32, pct))
+}
+
+function onCaptionOverlayPointerMove(e: PointerEvent) {
+  if (captionResizing.value) {
+    captionGestureMoved = true
+    applyCaptionResize(e)
+    return
+  }
   if (!captionDragging.value) return
+  const dy = captionMoveStart.y - e.clientY
+  if (Math.abs(dy) > 3) captionGestureMoved = true
+  const deltaPct = (dy / Math.max(captionMoveStart.playerH, 1)) * 100
+  fullscreenCaptionBottomPct.value = Math.min(78, Math.max(4, captionMoveStart.bottomPct + deltaPct))
+}
+
+function onCaptionOverlayPointerUp(e: PointerEvent) {
+  if (!captionDragging.value && !captionResizing.value) return
   captionDragging.value = false
-  const el = e.currentTarget as HTMLElement
-  if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId)
-  persistCaptionBottom()
+  captionResizing.value = false
+  captionResizeEdge = null
+  const el = captionOverlayRef.value
+  if (el?.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId)
+  persistCaptionLayout()
+  if (captionGestureMoved) suppressNextClick()
 }
 
 const modeButtons: { key: SubtitleDisplayMode; label: string }[] = [
@@ -2810,23 +2923,37 @@ function subtitleRowClass(index: number) {
           />
           <div
             v-if="isVideoPanelFullscreen"
+            ref="captionOverlayRef"
             class="video-panel__subtitle"
             :class="{
               'is-blind': fullscreenCaptionMode === 'blind',
               'is-dragging': captionDragging,
+              'is-resizing': captionResizing,
+              'is-user-sized': fullscreenCaptionHeightPx != null,
             }"
-            :style="{ bottom: `${fullscreenCaptionBottomPct}%` }"
+            :style="fullscreenCaptionStyle"
+            @pointerdown="onCaptionOverlayPointerDown"
+            @pointermove="onCaptionOverlayPointerMove"
+            @pointerup="onCaptionOverlayPointerUp"
+            @pointercancel="onCaptionOverlayPointerUp"
           >
             <div
-              class="video-panel__subtitle-drag"
-              title="上下拖动字幕位置"
-              @pointerdown="onCaptionPointerDown"
-              @pointermove="onCaptionPointerMove"
-              @pointerup="onCaptionPointerUp"
-              @pointercancel="onCaptionPointerUp"
-            >
-              <div class="video-panel__subtitle-drag-bar" aria-hidden="true" />
-              <span class="sr-only">拖动字幕位置</span>
+              class="video-panel__caption-resize video-panel__caption-resize--n"
+              title="拖动调整高度"
+              @pointerdown="onCaptionResizePointerDown($event, 'n')"
+            />
+            <div
+              class="video-panel__caption-resize video-panel__caption-resize--e"
+              title="拖动调整宽度"
+              @pointerdown="onCaptionResizePointerDown($event, 'e')"
+            />
+            <div
+              class="video-panel__caption-resize video-panel__caption-resize--w"
+              title="拖动调整宽度"
+              @pointerdown="onCaptionResizePointerDown($event, 'w')"
+            />
+            <div class="video-panel__subtitle-drag" title="拖动空白处可移动字幕条" aria-hidden="true">
+              <div class="video-panel__subtitle-drag-bar" />
             </div>
             <div
               class="video-panel__caption-mode shrink-0 flex items-center justify-center gap-1 pb-1"
@@ -2863,16 +2990,17 @@ function subtitleRowClass(index: number) {
             </div>
             <SubtitleWordTooltipHost
               v-if="fullscreenCaptionMode !== 'blind' && displaySub"
-              class="w-full shrink-0"
+              class="w-full min-h-0 flex-1"
               :context="displaySub.english"
               :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
               :teleport-to="subtitleTooltipTeleport"
               :suppressed="showEntryPanel"
+              hover-disabled
               @word-hover-start="onSubtitleWordHoverStart"
               @word-hover-end="onSubtitleWordHoverEnd"
             >
               <CurrentSubtitleBar
-                class="w-full shrink-0"
+                class="w-full min-h-0"
                 pin-chinese
                 :align="isPhone ? 'left' : 'center'"
                 :mono-english="isPhone"
