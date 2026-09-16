@@ -379,9 +379,20 @@ const backdropTint = computed(() => {
           </p>
 
           <div class="flex-1 min-h-0 flex flex-col">
-            <div v-show="listen.viewMode === 'video'" class="relative z-0 shrink-0 w-full flex justify-center px-3 sm:px-8">
+            <div
+              v-show="listen.viewMode === 'video'"
+              class="relative z-0 shrink-0 w-full flex justify-center px-3 sm:px-8 mt-5"
+            >
               <div class="listen-page__video">
-                <div id="listen-video-slot" class="absolute inset-0 overflow-hidden bg-transparent" />
+                <div class="listen-page__video-sizer" aria-hidden="true" />
+                <div id="listen-video-slot" class="absolute inset-0 overflow-hidden bg-[#111]">
+                  <img
+                    v-if="listen.coverUrl"
+                    :src="listen.coverUrl"
+                    alt=""
+                    class="absolute inset-0 w-full h-full object-cover"
+                  />
+                </div>
               </div>
             </div>
             <ListenCue v-if="listen.viewMode === 'video' && listen.episode" compact />
@@ -581,12 +592,16 @@ const backdropTint = computed(() => {
 .listen-page__video {
   position: relative;
   width: 100%;
-  max-width: min(100%, calc(min(36dvh, 20.5rem) * 16 / 9));
-  aspect-ratio: 16 / 9;
-  max-height: min(36dvh, 20.5rem);
+  max-width: 36rem;
+  min-height: 12.5rem;
   overflow: hidden;
   border-radius: 0.75rem;
-  background: rgb(0 0 0 / 0.18);
+  background: #111;
+}
+.listen-page__video-sizer {
+  width: 100%;
+  padding-bottom: 56.25%;
+  pointer-events: none;
 }
 .listen-page__blur {
   position: absolute;
@@ -622,7 +637,8 @@ const backdropTint = computed(() => {
   height: 100%;
   object-fit: contain;
   object-position: center;
-  background: transparent;
+  background: #111;
+  z-index: 1;
 }
 .listen-seek {
   appearance: none;

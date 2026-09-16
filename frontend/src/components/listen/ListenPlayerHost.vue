@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useListenPlayerStore } from '@/stores/listenPlayer'
 import { useRoute } from 'vue-router'
 
@@ -8,6 +8,29 @@ const route = useRoute()
 
 const expandedVideo = computed(
   () => route.name === 'ListenEpisode' && listen.viewMode === 'video' && Boolean(listen.episode),
+)
+const canTeleport = ref(false)
+
+async function syncTeleportTarget() {
+  if (!expandedVideo.value) {
+    canTeleport.value = false
+    return
+  }
+  await nextTick()
+  canTeleport.value = Boolean(document.getElementById('listen-video-slot'))
+  if (!canTeleport.value) {
+    window.setTimeout(() => {
+      canTeleport.value = Boolean(document.getElementById('listen-video-slot')) && expandedVideo.value
+    }, 50)
+  }
+}
+
+watch(
+  () => [expandedVideo.value, route.fullPath, listen.viewMode] as const,
+  () => {
+    void syncTeleportTarget()
+  },
+  { immediate: true },
 )
 
 function bindEl(el: Element | { $el?: Element } | null) {
@@ -86,6 +109,7 @@ watch(
 
 onMounted(() => {
   applyMediaSession()
+  void syncTeleportTarget()
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', onVisibility)
   }
@@ -109,12 +133,12 @@ function onVisibility() {
 </script>
 
 <template>
-  <Teleport to="#listen-video-slot" :disabled="!expandedVideo">
+  <Teleport to="#listen-video-slot" :disabled="!canTeleport" defer>
     <video
-      v-if="expandedVideo"
-      :key="`video-${listen.mediaSrc || 'empty'}`"
+      :key="listen.mediaSrc || 'empty'"
       :ref="bindEl"
-      class="listen-engine-video listen-engine-video--live"
+      class="listen-engine-video"
+      :class="canTeleport ? 'listen-engine-video--live' : 'listen-engine-video--parked'"
       :src="listen.mediaSrc"
       :poster="listen.coverUrl || undefined"
       playsinline
@@ -129,30 +153,18 @@ function onVisibility() {
       @loadedmetadata="onLoadedMeta"
     />
   </Teleport>
-  <audio
-    v-if="!expandedVideo"
-    :key="`audio-${listen.audioSrc || 'empty'}`"
-    :ref="bindEl"
-    class="listen-engine-audio"
-    :src="listen.audioSrc"
-    preload="auto"
-    @timeupdate="onTimeUpdate"
-    @play="listen.syncFromVideo()"
-    @pause="listen.syncFromVideo()"
-    @ended="onEnded"
-    @loadedmetadata="onLoadedMeta"
-  />
 </template>
 
 <style scoped>
-.listen-engine-audio {
-  position: fixed;
-  width: 0;
-  height: 0;
+.listen-engine-video--parked {
+  position: fixed !important;
+  width: 1px !important;
+  height: 1px !important;
   opacity: 0;
   pointer-events: none;
-  left: 0;
+  left: -80px;
   bottom: 0;
+  z-index: 0;
 }
 .listen-engine-video--live {
   position: absolute !important;
@@ -162,6 +174,6 @@ function onVisibility() {
   height: 100%;
   object-fit: contain;
   object-position: center;
-  background: transparent;
+  background: #111;
 }
 </style>
