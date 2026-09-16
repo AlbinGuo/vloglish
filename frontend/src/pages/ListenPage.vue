@@ -472,7 +472,6 @@ const swipeHint = computed(() => {
           </div>
         </div>
       </div>
-    </div>
 
     <p
       v-if="swipeHint"
