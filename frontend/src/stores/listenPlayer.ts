@@ -70,6 +70,7 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   const loopSingle = ref(false)
   const videoEl = shallowRef<HTMLMediaElement | null>(null)
   const clock = ref(Date.now())
+  const sheetMotion = ref<'idle' | 'opening' | 'closing'>('idle')
 
   let sleepTimer: ReturnType<typeof setTimeout> | null = null
   let progressTimer: ReturnType<typeof setInterval> | null = null
@@ -78,6 +79,7 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   let restoredCurrentId = ''
   let pendingPlay = false
   let hydrated = false
+  let ignoreEndedUntil = 0
 
   const currentVideoId = computed(() => episode.value?.video_id || '')
   const subs = computed(() => episode.value?.subtitles ?? [])
@@ -164,8 +166,9 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   }
 
   function registerVideo(el: HTMLMediaElement | null) {
-    videoEl.value = el
     if (!el) return
+    const isNew = videoEl.value !== el
+    videoEl.value = el
     if (el instanceof HTMLVideoElement) {
       el.playsInline = true
       el.setAttribute('playsinline', 'true')
@@ -176,7 +179,9 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     }
     el.preload = 'auto'
     el.playbackRate = playbackRate.value
-    if (currentTime.value > 0 && Math.abs(el.currentTime - currentTime.value) > 0.4) {
+    if (!isNew) return
+    ignoreEndedUntil = Date.now() + 600
+    if (currentTime.value > 0.4 && Math.abs(el.currentTime - currentTime.value) > 0.4) {
       el.currentTime = currentTime.value
     }
     if (pendingPlay || isPlaying.value) void play()
@@ -270,6 +275,7 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     }
     loading.value = true
     loadError.value = ''
+    ignoreEndedUntil = Date.now() + 1200
     try {
       const data = await getEpisodeDetail(videoId)
       episode.value = data.episode
@@ -284,10 +290,14 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
           if (!progress.is_completed && progress.last_position_sec > 1.5) {
             currentTime.value = progress.last_position_sec
             if (el) el.currentTime = progress.last_position_sec
+          } else if (el) {
+            el.currentTime = 0
           }
         } catch {
-          /* ignore */
+          if (el) el.currentTime = 0
         }
+      } else if (el) {
+        el.currentTime = 0
       }
       if (autoplay) await play()
       startProgressLoop()
@@ -384,6 +394,7 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   }
 
   async function handleEnded() {
+    if (loading.value || Date.now() < ignoreEndedUntil) return
     if (sleepAfterCurrent.value) {
       sleepAfterCurrent.value = false
       pause()
@@ -449,8 +460,12 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   function collapse() {
     void flushProgress(true)
     if (router.currentRoute.value.name !== 'ListenHome') {
-      void router.push('/english/listen')
+      void router.push('/english/listen').finally(() => {
+        sheetMotion.value = 'idle'
+      })
+      return
     }
+    sheetMotion.value = 'idle'
   }
 
   function expand() {
@@ -458,6 +473,8 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
       void router.push('/english/listen')
       return
     }
+    if (router.currentRoute.value.name === 'ListenEpisode') return
+    sheetMotion.value = 'opening'
     void router.push(`/english/listen/${currentVideoId.value}`)
   }
 
@@ -540,6 +557,7 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     playbackRate,
     loopSingle,
     videoEl,
+    sheetMotion,
     currentVideoId,
     subs,
     duration,

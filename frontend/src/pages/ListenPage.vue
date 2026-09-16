@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import AuthorSubscribeButton from '@/components/AuthorSubscribeButton.vue'
 import ListenCue from '@/components/listen/ListenCue.vue'
 import ListenEpisodePeek from '@/components/listen/ListenEpisodePeek.vue'
@@ -10,19 +10,17 @@ import StarIcon from '@/components/icons/StarIcon.vue'
 import { setEpisodeFavorite } from '@/api/episodes'
 import { useAuthStore } from '@/stores/auth'
 import { useFavoriteToastStore } from '@/stores/favoriteToast'
-import { useListenPlayerStore } from '@/stores/listenPlayer'
-import { copyText } from '@/utils/clipboard'
+import { useListenPlayerStore, type ListenQueueItem } from '@/stores/listenPlayer'
 import { formatListenTime } from '@/utils/formatListenTime'
 import { stripSpeakerMarkers } from '@/utils/subtitleHtml'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
 
 const route = useRoute()
-const router = useRouter()
 const listen = useListenPlayerStore()
 const auth = useAuthStore()
 const favoriteToast = useFavoriteToastStore()
 
 const moreOpen = ref(false)
-const copied = ref(false)
 const favoriteBusy = ref(false)
 const listRoot = ref<HTMLElement | null>(null)
 const pageRoot = ref<HTMLElement | null>(null)
@@ -53,6 +51,28 @@ const peekNext = computed(() => {
   return q[i >= q.length - 1 ? 0 : i + 1] ?? null
 })
 
+const lockedPrev = ref<ListenQueueItem | null>(null)
+const lockedNext = ref<ListenQueueItem | null>(null)
+const shownPrev = computed(() => lockedPrev.value ?? peekPrev.value)
+const shownNext = computed(() => lockedNext.value ?? peekNext.value)
+
+function preloadCover(url?: string) {
+  const src = resolveMediaUrl(url || '')
+  if (!src) return
+  const img = new Image()
+  img.src = src
+}
+
+watch(
+  () => [peekPrev.value?.cover, peekNext.value?.cover, listen.coverUrl] as const,
+  ([prev, next, current]) => {
+    preloadCover(prev)
+    preloadCover(next)
+    preloadCover(current)
+  },
+  { immediate: true },
+)
+
 const layerTransition = computed(() =>
   dragging.value || snapInstant.value ? 'none' : 'transform 280ms cubic-bezier(0.22, 1, 0.36, 1)',
 )
@@ -81,18 +101,6 @@ async function loadFromRoute() {
   if (videoId.value === listen.currentVideoId) return
   await listen.loadEpisode(videoId.value)
 }
-
-onMounted(() => {
-  void loadFromRoute()
-  measurePage()
-  bindSwipe()
-  window.addEventListener('resize', measurePage)
-})
-
-onUnmounted(() => {
-  unbindSwipe()
-  window.removeEventListener('resize', measurePage)
-})
 
 watch(videoId, () => {
   void loadFromRoute()
@@ -137,6 +145,8 @@ async function switchBySwipe(dir: 'next' | 'prev') {
   if (switching.value || !canSwipeSwitch.value) return
   swipeHintRef.value?.dismiss()
   measurePage()
+  lockedPrev.value = peekPrev.value
+  lockedNext.value = peekNext.value
   const h = pageH.value || window.innerHeight
   switching.value = true
   dragging.value = false
@@ -150,6 +160,8 @@ async function switchBySwipe(dir: 'next' | 'prev') {
     dragY.value = 0
     await nextTick()
     requestAnimationFrame(() => {
+      lockedPrev.value = null
+      lockedNext.value = null
       snapInstant.value = false
       switching.value = false
     })
@@ -157,7 +169,7 @@ async function switchBySwipe(dir: 'next' | 'prev') {
 }
 
 function onTouchStart(e: TouchEvent) {
-  if (overlayOpen() || switching.value || e.touches.length !== 1) return
+  if (overlayOpen() || switching.value || sheetAnimating.value || e.touches.length !== 1) return
   if (isBlockedTarget(e.target)) return
   const t = e.touches[0]
   if (!t) return
@@ -211,7 +223,7 @@ function onTouchEnd() {
 }
 
 function onWheel(e: WheelEvent) {
-  if (overlayOpen() || switching.value || !canSwipeSwitch.value) return
+  if (overlayOpen() || switching.value || sheetAnimating.value || !canSwipeSwitch.value) return
   if (e.target instanceof Element && e.target.closest('input')) return
   if (listConsumes(e.deltaY)) return
   if (Math.abs(e.deltaY) < 28) return
@@ -272,19 +284,70 @@ async function toggleFavorite() {
   }
 }
 
-async function shareLink() {
-  const resolved = router.resolve(`/english/listen/${videoId.value}`)
-  const url = new URL(resolved.href, window.location.origin).href
-  const ok = await copyText(url)
-  copied.value = ok
-  window.setTimeout(() => {
-    copied.value = false
-  }, 1600)
+function goMore() {
+  void collapseSheet()
 }
 
-function goMore() {
-  listen.collapse()
+const SHEET_MS = 420
+const sheetY = ref(listen.sheetMotion === 'opening' ? 100 : 0)
+const sheetAnimating = ref(false)
+let sheetTimer: ReturnType<typeof setTimeout> | null = null
+
+function prefersReducedMotion() {
+  return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
 }
+
+function finishSheetIdle() {
+  listen.sheetMotion = 'idle'
+  sheetAnimating.value = false
+}
+
+async function collapseSheet() {
+  if (sheetAnimating.value || listen.sheetMotion === 'closing') return
+  if (prefersReducedMotion()) {
+    listen.collapse()
+    return
+  }
+  listen.sheetMotion = 'closing'
+  sheetAnimating.value = true
+  await nextTick()
+  sheetY.value = 100
+  if (sheetTimer) clearTimeout(sheetTimer)
+  sheetTimer = setTimeout(() => {
+    listen.collapse()
+  }, SHEET_MS)
+}
+
+onMounted(() => {
+  void loadFromRoute()
+  measurePage()
+  bindSwipe()
+  window.addEventListener('resize', measurePage)
+  if (listen.sheetMotion !== 'opening') return
+  if (prefersReducedMotion()) {
+    sheetY.value = 0
+    finishSheetIdle()
+    return
+  }
+  sheetY.value = 100
+  sheetAnimating.value = true
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      sheetY.value = 0
+    })
+  })
+  if (sheetTimer) clearTimeout(sheetTimer)
+  sheetTimer = setTimeout(finishSheetIdle, SHEET_MS)
+})
+
+onUnmounted(() => {
+  unbindSwipe()
+  window.removeEventListener('resize', measurePage)
+  if (sheetTimer) clearTimeout(sheetTimer)
+  if (listen.sheetMotion === 'opening') {
+    listen.sheetMotion = 'idle'
+  }
+})
 
 const swipeHint = computed(() => {
   if (Math.abs(dragY.value) < 36) return ''
@@ -304,13 +367,18 @@ const backdropTint = computed(() => {
 </script>
 
 <template>
-  <div ref="pageRoot" class="relative h-full min-h-0 overflow-hidden text-white">
+  <div
+    ref="pageRoot"
+    class="listen-page-sheet relative h-full min-h-0 overflow-hidden text-white"
+    :class="{ 'listen-page-sheet--animating': sheetAnimating }"
+    :style="{ transform: `translate3d(0, ${sheetY}%, 0)` }"
+  >
     <div
-      v-if="peekPrev"
+      v-if="shownPrev"
       class="absolute inset-0 z-[1] pointer-events-none"
       :style="layerShift(-1)"
     >
-      <ListenEpisodePeek :key="peekPrev.video_id" :item="peekPrev" />
+      <ListenEpisodePeek v-if="shownPrev" :key="shownPrev.video_id" :item="shownPrev" />
     </div>
 
     <div class="absolute inset-0 z-[2]" :style="layerShift(0)">
@@ -336,7 +404,7 @@ const backdropTint = computed(() => {
               type="button"
               class="w-10 h-10 flex items-center justify-center text-white/90"
               aria-label="收起"
-              @click="listen.collapse()"
+              @click="collapseSheet"
             >
               <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
@@ -387,6 +455,7 @@ const backdropTint = computed(() => {
                 <div class="listen-page__video-sizer" aria-hidden="true" />
                 <img
                   v-if="listen.coverUrl"
+                  :key="listen.currentVideoId"
                   :src="listen.coverUrl"
                   alt=""
                   class="absolute inset-0 w-full h-full object-cover"
@@ -432,7 +501,7 @@ const backdropTint = computed(() => {
                 <span class="truncate">{{ listen.episode?.author?.name }}</span>
                 <AuthorSubscribeButton
                   v-if="listen.episode?.author?.id"
-                  compact
+                  listen-chip
                   :author-id="listen.episode.author.id"
                   :is-subscribed="Boolean(listen.episode.author.is_subscribed)"
                   :subscriber-count="listen.episode.author.subscriber_count || 0"
@@ -459,17 +528,7 @@ const backdropTint = computed(() => {
               </button>
               <button
                 type="button"
-                class="w-9 h-9 flex items-center justify-center text-white/80"
-                aria-label="分享"
-                @click="shareLink"
-              >
-                <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M7 12v7h10v-7M12 4v12M8 8l4-4 4 4" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                class="w-9 h-9 flex items-center justify-center text-white/80"
+                class="min-w-9 px-1 py-0.5 flex flex-col items-center justify-center gap-0.5 text-white/80"
                 aria-label="更多"
                 @click="moreOpen = true"
               >
@@ -478,6 +537,7 @@ const backdropTint = computed(() => {
                   <circle cx="12" cy="12" r="1.7" />
                   <circle cx="19" cy="12" r="1.7" />
                 </svg>
+                <span class="text-[10px] leading-none">更多</span>
               </button>
             </div>
           </div>
@@ -501,7 +561,7 @@ const backdropTint = computed(() => {
           <div class="mt-1 flex items-center justify-between">
             <button
               type="button"
-              class="w-11 h-11 flex flex-col items-center justify-center text-white/85"
+              class="min-w-11 px-1 py-0.5 flex flex-col items-center justify-center gap-0.5 text-white/85"
               aria-label="定时关闭"
               @click="listen.sleepOpen = true"
             >
@@ -509,9 +569,7 @@ const backdropTint = computed(() => {
                 <circle cx="12" cy="13" r="8" />
                 <path stroke-linecap="round" d="M12 9v4l2.5 1.5M9 4h6" />
               </svg>
-              <span v-if="listen.sleepEndsAt" class="text-[9px] tabular-nums text-amber-200">
-                {{ formatListenTime(listen.sleepLeftSec) }}
-              </span>
+              <span class="text-[10px] leading-none">定时</span>
             </button>
             <button
               type="button"
@@ -548,13 +606,14 @@ const backdropTint = computed(() => {
             </button>
             <button
               type="button"
-              class="w-11 h-11 flex items-center justify-center text-white/85"
+              class="min-w-11 px-1 py-0.5 flex flex-col items-center justify-center gap-0.5 text-white/85"
               aria-label="播放列表"
               @click="listen.playlistOpen = true"
             >
               <svg viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor">
                 <path d="M4 6h16v2H4V6Zm0 5h10v2H4v-2Zm0 5h16v2H4v-2Z" />
               </svg>
+              <span class="text-[10px] leading-none">列表</span>
             </button>
           </div>
         </div>
@@ -564,11 +623,11 @@ const backdropTint = computed(() => {
     </div>
 
     <div
-      v-if="peekNext"
+      v-if="shownNext"
       class="absolute inset-0 z-[1] pointer-events-none"
       :style="layerShift(1)"
     >
-      <ListenEpisodePeek :key="peekNext.video_id" :item="peekNext" />
+      <ListenEpisodePeek v-if="shownNext" :key="shownNext.video_id" :item="shownNext" />
     </div>
 
     <p
@@ -577,17 +636,23 @@ const backdropTint = computed(() => {
     >
       {{ swipeHint }}
     </p>
-    <p
-      v-if="copied"
-      class="absolute bottom-28 left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 rounded-full bg-black/70 text-xs"
-    >
-      已复制链接
-    </p>
     <ListenMoreSheet v-model:open="moreOpen" />
   </div>
 </template>
 
 <style scoped>
+.listen-page-sheet {
+  will-change: transform;
+}
+.listen-page-sheet--animating {
+  pointer-events: none;
+  transition: transform 420ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .listen-page-sheet--animating {
+    transition-duration: 0.01ms;
+  }
+}
 .listen-page__video {
   position: relative;
   width: 100%;

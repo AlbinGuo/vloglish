@@ -103,18 +103,24 @@ const currentPopupItems = computed(() =>
 
 const listen = useListenPlayerStore()
 const immersive = computed(() => Boolean(route.meta.immersive))
-const hideListenChrome = computed(
-  () =>
-    route.name === 'ListenEpisode' ||
-    route.name === 'EpisodePage' ||
-    route.name === 'DemoEpisode' ||
-    route.name === 'AdminEpisodePreview',
-)
 const showListenMiniBar = computed(
-  () => listen.hasSession && !hideListenChrome.value && route.name === 'ListenHome',
+  () =>
+    listen.hasSession &&
+    route.name !== 'EpisodePage' &&
+    route.name !== 'DemoEpisode' &&
+    route.name !== 'AdminEpisodePreview' &&
+    (route.name === 'ListenHome' ||
+      (route.name === 'ListenEpisode' && listen.sheetMotion !== 'idle')),
 )
+const showListenMiniBarSpacer = computed(() => showListenMiniBar.value && route.name === 'ListenHome')
 const showListenFloatCard = computed(
-  () => listen.hasSession && !hideListenChrome.value && route.name !== 'ListenHome',
+  () =>
+    listen.hasSession &&
+    route.name !== 'ListenEpisode' &&
+    route.name !== 'ListenHome' &&
+    route.name !== 'EpisodePage' &&
+    route.name !== 'DemoEpisode' &&
+    route.name !== 'AdminEpisodePreview',
 )
 const { headerVisible: catalogHeaderVisible, catalogHeaderAutoHide } = useCatalogMobileHeaderHide()
 
@@ -570,7 +576,7 @@ watch(
       </RouterView>
     </main>
     <div
-      v-if="showListenMiniBar"
+      v-if="showListenMiniBarSpacer"
       class="shrink-0"
       :style="{ height: 'calc(4.35rem + env(safe-area-inset-bottom, 0px))' }"
       aria-hidden="true"

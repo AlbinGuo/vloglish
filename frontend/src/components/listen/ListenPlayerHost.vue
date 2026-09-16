@@ -30,7 +30,7 @@ async function syncTeleportTarget() {
 watch(canTeleport, (ready) => {
   if (!ready) return
   const el = listen.videoEl
-  if (el && (listen.isPlaying || !el.paused)) void listen.play()
+  if (el && el.paused && listen.isPlaying) void listen.play()
 })
 
 watch(
@@ -59,9 +59,7 @@ function onLoadedMeta() {
   updatePositionState()
 }
 
-function onTimeUpdate(event: Event) {
-  const el = event.currentTarget
-  if (el instanceof HTMLMediaElement) listen.registerVideo(el)
+function onTimeUpdate() {
   listen.syncFromVideo()
   updatePositionState()
 }
@@ -145,7 +143,7 @@ function onVisibility() {
 <template>
   <Teleport to="#listen-video-slot" :disabled="!canTeleport" defer>
     <video
-      :key="listen.mediaSrc || 'empty'"
+      :key="listen.currentVideoId || 'empty'"
       :ref="bindEl"
       class="listen-engine-video"
       :class="canTeleport ? 'listen-engine-video--live' : 'listen-engine-video--parked'"

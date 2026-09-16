@@ -8,6 +8,7 @@ const props = withDefaults(
     isSubscribed?: boolean
     subscriberCount?: number
     compact?: boolean
+    listenChip?: boolean
     showCount?: boolean
   }>(),
   {
@@ -15,6 +16,7 @@ const props = withDefaults(
     isSubscribed: false,
     subscriberCount: 0,
     compact: false,
+    listenChip: false,
     showCount: false,
   },
 )
@@ -45,19 +47,21 @@ async function onToggle() {
     :aria-pressed="subscribed"
     :title="subscribed ? '取消关注，将不再单独通知该作者上新' : '关注后，作者上新会通知你'"
     :class="
-      compact
-        ? [
-            'inline-flex items-center justify-center shrink-0 rounded-full text-[11px] font-medium px-2 py-0.5 leading-none border transition-colors disabled:opacity-50',
-            subscribed
-              ? 'border-black/10 text-neutral-500 dark:border-white/15 dark:text-neutral-400'
-              : 'border-amber-500/80 bg-amber-500 text-white hover:bg-amber-600',
-          ]
-        : [
-            'inline-flex items-center justify-center gap-1.5 rounded-full text-sm font-medium px-4 py-2 transition-colors disabled:opacity-50',
-            subscribed
-              ? 'border border-black/10 text-neutral-600 hover:bg-neutral-50 dark:border-white/15 dark:text-neutral-300 dark:hover:bg-neutral-800'
-              : 'bg-amber-600 text-white hover:bg-amber-700',
-          ]
+      listenChip
+        ? 'listen-follow-chip inline-flex items-center justify-center shrink-0 text-[11px] font-medium leading-none disabled:opacity-50'
+        : compact
+          ? [
+              'inline-flex items-center justify-center shrink-0 rounded-full text-[11px] font-medium px-2 py-0.5 leading-none border transition-colors disabled:opacity-50',
+              subscribed
+                ? 'border-black/10 text-neutral-500 dark:border-white/15 dark:text-neutral-400'
+                : 'border-amber-500/80 bg-amber-500 text-white hover:bg-amber-600',
+            ]
+          : [
+              'inline-flex items-center justify-center gap-1.5 rounded-full text-sm font-medium px-4 py-2 transition-colors disabled:opacity-50',
+              subscribed
+                ? 'border border-black/10 text-neutral-600 hover:bg-neutral-50 dark:border-white/15 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                : 'bg-amber-600 text-white hover:bg-amber-700',
+            ]
     "
     @click.stop="onToggle"
   >
@@ -67,3 +71,13 @@ async function onToggle() {
     </span>
   </button>
 </template>
+
+<style scoped>
+.listen-follow-chip {
+  border-radius: 4px;
+  padding: 6px 8px;
+  background: #cfcfc96e;
+  border: 0;
+  color: inherit;
+}
+</style>
