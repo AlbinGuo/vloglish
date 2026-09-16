@@ -96,6 +96,8 @@ function onVisibility() {
       :poster="listen.coverUrl || undefined"
       playsinline
       webkit-playsinline
+      x5-video-player-type="h5"
+      x5-video-player-fullscreen="false"
       @timeupdate="onTimeUpdate"
       @play="listen.syncFromVideo()"
       @pause="listen.syncFromVideo()"
@@ -107,18 +109,23 @@ function onVisibility() {
 
 <style scoped>
 .listen-engine-video--parked {
-  position: fixed;
-  width: 1px;
-  height: 1px;
+  position: fixed !important;
+  width: 1px !important;
+  height: 1px !important;
   opacity: 0;
   pointer-events: none;
   left: -80px;
   bottom: 0;
+  z-index: 0;
 }
 .listen-engine-video--live {
+  position: absolute !important;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
   background: #111;
 }

@@ -238,17 +238,17 @@ const swipeHint = computed(() => {
 </script>
 
 <template>
-  <div class="relative h-full overflow-hidden text-white">
+  <div class="relative h-full min-h-0 overflow-hidden text-white bg-[#15210f]">
     <img
       v-if="listen.coverUrl"
       :src="listen.coverUrl"
       alt=""
-      class="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-50"
+      class="absolute inset-0 z-0 w-full h-full object-cover scale-125 blur-2xl opacity-50 pointer-events-none"
     />
-    <div class="absolute inset-0 bg-[#15210f]/78" />
+    <div class="absolute inset-0 z-0 bg-[#15210f]/78 pointer-events-none" />
 
-    <div class="relative z-10 h-full flex flex-col pt-[max(0.4rem,env(safe-area-inset-top))]">
-      <header class="shrink-0 flex items-center gap-2 px-3 py-2">
+    <div class="relative z-10 h-full min-h-0 flex flex-col pt-[max(0.4rem,env(safe-area-inset-top))]">
+      <header class="relative z-20 shrink-0 flex items-center gap-2 px-3 py-2">
         <button
           type="button"
           class="w-10 h-10 flex items-center justify-center text-white/90"
@@ -302,9 +302,9 @@ const swipeHint = computed(() => {
           transition: dragging ? 'none' : 'transform 180ms ease',
         }"
       >
-        <div v-show="listen.viewMode === 'video'" class="shrink-0 px-0">
-          <div class="relative w-full bg-black aspect-video max-h-[42dvh]">
-            <div id="listen-video-slot" class="absolute inset-0" />
+        <div v-show="listen.viewMode === 'video'" class="relative z-0 shrink-0 px-0">
+          <div class="relative isolate w-full aspect-video max-h-[42dvh] min-h-[12rem] overflow-hidden bg-black">
+            <div id="listen-video-slot" class="absolute inset-0 overflow-hidden" />
           </div>
           <ListenCue v-if="listen.episode" compact />
         </div>
@@ -335,7 +335,7 @@ const swipeHint = computed(() => {
           </div>
         </div>
 
-        <div class="shrink-0 px-5 pt-2 pb-[max(0.8rem,env(safe-area-inset-bottom))]" data-no-swipe>
+        <div class="relative z-20 shrink-0 px-5 pt-2 pb-[max(0.8rem,env(safe-area-inset-bottom))]" data-no-swipe>
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <h1 class="text-lg font-semibold leading-snug line-clamp-2">
@@ -491,6 +491,16 @@ const swipeHint = computed(() => {
 </template>
 
 <style scoped>
+#listen-video-slot :deep(video) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: #111;
+}
 .listen-seek {
   appearance: none;
   height: 4px;

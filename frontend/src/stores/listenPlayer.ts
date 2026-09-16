@@ -161,6 +161,12 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   function registerVideo(el: HTMLVideoElement | null) {
     videoEl.value = el
     if (!el) return
+    el.playsInline = true
+    el.setAttribute('playsinline', 'true')
+    el.setAttribute('webkit-playsinline', 'true')
+    el.setAttribute('x5-playsinline', 'true')
+    el.setAttribute('x5-video-player-type', 'h5')
+    el.setAttribute('x5-video-player-fullscreen', 'false')
     el.playbackRate = playbackRate.value
     if (currentTime.value > 0 && Math.abs(el.currentTime - currentTime.value) > 0.4) {
       el.currentTime = currentTime.value
