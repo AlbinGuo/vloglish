@@ -12,7 +12,7 @@ const expandedVideo = computed(
 
 function bindEl(el: Element | { $el?: Element } | null) {
   const node = el && '$el' in el ? el.$el : el
-  listen.registerVideo(node instanceof HTMLVideoElement ? node : null)
+  listen.registerVideo(node instanceof HTMLMediaElement ? node : null)
 }
 
 function onEnded() {
@@ -25,10 +25,27 @@ function onLoadedMeta() {
     el.currentTime = listen.currentTime
   }
   listen.syncFromVideo()
+  updatePositionState()
 }
 
 function onTimeUpdate() {
   listen.syncFromVideo()
+  updatePositionState()
+}
+
+function updatePositionState() {
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
+  const dur = listen.duration
+  if (!dur || !Number.isFinite(dur) || dur <= 0) return
+  try {
+    navigator.mediaSession.setPositionState({
+      duration: dur,
+      playbackRate: listen.playbackRate || 1,
+      position: Math.max(0, Math.min(listen.currentTime, dur)),
+    })
+  } catch {
+    /* ignore */
+  }
 }
 
 function applyMediaSession() {
@@ -56,6 +73,7 @@ function applyMediaSession() {
     navigator.mediaSession.setActionHandler('seekto', (details) => {
       if (typeof details.seekTime === 'number') listen.seek(details.seekTime)
     })
+    updatePositionState()
   } catch {
     /* ignore unsupported handlers */
   }
@@ -80,24 +98,30 @@ onUnmounted(() => {
 })
 
 function onVisibility() {
-  if (typeof document === 'undefined' || document.hidden) return
+  if (typeof document === 'undefined') return
+  if (document.hidden) {
+    applyMediaSession()
+    return
+  }
   listen.syncFromVideo()
+  applyMediaSession()
 }
 </script>
 
 <template>
   <Teleport to="#listen-video-slot" :disabled="!expandedVideo">
     <video
-      :key="listen.mediaSrc || 'empty'"
+      v-if="expandedVideo"
+      :key="`video-${listen.mediaSrc || 'empty'}`"
       :ref="bindEl"
-      class="listen-engine-video"
-      :class="expandedVideo ? 'listen-engine-video--live' : 'listen-engine-video--parked'"
+      class="listen-engine-video listen-engine-video--live"
       :src="listen.mediaSrc"
       :poster="listen.coverUrl || undefined"
       playsinline
       webkit-playsinline
       x5-video-player-type="h5"
       x5-video-player-fullscreen="false"
+      preload="auto"
       @timeupdate="onTimeUpdate"
       @play="listen.syncFromVideo()"
       @pause="listen.syncFromVideo()"
@@ -105,18 +129,30 @@ function onVisibility() {
       @loadedmetadata="onLoadedMeta"
     />
   </Teleport>
+  <audio
+    v-if="!expandedVideo"
+    :key="`audio-${listen.audioSrc || 'empty'}`"
+    :ref="bindEl"
+    class="listen-engine-audio"
+    :src="listen.audioSrc"
+    preload="auto"
+    @timeupdate="onTimeUpdate"
+    @play="listen.syncFromVideo()"
+    @pause="listen.syncFromVideo()"
+    @ended="onEnded"
+    @loadedmetadata="onLoadedMeta"
+  />
 </template>
 
 <style scoped>
-.listen-engine-video--parked {
-  position: fixed !important;
-  width: 1px !important;
-  height: 1px !important;
+.listen-engine-audio {
+  position: fixed;
+  width: 0;
+  height: 0;
   opacity: 0;
   pointer-events: none;
-  left: -80px;
+  left: 0;
   bottom: 0;
-  z-index: 0;
 }
 .listen-engine-video--live {
   position: absolute !important;
@@ -124,9 +160,8 @@ function onVisibility() {
   display: block;
   width: 100%;
   height: 100%;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  background: #111;
+  object-fit: cover;
+  object-position: center 28%;
+  background: transparent;
 }
 </style>

@@ -68,7 +68,7 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   const isPlaying = ref(false)
   const playbackRate = ref(1)
   const loopSingle = ref(false)
-  const videoEl = shallowRef<HTMLVideoElement | null>(null)
+  const videoEl = shallowRef<HTMLMediaElement | null>(null)
   const clock = ref(Date.now())
 
   let sleepTimer: ReturnType<typeof setTimeout> | null = null
@@ -100,6 +100,11 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     const media = episode.value?.media
     if (!media) return ''
     return resolveMediaUrl(media.video_url || media.audio_url || '')
+  })
+  const audioSrc = computed(() => {
+    const media = episode.value?.media
+    if (!media) return ''
+    return resolveMediaUrl(media.audio_url || media.video_url || '')
   })
   const sleepLeftSec = computed(() => {
     if (!sleepEndsAt.value) return 0
@@ -158,15 +163,18 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     }
   }
 
-  function registerVideo(el: HTMLVideoElement | null) {
+  function registerVideo(el: HTMLMediaElement | null) {
     videoEl.value = el
     if (!el) return
-    el.playsInline = true
-    el.setAttribute('playsinline', 'true')
-    el.setAttribute('webkit-playsinline', 'true')
-    el.setAttribute('x5-playsinline', 'true')
-    el.setAttribute('x5-video-player-type', 'h5')
-    el.setAttribute('x5-video-player-fullscreen', 'false')
+    if (el instanceof HTMLVideoElement) {
+      el.playsInline = true
+      el.setAttribute('playsinline', 'true')
+      el.setAttribute('webkit-playsinline', 'true')
+      el.setAttribute('x5-playsinline', 'true')
+      el.setAttribute('x5-video-player-type', 'h5')
+      el.setAttribute('x5-video-player-fullscreen', 'false')
+    }
+    el.preload = 'auto'
     el.playbackRate = playbackRate.value
     if (currentTime.value > 0 && Math.abs(el.currentTime - currentTime.value) > 0.4) {
       el.currentTime = currentTime.value
@@ -446,6 +454,15 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     void router.push(`/english/listen/${currentVideoId.value}`)
   }
 
+  function dismissSession() {
+    pause()
+    episode.value = null
+    currentTime.value = 0
+    isPlaying.value = false
+    restoredCurrentId = ''
+    persistQueue()
+  }
+
   function clearSleep() {
     if (sleepTimer) {
       clearTimeout(sleepTimer)
@@ -525,6 +542,7 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     hasSession,
     coverUrl,
     mediaSrc,
+    audioSrc,
     sleepLeftSec,
     registerVideo,
     syncFromVideo,
@@ -548,6 +566,7 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     openEpisode,
     collapse,
     expand,
+    dismissSession,
     setViewMode,
     setSleepMinutes,
     setSleepAfterCurrent,

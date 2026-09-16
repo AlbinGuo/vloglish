@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AuthorSubscribeButton from '@/components/AuthorSubscribeButton.vue'
 import ListenCue from '@/components/listen/ListenCue.vue'
 import ListenMoreSheet from '@/components/listen/ListenMoreSheet.vue'
+import ListenSwipeHint from '@/components/listen/ListenSwipeHint.vue'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import { setEpisodeFavorite } from '@/api/episodes'
 import { useAuthStore } from '@/stores/auth'
@@ -23,7 +24,7 @@ const moreOpen = ref(false)
 const copied = ref(false)
 const favoriteBusy = ref(false)
 const listRoot = ref<HTMLElement | null>(null)
-const swipeRoot = ref<HTMLElement | null>(null)
+const pageRoot = ref<HTMLElement | null>(null)
 const dragY = ref(0)
 const switching = ref(false)
 const dragging = ref(false)
@@ -74,6 +75,8 @@ watch(
 function overlayOpen() {
   return moreOpen.value || listen.playlistOpen || listen.sleepOpen
 }
+
+const swipeHintRef = ref<{ dismiss: () => void } | null>(null)
 
 function isBlockedTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false
@@ -135,6 +138,7 @@ function onTouchMove(e: TouchEvent) {
     }
     captured = true
     dragging.value = true
+    swipeHintRef.value?.dismiss()
   }
   if (captured) {
     e.preventDefault()
@@ -172,19 +176,19 @@ let swipeCleanup: (() => void) | null = null
 
 function bindSwipe() {
   unbindSwipe()
-  const el = swipeRoot.value
+  const el = pageRoot.value
   if (!el) return
-  el.addEventListener('touchstart', onTouchStart, { passive: true })
-  el.addEventListener('touchmove', onTouchMove, { passive: false })
-  el.addEventListener('touchend', onTouchEnd)
-  el.addEventListener('touchcancel', onTouchEnd)
-  el.addEventListener('wheel', onWheel, { passive: false })
+  el.addEventListener('touchstart', onTouchStart, { passive: true, capture: true })
+  el.addEventListener('touchmove', onTouchMove, { passive: false, capture: true })
+  el.addEventListener('touchend', onTouchEnd, { capture: true })
+  el.addEventListener('touchcancel', onTouchEnd, { capture: true })
+  el.addEventListener('wheel', onWheel, { passive: false, capture: true })
   swipeCleanup = () => {
-    el.removeEventListener('touchstart', onTouchStart)
-    el.removeEventListener('touchmove', onTouchMove)
-    el.removeEventListener('touchend', onTouchEnd)
-    el.removeEventListener('touchcancel', onTouchEnd)
-    el.removeEventListener('wheel', onWheel)
+    el.removeEventListener('touchstart', onTouchStart, true)
+    el.removeEventListener('touchmove', onTouchMove, true)
+    el.removeEventListener('touchend', onTouchEnd, true)
+    el.removeEventListener('touchcancel', onTouchEnd, true)
+    el.removeEventListener('wheel', onWheel, true)
   }
 }
 
@@ -193,7 +197,7 @@ function unbindSwipe() {
   swipeCleanup = null
 }
 
-watch(swipeRoot, () => {
+watch(pageRoot, () => {
   bindSwipe()
 })
 
@@ -235,20 +239,48 @@ const swipeHint = computed(() => {
   if (Math.abs(dragY.value) < 36) return ''
   return dragY.value < 0 ? '松开切换下一集' : '松开切换上一集'
 })
+
+const backdropTint = computed(() => {
+  const seed = listen.currentVideoId || listen.coverUrl || 'listen'
+  let hash = 2166136261
+  for (let i = 0; i < seed.length; i += 1) {
+    hash ^= seed.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  const hue = Math.abs(hash) % 360
+  return `hsl(${hue} 46% 36%)`
+})
 </script>
 
 <template>
-  <div class="relative h-full min-h-0 overflow-hidden text-white bg-[#15210f]">
-    <img
-      v-if="listen.coverUrl"
-      :src="listen.coverUrl"
-      alt=""
-      class="absolute inset-0 z-0 w-full h-full object-cover scale-125 blur-2xl opacity-50 pointer-events-none"
-    />
-    <div class="absolute inset-0 z-0 bg-[#15210f]/78 pointer-events-none" />
+  <div
+    ref="pageRoot"
+    class="relative h-full min-h-0 overflow-hidden text-white"
+    :style="{ background: backdropTint }"
+  >
+    <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+      <Transition name="listen-bg">
+        <img
+          v-if="listen.coverUrl"
+          :key="listen.coverUrl"
+          :src="listen.coverUrl"
+          alt=""
+          class="listen-page__blur"
+        />
+      </Transition>
+      <div class="listen-page__veil" />
+    </div>
 
-    <div class="relative z-10 h-full min-h-0 flex flex-col pt-[max(0.4rem,env(safe-area-inset-top))]">
-      <header class="relative z-20 shrink-0 flex items-center gap-2 px-3 py-2">
+    <div
+      class="relative z-10 h-full min-h-0 flex flex-col"
+      :style="{
+        transform: `translateY(${dragY}px)`,
+        transition: dragging ? 'none' : 'transform 180ms ease',
+      }"
+    >
+      <header
+        class="relative z-20 shrink-0 flex items-center gap-2 px-3 py-1.5 pt-[max(0.35rem,env(safe-area-inset-top))]"
+      >
         <button
           type="button"
           class="w-10 h-10 flex items-center justify-center text-white/90"
@@ -261,7 +293,7 @@ const swipeHint = computed(() => {
         </button>
 
         <div class="flex-1 flex justify-center">
-          <div class="inline-flex rounded-full bg-white/10 p-0.5 text-sm">
+          <div class="inline-flex rounded-full bg-black/25 backdrop-blur-md p-0.5 text-sm">
             <button
               type="button"
               class="px-3.5 py-1 rounded-full transition"
@@ -293,47 +325,39 @@ const swipeHint = computed(() => {
       <p v-if="listen.loadError" class="px-5 py-8 text-center text-sm text-red-200">{{ listen.loadError }}</p>
       <p v-else-if="listen.loading && !listen.episode" class="px-5 py-8 text-center text-sm text-white/70">加载中...</p>
 
-      <div
-        ref="swipeRoot"
-        class="flex-1 min-h-0 flex flex-col"
-        :class="listen.viewMode === 'video' ? 'touch-none' : ''"
-        :style="{
-          transform: `translateY(${dragY}px)`,
-          transition: dragging ? 'none' : 'transform 180ms ease',
-        }"
-      >
+      <div class="flex-1 min-h-0 flex flex-col justify-start">
         <div v-show="listen.viewMode === 'video'" class="relative z-0 shrink-0 px-0">
-          <div class="relative isolate w-full aspect-video max-h-[42dvh] min-h-[12rem] overflow-hidden bg-black">
-            <div id="listen-video-slot" class="absolute inset-0 overflow-hidden" />
+          <div class="relative isolate w-full overflow-hidden aspect-video">
+            <div id="listen-video-slot" class="absolute inset-0 overflow-hidden bg-transparent" />
           </div>
           <ListenCue v-if="listen.episode" compact />
         </div>
 
         <div
-          v-show="listen.viewMode === 'subtitles' && listen.episode"
+          v-if="listen.viewMode === 'subtitles' && listen.episode"
           ref="listRoot"
           class="flex-1 min-h-0 overflow-y-auto px-4 py-2 space-y-2"
         >
-            <button
-              v-for="(sub, index) in listen.subs"
-              :key="sub.id"
-              type="button"
-              class="w-full text-left rounded-xl px-3 py-2.5 transition"
-              :data-current-cue="index === listen.currentIndex ? '1' : '0'"
-              :class="
-                index === listen.currentIndex
-                  ? 'bg-white/16 text-white'
-                  : 'text-white/55 hover:bg-white/8'
-              "
-              @click="listen.seekToSub(sub)"
-            >
-              <p class="text-[15px] leading-snug font-medium">{{ stripSpeakerMarkers(sub.english) }}</p>
-              <p v-if="sub.chinese" class="mt-0.5 text-xs leading-relaxed opacity-80">
-                {{ stripSpeakerMarkers(sub.chinese) }}
-              </p>
-            </button>
-          </div>
+          <button
+            v-for="(sub, index) in listen.subs"
+            :key="sub.id"
+            type="button"
+            class="w-full text-left rounded-xl px-3 py-2.5 transition"
+            :data-current-cue="index === listen.currentIndex ? '1' : '0'"
+            :class="
+              index === listen.currentIndex
+                ? 'bg-white/16 text-white'
+                : 'text-white/55 hover:bg-white/8'
+            "
+            @click="listen.seekToSub(sub)"
+          >
+            <p class="text-[15px] leading-snug font-medium">{{ stripSpeakerMarkers(sub.english) }}</p>
+            <p v-if="sub.chinese" class="mt-0.5 text-xs leading-relaxed opacity-80">
+              {{ stripSpeakerMarkers(sub.chinese) }}
+            </p>
+          </button>
         </div>
+      </div>
 
         <div class="relative z-20 shrink-0 px-5 pt-2 pb-[max(0.8rem,env(safe-area-inset-bottom))]" data-no-swipe>
           <div class="flex items-start justify-between gap-3">
@@ -486,20 +510,47 @@ const swipeHint = computed(() => {
       已复制链接
     </p>
 
+    <ListenSwipeHint ref="swipeHintRef" />
     <ListenMoreSheet v-model:open="moreOpen" />
   </div>
 </template>
 
 <style scoped>
+.listen-page__blur {
+  position: absolute;
+  inset: -22%;
+  width: 144%;
+  height: 144%;
+  object-fit: cover;
+  filter: blur(52px) saturate(1.75) brightness(0.78);
+  transform: scale(1.08);
+}
+.listen-page__veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgb(28 18 12 / 0.28) 0%,
+    rgb(28 18 12 / 0.08) 42%,
+    rgb(28 18 12 / 0.32) 100%
+  );
+}
+.listen-bg-enter-active,
+.listen-bg-leave-active {
+  transition: opacity 0.45s ease;
+}
+.listen-bg-enter-from,
+.listen-bg-leave-to {
+  opacity: 0;
+}
 #listen-video-slot :deep(video) {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  background: #111;
+  object-fit: cover;
+  object-position: center 28%;
+  background: transparent;
 }
 .listen-seek {
   appearance: none;

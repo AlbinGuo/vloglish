@@ -26,6 +26,7 @@ import AppDownloadEntry from '@/components/AppDownloadEntry.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import BindWechatDialog from '@/components/BindWechatDialog.vue'
 import ContactAuthorDialog from '@/components/ContactAuthorDialog.vue'
+import ListenFloatCard from '@/components/listen/ListenFloatCard.vue'
 import ListenMiniBar from '@/components/listen/ListenMiniBar.vue'
 import ListenPlayerHost from '@/components/listen/ListenPlayerHost.vue'
 import ListenPlaylistSheet from '@/components/listen/ListenPlaylistSheet.vue'
@@ -102,13 +103,18 @@ const currentPopupItems = computed(() =>
 
 const listen = useListenPlayerStore()
 const immersive = computed(() => Boolean(route.meta.immersive))
-const showListenMiniBar = computed(
+const hideListenChrome = computed(
   () =>
-    listen.hasSession &&
-    route.name !== 'ListenEpisode' &&
-    route.name !== 'EpisodePage' &&
-    route.name !== 'DemoEpisode' &&
-    route.name !== 'AdminEpisodePreview',
+    route.name === 'ListenEpisode' ||
+    route.name === 'EpisodePage' ||
+    route.name === 'DemoEpisode' ||
+    route.name === 'AdminEpisodePreview',
+)
+const showListenMiniBar = computed(
+  () => listen.hasSession && !hideListenChrome.value && route.name === 'ListenHome',
+)
+const showListenFloatCard = computed(
+  () => listen.hasSession && !hideListenChrome.value && route.name !== 'ListenHome',
 )
 const { headerVisible: catalogHeaderVisible, catalogHeaderAutoHide } = useCatalogMobileHeaderHide()
 
@@ -574,6 +580,12 @@ watch(
       class="fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom,0px)]"
     >
       <ListenMiniBar />
+    </div>
+    <div
+      v-if="showListenFloatCard"
+      class="fixed z-40 right-3 bottom-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+0.85rem))]"
+    >
+      <ListenFloatCard />
     </div>
     <ListenPlayerHost />
     <ListenPlaylistSheet />

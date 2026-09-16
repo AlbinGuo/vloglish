@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 
 withDefaults(
   defineProps<{
-    /** 手机首页：占满一行并均分三个 Tab */
+    /** 手机首页：占满一行并均分 Tab */
     stretch?: boolean
   }>(),
   { stretch: false },
@@ -21,7 +21,6 @@ const hasNew = ref<{ series: boolean; articles: boolean }>({ series: false, arti
 
 const active = computed(() => {
   if (route.path.startsWith('/english/listen')) return 'listen'
-  if (route.path.startsWith('/english/study')) return 'study'
   if (route.path.startsWith('/english/reading')) return 'reading'
   if (route.path.startsWith('/english/series')) return 'series'
   return 'videos'
@@ -150,18 +149,6 @@ watch(
       >
         新
       </span>
-    </RouterLink>
-    <RouterLink
-      to="/english/study"
-      class="relative px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-      :class="[
-        stretch ? 'flex-1 text-center' : '',
-        active === 'study'
-          ? 'bg-white dark:bg-neutral-900 text-teal-800 dark:text-teal-200 shadow-sm'
-          : 'text-teal-700 dark:text-teal-300 hover:text-teal-900 dark:hover:text-teal-100',
-      ]"
-    >
-      怎么学
     </RouterLink>
   </nav>
 </template>
