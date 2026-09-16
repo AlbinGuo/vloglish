@@ -24,14 +24,14 @@ const chinese = computed(() => stripSpeakerMarkers(listen.currentSub?.chinese ||
   >
     <p
       class="font-semibold leading-snug text-white"
-      :class="compact ? 'text-base' : 'text-[1.35rem]'"
+      :class="compact ? 'text-base md:text-lg' : 'text-[1.35rem] md:text-[1.5rem]'"
     >
       {{ english }}
     </p>
     <p
       v-if="chinese"
       class="mt-1.5 text-white/80 leading-relaxed"
-      :class="compact ? 'text-xs' : 'text-sm'"
+      :class="compact ? 'text-xs md:text-sm' : 'text-sm md:text-base'"
     >
       {{ chinese }}
     </p>

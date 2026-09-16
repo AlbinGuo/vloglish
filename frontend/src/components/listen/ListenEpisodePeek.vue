@@ -37,7 +37,7 @@ const tint = computed(() => tintFor(props.item.video_id))
         <span class="w-16 h-8" />
       </header>
       <div class="flex-1 min-h-0 flex flex-col">
-        <div class="shrink-0 w-full flex justify-center px-3 sm:px-8 mt-10">
+        <div class="shrink-0 w-full flex justify-center px-3 sm:px-8 md:px-10 lg:px-12 mt-10 md:mt-8">
           <div class="listen-peek__video">
             <div class="listen-peek__video-sizer" aria-hidden="true" />
             <img v-if="cover" :src="cover" alt="" class="absolute inset-0 w-full h-full object-cover" />
@@ -87,6 +87,18 @@ const tint = computed(() => tintFor(props.item.video_id))
   overflow: hidden;
   border-radius: 0.75rem;
   background: #111;
+}
+@media (min-width: 768px) {
+  .listen-peek__video {
+    max-width: 48rem;
+    min-height: 16rem;
+    border-radius: 1rem;
+  }
+}
+@media (min-width: 1024px) {
+  .listen-peek__video {
+    max-width: 56rem;
+  }
 }
 .listen-peek__video-sizer {
   width: 100%;

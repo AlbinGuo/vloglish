@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { getEpisodeDetail, getEpisodeList, getSeriesDetail } from '@/api/episodes'
 import { getEpisodeProgress, updateEpisodeProgress } from '@/api/learning'
@@ -80,6 +80,8 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   let pendingPlay = false
   let hydrated = false
   let ignoreEndedUntil = 0
+  let playRetry = 0
+  let holdPlayingUntil = 0
 
   const currentVideoId = computed(() => episode.value?.video_id || '')
   const subs = computed(() => episode.value?.subtitles ?? [])
@@ -157,12 +159,18 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   }
 
   function setViewMode(mode: ListenViewMode) {
+    const resume = isPlaying.value || Boolean(videoEl.value && !videoEl.value.paused)
     viewMode.value = mode
     try {
       localStorage.setItem(VIEW_KEY, mode)
     } catch {
       /* ignore */
     }
+    if (!resume) return
+    isPlaying.value = true
+    pendingPlay = true
+    holdPlayingUntil = Date.now() + 1500
+    void play()
   }
 
   function registerVideo(el: HTMLMediaElement | null) {
@@ -198,6 +206,11 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     }
     if (!el) return
     currentTime.value = el.currentTime || 0
+    if (el.paused && Date.now() < holdPlayingUntil) {
+      isPlaying.value = true
+      void play()
+      return
+    }
     isPlaying.value = !el.paused && !el.ended
   }
 
@@ -281,23 +294,31 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
       episode.value = data.episode
       await ensureQueueFor(data.episode)
       currentTime.value = 0
-      const el = videoEl.value
-      if (el) el.playbackRate = playbackRate.value
+      await nextTick()
       const auth = useAuthStore()
-      if (auth.isLoggedIn) {
-        try {
-          const progress = await getEpisodeProgress(videoId)
-          if (!progress.is_completed && progress.last_position_sec > 1.5) {
-            currentTime.value = progress.last_position_sec
-            if (el) el.currentTime = progress.last_position_sec
-          } else if (el) {
-            el.currentTime = 0
+      const progressTask = auth.isLoggedIn
+        ? getEpisodeProgress(videoId).catch(() => null)
+        : Promise.resolve(null)
+      if (autoplay) void play()
+      const progress = await progressTask
+      if (progress && !progress.is_completed && progress.last_position_sec > 1.5) {
+        currentTime.value = progress.last_position_sec
+      }
+      const el = videoEl.value
+      if (el) {
+        el.playbackRate = playbackRate.value
+        const start = currentTime.value
+        const applyStart = () => {
+          if (start > 0.4) {
+            try {
+              el.currentTime = start
+            } catch {
+              /* ignore */
+            }
           }
-        } catch {
-          if (el) el.currentTime = 0
         }
-      } else if (el) {
-        el.currentTime = 0
+        if (el.readyState >= 1) applyStart()
+        else el.addEventListener('loadedmetadata', applyStart, { once: true })
       }
       if (autoplay) await play()
       startProgressLoop()
@@ -325,16 +346,31 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
       return
     }
     pendingPlay = false
+    el.playbackRate = playbackRate.value
     try {
-      await el.play()
+      const pending = el.play()
       isPlaying.value = true
-    } catch {
-      isPlaying.value = false
+      await pending
+      isPlaying.value = !el.paused && !el.ended
+      playRetry = 0
+    } catch (err) {
+      const name = err instanceof DOMException ? err.name : ''
+      if (name === 'AbortError' && playRetry < 4) {
+        playRetry += 1
+        pendingPlay = true
+        window.setTimeout(() => {
+          if (pendingPlay) void play()
+        }, 160)
+        return
+      }
+      playRetry = 0
+      isPlaying.value = !el.paused && !el.ended
     }
   }
 
   function pause() {
     pendingPlay = false
+    holdPlayingUntil = 0
     videoEl.value?.pause()
     isPlaying.value = false
     void flushProgress(true)

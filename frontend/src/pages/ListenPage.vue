@@ -156,6 +156,10 @@ async function switchBySwipe(dir: 'next' | 'prev') {
     if (dir === 'next') await listen.playNext()
     else await listen.playPrev({ force: true })
   } finally {
+    await nextTick()
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    })
     snapInstant.value = true
     dragY.value = 0
     await nextTick()
@@ -384,7 +388,7 @@ const backdropTint = computed(() => {
     <div class="absolute inset-0 z-[2]" :style="layerShift(0)">
       <div class="relative h-full min-h-0 overflow-hidden" :style="{ background: backdropTint }">
         <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          <Transition name="listen-bg">
+          <Transition name="listen-bg" :css="!switching">
             <img
               v-if="listen.coverUrl"
               :key="listen.coverUrl"
@@ -446,16 +450,19 @@ const backdropTint = computed(() => {
             加载中...
           </p>
 
-          <div class="flex-1 min-h-0 flex flex-col">
+          <div class="flex-1 min-h-0 flex flex-col relative">
             <div
-              v-show="listen.viewMode === 'video'"
-              class="relative z-0 shrink-0 w-full flex justify-center px-3 sm:px-8 mt-10"
+              class="w-full flex justify-center px-3 sm:px-8 md:px-10 lg:px-12"
+              :class="
+                listen.viewMode === 'video'
+                  ? 'relative z-0 shrink-0 mt-10 md:mt-8'
+                  : 'absolute inset-0 z-0 mt-10 opacity-0 pointer-events-none'
+              "
             >
               <div class="listen-page__video">
                 <div class="listen-page__video-sizer" aria-hidden="true" />
                 <img
                   v-if="listen.coverUrl"
-                  :key="listen.currentVideoId"
                   :src="listen.coverUrl"
                   alt=""
                   class="absolute inset-0 w-full h-full object-cover"
@@ -468,13 +475,14 @@ const backdropTint = computed(() => {
             <div
               v-if="listen.viewMode === 'subtitles' && listen.episode"
               ref="listRoot"
-              class="flex-1 min-h-0 overflow-y-auto px-4 py-2 space-y-2"
+              class="relative z-10 flex-1 min-h-0 overflow-y-auto px-4 md:px-10 py-2"
             >
+              <div class="mx-auto w-full max-w-xl md:max-w-3xl space-y-2">
               <button
                 v-for="(sub, index) in listen.subs"
                 :key="sub.id"
                 type="button"
-                class="w-full text-left rounded-xl px-3 py-2.5 transition"
+                class="w-full text-center rounded-xl px-3 py-2.5 md:px-4 md:py-3 transition"
                 :data-current-cue="index === listen.currentIndex ? '1' : '0'"
                 :class="
                   index === listen.currentIndex
@@ -483,11 +491,14 @@ const backdropTint = computed(() => {
                 "
                 @click="listen.seekToSub(sub)"
               >
-                <p class="text-[15px] leading-snug font-medium">{{ stripSpeakerMarkers(sub.english) }}</p>
-                <p v-if="sub.chinese" class="mt-0.5 text-xs leading-relaxed opacity-80">
+                <p class="text-[15px] md:text-[1.125rem] leading-snug font-medium">
+                  {{ stripSpeakerMarkers(sub.english) }}
+                </p>
+                <p v-if="sub.chinese" class="mt-0.5 md:mt-1 text-xs md:text-sm leading-relaxed opacity-80">
                   {{ stripSpeakerMarkers(sub.chinese) }}
                 </p>
               </button>
+              </div>
             </div>
           </div>
 
@@ -661,6 +672,18 @@ const backdropTint = computed(() => {
   overflow: hidden;
   border-radius: 0.75rem;
   background: #111;
+}
+@media (min-width: 768px) {
+  .listen-page__video {
+    max-width: 48rem;
+    min-height: 16rem;
+    border-radius: 1rem;
+  }
+}
+@media (min-width: 1024px) {
+  .listen-page__video {
+    max-width: 56rem;
+  }
 }
 .listen-page__video-sizer {
   width: 100%;

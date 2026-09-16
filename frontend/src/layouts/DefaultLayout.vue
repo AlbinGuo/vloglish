@@ -570,7 +570,7 @@ watch(
         <KeepAlive include="HomePage">
           <component
             :is="Component"
-            :key="route.name === 'HomePage' ? 'HomePage' : route.fullPath"
+            :key="route.name === 'HomePage' ? 'HomePage' : route.name === 'ListenEpisode' ? 'ListenEpisode' : route.fullPath"
           />
         </KeepAlive>
       </RouterView>

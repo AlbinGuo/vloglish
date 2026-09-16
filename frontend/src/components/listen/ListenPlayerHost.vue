@@ -7,38 +7,103 @@ const listen = useListenPlayerStore()
 const route = useRoute()
 
 const expandedVideo = computed(
-  () => route.name === 'ListenEpisode' && listen.viewMode === 'video' && Boolean(listen.episode),
+  () => route.name === 'ListenEpisode' && Boolean(listen.episode),
 )
 const canTeleport = ref(false)
+const videoReady = ref(false)
+let recoverTimer: ReturnType<typeof setTimeout> | null = null
+let srcWatchReady = false
 
 async function syncTeleportTarget() {
   if (!expandedVideo.value) {
     canTeleport.value = false
     return
   }
-  for (let i = 0; i < 8; i += 1) {
+  for (let i = 0; i < 24; i += 1) {
+    if (!expandedVideo.value) {
+      canTeleport.value = false
+      return
+    }
     await nextTick()
     if (document.getElementById('listen-video-slot')) {
       canTeleport.value = true
       return
     }
-    await new Promise((resolve) => window.setTimeout(resolve, 32))
+    await new Promise((resolve) => window.setTimeout(resolve, 40))
   }
-  canTeleport.value = false
 }
 
-watch(canTeleport, (ready) => {
-  if (!ready) return
+function mediaEl() {
+  const el = listen.videoEl
+  return el instanceof HTMLVideoElement ? el : null
+}
+
+function markReady() {
+  const el = mediaEl()
+  if (!el || !canTeleport.value) return
+  if (el.videoWidth > 0 && el.readyState >= 2) videoReady.value = true
+}
+
+function resetReady() {
+  videoReady.value = false
+}
+
+function scheduleRecover() {
+  if (recoverTimer) clearTimeout(recoverTimer)
+  recoverTimer = setTimeout(() => {
+    void recoverSurface()
+  }, 700)
+}
+
+async function recoverSurface() {
+  if (expandedVideo.value && !canTeleport.value) {
+    await syncTeleportTarget()
+  }
+  const el = mediaEl()
+  if (!el) return
+  if (listen.isPlaying && el.paused) {
+    try {
+      await listen.play()
+    } catch {
+      /* ignore */
+    }
+  }
+  if (listen.isPlaying && canTeleport.value && el.videoWidth === 0 && el.readyState >= 2) {
+    const t = el.currentTime
+    try {
+      el.currentTime = Math.max(0, t + 0.001)
+    } catch {
+      /* ignore */
+    }
+  }
+  markReady()
+}
+
+watch(canTeleport, async (ready) => {
+  await nextTick()
   const el = listen.videoEl
   if (el && el.paused && listen.isPlaying) void listen.play()
+  if (ready) scheduleRecover()
 })
 
 watch(
-  () => [expandedVideo.value, route.fullPath, listen.viewMode] as const,
+  () => expandedVideo.value,
   () => {
     void syncTeleportTarget()
   },
   { immediate: true },
+)
+
+watch(
+  () => listen.mediaSrc,
+  () => {
+    resetReady()
+    if (!srcWatchReady) {
+      srcWatchReady = true
+      return
+    }
+    scheduleRecover()
+  },
 )
 
 function bindEl(el: Element | { $el?: Element } | null) {
@@ -53,14 +118,32 @@ function onEnded() {
 function onLoadedMeta() {
   const el = listen.videoEl
   if (el && listen.currentTime > 0.4) {
-    el.currentTime = listen.currentTime
+    try {
+      el.currentTime = listen.currentTime
+    } catch {
+      /* ignore */
+    }
   }
   listen.syncFromVideo()
   updatePositionState()
+  markReady()
+  if (listen.isPlaying && el?.paused) void listen.play()
+}
+
+function onPlaying() {
+  listen.syncFromVideo()
+  const el = mediaEl()
+  if (el && 'requestVideoFrameCallback' in el) {
+    el.requestVideoFrameCallback(() => {
+      if (canTeleport.value) videoReady.value = true
+    })
+  }
+  markReady()
 }
 
 function onTimeUpdate() {
   listen.syncFromVideo()
+  markReady()
   updatePositionState()
 }
 
@@ -124,6 +207,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (recoverTimer) clearTimeout(recoverTimer)
   if (typeof document !== 'undefined') {
     document.removeEventListener('visibilitychange', onVisibility)
   }
@@ -137,18 +221,25 @@ function onVisibility() {
   }
   listen.syncFromVideo()
   applyMediaSession()
+  if (expandedVideo.value) void syncTeleportTarget()
+  if (listen.isPlaying) {
+    void listen.play()
+    scheduleRecover()
+  }
 }
 </script>
 
 <template>
   <Teleport to="#listen-video-slot" :disabled="!canTeleport" defer>
     <video
-      :key="listen.currentVideoId || 'empty'"
       :ref="bindEl"
       class="listen-engine-video"
-      :class="canTeleport ? 'listen-engine-video--live' : 'listen-engine-video--parked'"
+      :class="{
+        'listen-engine-video--live': canTeleport,
+        'listen-engine-video--parked': !canTeleport,
+        'listen-engine-video--ready': canTeleport && videoReady,
+      }"
       :src="listen.mediaSrc"
-      :poster="listen.coverUrl || undefined"
       playsinline
       webkit-playsinline
       x5-video-player-type="h5"
@@ -156,9 +247,13 @@ function onVisibility() {
       preload="auto"
       @timeupdate="onTimeUpdate"
       @play="listen.syncFromVideo()"
+      @playing="onPlaying"
       @pause="listen.syncFromVideo()"
       @ended="onEnded"
       @loadedmetadata="onLoadedMeta"
+      @loadeddata="markReady"
+      @canplay="markReady"
+      @waiting="scheduleRecover"
     />
   </Teleport>
 </template>
@@ -182,6 +277,11 @@ function onVisibility() {
   height: 100%;
   object-fit: contain;
   object-position: center;
-  background: #111;
+  background: transparent;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.listen-engine-video--ready {
+  opacity: 1;
 }
 </style>
