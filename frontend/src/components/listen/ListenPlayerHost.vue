@@ -16,14 +16,22 @@ async function syncTeleportTarget() {
     canTeleport.value = false
     return
   }
-  await nextTick()
-  canTeleport.value = Boolean(document.getElementById('listen-video-slot'))
-  if (!canTeleport.value) {
-    window.setTimeout(() => {
-      canTeleport.value = Boolean(document.getElementById('listen-video-slot')) && expandedVideo.value
-    }, 50)
+  for (let i = 0; i < 8; i += 1) {
+    await nextTick()
+    if (document.getElementById('listen-video-slot')) {
+      canTeleport.value = true
+      return
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 32))
   }
+  canTeleport.value = false
 }
+
+watch(canTeleport, (ready) => {
+  if (!ready) return
+  const el = listen.videoEl
+  if (el && (listen.isPlaying || !el.paused)) void listen.play()
+})
 
 watch(
   () => [expandedVideo.value, route.fullPath, listen.viewMode] as const,
@@ -35,7 +43,7 @@ watch(
 
 function bindEl(el: Element | { $el?: Element } | null) {
   const node = el && '$el' in el ? el.$el : el
-  listen.registerVideo(node instanceof HTMLMediaElement ? node : null)
+  if (node instanceof HTMLMediaElement) listen.registerVideo(node)
 }
 
 function onEnded() {
@@ -51,7 +59,9 @@ function onLoadedMeta() {
   updatePositionState()
 }
 
-function onTimeUpdate() {
+function onTimeUpdate(event: Event) {
+  const el = event.currentTarget
+  if (el instanceof HTMLMediaElement) listen.registerVideo(el)
   listen.syncFromVideo()
   updatePositionState()
 }

@@ -381,18 +381,17 @@ const backdropTint = computed(() => {
           <div class="flex-1 min-h-0 flex flex-col">
             <div
               v-show="listen.viewMode === 'video'"
-              class="relative z-0 shrink-0 w-full flex justify-center px-3 sm:px-8 mt-5"
+              class="relative z-0 shrink-0 w-full flex justify-center px-3 sm:px-8 mt-10"
             >
               <div class="listen-page__video">
                 <div class="listen-page__video-sizer" aria-hidden="true" />
-                <div id="listen-video-slot" class="absolute inset-0 overflow-hidden bg-[#111]">
-                  <img
-                    v-if="listen.coverUrl"
-                    :src="listen.coverUrl"
-                    alt=""
-                    class="absolute inset-0 w-full h-full object-cover"
-                  />
-                </div>
+                <img
+                  v-if="listen.coverUrl"
+                  :src="listen.coverUrl"
+                  alt=""
+                  class="absolute inset-0 w-full h-full object-cover"
+                />
+                <div id="listen-video-slot" class="absolute inset-0 z-[1] overflow-hidden" />
               </div>
             </div>
             <ListenCue v-if="listen.viewMode === 'video' && listen.episode" compact />

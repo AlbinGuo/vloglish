@@ -37,7 +37,7 @@ const tint = computed(() => tintFor(props.item.video_id))
         <span class="w-16 h-8" />
       </header>
       <div class="flex-1 min-h-0 flex flex-col">
-        <div class="shrink-0 w-full flex justify-center px-3 sm:px-8 mt-5">
+        <div class="shrink-0 w-full flex justify-center px-3 sm:px-8 mt-10">
           <div class="listen-peek__video">
             <div class="listen-peek__video-sizer" aria-hidden="true" />
             <img v-if="cover" :src="cover" alt="" class="absolute inset-0 w-full h-full object-cover" />

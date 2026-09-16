@@ -183,7 +183,14 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   }
 
   function syncFromVideo() {
-    const el = videoEl.value
+    let el = videoEl.value
+    if (!el || !el.isConnected) {
+      const live = document.getElementById('listen-video-slot')?.querySelector('video, audio')
+      const parked = document.querySelector('video.listen-engine-video')
+      const found = live || parked
+      el = found instanceof HTMLMediaElement ? found : null
+      if (el) videoEl.value = el
+    }
     if (!el) return
     currentTime.value = el.currentTime || 0
     isPlaying.value = !el.paused && !el.ended
