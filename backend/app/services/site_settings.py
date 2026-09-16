@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -11,6 +12,9 @@ from ..models import SiteSetting
 MEMBERSHIP_GATE_KEY = "membership_gate_enabled"
 # 默认启用 Freemium 内容限制
 DEFAULT_MEMBERSHIP_GATE_ENABLED = True
+
+_gate_enabled: bool | None = None
+_gate_expires_at = 0.0
 
 
 def get_setting(db: Session, key: str, default: str = "") -> str:
@@ -35,12 +39,22 @@ def set_setting(db: Session, key: str, value: str) -> SiteSetting:
 
 def is_membership_gate_enabled(db: Session) -> bool:
     """是否启用会员内容限制。默认 True（开启 Freemium）。"""
+    global _gate_enabled, _gate_expires_at
+    now = time.time()
+    if _gate_enabled is not None and _gate_expires_at > now:
+        return _gate_enabled
     raw = get_setting(db, MEMBERSHIP_GATE_KEY, "true" if DEFAULT_MEMBERSHIP_GATE_ENABLED else "false")
-    return raw.strip().lower() in ("1", "true", "yes", "on")
+    enabled = raw.strip().lower() in ("1", "true", "yes", "on")
+    _gate_enabled = enabled
+    _gate_expires_at = now + 8
+    return enabled
 
 
 def set_membership_gate_enabled(db: Session, enabled: bool) -> bool:
+    global _gate_enabled, _gate_expires_at
     set_setting(db, MEMBERSHIP_GATE_KEY, "true" if enabled else "false")
+    _gate_enabled = enabled
+    _gate_expires_at = time.time() + 8
     return enabled
 
 

@@ -1605,7 +1605,7 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
   box-shadow: none !important;
 }
 
-/* 全屏字幕：叠在画面上，可上下拖动 */
+/* 全屏字幕：叠在画面上，可拖动空白处、拖边缘缩放 */
 .video-panel:fullscreen .video-panel__subtitle,
 .video-panel.video-panel--fullscreen .video-panel__subtitle {
   position: absolute;
@@ -1615,21 +1615,70 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
   width: min(52rem, calc(100% - 1.5rem));
   flex: none !important;
   max-height: min(40dvh, 16rem);
-  overflow: visible;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   z-index: 36;
-  pointer-events: none;
+  pointer-events: auto;
   padding: 0 0.45rem 0.45rem;
   border-radius: 1rem;
   background: rgb(8 8 8 / 0.45);
   backdrop-filter: blur(10px);
   box-shadow: 0 10px 32px rgb(0 0 0 / 0.38);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 
-.video-panel:fullscreen .video-panel__subtitle > *,
-.video-panel.video-panel--fullscreen .video-panel__subtitle > * {
-  pointer-events: auto;
+.video-panel:fullscreen .video-panel__subtitle.is-user-sized,
+.video-panel.video-panel--fullscreen .video-panel__subtitle.is-user-sized {
+  overflow: hidden;
+}
+
+.video-panel:fullscreen .video-panel__subtitle.is-user-sized .current-subtitle-bar,
+.video-panel.video-panel--fullscreen .video-panel__subtitle.is-user-sized .current-subtitle-bar {
+  flex: 1 1 auto !important;
+  overflow-y: auto;
+}
+
+.video-panel:fullscreen .video-panel__subtitle.is-user-sized .current-subtitle-bar--pin-chinese.is-english-overflow .current-subtitle-bar__scroll,
+.video-panel.video-panel--fullscreen .video-panel__subtitle.is-user-sized .current-subtitle-bar--pin-chinese.is-english-overflow .current-subtitle-bar__scroll {
+  max-height: none;
+}
+
+.video-panel__caption-resize {
+  display: none;
+  position: absolute;
+  z-index: 3;
+}
+
+.video-panel:fullscreen .video-panel__caption-resize,
+.video-panel.video-panel--fullscreen .video-panel__caption-resize {
+  display: block;
+}
+
+.video-panel__caption-resize--n {
+  top: 0;
+  left: 14px;
+  right: 14px;
+  height: 12px;
+  cursor: ns-resize;
+}
+
+.video-panel__caption-resize--e {
+  top: 14px;
+  right: 0;
+  bottom: 10px;
+  width: 12px;
+  cursor: ew-resize;
+}
+
+.video-panel__caption-resize--w {
+  top: 14px;
+  left: 0;
+  bottom: 10px;
+  width: 12px;
+  cursor: ew-resize;
 }
 
 .video-panel__subtitle-drag {
@@ -1667,9 +1716,28 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
 }
 
 .video-panel:fullscreen .video-panel__subtitle.is-dragging,
-.video-panel.video-panel--fullscreen .video-panel__subtitle.is-dragging {
-  cursor: ns-resize;
+.video-panel.video-panel--fullscreen .video-panel__subtitle.is-dragging,
+.video-panel:fullscreen .video-panel__subtitle.is-resizing,
+.video-panel.video-panel--fullscreen .video-panel__subtitle.is-resizing {
+  cursor: grabbing;
   user-select: none;
+}
+
+.video-panel:fullscreen .video-panel__subtitle .current-subtitle-bar,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .current-subtitle-bar {
+  cursor: grab;
+}
+
+.video-panel:fullscreen .video-panel__subtitle .subtitle-english,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .subtitle-english,
+.video-panel:fullscreen .video-panel__subtitle .subtitle-chinese,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .subtitle-chinese,
+.video-panel:fullscreen .video-panel__subtitle .intensive-english,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .intensive-english,
+.video-panel:fullscreen .video-panel__subtitle .intensive-chinese-block,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .intensive-chinese-block {
+  cursor: default;
+  user-select: text;
 }
 
 /* iPhone Safari 无法对容器 requestFullscreen：用 CSS 铺满模拟 */
@@ -1703,6 +1771,7 @@ html.vloglish-css-fullscreen body {
   background: rgb(255 255 255 / 0.06);
   border: 1px solid rgb(255 255 255 / 0.1);
   transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  cursor: pointer;
 }
 .video-panel__caption-mode-btn.is-active {
   color: #fafafa;
@@ -1750,9 +1819,16 @@ html.vloglish-css-fullscreen body {
   color: rgb(212 212 212);
 }
 
+.video-panel:fullscreen .video-panel__subtitle .subtitle-english span,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .subtitle-english span {
+  cursor: default;
+}
+
 .video-panel:fullscreen .video-panel__subtitle .subtitle-english span:hover,
-.video-panel.video-panel--fullscreen .video-panel__subtitle .subtitle-english span:hover {
-  background-color: rgb(255 255 255 / 0.12);
+.video-panel.video-panel--fullscreen .video-panel__subtitle .subtitle-english span:hover,
+.video-panel:fullscreen .video-panel__subtitle .subtitle-english--active span:hover,
+.video-panel.video-panel--fullscreen .video-panel__subtitle .subtitle-english--active span:hover {
+  background-color: transparent;
 }
 
 .video-panel:fullscreen .subtitle-word-tooltip,

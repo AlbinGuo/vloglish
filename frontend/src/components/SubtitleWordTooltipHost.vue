@@ -18,11 +18,14 @@ const props = withDefaults(
     teleportTo?: string | HTMLElement | null
     /** 打开词条大弹窗时收起悬停气泡，避免叠在全屏层上面 */
     suppressed?: boolean
+    /** 不弹出悬停翻译（例如全屏），点击查词仍可用 */
+    hoverDisabled?: boolean
   }>(),
   {
     highlightOnly: false,
     teleportTo: 'body',
     suppressed: false,
+    hoverDisabled: false,
   },
 )
 
@@ -225,7 +228,7 @@ function onPointerDown(e: PointerEvent) {
 }
 
 function onMouseOver(e: MouseEvent) {
-  if (props.suppressed) return
+  if (props.suppressed || props.hoverDisabled) return
   if (tooltipRef.value?.contains(e.target as Node)) {
     hoveringTooltip = true
     clearTimers()
@@ -324,9 +327,9 @@ watch(
 )
 
 watch(
-  () => props.suppressed,
-  (suppressed) => {
-    if (suppressed) hide()
+  () => props.suppressed || props.hoverDisabled,
+  (off) => {
+    if (off) hide()
   },
 )
 
