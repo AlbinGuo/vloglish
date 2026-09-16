@@ -41,6 +41,7 @@ import { useSourceFocusPulse } from '@/composables/useSourceFocusPulse'
 import { useWordLongPress } from '@/composables/useWordLongPress'
 import { useSubtitleClipSelect } from '@/composables/useSubtitleClipSelect'
 import { useAuthStore } from '@/stores/auth'
+import { useListenPlayerStore } from '@/stores/listenPlayer'
 import { useVocabularyStore } from '@/stores/vocabulary'
 import { useClipsStore } from '@/stores/clips'
 import { useVoiceCloneStore } from '@/stores/voiceClone'
@@ -2568,6 +2569,18 @@ function goBack() {
   router.push(props.backTo ?? '/english')
 }
 
+const listenPlayer = useListenPlayerStore()
+
+function goListenMode() {
+  videoRef.value?.pause()
+  player.isPlaying.value = false
+  void listenPlayer.openEpisode(props.videoId)
+}
+
+onMounted(() => {
+  listenPlayer.pause()
+})
+
 function subtitleRowClass(index: number) {
   const isCurrent = index === currentIndex.value
   if (modeIsDynamicFocus(subtitleMode.value)) return ''
@@ -2684,6 +2697,15 @@ function subtitleRowClass(index: number) {
           @update:is-subscribed="(v) => episode && (episode.author.is_subscribed = v)"
           @update:subscriber-count="(v) => episode && (episode.author.subscriber_count = v)"
         />
+        <button
+          v-if="!adminPreview && episode"
+          type="button"
+          class="inline-flex items-center justify-center h-8 px-2.5 rounded-lg text-xs font-medium text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-300 dark:hover:text-white dark:hover:bg-neutral-800"
+          title="听模式"
+          @click="goListenMode"
+        >
+          听
+        </button>
         <button
           v-if="auth.isMember && !adminPreview"
           type="button"
@@ -3428,6 +3450,13 @@ function subtitleRowClass(index: number) {
             <div class="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-600" />
           </div>
           <div class="px-2 pb-2">
+            <button
+              type="button"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              @click="closeMobileMore(); goListenMode()"
+            >
+              用听模式打开
+            </button>
             <button
               v-if="episode?.author.id && !episode.series"
               type="button"

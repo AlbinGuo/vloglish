@@ -266,6 +266,18 @@ const userRoutes: RouteRecordRaw[] = [
         meta: { immersive: true, requiresAuth: true },
       },
       {
+        path: 'english/listen',
+        name: 'ListenHome',
+        component: () => import('@/pages/ListenHomePage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: 'english/listen/:videoId',
+        name: 'ListenEpisode',
+        component: () => import('@/pages/ListenPage.vue'),
+        meta: { immersive: true, requiresAuth: true },
+      },
+      {
         path: 'english/episode/:videoId',
         name: 'EpisodePage',
         component: () => import('@/pages/EpisodePage.vue'),

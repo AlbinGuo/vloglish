@@ -5,6 +5,7 @@ import { getSeriesDetail } from '@/api/episodes'
 import EnglishCatalogNavBar from '@/components/english/EnglishCatalogNavBar.vue'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
+import { useListenPlayerStore } from '@/stores/listenPlayer'
 import EpisodeAccessBadge from '@/components/EpisodeAccessBadge.vue'
 import { isOpenToFreeUsers } from '@/utils/episodeAccess'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
@@ -20,6 +21,7 @@ const error = ref('')
 const series = ref<SeriesDetail | null>(null)
 
 const slug = computed(() => String(route.params.slug || ''))
+const listenPlayer = useListenPlayerStore()
 
 function episodePath(videoId: string) {
   return `/english/episode/${videoId}`
@@ -30,6 +32,23 @@ function episodeLink(ep: { video_id: string; requires_membership?: boolean }) {
     return { path: '/pricing', query: { next: episodePath(ep.video_id) } }
   }
   return episodePath(ep.video_id)
+}
+
+function playListen(ep: { video_id: string; requires_membership?: boolean; short_title: string; cover: string; clip_length: number; author?: { name: string } }) {
+  if (ep.requires_membership) {
+    void router.push({ path: '/pricing', query: { next: `/english/listen/${ep.video_id}` } })
+    return
+  }
+  void listenPlayer.enqueueAndPlay(
+    {
+      video_id: ep.video_id,
+      short_title: ep.short_title,
+      cover: ep.cover,
+      clip_length: ep.clip_length || 0,
+      author_name: ep.author?.name || '',
+    },
+    true,
+  )
 }
 
 function formatDuration(sec: number) {
@@ -95,10 +114,10 @@ watch(slug, load)
       </div>
 
       <ol class="space-y-2">
-        <li v-for="ep in series.episodes" :key="ep.video_id">
+        <li v-for="ep in series.episodes" :key="ep.video_id" class="flex items-stretch gap-2">
           <RouterLink
             :to="episodeLink(ep)"
-            class="flex gap-3 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-3 hover:shadow-sm transition group"
+            class="flex flex-1 min-w-0 gap-3 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-3 hover:shadow-sm transition group"
             @click="ep.requires_membership ? undefined : requestEpisodeAutoplay"
           >
             <div class="relative w-28 sm:w-36 shrink-0 aspect-video rounded-lg overflow-hidden bg-neutral-200 dark:bg-neutral-800">
@@ -146,6 +165,14 @@ watch(slug, load)
               </div>
             </div>
           </RouterLink>
+          <button
+            type="button"
+            class="shrink-0 self-center w-10 h-10 rounded-full border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 flex items-center justify-center"
+            aria-label="听这一集"
+            @click="playListen(ep)"
+          >
+            <svg viewBox="0 0 24 24" class="w-4 h-4 ml-0.5" fill="currentColor"><path d="M8 5.5v13l11-6.5L8 5.5Z" /></svg>
+          </button>
         </li>
       </ol>
     </template>

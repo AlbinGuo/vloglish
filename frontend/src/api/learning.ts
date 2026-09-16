@@ -33,6 +33,9 @@ export interface RecentEpisode {
   is_completed: boolean
   last_subtitle_index: number
   last_watched_at: string
+  last_position_sec?: number
+  clip_length?: number
+  author_name?: string
 }
 
 export interface VocabularyItem {
@@ -99,8 +102,13 @@ export async function getLearningSummary() {
   return data
 }
 
-export async function getRecentEpisodes() {
-  const { data } = await api.get<RecentEpisode[]>('/api/learning/recent/')
+export async function getRecentEpisodes(opts?: { limit?: number; includeCompleted?: boolean }) {
+  const { data } = await api.get<RecentEpisode[]>('/api/learning/recent/', {
+    params: {
+      ...(opts?.limit != null ? { limit: opts.limit } : {}),
+      ...(opts?.includeCompleted ? { include_completed: true } : {}),
+    },
+  })
   return data
 }
 

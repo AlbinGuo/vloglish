@@ -26,6 +26,11 @@ import AppDownloadEntry from '@/components/AppDownloadEntry.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import BindWechatDialog from '@/components/BindWechatDialog.vue'
 import ContactAuthorDialog from '@/components/ContactAuthorDialog.vue'
+import ListenMiniBar from '@/components/listen/ListenMiniBar.vue'
+import ListenPlayerHost from '@/components/listen/ListenPlayerHost.vue'
+import ListenPlaylistSheet from '@/components/listen/ListenPlaylistSheet.vue'
+import ListenSleepSheet from '@/components/listen/ListenSleepSheet.vue'
+import { useListenPlayerStore } from '@/stores/listenPlayer'
 
 const route = useRoute()
 const router = useRouter()
@@ -95,7 +100,16 @@ const currentPopupItems = computed(() =>
   currentUnit.value?.kind === 'multi' ? currentUnit.value.items : null,
 )
 
+const listen = useListenPlayerStore()
 const immersive = computed(() => Boolean(route.meta.immersive))
+const showListenMiniBar = computed(
+  () =>
+    listen.hasSession &&
+    route.name !== 'ListenEpisode' &&
+    route.name !== 'EpisodePage' &&
+    route.name !== 'DemoEpisode' &&
+    route.name !== 'AdminEpisodePreview',
+)
 const { headerVisible: catalogHeaderVisible, catalogHeaderAutoHide } = useCatalogMobileHeaderHide()
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -225,6 +239,7 @@ async function handleLogout() {
 }
 
 onMounted(() => {
+  void listen.hydrateSession()
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', onVisibilityChange)
   }
@@ -548,6 +563,21 @@ watch(
         </KeepAlive>
       </RouterView>
     </main>
+    <div
+      v-if="showListenMiniBar"
+      class="shrink-0"
+      :style="{ height: 'calc(4.35rem + env(safe-area-inset-bottom, 0px))' }"
+      aria-hidden="true"
+    />
+    <div
+      v-if="showListenMiniBar"
+      class="fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom,0px)]"
+    >
+      <ListenMiniBar />
+    </div>
+    <ListenPlayerHost />
+    <ListenPlaylistSheet />
+    <ListenSleepSheet />
     <FavoriteCorpusToast />
     <FeedbackModal v-model:open="feedbackOpen" />
     <BindWechatDialog v-model:open="bindWechatOpen" />

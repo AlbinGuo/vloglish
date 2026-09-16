@@ -98,6 +98,7 @@ export interface EpisodeDetail {
   stars: number
   voca_size: number
   subtitle_count: number
+  clip_length?: number
   original_video_url: string
   author: Author
   tags: Tag[]

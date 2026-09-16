@@ -1091,6 +1091,9 @@ class RecentEpisodeOut(BaseModel):
     is_completed: bool
     last_subtitle_index: int
     last_watched_at: str
+    last_position_sec: float = 0
+    clip_length: float = 0
+    author_name: str = ""
 
 
 class VocabularyItemOut(BaseModel):

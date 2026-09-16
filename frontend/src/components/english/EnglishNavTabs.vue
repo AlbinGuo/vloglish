@@ -20,6 +20,7 @@ const counts = ref<{ videos: number; series: number; articles: number } | null>(
 const hasNew = ref<{ series: boolean; articles: boolean }>({ series: false, articles: false })
 
 const active = computed(() => {
+  if (route.path.startsWith('/english/listen')) return 'listen'
   if (route.path.startsWith('/english/study')) return 'study'
   if (route.path.startsWith('/english/reading')) return 'reading'
   if (route.path.startsWith('/english/series')) return 'series'
@@ -71,7 +72,7 @@ watch(
   >
     <RouterLink
       to="/english"
-      class="relative px-3 sm:px-4 py-2 pr-5 rounded-lg text-sm font-medium transition-colors"
+      class="relative px-2.5 sm:px-4 py-2 pr-5 rounded-lg text-sm font-medium transition-colors"
       :class="[
         stretch ? 'flex-1 text-center' : '',
         active === 'videos'
@@ -89,8 +90,20 @@ watch(
       </span>
     </RouterLink>
     <RouterLink
+      to="/english/listen"
+      class="relative px-2.5 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+      :class="[
+        stretch ? 'flex-1 text-center' : '',
+        active === 'listen'
+          ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm'
+          : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
+      ]"
+    >
+      听
+    </RouterLink>
+    <RouterLink
       to="/english/series"
-      class="relative px-3 sm:px-4 py-2 pr-5 rounded-lg text-sm font-medium transition-colors"
+      class="relative px-2.5 sm:px-4 py-2 pr-5 rounded-lg text-sm font-medium transition-colors"
       :class="[
         stretch ? 'flex-1 text-center' : '',
         active === 'series'

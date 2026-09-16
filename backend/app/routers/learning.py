@@ -213,8 +213,16 @@ def complete_daily_sentence(
 
 
 @router.get("/recent/", response_model=list[RecentEpisodeOut])
-def get_recent(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return [RecentEpisodeOut(**row) for row in recent_episodes(db, user.id)]
+def get_recent(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    limit: int = Query(8, ge=1, le=50),
+    include_completed: bool = Query(False),
+):
+    return [
+        RecentEpisodeOut(**row)
+        for row in recent_episodes(db, user.id, limit=limit, include_completed=include_completed)
+    ]
 
 
 @router.get("/calendar/", response_model=LearningCalendarOut)

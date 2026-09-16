@@ -429,19 +429,26 @@ def learning_summary(db: Session, user_id: int) -> dict:
     }
 
 
-def recent_episodes(db: Session, user_id: int, limit: int = 8) -> list[dict]:
-    rows = (
+def recent_episodes(
+    db: Session,
+    user_id: int,
+    limit: int = 8,
+    *,
+    include_completed: bool = False,
+) -> list[dict]:
+    q = (
         db.query(UserEpisodeProgress, Episode)
         .join(Episode, Episode.id == UserEpisodeProgress.episode_id)
-        .filter(
-            UserEpisodeProgress.user_id == user_id,
+        .filter(UserEpisodeProgress.user_id == user_id)
+    )
+    if not include_completed:
+        q = q.filter(
             UserEpisodeProgress.is_completed.is_(False),
             UserEpisodeProgress.max_reached_index > 0,
         )
-        .order_by(UserEpisodeProgress.last_watched_at.desc())
-        .limit(limit)
-        .all()
-    )
+    else:
+        q = q.filter(UserEpisodeProgress.last_watched_at.isnot(None))
+    rows = q.order_by(UserEpisodeProgress.last_watched_at.desc()).limit(limit).all()
     return [
         {
             "video_id": ep.video_id,
@@ -451,6 +458,9 @@ def recent_episodes(db: Session, user_id: int, limit: int = 8) -> list[dict]:
             "is_completed": prog.is_completed,
             "last_subtitle_index": prog.last_subtitle_index,
             "last_watched_at": _fmt_dt(prog.last_watched_at),
+            "last_position_sec": float(prog.last_position_sec or 0),
+            "clip_length": float(ep.clip_length or 0),
+            "author_name": ep.author.name if ep.author else "",
         }
         for prog, ep in rows
     ]
