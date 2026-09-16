@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 
-const HINT_KEY = 'vloglish_listen_swipe_hint_v1'
+const HINT_KEY = 'vloglish_listen_swipe_hint_v2'
 
 const visible = ref(false)
 let showTimer: ReturnType<typeof setTimeout> | null = null
-let hideTimer: ReturnType<typeof setTimeout> | null = null
 
 function dismiss() {
+  if (!visible.value) {
+    if (showTimer) clearTimeout(showTimer)
+  }
   visible.value = false
   if (showTimer) clearTimeout(showTimer)
-  if (hideTimer) clearTimeout(hideTimer)
   try {
     localStorage.setItem(HINT_KEY, '1')
   } catch {
@@ -26,34 +27,30 @@ onMounted(() => {
   }
   showTimer = setTimeout(() => {
     visible.value = true
-  }, 700)
-  hideTimer = setTimeout(dismiss, 5600)
+  }, 500)
 })
 
 onUnmounted(() => {
   if (showTimer) clearTimeout(showTimer)
-  if (hideTimer) clearTimeout(hideTimer)
 })
 
 defineExpose({ dismiss })
 </script>
 
 <template>
-  <button
+  <div
     v-if="visible"
-    type="button"
-    class="listen-swipe-hint pointer-events-auto absolute left-1/2 z-30 -translate-x-1/2 top-[42%] flex flex-col items-center gap-3 text-white"
-    aria-label="上滑切换下一集"
-    @click="dismiss"
+    class="listen-swipe-hint pointer-events-none absolute left-1/2 z-30 -translate-x-1/2 top-[42%] flex flex-col items-center gap-3 text-white"
+    aria-hidden="true"
   >
-    <span class="listen-swipe-hint__stage" aria-hidden="true">
+    <span class="listen-swipe-hint__stage">
       <span class="listen-swipe-hint__page listen-swipe-hint__page--next" />
       <span class="listen-swipe-hint__page listen-swipe-hint__page--current">
         <span class="listen-swipe-hint__finger" />
       </span>
     </span>
     <span class="rounded-full bg-black/55 px-3 py-1 text-xs tracking-wide">上滑切换下一集</span>
-  </button>
+  </div>
 </template>
 
 <style scoped>
