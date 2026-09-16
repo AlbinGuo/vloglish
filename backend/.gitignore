@@ -1,4 +1,6 @@
 .env
+/.alipay-sandbox.json
+.alipay-sandbox.json
 .venv/
 __pycache__/
 *.pyc

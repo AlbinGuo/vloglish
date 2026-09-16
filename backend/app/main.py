@@ -22,6 +22,8 @@ from .models import (
     UserDailySentence,
     UserPracticeRecord,
     UserSubtitleClip,
+    AlipayNotifyEvent,
+    AlipayRefund,
     WishRequest,
     WishRequestLike,
     WordPracticeSession,
@@ -179,24 +181,24 @@ def _backfill_member_plans() -> None:
             .order_by(MembershipOrder.paid_at.desc().nullslast(), MembershipOrder.id.desc())
             .all()
         )
-        latest: dict[int, str] = {}
+        newest_paid_plan: dict[int, str] = {}
         for order in orders:
-            if not order.user_id or order.user_id in latest:
+            if not order.user_id or order.user_id in newest_paid_plan:
                 continue
             if order.plan in ("quarter", "year", "forever"):
-                latest[order.user_id] = order.plan
+                newest_paid_plan[order.user_id] = order.plan
         for user in rows:
             if user.member_until is None:
                 user.member_plan = "forever"
-            elif latest.get(user.id) in ("quarter", "year"):
-                user.member_plan = latest[user.id]
+            elif newest_paid_plan.get(user.id) in ("quarter", "year"):
+                user.member_plan = newest_paid_plan[user.id]
             else:
                 user.member_plan = "custom"
         db.commit()
         print(f"[vloglish] backfilled users.member_plan n={len(rows)}")
     except Exception:
         db.rollback()
-        print("[vloglish] backfill users.member_plan skipped")
+        print("[vloglish] backfill users.member_plan omitted")
     finally:
         db.close()
 
@@ -605,6 +607,14 @@ def _migrate_schema():
                     text("ALTER TABLE membership_orders ADD COLUMN pay_client VARCHAR(16) NOT NULL DEFAULT ''")
                 )
             print("[vloglish] migrated membership_orders.pay_client")
+    if "alipay_notify_events" not in insp.get_table_names():
+        AlipayNotifyEvent.__table__.create(bind=engine, checkfirst=True)
+        print("[vloglish] created table alipay_notify_events")
+        insp = inspect(engine)
+    if "alipay_refunds" not in insp.get_table_names():
+        AlipayRefund.__table__.create(bind=engine, checkfirst=True)
+        print("[vloglish] created table alipay_refunds")
+        insp = inspect(engine)
     if "user_daily_visits" in insp.get_table_names():
         visit_cols = {c["name"] for c in insp.get_columns("user_daily_visits")}
         if "session_count" not in visit_cols:

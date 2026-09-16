@@ -821,3 +821,30 @@ class MembershipOrder(Base):
     wx_order_id: Mapped[str] = mapped_column(String(64), default="", index=True)
     # 付款端：web | android | ios | weixin | devtools | windows | mac
     pay_client: Mapped[str] = mapped_column(String(16), default="")
+
+
+class AlipayNotifyEvent(Base):
+    """支付宝异步通知幂等记录。"""
+
+    __tablename__ = "alipay_notify_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    notify_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    out_trade_no: Mapped[str] = mapped_column(String(64), default="", index=True)
+    trade_no: Mapped[str] = mapped_column(String(64), default="")
+    trade_status: Mapped[str] = mapped_column(String(32), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AlipayRefund(Base):
+    """支付宝退款请求（同一次失败重试复用 out_request_no）。"""
+
+    __tablename__ = "alipay_refunds"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    order_no: Mapped[str] = mapped_column(String(64), index=True)
+    out_request_no: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    refund_amount: Mapped[str] = mapped_column(String(16), default="")
+    status: Mapped[str] = mapped_column(String(32), default="created")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

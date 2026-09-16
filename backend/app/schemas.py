@@ -1644,6 +1644,7 @@ class MembershipOrderOut(BaseModel):
     status: str
     mock: bool = False
     pay_url: str | None = None
+    pay_form: str | None = None
     return_url: str = ""
     signup_url: str | None = None
     activation_code: str | None = None
