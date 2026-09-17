@@ -51,29 +51,31 @@ defineExpose({ dismiss })
     <div class="relative z-10 flex flex-col items-center px-6 text-center text-white">
       <div class="hidden md:flex flex-col items-center">
         <svg
-          class="listen-swipe-hint__mouse"
-          viewBox="0 0 72 96"
-          width="58"
-          height="78"
+          class="listen-swipe-hint__combo"
+          viewBox="0 0 160 176"
+          width="124"
+          height="136"
           aria-hidden="true"
         >
-          <rect x="16" y="4" width="40" height="88" rx="20" fill="#fff" />
-          <rect x="33" y="18" width="6" height="20" rx="3" fill="#d4d4d8" />
-        </svg>
-
-        <svg
-          class="mt-3 listen-swipe-hint__hand"
-          viewBox="0 0 88 108"
-          width="70"
-          height="86"
-          aria-hidden="true"
-        >
-          <path
-            fill="#fff"
-            d="M19 62.5c-6.8-3.6-15.2.2-16.4 8-.9 5.8 3.2 11 9 12.6 6.4 1.8 16.8 3.4 27.4 3.4h9.6c11.4 0 20.4-8 20.4-18.6V52c0-5.8-4.6-10.6-10.4-10.6-1.6 0-3.1.4-4.4 1V36.8c0-5.7-4.5-10.4-10.2-10.4h-1.2c-.4-5.8-5.2-10.4-11.2-10.4S21.6 20.6 21.2 26.4h-.8C14.6 26.4 10 31.2 10 37.2v21.6c2.4-2.8 5.6-4.8 9-5.3z"
-          />
-          <g class="listen-swipe-hint__index">
-            <rect x="37.5" y="4" width="14.5" height="48" rx="7.25" fill="#fff" />
+          <rect x="54" y="6" width="52" height="92" rx="26" fill="#fff" />
+          <rect x="76" y="22" width="8" height="26" rx="4" fill="#c4c4c8" />
+          <g class="listen-swipe-hint__hand">
+            <ellipse cx="88" cy="128" rx="30" ry="22" fill="#fff" />
+            <rect x="62" y="104" width="50" height="34" rx="17" fill="#fff" />
+            <rect
+              x="22"
+              y="108"
+              width="42"
+              height="17"
+              rx="8.5"
+              fill="#fff"
+              transform="rotate(-30 43 116.5)"
+            />
+            <rect x="94" y="98" width="18" height="34" rx="9" fill="#fff" />
+            <rect x="106" y="104" width="16" height="30" rx="8" fill="#fff" />
+            <g class="listen-swipe-hint__index">
+              <rect x="70" y="38" width="18" height="74" rx="9" fill="#fff" />
+            </g>
           </g>
         </svg>
       </div>
@@ -104,14 +106,18 @@ defineExpose({ dismiss })
 </template>
 
 <style scoped>
-.listen-swipe-hint__mouse,
+.listen-swipe-hint__combo {
+  overflow: visible;
+  filter: drop-shadow(0 8px 16px rgb(0 0 0 / 0.22));
+}
 .listen-swipe-hint__hand {
-  filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.28));
+  transform-box: fill-box;
+  transform-origin: 70% 80%;
 }
 .listen-swipe-hint__index {
   transform-box: fill-box;
   transform-origin: 50% 100%;
-  animation: listen-index-swipe 1.35s ease-in-out infinite;
+  animation: listen-index-swipe 1.4s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
   .listen-swipe-hint__index {
@@ -120,14 +126,14 @@ defineExpose({ dismiss })
 }
 @keyframes listen-index-swipe {
   0%,
-  14% {
-    transform: translateY(0);
+  12% {
+    transform: translateY(6px);
   }
   50% {
-    transform: translateY(-16px);
+    transform: translateY(-18px);
   }
   100% {
-    transform: translateY(0);
+    transform: translateY(6px);
   }
 }
 .listen-swipe-hint__stage {
