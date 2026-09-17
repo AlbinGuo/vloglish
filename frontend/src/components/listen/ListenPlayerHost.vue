@@ -41,7 +41,20 @@ function mediaEl() {
 function markReady() {
   const el = mediaEl()
   if (!el || !canTeleport.value) return
-  if (el.videoWidth > 0 && el.readyState >= 2) videoReady.value = true
+  if (el.videoWidth > 0 && el.readyState >= 2) {
+    videoReady.value = true
+    return
+  }
+  if (!el.paused && el.readyState >= 2 && el.currentTime > 0.05) {
+    videoReady.value = true
+  }
+}
+
+function bindFrameCallback(el: HTMLVideoElement) {
+  if (!('requestVideoFrameCallback' in el)) return
+  el.requestVideoFrameCallback(() => {
+    if (canTeleport.value) videoReady.value = true
+  })
 }
 
 function resetReady() {
@@ -61,7 +74,7 @@ async function recoverSurface() {
   }
   const el = mediaEl()
   if (!el) return
-  if (listen.isPlaying && el.paused) {
+  if (listen.isPlaying) {
     try {
       await listen.play()
     } catch {
@@ -76,14 +89,35 @@ async function recoverSurface() {
       /* ignore */
     }
   }
+  if (canTeleport.value && listen.isPlaying) bindFrameCallback(el)
   markReady()
+  if (canTeleport.value && listen.isPlaying && !videoReady.value) {
+    window.setTimeout(() => {
+      if (canTeleport.value && listen.isPlaying) videoReady.value = true
+    }, 280)
+  }
 }
 
 watch(canTeleport, async (ready) => {
+  if (!ready) {
+    videoReady.value = false
+    return
+  }
   await nextTick()
-  const el = listen.videoEl
-  if (el && el.paused && listen.isPlaying) void listen.play()
-  if (ready) scheduleRecover()
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve())
+  })
+  const el = mediaEl()
+  if (el && listen.isPlaying) {
+    try {
+      await listen.play()
+    } catch {
+      /* ignore */
+    }
+    bindFrameCallback(el)
+  }
+  markReady()
+  scheduleRecover()
 })
 
 watch(
@@ -133,11 +167,7 @@ function onLoadedMeta() {
 function onPlaying() {
   listen.syncFromVideo()
   const el = mediaEl()
-  if (el && 'requestVideoFrameCallback' in el) {
-    el.requestVideoFrameCallback(() => {
-      if (canTeleport.value) videoReady.value = true
-    })
-  }
+  if (el) bindFrameCallback(el)
   markReady()
 }
 

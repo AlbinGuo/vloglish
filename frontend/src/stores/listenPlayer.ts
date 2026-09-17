@@ -82,6 +82,8 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   let ignoreEndedUntil = 0
   let playRetry = 0
   let holdPlayingUntil = 0
+  let inFlightId = ''
+  let loadWaiters: Array<() => void> = []
 
   const currentVideoId = computed(() => episode.value?.video_id || '')
   const subs = computed(() => episode.value?.subtitles ?? [])
@@ -286,6 +288,14 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
       if (autoplay) await play()
       return
     }
+    if (loading.value && inFlightId === videoId) {
+      await new Promise<void>((resolve) => {
+        loadWaiters.push(resolve)
+      })
+      if (autoplay) await play()
+      return
+    }
+    inFlightId = videoId
     loading.value = true
     loadError.value = ''
     ignoreEndedUntil = Date.now() + 1200
@@ -327,6 +337,10 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
       loadError.value = err instanceof Error ? err.message : '无法加载节目'
     } finally {
       loading.value = false
+      inFlightId = ''
+      const waiters = loadWaiters
+      loadWaiters = []
+      waiters.forEach((fn) => fn())
     }
   }
 
@@ -416,16 +430,15 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   }
 
   async function playFromQueue(videoId: string, expand = false) {
-    await loadEpisode(videoId)
-    const onListenPage = router.currentRoute.value.name === 'ListenEpisode'
-    if (onListenPage) {
-      if (router.currentRoute.value.params.videoId !== videoId) {
-        await router.replace(`/english/listen/${videoId}`)
-      }
-      return
-    }
-    if (expand) {
+    if (expand && router.currentRoute.value.name !== 'ListenEpisode') {
       await router.push(`/english/listen/${videoId}`)
+    }
+    await loadEpisode(videoId)
+    if (
+      router.currentRoute.value.name === 'ListenEpisode' &&
+      router.currentRoute.value.params.videoId !== videoId
+    ) {
+      await router.replace(`/english/listen/${videoId}`)
     }
   }
 
