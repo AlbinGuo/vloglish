@@ -1,6 +1,7 @@
 import { computed, onMounted, onUnmounted, ref, type Ref } from 'vue'
 
 import type { Subtitle } from '@/types'
+import { resumeMedia } from '@/utils/playMedia'
 
 
 
@@ -327,10 +328,8 @@ export function usePlayerControls(opts: PlayerControlOptions) {
     loopMode.value = 'sentence'
     const v = getVideo()
     if (!v) return
-    void v.play().then(() => {
-      isPlaying.value = true
-    }).catch(() => {
-      isPlaying.value = false
+    void resumeMedia(v).then((ok) => {
+      isPlaying.value = ok
     })
   }
 
@@ -421,9 +420,10 @@ export function usePlayerControls(opts: PlayerControlOptions) {
       skipGapHold()
       return
     }
-    if (v.paused) {
-      void v.play()
-      isPlaying.value = true
+    if (v.paused || v.ended) {
+      void resumeMedia(v).then((ok) => {
+        isPlaying.value = ok
+      })
     } else {
       v.pause()
       isPlaying.value = false

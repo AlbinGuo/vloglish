@@ -84,7 +84,7 @@ function layerShift(index: -1 | 0 | 1) {
   }
 }
 
-const SWIPE_THRESHOLD = 88
+const SWIPE_THRESHOLD = 56
 const WHEEL_COOLDOWN_MS = 700
 let touchStartX = 0
 let touchStartY = 0
@@ -124,7 +124,7 @@ const swipeHintRef = ref<{ dismiss: () => void } | null>(null)
 
 function isBlockedTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false
-  return Boolean(target.closest('input[type="range"]'))
+  return Boolean(target.closest('input[type="range"], textarea, select, [data-listen-no-swipe]'))
 }
 
 function listConsumes(dy: number) {
@@ -138,7 +138,7 @@ function listConsumes(dy: number) {
 }
 
 function swipeThreshold() {
-  return Math.max(SWIPE_THRESHOLD, pageH.value * 0.18)
+  return Math.max(SWIPE_THRESHOLD, pageH.value * 0.1)
 }
 
 async function switchBySwipe(dir: 'next' | 'prev') {
@@ -174,6 +174,7 @@ async function switchBySwipe(dir: 'next' | 'prev') {
 
 function onTouchStart(e: TouchEvent) {
   if (overlayOpen() || switching.value || sheetAnimating.value || e.touches.length !== 1) return
+  if (pageRoot.value && e.target instanceof Node && !pageRoot.value.contains(e.target)) return
   if (isBlockedTarget(e.target)) return
   const t = e.touches[0]
   if (!t) return
@@ -258,19 +259,21 @@ let swipeCleanup: (() => void) | null = null
 
 function bindSwipe() {
   unbindSwipe()
+  const startOpts: AddEventListenerOptions = { passive: false, capture: true }
+  const moveOpts: AddEventListenerOptions = { passive: false, capture: true }
+  const endOpts: AddEventListenerOptions = { capture: true }
+  window.addEventListener('touchstart', onTouchStart, startOpts)
+  window.addEventListener('touchmove', onTouchMove, moveOpts)
+  window.addEventListener('touchend', onTouchEnd, endOpts)
+  window.addEventListener('touchcancel', onTouchEnd, endOpts)
   const el = pageRoot.value
-  if (!el) return
-  el.addEventListener('touchstart', onTouchStart, { passive: true, capture: true })
-  el.addEventListener('touchmove', onTouchMove, { passive: false, capture: true })
-  el.addEventListener('touchend', onTouchEnd, { capture: true })
-  el.addEventListener('touchcancel', onTouchEnd, { capture: true })
-  el.addEventListener('wheel', onWheel, { passive: false, capture: true })
+  el?.addEventListener('wheel', onWheel, { passive: false, capture: true })
   swipeCleanup = () => {
-    el.removeEventListener('touchstart', onTouchStart, true)
-    el.removeEventListener('touchmove', onTouchMove, true)
-    el.removeEventListener('touchend', onTouchEnd, true)
-    el.removeEventListener('touchcancel', onTouchEnd, true)
-    el.removeEventListener('wheel', onWheel, true)
+    window.removeEventListener('touchstart', onTouchStart, true)
+    window.removeEventListener('touchmove', onTouchMove, true)
+    window.removeEventListener('touchend', onTouchEnd, true)
+    window.removeEventListener('touchcancel', onTouchEnd, true)
+    el?.removeEventListener('wheel', onWheel, true)
   }
 }
 
@@ -284,9 +287,24 @@ watch(pageRoot, () => {
   measurePage()
 })
 
+let rangeSeeking = false
+let rangeResume = false
+
 function onSeekInput(event: Event) {
   const el = event.target as HTMLInputElement
-  listen.seek(Number(el.value))
+  if (!rangeSeeking) {
+    rangeSeeking = true
+    rangeResume = listen.isPlaying || Boolean(listen.videoEl && !listen.videoEl.paused)
+  }
+  listen.seek(Number(el.value), { resume: false })
+  if (rangeResume) listen.isPlaying = true
+}
+
+function onSeekChange(event: Event) {
+  const el = event.target as HTMLInputElement
+  listen.seek(Number(el.value), { resume: rangeResume })
+  rangeSeeking = false
+  rangeResume = false
 }
 
 async function toggleFavorite() {
@@ -375,6 +393,10 @@ const swipeHint = computed(() => {
   if (Math.abs(dragY.value) < 36) return ''
   return dragY.value < 0 ? '松开切换下一集' : '松开切换上一集'
 })
+
+const showCoverPlaceholder = computed(
+  () => Boolean(listen.coverUrl) && !listen.surfaceReady,
+)
 
 const backdropTint = computed(() => {
   const seed = listen.currentVideoId || listen.coverUrl || 'listen'
@@ -481,11 +503,14 @@ const backdropTint = computed(() => {
                 <div class="listen-page__video-sizer" aria-hidden="true" />
                 <img
                   v-if="listen.coverUrl"
+                  :key="listen.coverKey || listen.coverUrl"
                   :src="listen.coverUrl"
                   alt=""
-                  class="absolute inset-0 w-full h-full object-cover"
+                  class="absolute inset-0 z-[2] w-full h-full object-cover pointer-events-none transition-opacity duration-200"
+                  :class="showCoverPlaceholder ? 'opacity-100' : 'opacity-0'"
                 />
                 <div id="listen-video-slot" class="absolute inset-0 z-[1] overflow-hidden" />
+                <div class="absolute inset-0 z-[3]" aria-hidden="true" />
               </div>
             </div>
             <ListenCue v-if="listen.viewMode === 'video' && listen.episode" compact />
@@ -580,6 +605,7 @@ const backdropTint = computed(() => {
               step="0.1"
               :value="progressValue"
               @input="onSeekInput"
+              @change="onSeekChange"
             />
             <div class="mt-1 flex justify-between text-[11px] text-white/70 tabular-nums">
               <span>{{ formatListenTime(listen.currentTime) }}</span>
@@ -701,6 +727,8 @@ const backdropTint = computed(() => {
 <style scoped>
 .listen-page-sheet {
   will-change: transform;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 .listen-side-arrow {
   display: flex;
@@ -798,6 +826,8 @@ const backdropTint = computed(() => {
   object-position: center;
   background: #111;
   z-index: 1;
+  opacity: 1;
+  pointer-events: none;
 }
 .listen-seek {
   appearance: none;

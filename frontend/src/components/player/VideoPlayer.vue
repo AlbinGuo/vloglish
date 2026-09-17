@@ -3,6 +3,7 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import type { usePlayerControls } from '@/composables/usePlayerControls'
 import VideoProgressBar from '@/components/player/VideoProgressBar.vue'
 import playIcon from '@/assets/svg/play2.svg'
+import { resumeMedia } from '@/utils/playMedia'
 
 const HIDE_DELAY_MS = 3000
 
@@ -137,7 +138,7 @@ const showCenterPlay = computed(
 function onLoadedMetadata() {
   const v = videoEl.value
   if (props.autoplay && v) {
-    void v.play().catch(() => {})
+    void resumeMedia(v).catch(() => {})
   }
 }
 
@@ -194,6 +195,8 @@ onUnmounted(() => {
       :src="src"
       :poster="poster"
       playsinline
+      webkit-playsinline
+      referrerpolicy="no-referrer"
       class="w-full h-full object-contain bg-black cursor-pointer"
       @loadedmetadata="onLoadedMetadata"
       @durationchange="onLoadedMetadata"

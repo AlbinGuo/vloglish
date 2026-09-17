@@ -74,7 +74,7 @@ def episode_detail(
     include_source_url: bool = False,
     is_favorite: bool = False,
 ) -> dict:
-    thumb = episode.thumbnail_url or episode.cover
+    cover = episode.cover or episode.thumbnail_url
     return {
         "episode": {
             "index": episode.index,
@@ -90,6 +90,7 @@ def episode_detail(
             "original_video_url": episode.original_video_url if include_source_url else "",
             "author": author_dict(episode.author),
             "tags": tags_list(episode),
+            "cover": resolve_cover_url(cover),
             "media": {
                 "video_url": resolve_video_url(
                     video_id=episode.video_id,
@@ -102,7 +103,7 @@ def episode_detail(
                     video_url=episode.video_url,
                     original_video_url=episode.original_video_url,
                 ),
-                "thumbnail_url": resolve_cover_url(thumb),
+                "thumbnail_url": resolve_cover_url(cover),
             },
             "subtitles": [
                 {

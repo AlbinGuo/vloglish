@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { resumeMedia } from '@/utils/playMedia'
 
 const props = withDefaults(
   defineProps<{
@@ -51,11 +52,18 @@ function seekFromClientX(clientX: number) {
 }
 
 function onTrackClick(e: MouseEvent) {
+  const v = props.video
+  const resume = Boolean(v && !v.paused)
   seekFromClientX(e.clientX)
+  if (v && resume) {
+    void resumeMedia(v)
+  }
 }
 
 function onThumbDown(e: PointerEvent) {
   dragging.value = true
+  const v = props.video
+  const resume = Boolean(v && !v.paused)
   seekFromClientX(e.clientX)
 
   const onMove = (ev: PointerEvent) => seekFromClientX(ev.clientX)
@@ -63,6 +71,7 @@ function onThumbDown(e: PointerEvent) {
     dragging.value = false
     window.removeEventListener('pointermove', onMove)
     window.removeEventListener('pointerup', onUp)
+    if (v && resume) void resumeMedia(v)
   }
   window.addEventListener('pointermove', onMove)
   window.addEventListener('pointerup', onUp)

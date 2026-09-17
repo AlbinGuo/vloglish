@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { EpisodeDetail, EpisodeSummary, Subtitle } from '@/types'
 import { resolveDisplaySub } from '@/utils/subtitleHtml'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
+import { resumeMedia, seekMedia } from '@/utils/playMedia'
 
 export type ListenViewMode = 'video' | 'subtitles'
 export type ListenPlaylistTab = 'queue' | 'favorites' | 'history'
@@ -37,7 +38,7 @@ function toQueueItem(episode: EpisodeDetail): ListenQueueItem {
   return {
     video_id: episode.video_id,
     short_title: episode.short_title,
-    cover: episode.media.thumbnail_url || '',
+    cover: episode.cover || episode.media.thumbnail_url || '',
     clip_length: durationOf(episode),
     author_name: episode.author?.name || '',
   }
@@ -80,7 +81,6 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   let pendingPlay = false
   let hydrated = false
   let ignoreEndedUntil = 0
-  let playRetry = 0
   let holdPlayingUntil = 0
   let inFlightId = ''
   let loadWaiters: Array<() => void> = []
@@ -101,7 +101,26 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     queue.value.findIndex((item) => item.video_id === currentVideoId.value),
   )
   const hasSession = computed(() => Boolean(episode.value))
-  const coverUrl = computed(() => resolveMediaUrl(episode.value?.media.thumbnail_url || ''))
+  const incomingId = ref('')
+  const incomingCover = ref('')
+  const surfaceReady = ref(false)
+  const coverUrl = computed(() => {
+    if (incomingCover.value) return incomingCover.value
+    return resolveMediaUrl(episode.value?.cover || episode.value?.media.thumbnail_url || '')
+  })
+  const coverKey = computed(() => incomingId.value || currentVideoId.value)
+
+  function pinIncomingCover(videoId: string) {
+    incomingId.value = videoId
+    const queued = queue.value.find((row) => row.video_id === videoId)
+    incomingCover.value = resolveMediaUrl(queued?.cover || '')
+    surfaceReady.value = false
+  }
+
+  function markSurfaceReady() {
+    if (incomingId.value && incomingId.value !== currentVideoId.value) return
+    surfaceReady.value = true
+  }
   const mediaSrc = computed(() => {
     const media = episode.value?.media
     if (!media) return ''
@@ -175,17 +194,33 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     void play()
   }
 
+  function liveMedia() {
+    const el = videoEl.value
+    if (el && el.isConnected) return el
+    const live = document.getElementById('listen-video-slot')?.querySelector('video, audio')
+    const parked = document.querySelector('video.listen-engine-video')
+    const found = live || parked
+    if (found instanceof HTMLMediaElement) {
+      videoEl.value = found
+      return found
+    }
+    return null
+  }
+
   function registerVideo(el: HTMLMediaElement | null) {
-    if (!el) return
+    if (!el) {
+      const cur = videoEl.value
+      if (cur && !cur.isConnected) videoEl.value = null
+      return
+    }
     const isNew = videoEl.value !== el
     videoEl.value = el
     if (el instanceof HTMLVideoElement) {
       el.playsInline = true
       el.setAttribute('playsinline', 'true')
       el.setAttribute('webkit-playsinline', 'true')
-      el.setAttribute('x5-playsinline', 'true')
-      el.setAttribute('x5-video-player-type', 'h5')
-      el.setAttribute('x5-video-player-fullscreen', 'false')
+      el.setAttribute('referrerpolicy', 'no-referrer')
+      if (coverUrl.value) el.setAttribute('poster', coverUrl.value)
     }
     el.preload = 'auto'
     el.playbackRate = playbackRate.value
@@ -198,14 +233,7 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   }
 
   function syncFromVideo() {
-    let el = videoEl.value
-    if (!el || !el.isConnected) {
-      const live = document.getElementById('listen-video-slot')?.querySelector('video, audio')
-      const parked = document.querySelector('video.listen-engine-video')
-      const found = live || parked
-      el = found instanceof HTMLMediaElement ? found : null
-      if (el) videoEl.value = el
-    }
+    let el = liveMedia()
     if (!el) return
     currentTime.value = el.currentTime || 0
     if (el.paused && Date.now() < holdPlayingUntil) {
@@ -299,9 +327,13 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     loading.value = true
     loadError.value = ''
     ignoreEndedUntil = Date.now() + 1200
+    pinIncomingCover(videoId)
     try {
       const data = await getEpisodeDetail(videoId)
       episode.value = data.episode
+      incomingCover.value = resolveMediaUrl(
+        data.episode.cover || data.episode.media.thumbnail_url || incomingCover.value,
+      )
       await ensureQueueFor(data.episode)
       currentTime.value = 0
       await nextTick()
@@ -353,7 +385,7 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   }
 
   async function play() {
-    const el = videoEl.value
+    const el = liveMedia()
     if (!el) {
       pendingPlay = true
       isPlaying.value = true
@@ -361,45 +393,41 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     }
     pendingPlay = false
     el.playbackRate = playbackRate.value
-    try {
-      const pending = el.play()
-      isPlaying.value = true
-      await pending
-      isPlaying.value = !el.paused && !el.ended
-      playRetry = 0
-    } catch (err) {
-      const name = err instanceof DOMException ? err.name : ''
-      if (name === 'AbortError' && playRetry < 4) {
-        playRetry += 1
-        pendingPlay = true
-        window.setTimeout(() => {
-          if (pendingPlay) void play()
-        }, 160)
-        return
-      }
-      playRetry = 0
-      isPlaying.value = !el.paused && !el.ended
-    }
+    isPlaying.value = true
+    holdPlayingUntil = Date.now() + 1800
+    const ok = await resumeMedia(el)
+    isPlaying.value = ok || (!el.paused && !el.ended)
   }
 
   function pause() {
     pendingPlay = false
     holdPlayingUntil = 0
-    videoEl.value?.pause()
+    liveMedia()?.pause()
     isPlaying.value = false
     void flushProgress(true)
   }
 
   async function togglePlay() {
-    if (isPlaying.value) pause()
-    else await play()
+    const el = liveMedia()
+    const paused = el ? el.paused || el.ended : !isPlaying.value
+    if (paused) await play()
+    else pause()
   }
 
-  function seek(sec: number) {
-    const el = videoEl.value
+  function seek(sec: number, opts?: { resume?: boolean }) {
+    const el = liveMedia()
     const next = Math.max(0, Math.min(duration.value || sec, sec))
     currentTime.value = next
-    if (el) el.currentTime = next
+    const resume = opts?.resume ?? (isPlaying.value || Boolean(el && !el.paused))
+    if (resume) {
+      isPlaying.value = true
+      holdPlayingUntil = Date.now() + 1800
+    }
+    if (!el) return
+    void seekMedia(el, next, { resume }).then(() => {
+      currentTime.value = el.currentTime || next
+      if (resume) isPlaying.value = !el.paused && !el.ended
+    })
   }
 
   function seekToSub(sub: Subtitle) {
@@ -500,6 +528,9 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   }
 
   async function openEpisode(videoId: string) {
+    pendingPlay = true
+    isPlaying.value = true
+    holdPlayingUntil = Date.now() + 2500
     await loadEpisode(videoId)
     if (router.currentRoute.value.path !== `/english/listen/${videoId}`) {
       await router.push(`/english/listen/${videoId}`)
@@ -580,6 +611,14 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     return results.map(summaryToQueueItem)
   }
 
+  watch(coverUrl, (url) => {
+    const el = liveMedia()
+    if (el instanceof HTMLVideoElement) {
+      if (url) el.setAttribute('poster', url)
+      else el.removeAttribute('poster')
+    }
+  })
+
   watch(viewMode, (mode) => {
     try {
       localStorage.setItem(VIEW_KEY, mode)
@@ -615,6 +654,9 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     queueIndex,
     hasSession,
     coverUrl,
+    coverKey,
+    surfaceReady,
+    markSurfaceReady,
     mediaSrc,
     audioSrc,
     sleepLeftSec,

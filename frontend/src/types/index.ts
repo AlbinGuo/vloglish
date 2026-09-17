@@ -102,6 +102,7 @@ export interface EpisodeDetail {
   original_video_url: string
   author: Author
   tags: Tag[]
+  cover?: string
   media: {
     video_url: string
     audio_url: string

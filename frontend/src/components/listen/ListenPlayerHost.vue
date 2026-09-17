@@ -10,7 +10,6 @@ const expandedVideo = computed(
   () => route.name === 'ListenEpisode' && Boolean(listen.episode),
 )
 const canTeleport = ref(false)
-const videoReady = ref(false)
 let recoverTimer: ReturnType<typeof setTimeout> | null = null
 let srcWatchReady = false
 
@@ -33,91 +32,34 @@ async function syncTeleportTarget() {
   }
 }
 
-function mediaEl() {
-  const el = listen.videoEl
-  return el instanceof HTMLVideoElement ? el : null
-}
-
-function markReady() {
-  const el = mediaEl()
-  if (!el || !canTeleport.value) return
-  if (el.videoWidth > 0 && el.readyState >= 2) {
-    videoReady.value = true
-    return
-  }
-  if (!el.paused && el.readyState >= 2 && el.currentTime > 0.05) {
-    videoReady.value = true
-  }
-}
-
-function bindFrameCallback(el: HTMLVideoElement) {
-  if (!('requestVideoFrameCallback' in el)) return
-  el.requestVideoFrameCallback(() => {
-    if (canTeleport.value) videoReady.value = true
-  })
-}
-
-function resetReady() {
-  videoReady.value = false
-}
-
 function scheduleRecover() {
   if (recoverTimer) clearTimeout(recoverTimer)
   recoverTimer = setTimeout(() => {
     void recoverSurface()
-  }, 700)
+  }, 240)
 }
 
 async function recoverSurface() {
   if (expandedVideo.value && !canTeleport.value) {
     await syncTeleportTarget()
   }
-  const el = mediaEl()
-  if (!el) return
-  if (listen.isPlaying) {
-    try {
-      await listen.play()
-    } catch {
-      /* ignore */
-    }
-  }
-  if (listen.isPlaying && canTeleport.value && el.videoWidth === 0 && el.readyState >= 2) {
-    const t = el.currentTime
-    try {
-      el.currentTime = Math.max(0, t + 0.001)
-    } catch {
-      /* ignore */
-    }
-  }
-  if (canTeleport.value && listen.isPlaying) bindFrameCallback(el)
-  markReady()
-  if (canTeleport.value && listen.isPlaying && !videoReady.value) {
-    window.setTimeout(() => {
-      if (canTeleport.value && listen.isPlaying) videoReady.value = true
-    }, 280)
+  if (!listen.isPlaying) return
+  try {
+    await listen.play()
+  } catch {
+    /* ignore */
   }
 }
 
 watch(canTeleport, async (ready) => {
-  if (!ready) {
-    videoReady.value = false
-    return
-  }
   await nextTick()
-  await new Promise<void>((resolve) => {
-    requestAnimationFrame(() => resolve())
-  })
-  const el = mediaEl()
-  if (el && listen.isPlaying) {
+  if (ready && listen.isPlaying) {
     try {
       await listen.play()
     } catch {
       /* ignore */
     }
-    bindFrameCallback(el)
   }
-  markReady()
-  scheduleRecover()
 })
 
 watch(
@@ -129,9 +71,15 @@ watch(
 )
 
 watch(
+  () => listen.viewMode,
+  (mode) => {
+    if (mode === 'video' && expandedVideo.value) scheduleRecover()
+  },
+)
+
+watch(
   () => listen.mediaSrc,
   () => {
-    resetReady()
     if (!srcWatchReady) {
       srcWatchReady = true
       return
@@ -143,6 +91,7 @@ watch(
 function bindEl(el: Element | { $el?: Element } | null) {
   const node = el && '$el' in el ? el.$el : el
   if (node instanceof HTMLMediaElement) listen.registerVideo(node)
+  else listen.registerVideo(null)
 }
 
 function onEnded() {
@@ -160,20 +109,16 @@ function onLoadedMeta() {
   }
   listen.syncFromVideo()
   updatePositionState()
-  markReady()
   if (listen.isPlaying && el?.paused) void listen.play()
 }
 
 function onPlaying() {
   listen.syncFromVideo()
-  const el = mediaEl()
-  if (el) bindFrameCallback(el)
-  markReady()
+  listen.markSurfaceReady()
 }
 
 function onTimeUpdate() {
   listen.syncFromVideo()
-  markReady()
   updatePositionState()
 }
 
@@ -257,50 +202,73 @@ function onVisibility() {
     scheduleRecover()
   }
 }
+
+const videoListeners = {
+  timeupdate: onTimeUpdate,
+  play: () => listen.syncFromVideo(),
+  playing: onPlaying,
+  pause: () => listen.syncFromVideo(),
+  ended: onEnded,
+  loadedmetadata: onLoadedMeta,
+  canplay: () => {
+    if (listen.isPlaying) void listen.play()
+  },
+  waiting: scheduleRecover,
+}
 </script>
 
 <template>
-  <Teleport to="#listen-video-slot" :disabled="!canTeleport" defer>
+  <!--
+    Android WebView 不能把正在播的 video 挪 DOM（Teleport 会只剩声音、画面停在封面）。
+    进听页时在槽里新建播放器，折叠时另建停车实例。
+  -->
+  <Teleport v-if="canTeleport" to="#listen-video-slot">
     <video
+      :key="listen.currentVideoId || 'parked'"
       :ref="bindEl"
-      class="listen-engine-video"
-      :class="{ 'listen-engine-video--ready': canTeleport && videoReady }"
+      class="listen-engine-video listen-engine-video--docked"
       :src="listen.mediaSrc"
+      :poster="listen.coverUrl || undefined"
       playsinline
       webkit-playsinline
-      x5-video-player-type="h5"
-      x5-video-player-fullscreen="false"
+      referrerpolicy="no-referrer"
       preload="auto"
-      @timeupdate="onTimeUpdate"
-      @play="listen.syncFromVideo()"
-      @playing="onPlaying"
-      @pause="listen.syncFromVideo()"
-      @ended="onEnded"
-      @loadedmetadata="onLoadedMeta"
-      @loadeddata="markReady"
-      @canplay="markReady"
-      @waiting="scheduleRecover"
+      v-on="videoListeners"
     />
   </Teleport>
+  <video
+    v-else
+    :key="listen.currentVideoId || 'parked'"
+    :ref="bindEl"
+    class="listen-engine-video listen-engine-video--parked"
+    :src="listen.mediaSrc"
+    :poster="listen.coverUrl || undefined"
+    playsinline
+    webkit-playsinline
+    referrerpolicy="no-referrer"
+    preload="auto"
+    v-on="videoListeners"
+  />
 </template>
 
 <style scoped>
-/* 默认停在布局外：切页时绝不能先套 inset:0，否则会按视口铺满盖住听页 */
-.listen-engine-video {
+.listen-engine-video--parked {
   position: fixed !important;
-  width: 1px !important;
-  height: 1px !important;
-  opacity: 0;
-  pointer-events: none;
-  left: -80px;
+  width: 320px !important;
+  height: 180px !important;
+  left: -480px;
   bottom: 0;
   z-index: 0;
+  opacity: 1;
+  pointer-events: none;
   object-fit: contain;
+  background: #000;
 }
 </style>
 
 <style>
-#listen-video-slot > .listen-engine-video {
+#listen-video-slot > .listen-engine-video,
+.listen-engine-video--docked {
   position: absolute !important;
   inset: 0 !important;
   left: 0 !important;
@@ -312,13 +280,11 @@ function onVisibility() {
   max-height: none !important;
   object-fit: contain;
   object-position: center;
-  background: transparent;
-  pointer-events: auto;
-  opacity: 0;
-  z-index: 1;
-  transition: opacity 160ms ease;
-}
-#listen-video-slot > .listen-engine-video.listen-engine-video--ready {
+  background: #111;
+  pointer-events: none;
   opacity: 1;
+  z-index: 2;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 </style>
