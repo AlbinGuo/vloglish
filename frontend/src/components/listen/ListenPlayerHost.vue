@@ -234,11 +234,7 @@ function onVisibility() {
     <video
       :ref="bindEl"
       class="listen-engine-video"
-      :class="{
-        'listen-engine-video--live': canTeleport,
-        'listen-engine-video--parked': !canTeleport,
-        'listen-engine-video--ready': canTeleport && videoReady,
-      }"
+      :class="{ 'listen-engine-video--ready': canTeleport && videoReady }"
       :src="listen.mediaSrc"
       playsinline
       webkit-playsinline
@@ -259,7 +255,8 @@ function onVisibility() {
 </template>
 
 <style scoped>
-.listen-engine-video--parked {
+/* 默认停在布局外：切页时绝不能先套 inset:0，否则会按视口铺满盖住听页 */
+.listen-engine-video {
   position: fixed !important;
   width: 1px !important;
   height: 1px !important;
@@ -268,20 +265,30 @@ function onVisibility() {
   left: -80px;
   bottom: 0;
   z-index: 0;
+  object-fit: contain;
 }
-.listen-engine-video--live {
+</style>
+
+<style>
+#listen-video-slot > .listen-engine-video {
   position: absolute !important;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
+  inset: 0 !important;
+  left: 0 !important;
+  bottom: auto !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
   object-fit: contain;
   object-position: center;
   background: transparent;
+  pointer-events: auto;
   opacity: 0;
+  z-index: 1;
   transition: opacity 160ms ease;
 }
-.listen-engine-video--ready {
+#listen-video-slot > .listen-engine-video.listen-engine-video--ready {
   opacity: 1;
 }
 </style>

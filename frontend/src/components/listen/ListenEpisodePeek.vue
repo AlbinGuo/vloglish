@@ -90,14 +90,19 @@ const tint = computed(() => tintFor(props.item.video_id))
 }
 @media (min-width: 768px) {
   .listen-peek__video {
-    max-width: 48rem;
     min-height: 16rem;
     border-radius: 1rem;
+    max-width: min(52rem, calc(100vw - 5rem), calc((100dvh - 24rem) * 16 / 9));
   }
 }
 @media (min-width: 1024px) {
   .listen-peek__video {
-    max-width: 56rem;
+    max-width: min(64rem, calc(100vw - 6rem), calc((100dvh - 22rem) * 16 / 9));
+  }
+}
+@media (min-width: 1440px) {
+  .listen-peek__video {
+    max-width: min(74rem, calc(100vw - 8rem), calc((100dvh - 20rem) * 16 / 9));
   }
 }
 .listen-peek__video-sizer {

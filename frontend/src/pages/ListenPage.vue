@@ -238,6 +238,22 @@ function onWheel(e: WheelEvent) {
   void switchBySwipe(e.deltaY > 0 ? 'next' : 'prev')
 }
 
+function onKeyDown(e: KeyboardEvent) {
+  if (overlayOpen() || switching.value || sheetAnimating.value || !canSwipeSwitch.value) return
+  if (e.target instanceof HTMLElement) {
+    if (e.target.closest('input, textarea, select') || e.target.isContentEditable) return
+  }
+  if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+    e.preventDefault()
+    void switchBySwipe('next')
+    return
+  }
+  if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+    e.preventDefault()
+    void switchBySwipe('prev')
+  }
+}
+
 let swipeCleanup: (() => void) | null = null
 
 function bindSwipe() {
@@ -327,6 +343,7 @@ onMounted(() => {
   measurePage()
   bindSwipe()
   window.addEventListener('resize', measurePage)
+  window.addEventListener('keydown', onKeyDown)
   if (listen.sheetMotion !== 'opening') return
   if (prefersReducedMotion()) {
     sheetY.value = 0
@@ -347,6 +364,7 @@ onMounted(() => {
 onUnmounted(() => {
   unbindSwipe()
   window.removeEventListener('resize', measurePage)
+  window.removeEventListener('keydown', onKeyDown)
   if (sheetTimer) clearTimeout(sheetTimer)
   if (listen.sheetMotion === 'opening') {
     listen.sheetMotion = 'idle'
@@ -628,7 +646,6 @@ const backdropTint = computed(() => {
             </button>
           </div>
         </div>
-        <ListenSwipeHint ref="swipeHintRef" />
         </div>
       </div>
     </div>
@@ -647,6 +664,36 @@ const backdropTint = computed(() => {
     >
       {{ swipeHint }}
     </p>
+
+    <div
+      v-if="canSwipeSwitch"
+      class="hidden md:flex absolute right-3 lg:right-5 top-1/2 z-30 -translate-y-1/2 flex-col gap-3"
+    >
+      <button
+        type="button"
+        class="listen-side-arrow"
+        aria-label="上一集"
+        :disabled="switching"
+        @click="switchBySwipe('prev')"
+      >
+        <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 14l6-6 6 6" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="listen-side-arrow"
+        aria-label="下一集"
+        :disabled="switching"
+        @click="switchBySwipe('next')"
+      >
+        <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 10l6 6 6-6" />
+        </svg>
+      </button>
+    </div>
+
+    <ListenSwipeHint ref="swipeHintRef" />
     <ListenMoreSheet v-model:open="moreOpen" />
   </div>
 </template>
@@ -654,6 +701,26 @@ const backdropTint = computed(() => {
 <style scoped>
 .listen-page-sheet {
   will-change: transform;
+}
+.listen-side-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  color: #fff;
+  background: rgb(0 0 0 / 0.38);
+  border: 1px solid rgb(255 255 255 / 0.22);
+  backdrop-filter: blur(10px);
+  transition: background 160ms ease, transform 160ms ease;
+}
+.listen-side-arrow:hover:not(:disabled) {
+  background: rgb(0 0 0 / 0.55);
+  transform: scale(1.06);
+}
+.listen-side-arrow:disabled {
+  opacity: 0.45;
 }
 .listen-page-sheet--animating {
   pointer-events: none;
@@ -675,14 +742,19 @@ const backdropTint = computed(() => {
 }
 @media (min-width: 768px) {
   .listen-page__video {
-    max-width: 48rem;
     min-height: 16rem;
     border-radius: 1rem;
+    max-width: min(52rem, calc(100vw - 5rem), calc((100dvh - 24rem) * 16 / 9));
   }
 }
 @media (min-width: 1024px) {
   .listen-page__video {
-    max-width: 56rem;
+    max-width: min(64rem, calc(100vw - 6rem), calc((100dvh - 22rem) * 16 / 9));
+  }
+}
+@media (min-width: 1440px) {
+  .listen-page__video {
+    max-width: min(74rem, calc(100vw - 8rem), calc((100dvh - 20rem) * 16 / 9));
   }
 }
 .listen-page__video-sizer {
