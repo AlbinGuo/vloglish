@@ -98,6 +98,29 @@ export async function resumeMedia(
   }
 }
 
+/** 只停播放，保留 src，给暂停按钮用 */
+export function pauseMedia(el: HTMLMediaElement | null | undefined) {
+  if (!el) return
+  try {
+    el.pause()
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 卸载 / 换实例前先停掉并断开资源，避免 Chrome 把已移除的 video 继续出声 */
+export function silenceMedia(el: HTMLMediaElement | null | undefined) {
+  pauseMedia(el)
+  if (!el) return
+  try {
+    el.removeAttribute('src')
+    el.srcObject = null
+    el.load()
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function seekMedia(
   el: HTMLMediaElement | null | undefined,
   time: number,

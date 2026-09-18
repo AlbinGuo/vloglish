@@ -98,7 +98,7 @@ watch(
           : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
       ]"
     >
-      听
+      收听
     </RouterLink>
     <RouterLink
       to="/english/series"

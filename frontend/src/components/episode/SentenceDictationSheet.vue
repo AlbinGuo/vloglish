@@ -39,6 +39,8 @@ const showReference = ref(
   })(),
 )
 const inputEls = ref<(HTMLInputElement | null)[]>([])
+/** iOS 拼音组字未结束时不要写回 :value / 跳格，否则会强制上屏并跳到下一格 */
+const composing = ref(false)
 
 const expected = computed(() => (props.subtitle?.english || '').trim())
 const chinese = computed(() => (props.subtitle?.chinese || '').trim())
@@ -66,6 +68,7 @@ function resetAnswers() {
   const n = expectedWords.value.length
   answers.value = Array.from({ length: n }, () => '')
   checked.value = false
+  composing.value = false
   inputEls.value = Array.from({ length: n }, () => null)
 }
 
@@ -99,23 +102,44 @@ function slotWidthCh(expectedWord: string, answer = '') {
   return Math.min(22, len + 3)
 }
 
-function onWordInput(index: number, event: Event) {
-  const el = event.target as HTMLInputElement
-  let value = el.value
-  if (/\s/.test(value)) {
-    value = value.replace(/\s+/g, '')
-    answers.value[index] = value
-    el.value = value
-    checked.value = false
-    if (index < expectedWords.value.length - 1) focusWord(index + 1)
-    return
-  }
+function isImeComposing(event?: Event | KeyboardEvent) {
+  if (composing.value) return true
+  if (event && 'isComposing' in event && event.isComposing) return true
+  return false
+}
+
+function commitWordInput(index: number, raw: string, el: HTMLInputElement) {
+  const value = /\s/.test(raw) ? raw.replace(/\s+/g, '') : raw
   answers.value[index] = value
+  if (el.value !== value) el.value = value
   checked.value = false
 }
 
-function onWordKeydown(index: number, event: KeyboardEvent) {
+function onCompositionStart() {
+  composing.value = true
+}
+
+function onCompositionEnd(index: number, event: CompositionEvent) {
+  composing.value = false
+  const el = event.target as HTMLInputElement | null
+  if (!el) return
+  commitWordInput(index, el.value, el)
+}
+
+function onWordInput(index: number, event: Event) {
+  if (isImeComposing(event)) return
   const el = event.target as HTMLInputElement
+  commitWordInput(index, el.value, el)
+}
+
+function onWordKeydown(index: number, event: KeyboardEvent) {
+  if (isImeComposing(event)) return
+  const el = event.target as HTMLInputElement
+  if (event.key === ' ' || event.code === 'Space') {
+    event.preventDefault()
+    if (index < expectedWords.value.length - 1) void focusWord(index + 1)
+    return
+  }
   if (event.key === 'Backspace' && !answers.value[index] && index > 0) {
     event.preventDefault()
     focusWord(index - 1)
@@ -271,6 +295,8 @@ function boxClass(index: number) {
                 :class="boxClass(index)"
                 :style="{ width: `${slotWidthCh(word, answers[index] ?? '')}ch`, minWidth: '4.5ch' }"
                 :readonly="checked"
+                @compositionstart="onCompositionStart"
+                @compositionend="onCompositionEnd(index, $event)"
                 @input="onWordInput(index, $event)"
                 @keydown="onWordKeydown(index, $event)"
               />

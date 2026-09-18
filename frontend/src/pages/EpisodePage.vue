@@ -2814,10 +2814,10 @@ function subtitleRowClass(index: number) {
           v-if="!adminPreview && episode"
           type="button"
           class="inline-flex items-center justify-center h-8 px-2.5 rounded-lg text-xs font-medium text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-300 dark:hover:text-white dark:hover:bg-neutral-800"
-          title="听模式"
+          title="收听模式"
           @click="goListenMode"
         >
-          听
+          收听
         </button>
         <button
           v-if="auth.isMember && !adminPreview"

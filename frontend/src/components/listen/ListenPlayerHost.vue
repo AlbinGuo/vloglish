@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useListenPlayerStore } from '@/stores/listenPlayer'
 import { useRoute } from 'vue-router'
+import { silenceMedia } from '@/utils/playMedia'
 
 const listen = useListenPlayerStore()
 const route = useRoute()
@@ -12,6 +13,7 @@ const expandedVideo = computed(
 const canTeleport = ref(false)
 let recoverTimer: ReturnType<typeof setTimeout> | null = null
 let srcWatchReady = false
+let boundEl: HTMLMediaElement | null = null
 
 async function syncTeleportTarget() {
   if (!expandedVideo.value) {
@@ -43,7 +45,7 @@ async function recoverSurface() {
   if (expandedVideo.value && !canTeleport.value) {
     await syncTeleportTarget()
   }
-  if (!listen.wantsPlayback()) return
+  if (!listen.isPlaying) return
   try {
     await listen.play()
   } catch {
@@ -53,7 +55,7 @@ async function recoverSurface() {
 
 watch(canTeleport, async (ready) => {
   await nextTick()
-  if (ready && listen.wantsPlayback()) {
+  if (ready && listen.isPlaying) {
     try {
       await listen.play()
     } catch {
@@ -65,7 +67,6 @@ watch(canTeleport, async (ready) => {
 watch(
   () => expandedVideo.value,
   () => {
-    listen.prepareSurfaceSwitch()
     void syncTeleportTarget()
   },
   { immediate: true },
@@ -91,16 +92,31 @@ watch(
 
 function bindEl(el: Element | { $el?: Element } | null) {
   const node = el && '$el' in el ? el.$el : el
-  if (node instanceof HTMLMediaElement) listen.registerVideo(node)
-  else listen.registerVideo(null)
+  const next = node instanceof HTMLMediaElement ? node : null
+  if (next) {
+    boundEl = next
+    listen.registerVideo(next)
+    return
+  }
+  if (boundEl && !boundEl.isConnected) {
+    silenceMedia(boundEl)
+    boundEl = null
+    listen.registerVideo(null)
+  }
 }
 
-function onEnded(e: Event) {
-  if (e.target && listen.videoEl && e.target !== listen.videoEl) return
+function isLiveEvent(event: Event) {
+  const el = listen.videoEl
+  return Boolean(el && event.target === el)
+}
+
+function onEnded(event: Event) {
+  if (!isLiveEvent(event)) return
   void listen.handleEnded()
 }
 
-function onLoadedMeta() {
+function onLoadedMeta(event: Event) {
+  if (!isLiveEvent(event)) return
   const el = listen.videoEl
   if (el && listen.currentTime > 0.4) {
     try {
@@ -111,15 +127,17 @@ function onLoadedMeta() {
   }
   listen.syncFromVideo()
   updatePositionState()
-  if (listen.wantsPlayback() && el?.paused) void listen.play()
+  if (listen.isPlaying && el?.paused) void listen.play()
 }
 
-function onPlaying() {
+function onPlaying(event: Event) {
+  if (!isLiveEvent(event)) return
   listen.syncFromVideo()
   listen.markSurfaceReady()
 }
 
-function onTimeUpdate() {
+function onTimeUpdate(event: Event) {
+  if (!isLiveEvent(event)) return
   listen.syncFromVideo()
   updatePositionState()
 }
@@ -188,6 +206,8 @@ onUnmounted(() => {
   if (typeof document !== 'undefined') {
     document.removeEventListener('visibilitychange', onVisibility)
   }
+  if (boundEl) silenceMedia(boundEl)
+  boundEl = null
 })
 
 function onVisibility() {
@@ -199,7 +219,7 @@ function onVisibility() {
   listen.syncFromVideo()
   applyMediaSession()
   if (expandedVideo.value) void syncTeleportTarget()
-  if (listen.wantsPlayback()) {
+  if (listen.isPlaying) {
     void listen.play()
     scheduleRecover()
   }
@@ -207,15 +227,25 @@ function onVisibility() {
 
 const videoListeners = {
   timeupdate: onTimeUpdate,
-  play: () => listen.syncFromVideo(),
+  play: (event: Event) => {
+    if (!isLiveEvent(event)) return
+    listen.syncFromVideo()
+  },
   playing: onPlaying,
-  pause: () => listen.syncFromVideo(),
+  pause: (event: Event) => {
+    if (!isLiveEvent(event)) return
+    listen.syncFromVideo()
+  },
   ended: onEnded,
   loadedmetadata: onLoadedMeta,
-  canplay: () => {
-    if (listen.wantsPlayback()) void listen.play()
+  canplay: (event: Event) => {
+    if (!isLiveEvent(event)) return
+    if (listen.isPlaying) void listen.play()
   },
-  waiting: scheduleRecover,
+  waiting: (event: Event) => {
+    if (!isLiveEvent(event)) return
+    scheduleRecover()
+  },
 }
 </script>
 
@@ -226,7 +256,7 @@ const videoListeners = {
   -->
   <Teleport v-if="canTeleport" to="#listen-video-slot">
     <video
-      :key="listen.currentVideoId || 'docked'"
+      :key="listen.currentVideoId || 'parked'"
       :ref="bindEl"
       class="listen-engine-video listen-engine-video--docked"
       :src="listen.mediaSrc"
@@ -239,7 +269,7 @@ const videoListeners = {
     />
   </Teleport>
   <video
-    v-else-if="!expandedVideo"
+    v-else
     :key="listen.currentVideoId || 'parked'"
     :ref="bindEl"
     class="listen-engine-video listen-engine-video--parked"
