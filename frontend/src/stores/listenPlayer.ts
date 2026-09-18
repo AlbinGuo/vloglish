@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { EpisodeDetail, EpisodeSummary, Subtitle } from '@/types'
 import { resolveDisplaySub } from '@/utils/subtitleHtml'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
-import { resumeMedia, seekMedia } from '@/utils/playMedia'
+import { pauseMedia, resumeMedia, seekMedia, silenceMedia } from '@/utils/playMedia'
 
 export type ListenViewMode = 'video' | 'subtitles'
 export type ListenPlaylistTab = 'queue' | 'favorites' | 'history'
@@ -194,6 +194,25 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     void play()
   }
 
+  function listenMediaNodes(keep?: HTMLMediaElement | null) {
+    if (typeof document === 'undefined') return [] as HTMLMediaElement[]
+    const nodes = new Set<HTMLMediaElement>()
+    document.querySelectorAll('video.listen-engine-video, #listen-video-slot video').forEach((node) => {
+      if (node instanceof HTMLMediaElement && node !== keep) nodes.add(node)
+    })
+    const cur = videoEl.value
+    if (cur && cur !== keep) nodes.add(cur)
+    return [...nodes]
+  }
+
+  function silenceOtherListenMedia(keep?: HTMLMediaElement | null) {
+    for (const node of listenMediaNodes(keep)) silenceMedia(node)
+  }
+
+  function pauseAllListenMedia() {
+    for (const node of listenMediaNodes()) pauseMedia(node)
+  }
+
   function liveMedia() {
     const el = videoEl.value
     if (el && el.isConnected) return el
@@ -210,11 +229,17 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   function registerVideo(el: HTMLMediaElement | null) {
     if (!el) {
       const cur = videoEl.value
-      if (cur && !cur.isConnected) videoEl.value = null
+      if (cur && !cur.isConnected) {
+        silenceMedia(cur)
+        videoEl.value = null
+      }
       return
     }
-    const isNew = videoEl.value !== el
+    const prev = videoEl.value
+    const isNew = prev !== el
     videoEl.value = el
+    if (prev && prev !== el) silenceMedia(prev)
+    silenceOtherListenMedia(el)
     if (el instanceof HTMLVideoElement) {
       el.playsInline = true
       el.setAttribute('playsinline', 'true')
@@ -392,6 +417,7 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
       return
     }
     pendingPlay = false
+    silenceOtherListenMedia(el)
     el.playbackRate = playbackRate.value
     isPlaying.value = true
     holdPlayingUntil = Date.now() + 1800
@@ -403,15 +429,18 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     pendingPlay = false
     holdPlayingUntil = 0
     liveMedia()?.pause()
+    pauseAllListenMedia()
     isPlaying.value = false
     void flushProgress(true)
   }
 
   async function togglePlay() {
     const el = liveMedia()
-    const paused = el ? el.paused || el.ended : !isPlaying.value
-    if (paused) await play()
-    else pause()
+    const anyPlaying =
+      Boolean(el && !el.paused && !el.ended) ||
+      listenMediaNodes(el).some((node) => !node.paused && !node.ended)
+    if (isPlaying.value || anyPlaying) pause()
+    else await play()
   }
 
   function seek(sec: number, opts?: { resume?: boolean }) {
