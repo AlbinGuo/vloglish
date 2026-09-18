@@ -82,8 +82,11 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   let hydrated = false
   let ignoreEndedUntil = 0
   let holdPlayingUntil = 0
+  let playToken = 0
+  let pausedByUser = false
   let inFlightId = ''
   let loadWaiters: Array<() => void> = []
+  const engineMedia = new Set<HTMLMediaElement>()
 
   const currentVideoId = computed(() => episode.value?.video_id || '')
   const subs = computed(() => episode.value?.subtitles ?? [])
@@ -194,6 +197,71 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     void play()
   }
 
+  function isPlayStale(token: number) {
+    return token !== playToken || pausedByUser
+  }
+
+  function retireMedia(el: HTMLMediaElement | null | undefined) {
+    if (!el) return
+    ignoreEndedUntil = Date.now() + 800
+    try {
+      el.pause()
+    } catch {
+      /* ignore */
+    }
+    try {
+      el.removeAttribute('src')
+      el.srcObject = null
+      el.load()
+    } catch {
+      /* ignore */
+    }
+    engineMedia.delete(el)
+    if (videoEl.value === el) videoEl.value = null
+  }
+
+  function retireOtherMedia(keep: HTMLMediaElement | null = null) {
+    for (const el of [...engineMedia]) {
+      if (el !== keep) retireMedia(el)
+    }
+    if (typeof document === 'undefined') return
+    document.querySelectorAll('video.listen-engine-video, audio.listen-engine-video').forEach((node) => {
+      if (node instanceof HTMLMediaElement && node !== keep) retireMedia(node)
+    })
+  }
+
+  function pauseAllEngineMedia() {
+    const seen = new Set(engineMedia)
+    const current = liveMedia()
+    if (current) seen.add(current)
+    if (typeof document !== 'undefined') {
+      document.querySelectorAll('video.listen-engine-video, audio.listen-engine-video').forEach((node) => {
+        if (node instanceof HTMLMediaElement) seen.add(node)
+      })
+    }
+    seen.forEach((el) => {
+      try {
+        el.pause()
+      } catch {
+        /* ignore */
+      }
+    })
+  }
+
+  function prepareSurfaceSwitch() {
+    const el = liveMedia()
+    if (el) {
+      try {
+        if (el.currentTime > 0) currentTime.value = el.currentTime
+      } catch {
+        /* ignore */
+      }
+    }
+    playToken += 1
+    if (isPlaying.value && !pausedByUser) pendingPlay = true
+    retireOtherMedia(null)
+  }
+
   function liveMedia() {
     const el = videoEl.value
     if (el && el.isConnected) return el
@@ -209,10 +277,18 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
 
   function registerVideo(el: HTMLMediaElement | null) {
     if (!el) {
-      const cur = videoEl.value
-      if (cur && !cur.isConnected) videoEl.value = null
+      if (videoEl.value && !videoEl.value.isConnected) retireMedia(videoEl.value)
       return
     }
+    if (videoEl.value && videoEl.value !== el) {
+      try {
+        if (videoEl.value.currentTime > 0) currentTime.value = videoEl.value.currentTime
+      } catch {
+        /* ignore */
+      }
+    }
+    retireOtherMedia(el)
+    engineMedia.add(el)
     const isNew = videoEl.value !== el
     videoEl.value = el
     if (el instanceof HTMLVideoElement) {
@@ -229,13 +305,18 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     if (currentTime.value > 0.4 && Math.abs(el.currentTime - currentTime.value) > 0.4) {
       el.currentTime = currentTime.value
     }
-    if (pendingPlay || isPlaying.value) void play()
+    if (pendingPlay || (isPlaying.value && !pausedByUser)) void play()
   }
 
   function syncFromVideo() {
-    let el = liveMedia()
+    const el = liveMedia()
     if (!el) return
     currentTime.value = el.currentTime || 0
+    if (pausedByUser) {
+      isPlaying.value = false
+      if (!el.paused) pauseAllEngineMedia()
+      return
+    }
     if (el.paused && Date.now() < holdPlayingUntil) {
       isPlaying.value = true
       void play()
@@ -385,6 +466,8 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   }
 
   async function play() {
+    pausedByUser = false
+    const token = ++playToken
     const el = liveMedia()
     if (!el) {
       pendingPlay = true
@@ -395,23 +478,33 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     el.playbackRate = playbackRate.value
     isPlaying.value = true
     holdPlayingUntil = Date.now() + 1800
-    const ok = await resumeMedia(el)
+    const ok = await resumeMedia(el, () => isPlayStale(token))
+    if (isPlayStale(token)) return
     isPlaying.value = ok || (!el.paused && !el.ended)
   }
 
   function pause() {
+    pausedByUser = true
+    playToken += 1
     pendingPlay = false
     holdPlayingUntil = 0
-    liveMedia()?.pause()
+    pauseAllEngineMedia()
     isPlaying.value = false
     void flushProgress(true)
   }
 
+  function wantsPlayback() {
+    return !pausedByUser && (isPlaying.value || pendingPlay)
+  }
+
   async function togglePlay() {
     const el = liveMedia()
-    const paused = el ? el.paused || el.ended : !isPlaying.value
-    if (paused) await play()
-    else pause()
+    const actuallyPlaying = Boolean(el && !el.paused && !el.ended)
+    if (isPlaying.value || actuallyPlaying) {
+      pause()
+      return
+    }
+    await play()
   }
 
   function seek(sec: number, opts?: { resume?: boolean }) {
@@ -419,14 +512,19 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     const next = Math.max(0, Math.min(duration.value || sec, sec))
     currentTime.value = next
     const resume = opts?.resume ?? (isPlaying.value || Boolean(el && !el.paused))
-    if (resume) {
+    const token = playToken
+    if (resume && !pausedByUser) {
       isPlaying.value = true
       holdPlayingUntil = Date.now() + 1800
     }
     if (!el) return
-    void seekMedia(el, next, { resume }).then(() => {
+    void seekMedia(el, next, {
+      resume: resume && !pausedByUser,
+      shouldAbort: () => isPlayStale(token),
+    }).then(() => {
+      if (isPlayStale(token)) return
       currentTime.value = el.currentTime || next
-      if (resume) isPlaying.value = !el.paused && !el.ended
+      if (resume && !pausedByUser) isPlaying.value = !el.paused && !el.ended
     })
   }
 
@@ -661,6 +759,7 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     audioSrc,
     sleepLeftSec,
     registerVideo,
+    prepareSurfaceSwitch,
     syncFromVideo,
     flushProgress,
     loadEpisode,
@@ -688,5 +787,6 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     setSleepAfterCurrent,
     clearSleep,
     loadFavoriteQueue,
+    wantsPlayback,
   }
 })

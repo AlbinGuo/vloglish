@@ -43,7 +43,7 @@ async function recoverSurface() {
   if (expandedVideo.value && !canTeleport.value) {
     await syncTeleportTarget()
   }
-  if (!listen.isPlaying) return
+  if (!listen.wantsPlayback()) return
   try {
     await listen.play()
   } catch {
@@ -53,7 +53,7 @@ async function recoverSurface() {
 
 watch(canTeleport, async (ready) => {
   await nextTick()
-  if (ready && listen.isPlaying) {
+  if (ready && listen.wantsPlayback()) {
     try {
       await listen.play()
     } catch {
@@ -65,6 +65,7 @@ watch(canTeleport, async (ready) => {
 watch(
   () => expandedVideo.value,
   () => {
+    listen.prepareSurfaceSwitch()
     void syncTeleportTarget()
   },
   { immediate: true },
@@ -94,7 +95,8 @@ function bindEl(el: Element | { $el?: Element } | null) {
   else listen.registerVideo(null)
 }
 
-function onEnded() {
+function onEnded(e: Event) {
+  if (e.target && listen.videoEl && e.target !== listen.videoEl) return
   void listen.handleEnded()
 }
 
@@ -109,7 +111,7 @@ function onLoadedMeta() {
   }
   listen.syncFromVideo()
   updatePositionState()
-  if (listen.isPlaying && el?.paused) void listen.play()
+  if (listen.wantsPlayback() && el?.paused) void listen.play()
 }
 
 function onPlaying() {
@@ -197,7 +199,7 @@ function onVisibility() {
   listen.syncFromVideo()
   applyMediaSession()
   if (expandedVideo.value) void syncTeleportTarget()
-  if (listen.isPlaying) {
+  if (listen.wantsPlayback()) {
     void listen.play()
     scheduleRecover()
   }
@@ -211,7 +213,7 @@ const videoListeners = {
   ended: onEnded,
   loadedmetadata: onLoadedMeta,
   canplay: () => {
-    if (listen.isPlaying) void listen.play()
+    if (listen.wantsPlayback()) void listen.play()
   },
   waiting: scheduleRecover,
 }
@@ -224,7 +226,7 @@ const videoListeners = {
   -->
   <Teleport v-if="canTeleport" to="#listen-video-slot">
     <video
-      :key="listen.currentVideoId || 'parked'"
+      :key="listen.currentVideoId || 'docked'"
       :ref="bindEl"
       class="listen-engine-video listen-engine-video--docked"
       :src="listen.mediaSrc"
@@ -237,7 +239,7 @@ const videoListeners = {
     />
   </Teleport>
   <video
-    v-else
+    v-else-if="!expandedVideo"
     :key="listen.currentVideoId || 'parked'"
     :ref="bindEl"
     class="listen-engine-video listen-engine-video--parked"

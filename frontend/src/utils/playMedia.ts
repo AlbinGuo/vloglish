@@ -6,9 +6,25 @@
  * 网页 Chrome 一般没有这些问题。
  */
 
-function waitForEvent(el: HTMLMediaElement, type: string, ms: number) {
+type AbortFn = (() => boolean) | undefined
+
+function aborted(shouldAbort: AbortFn) {
+  return shouldAbort?.() === true
+}
+
+function stopIfAborted(el: HTMLMediaElement, shouldAbort: AbortFn) {
+  if (!aborted(shouldAbort)) return false
+  try {
+    el.pause()
+  } catch {
+    /* ignore */
+  }
+  return true
+}
+
+function waitForEvent(el: HTMLMediaElement, type: string, ms: number, shouldAbort?: AbortFn) {
   return new Promise<void>((resolve) => {
-    if (type === 'seeked' && !el.seeking) {
+    if (aborted(shouldAbort) || (type === 'seeked' && !el.seeking)) {
       resolve()
       return
     }
@@ -30,8 +46,12 @@ async function tryPlay(el: HTMLMediaElement) {
   return !el.paused && !el.ended
 }
 
-export async function resumeMedia(el: HTMLMediaElement | null | undefined): Promise<boolean> {
+export async function resumeMedia(
+  el: HTMLMediaElement | null | undefined,
+  shouldAbort?: AbortFn,
+): Promise<boolean> {
   if (!el || !el.isConnected) return false
+  if (stopIfAborted(el, shouldAbort)) return false
   if (el.ended) {
     try {
       el.currentTime = 0
@@ -39,23 +59,27 @@ export async function resumeMedia(el: HTMLMediaElement | null | undefined): Prom
       /* ignore */
     }
   }
-  if (!el.paused && !el.ended) return true
+  if (!el.paused && !el.ended) return !aborted(shouldAbort)
 
   try {
-    if (await tryPlay(el)) return true
+    if (await tryPlay(el)) return !stopIfAborted(el, shouldAbort)
   } catch (err) {
     const name = err instanceof DOMException ? err.name : ''
-    if (name === 'NotAllowedError') return !el.paused
+    if (name === 'NotAllowedError') return !el.paused && !aborted(shouldAbort)
   }
+  if (stopIfAborted(el, shouldAbort)) return false
 
-  if (el.seeking) await waitForEvent(el, 'seeked', 1600)
-  if (el.readyState < 2) await waitForEvent(el, 'canplay', 1600)
+  if (el.seeking) await waitForEvent(el, 'seeked', 1600, shouldAbort)
+  if (stopIfAborted(el, shouldAbort)) return false
+  if (el.readyState < 2) await waitForEvent(el, 'canplay', 1600, shouldAbort)
+  if (stopIfAborted(el, shouldAbort)) return false
 
   try {
-    if (await tryPlay(el)) return true
+    if (await tryPlay(el)) return !stopIfAborted(el, shouldAbort)
   } catch {
     /* recover below */
   }
+  if (stopIfAborted(el, shouldAbort)) return false
 
   const t = Number.isFinite(el.currentTime) ? el.currentTime : 0
   try {
@@ -63,18 +87,21 @@ export async function resumeMedia(el: HTMLMediaElement | null | undefined): Prom
   } catch {
     /* ignore */
   }
-  await waitForEvent(el, 'seeked', 800)
+  await waitForEvent(el, 'seeked', 800, shouldAbort)
+  if (stopIfAborted(el, shouldAbort)) return false
   try {
-    return await tryPlay(el)
+    const ok = await tryPlay(el)
+    if (stopIfAborted(el, shouldAbort)) return false
+    return ok
   } catch {
-    return !el.paused && !el.ended
+    return !el.paused && !el.ended && !aborted(shouldAbort)
   }
 }
 
 export async function seekMedia(
   el: HTMLMediaElement | null | undefined,
   time: number,
-  opts?: { resume?: boolean },
+  opts?: { resume?: boolean; shouldAbort?: AbortFn },
 ) {
   if (!el || !el.isConnected) return
   const resume = opts?.resume ?? !el.paused
@@ -85,6 +112,7 @@ export async function seekMedia(
   } catch {
     /* ignore */
   }
-  await waitForEvent(el, 'seeked', 1600)
-  if (resume) await resumeMedia(el)
+  await waitForEvent(el, 'seeked', 1600, opts?.shouldAbort)
+  if (aborted(opts?.shouldAbort)) return
+  if (resume) await resumeMedia(el, opts?.shouldAbort)
 }
