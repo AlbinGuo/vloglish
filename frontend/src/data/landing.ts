@@ -1,12 +1,14 @@
+const LANDING_OSS = 'https://oss.sxakgs.com/vloglish'
+
 export const LANDING_MOCKS = {
-  phoneCatalog: '/landing/0.jpg',
-  tabletCatalog: '/landing/1.png',
-  tabletDesk: '/landing/2.png',
-  macCatalog: '/landing/3.jpg',
-  macList: '/landing/4.jpg',
-  macCues: '/landing/5.jpg',
-  macContext: '/landing/6.jpg',
-  macNotes: '/landing/7.jpg',
+  phoneCatalog: `${LANDING_OSS}/git0.jpg`,
+  tabletCatalog: `${LANDING_OSS}/1.png`,
+  tabletDesk: `${LANDING_OSS}/2.png`,
+  macCatalog: `${LANDING_OSS}/3.jpg`,
+  macList: `${LANDING_OSS}/4.jpg`,
+  macCues: `${LANDING_OSS}/5.jpg`,
+  macContext: `${LANDING_OSS}/6.jpg`,
+  macNotes: `${LANDING_OSS}/7.jpg`,
 } as const
 
 export const LANDING_DESK_VIEWS = [
