@@ -1,7 +1,7 @@
 const LANDING_OSS = 'https://oss.sxakgs.com/vloglish'
 
 export const LANDING_MOCKS = {
-  phoneCatalog: `${LANDING_OSS}/git0.jpg`,
+  phoneCatalog: `${LANDING_OSS}/0.jpg`,
   tabletCatalog: `${LANDING_OSS}/1.png`,
   tabletDesk: `${LANDING_OSS}/2.png`,
   macCatalog: `${LANDING_OSS}/3.jpg`,
