@@ -23,6 +23,14 @@ def visit_date_now(*, now_utc: datetime | None = None) -> date:
     return current.astimezone(CST).date()
 
 
+def fmt_cst(value: datetime | None) -> str | None:
+    """库内 naive UTC → 东八区墙钟，格式 YYYY-MM-DD HH:MM:SS。"""
+    if not value:
+        return None
+    current = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+    return current.astimezone(CST).strftime("%Y-%m-%d %H:%M:%S")
+
+
 def _as_naive_utc(now_utc: datetime | None = None) -> datetime:
     current = now_utc or datetime.utcnow()
     if current.tzinfo is not None:

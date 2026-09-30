@@ -25,7 +25,7 @@ function defaultFilters(): CatalogFilters {
     stars: undefined,
     duration: '',
     tagIds: [],
-    ordering: 'created_at',
+    ordering: 'published_at',
     date: undefined,
     search: '',
     learningStatus: '',
@@ -136,7 +136,7 @@ export const useCatalogStore = defineStore('catalog', () => {
   }
 
   function toggleOrdering() {
-    filters.ordering = filters.ordering === 'created_at' ? '-created_at' : 'created_at'
+    filters.ordering = filters.ordering === 'published_at' ? '-published_at' : 'published_at'
     return loadEpisodes(true)
   }
 

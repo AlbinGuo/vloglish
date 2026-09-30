@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppDownloadEntry from '@/components/AppDownloadEntry.vue'
+import AuthSplitShell from '@/components/auth/AuthSplitShell.vue'
+import { authButtonClass, authInputClass, authLabelClass, authLinkClass, authPasswordClass } from '@/components/auth/authField'
 import PasswordInput from '@/components/PasswordInput.vue'
 import { useCatalogViewMode } from '@/composables/useCatalogViewMode'
 import { useAuthStore } from '@/stores/auth'
@@ -66,86 +68,73 @@ async function submit() {
 </script>
 
 <template>
-  <div class="min-h-dvh flex items-center justify-center px-4 py-12 bg-neutral-50 dark:bg-neutral-950">
-    <div class="w-full max-w-md rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-6 sm:p-8 shadow-sm">
-      <h1 class="text-xl font-semibold mb-1">注册</h1>
-      <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6 leading-relaxed">
-        <template v-if="hasInvite">
-          检测到邀请激活码，注册后将直接开通会员。
-        </template>
-<!--        <template v-else>-->
-<!--          免费注册即可登录学习；未开通会员时首页仅展示部分视频，可随时在站内开通会员。-->
-<!--        </template>-->
-      </p>
+  <AuthSplitShell>
+    <h2 class="text-[1.75rem] font-semibold tracking-tight lg:text-[1.65rem]">创建账号</h2>
+    <p class="mt-1.5 text-[13px] leading-relaxed text-neutral-500">
+      <template v-if="hasInvite">检测到邀请激活码，注册后将直接开通会员。</template>
+      <template v-else>免费注册，开始用真实 vlog 练听力与口语。</template>
+    </p>
 
-      <form class="space-y-4" @submit.prevent="submit">
-        <div>
-          <label class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1.5">邮箱</label>
-          <input
-            v-model="email"
-            type="email"
-            autocomplete="email"
-            required
-            class="w-full rounded-lg border border-black/10 dark:border-white/10 dark:bg-neutral-800 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
-          />
-        </div>
-        <div>
-          <label class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1.5">密码</label>
-          <PasswordInput
-            v-model="password"
-            autocomplete="new-password"
-            required
-            :minlength="8"
-          />
-        </div>
-        <div>
-          <label class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1.5">确认密码</label>
-          <PasswordInput
-            v-model="confirmPassword"
-            autocomplete="new-password"
-            required
-            :minlength="8"
-          />
-        </div>
-        <div v-if="!hasInvite">
-<!--          <label class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1.5">-->
-<!--            激活码 <span class="text-neutral-400 font-normal">（可选，抖音/运营渠道）</span>-->
-<!--          </label>-->
-<!--          <input-->
-<!--            v-model="activationCode"-->
-<!--            type="text"-->
-<!--            autocomplete="off"-->
-<!--            placeholder="有激活码可填写，注册后直接成为会员"-->
-<!--            class="w-full rounded-lg border border-black/10 dark:border-white/10 dark:bg-neutral-800 dark:text-white px-3 py-2 text-sm uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"-->
-<!--            @input="activationCode = activationCode.toUpperCase()"-->
-<!--          />-->
-        </div>
-        <div
-          v-else
-          class="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-900 dark:text-amber-200"
-        >
-          激活码：<span class="font-mono font-medium">{{ inviteCode }}</span>
-        </div>
-
-        <p v-if="formError" class="text-sm text-red-600 dark:text-red-400">{{ formError }}</p>
-
-        <button
-          type="submit"
-          class="w-full rounded-lg bg-neutral-900 text-white py-2.5 text-sm font-medium hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-60"
-          :disabled="loading"
-        >
-          {{ loading ? '注册中...' : (hasInvite || activationCode.trim() ? '注册并开通会员' : '免费注册') }}
-        </button>
-      </form>
-
-      <p class="text-sm text-neutral-500 dark:text-neutral-400 text-center mt-6">
-        已有账号？
-        <RouterLink to="/login" class="text-neutral-900 dark:text-neutral-100 font-medium hover:underline">登录</RouterLink>
-      </p>
-
-      <div class="mt-5 pt-5 border-t border-black/5 dark:border-white/10 flex justify-center">
-        <AppDownloadEntry variant="auth" />
+    <form class="mt-6 space-y-5 lg:mt-8" @submit.prevent="submit">
+      <div>
+        <label for="signup-email" :class="authLabelClass">邮箱</label>
+        <input
+          id="signup-email"
+          v-model="email"
+          type="email"
+          autocomplete="email"
+          required
+          :class="authInputClass"
+        />
       </div>
+      <div>
+        <label for="signup-password" :class="authLabelClass">密码</label>
+        <PasswordInput
+          id="signup-password"
+          v-model="password"
+          autocomplete="new-password"
+          required
+          :minlength="8"
+          :input-class="authPasswordClass"
+        />
+      </div>
+      <div>
+        <label for="signup-confirm" :class="authLabelClass">确认密码</label>
+        <PasswordInput
+          id="signup-confirm"
+          v-model="confirmPassword"
+          autocomplete="new-password"
+          required
+          :minlength="8"
+          :input-class="authPasswordClass"
+        />
+      </div>
+      <div
+        v-if="hasInvite"
+        class="rounded-xl border border-black/10 bg-white px-3 py-2.5 text-sm text-neutral-800"
+      >
+        激活码：<span class="font-mono font-medium">{{ inviteCode }}</span>
+      </div>
+
+      <p v-if="formError" class="text-sm text-red-600 dark:text-red-400">{{ formError }}</p>
+
+      <button type="submit" :class="authButtonClass" :disabled="loading">
+        {{ loading ? '注册中...' : (hasInvite || activationCode.trim() ? '注册并开通会员' : '免费注册') }}
+      </button>
+    </form>
+
+    <p class="mt-7 text-center text-[13px] text-neutral-500">
+      已有账号？
+      <RouterLink
+        :to="{ path: '/login', query: route.query }"
+        :class="authLinkClass"
+      >
+        登录
+      </RouterLink>
+    </p>
+
+    <div class="mt-8 flex justify-center">
+      <AppDownloadEntry variant="auth" />
     </div>
-  </div>
+  </AuthSplitShell>
 </template>

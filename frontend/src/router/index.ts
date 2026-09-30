@@ -214,9 +214,14 @@ const userRoutes: RouteRecordRaw[] = [
   },
   {
     path: '/',
+    name: 'Landing',
+    component: () => import('@/pages/LandingPage.vue'),
+    meta: { landing: true },
+  },
+  {
+    path: '/',
     component: DefaultLayout,
     children: [
-      { path: '', redirect: '/english' },
       {
         path: 'english',
         name: 'HomePage',
@@ -382,6 +387,10 @@ router.beforeEach(async (to) => {
   }
   if (!siteConfig.ready) {
     await siteConfig.hydrate()
+  }
+
+  if (to.meta.landing && auth.isLoggedIn) {
+    return '/english'
   }
 
   if (to.meta.requiresAuth && !auth.isLoggedIn) {

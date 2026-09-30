@@ -29,7 +29,7 @@ onMounted(() => {
     to="/download"
     :class="
       variant === 'auth'
-        ? 'inline-flex items-center justify-center gap-1.5 text-sm font-medium text-teal-700 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200'
+        ? 'inline-flex items-center justify-center gap-1.5 text-sm font-medium text-neutral-500 transition-colors duration-200 hover:text-neutral-900'
         : 'inline-flex items-center gap-1 rounded-lg text-teal-700 hover:text-teal-900 hover:bg-teal-50 dark:text-teal-300 dark:hover:text-teal-100 dark:hover:bg-teal-950/40 transition p-2 sm:px-2.5 sm:py-1.5'
     "
     title="下载 App"

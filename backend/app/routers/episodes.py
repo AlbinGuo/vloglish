@@ -61,8 +61,8 @@ def episode_list(
     duration: str | None = Query(None, pattern="^(lt3|lt8|gt8)$"),
     status: str | None = Query(None, pattern="^(all|learned|unlearned|favorite)$"),
     ordering: str = Query(
-        "created_at",
-        pattern="^(index|-index|stars|-stars|created_at|-created_at|series_index|-series_index)$",
+        "published_at",
+        pattern="^(index|-index|stars|-stars|created_at|-created_at|published_at|-published_at|series_index|-series_index)$",
     ),
     search: str | None = None,
     video_ids: str | None = Query(
@@ -164,6 +164,7 @@ def episode_list(
         else:
             q = q.filter(Episode.id < 0)
 
+    publish_time = func.coalesce(Episode.published_at, Episode.created_at)
     order_map = {
         "index": Episode.index.desc(),
         "-index": Episode.index.asc(),
@@ -171,14 +172,16 @@ def episode_list(
         "-stars": Episode.stars.asc(),
         "created_at": Episode.created_at.desc(),
         "-created_at": Episode.created_at.asc(),
+        "published_at": publish_time.desc(),
+        "-published_at": publish_time.asc(),
         "series_index": Episode.series_index.asc().nulls_last(),
         "-series_index": Episode.series_index.desc().nulls_last(),
     }
-    # 置顶最先，其次对普通用户开放，再按所选排序
+    # 置顶最先，其次对普通用户开放，再按发布时间（空则回退创建时间）
     q = q.order_by(
         Episode.is_pinned.desc(),
         Episode.open_to_free_users.desc(),
-        order_map.get(ordering, Episode.created_at.desc()),
+        order_map.get(ordering, publish_time.desc()),
     )
 
     # 普通用户也返回完整目录；不可播放项与 can_access_episode 对齐，标记 requires_membership
@@ -677,7 +680,7 @@ def authors_catalog(
     q = q.order_by(
         Episode.is_pinned.desc(),
         Episode.open_to_free_users.desc(),
-        Episode.created_at.desc(),
+        func.coalesce(Episode.published_at, Episode.created_at).desc(),
     )
     episodes = q.all()
 
@@ -727,7 +730,7 @@ def author_detail(
         .order_by(
             Episode.is_pinned.desc(),
             Episode.open_to_free_users.desc(),
-            Episode.created_at.desc(),
+            func.coalesce(Episode.published_at, Episode.created_at).desc(),
         )
     )
     episodes = q.all()
