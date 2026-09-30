@@ -43,7 +43,7 @@ async function load(reset = false) {
       page_size: 20,
       offset,
       search: search.value.trim() || undefined,
-      ordering: 'created_at',
+      ordering: 'published_at',
     })
     total.value = data.count
     episodes.value = reset ? data.results : [...episodes.value, ...data.results]
