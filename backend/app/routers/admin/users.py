@@ -21,7 +21,7 @@ from ...schemas import (
 )
 from ...services.membership import PLAN_FILTERS, apply_membership, revoke_membership
 from ...services.wx_virtual_pay import PLANS
-from ...services.daily_visits import visit_hourly_stats, visit_stats_for_users
+from ...services.daily_visits import fmt_cst, visit_hourly_stats, visit_stats_for_users
 from ...services.page_dwell import top_pages_for_users, user_page_dwell_top
 from ...services.presence import is_user_online
 from ...services.account_merge import is_wechat_only
@@ -38,9 +38,7 @@ router = APIRouter(prefix="/api/admin/users", tags=["admin-users"])
 
 
 def _fmt_dt(value: datetime | None) -> str | None:
-    if not value:
-        return None
-    return value.strftime("%Y-%m-%d %H:%M:%S")
+    return fmt_cst(value)
 
 
 def _user_item(
