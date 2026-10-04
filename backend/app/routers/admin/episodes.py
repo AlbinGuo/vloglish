@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ...database import get_db
 from ...deps import get_current_admin
-from ...models import Episode, User, UserNotification
+from ...models import Episode, EpisodeAudienceNote, User, UserNotification
 from ...schemas import (
     AdminEpisodeCreateIn,
     AdminEpisodeDetailOut,
@@ -21,6 +21,9 @@ from ...schemas import (
     AdminSubtitleIn,
     AdminVttImportIn,
     AdminVttImportOut,
+    AudienceNoteListOut,
+    AudienceNoteOut,
+    AudienceNoteUpdateIn,
 )
 from ...serializers import episode_detail
 from ...services.episode_admin import (
@@ -43,6 +46,13 @@ from ...services.user_notifications import (
 )
 from ...services.yt_dlp_fetch import fetch_and_upload_from_url
 from ...services.episode_series import get_series_or_none
+from ...services.audience_notes import (
+    audience_note_dict,
+    curate_audience_notes_for_episode,
+    list_audience_notes,
+    publish_all_audience_notes,
+    update_audience_note,
+)
 
 router = APIRouter(prefix="/api/admin", tags=["admin-meta"])
 
@@ -124,6 +134,7 @@ def _get_episode_or_404(db: Session, episode_id: int) -> Episode:
             joinedload(Episode.author),
             selectinload(Episode.tags),
             selectinload(Episode.subtitles),
+            selectinload(Episode.audience_notes),
             joinedload(Episode.series),
         )
         .filter(Episode.id == episode_id)
@@ -294,6 +305,7 @@ def preview_episode(
             joinedload(Episode.author),
             selectinload(Episode.tags),
             selectinload(Episode.subtitles),
+            selectinload(Episode.audience_notes),
             joinedload(Episode.series),
         )
         .filter(Episode.video_id == video_id)
@@ -497,5 +509,90 @@ def delete_episode(
 ):
     ep = _get_episode_or_404(db, episode_id)
     delete_episode_with_dependencies(db, ep)
+    db.commit()
+    return {"success": True}
+
+
+def _note_or_404(db: Session, episode_id: int, note_id: int) -> EpisodeAudienceNote:
+    note = (
+        db.query(EpisodeAudienceNote)
+        .filter(
+            EpisodeAudienceNote.id == note_id,
+            EpisodeAudienceNote.episode_id == episode_id,
+        )
+        .first()
+    )
+    if not note:
+        raise HTTPException(status_code=404, detail="热议条目不存在")
+    return note
+
+
+@router.get("/episodes/{episode_id}/audience-notes/", response_model=AudienceNoteListOut)
+def get_audience_notes(
+    episode_id: int,
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    _get_episode_or_404(db, episode_id)
+    notes = list_audience_notes(db, episode_id, include_author=True)
+    return AudienceNoteListOut(notes=notes, selected=len(notes))
+
+
+@router.post("/episodes/{episode_id}/audience-notes/curate/", response_model=AudienceNoteListOut)
+def curate_audience_notes(
+    episode_id: int,
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    ep = _get_episode_or_404(db, episode_id)
+    try:
+        result = curate_audience_notes_for_episode(db, ep)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc) or "精选热议失败") from exc
+    db.commit()
+    return AudienceNoteListOut(**result)
+
+
+@router.post("/episodes/{episode_id}/audience-notes/publish-all/", response_model=AudienceNoteListOut)
+def publish_audience_notes(
+    episode_id: int,
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    _get_episode_or_404(db, episode_id)
+    publish_all_audience_notes(db, episode_id)
+    db.commit()
+    notes = list_audience_notes(db, episode_id, include_author=True)
+    return AudienceNoteListOut(notes=notes, selected=len(notes))
+
+
+@router.patch("/episodes/{episode_id}/audience-notes/{note_id}/", response_model=AudienceNoteOut)
+def patch_audience_note(
+    episode_id: int,
+    note_id: int,
+    body: AudienceNoteUpdateIn,
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    _get_episode_or_404(db, episode_id)
+    note = _note_or_404(db, episode_id, note_id)
+    update_audience_note(note, body.model_dump(exclude_unset=True))
+    db.commit()
+    db.refresh(note)
+    return AudienceNoteOut(**audience_note_dict(note, include_author=True))
+
+
+@router.delete("/episodes/{episode_id}/audience-notes/{note_id}/")
+def delete_audience_note(
+    episode_id: int,
+    note_id: int,
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    _get_episode_or_404(db, episode_id)
+    note = _note_or_404(db, episode_id, note_id)
+    db.delete(note)
     db.commit()
     return {"success": True}

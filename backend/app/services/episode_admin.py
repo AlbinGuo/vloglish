@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from ..models import (
     Author,
     Episode,
+    EpisodeAudienceNote,
     EpisodeFavorite,
     LearningSession,
     Subtitle,
@@ -254,6 +255,9 @@ def delete_episode_with_dependencies(db: Session, episode: Episode) -> None:
     db.query(UserNotification).filter(UserNotification.episode_id == episode_id).update(
         {UserNotification.episode_id: None},
         synchronize_session=False,
+    )
+    db.query(EpisodeAudienceNote).filter(EpisodeAudienceNote.episode_id == episode_id).delete(
+        synchronize_session=False
     )
     db.query(Subtitle).filter(Subtitle.episode_id == episode_id).delete(synchronize_session=False)
     # Clear M2M via ORM first; manual DELETE + db.delete(episode) causes StaleDataError

@@ -836,6 +836,42 @@ class EpisodeSeriesNavOut(BaseModel):
     next_video_id: str | None = None
 
 
+class AudienceNotePhraseOut(BaseModel):
+    en: str
+    zh: str = ""
+
+
+class AudienceNoteOut(BaseModel):
+    id: int
+    english: str
+    chinese: str = ""
+    kind: str = "opinion"
+    timestamp_sec: float | None = None
+    like_count: int = 0
+    phrases: list[AudienceNotePhraseOut] = []
+    is_published: bool = False
+    sort_order: int = 0
+    source_comment_id: str = ""
+    author_name: str = ""
+
+
+class AudienceNoteListOut(BaseModel):
+    notes: list[AudienceNoteOut]
+    fetched: int = 0
+    candidates: int = 0
+    selected: int = 0
+
+
+class AudienceNoteUpdateIn(BaseModel):
+    english: str | None = None
+    chinese: str | None = None
+    kind: str | None = None
+    timestamp_sec: float | None = None
+    is_published: bool | None = None
+    sort_order: int | None = None
+    phrases: list[AudienceNotePhraseOut] | None = None
+
+
 class EpisodeDetailOut(BaseModel):
     index: int
     video_id: str
@@ -855,6 +891,7 @@ class EpisodeDetailOut(BaseModel):
     vocab_summary_text: str = ""
     video_context: str = ""
     is_favorite: bool = False
+    audience_notes: list[AudienceNoteOut] = []
 
 
 class EpisodeDetailResponse(BaseModel):

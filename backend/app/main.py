@@ -29,6 +29,7 @@ from .models import (
     WordPracticeSession,
     WordPracticeStat,
     WordPracticeWrong,
+    EpisodeAudienceNote,
 )
 from .schemas import AuthTokensOut
 from .routers import ai_coach, app_download, article_submit, auth, account_bind, clips, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, public_voice_enroll, site_config, wish_wall, word_practice, wxpay
@@ -217,6 +218,11 @@ def _migrate_schema():
     if "user_daily_sentences" not in insp.get_table_names():
         UserDailySentence.__table__.create(bind=engine, checkfirst=True)
         print("[vloglish] created table user_daily_sentences")
+        insp = inspect(engine)
+
+    if "episode_audience_notes" not in insp.get_table_names():
+        EpisodeAudienceNote.__table__.create(bind=engine, checkfirst=True)
+        print("[vloglish] created table episode_audience_notes")
         insp = inspect(engine)
 
     if "user_subtitle_clips" not in insp.get_table_names():

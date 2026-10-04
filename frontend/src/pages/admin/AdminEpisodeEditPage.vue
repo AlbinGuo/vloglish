@@ -5,15 +5,21 @@ import DifficultyStarsInput from '@/components/admin/DifficultyStarsInput.vue'
 import SubtitleHighlightEditor from '@/components/admin/SubtitleHighlightEditor.vue'
 import {
   adminCreateEpisode,
+  adminCurateAudienceNotes,
+  adminDeleteAudienceNote,
   adminEnrichSubtitles,
   adminFetchMediaFromUrl,
   adminGetEpisode,
+  adminListAudienceNotes,
+  adminPublishAudienceNotes,
+  adminUpdateAudienceNote,
   adminGetNextEpisodeIndex,
   adminGetReleasePopupStats,
   adminImportVtt,
   adminListSeries,
   adminListTags,
   adminUpdateEpisode,
+  type AdminAudienceNote,
   type AdminEpisodePayload,
   type AdminReleasePopupStats,
   type AdminSeries,
@@ -39,6 +45,10 @@ const saving = ref(false)
 const importing = ref(false)
 const enriching = ref(false)
 const fetching = ref(false)
+const curatingNotes = ref(false)
+const publishingNotes = ref(false)
+const audienceNotes = ref<AdminAudienceNote[]>([])
+const audienceNoteMeta = ref({ fetched: 0, candidates: 0, selected: 0 })
 const error = ref('')
 const success = ref('')
 const tagSuggestions = ref<string[]>([])
@@ -196,7 +206,7 @@ async function loadEpisode() {
       sourceUrl.value = data.original_video_url
     }
     syncTagsToInput()
-    await loadReleaseStats()
+    await Promise.all([loadReleaseStats(), loadAudienceNotes()])
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
     error.value = msg || '加载失败'
@@ -212,6 +222,120 @@ async function loadTags() {
   } catch {
     tagSuggestions.value = []
   }
+}
+
+const NOTE_KIND_OPTIONS = [
+  { value: 'timestamp', label: '片中反应' },
+  { value: 'culture', label: '背景补充' },
+  { value: 'opinion', label: '观众看法' },
+  { value: 'uploader', label: '作者回复' },
+]
+
+async function loadAudienceNotes() {
+  if (!episodeId.value) {
+    audienceNotes.value = []
+    return
+  }
+  try {
+    const data = await adminListAudienceNotes(episodeId.value)
+    audienceNotes.value = data.notes
+    audienceNoteMeta.value = {
+      fetched: data.fetched,
+      candidates: data.candidates,
+      selected: data.selected,
+    }
+  } catch {
+    audienceNotes.value = []
+  }
+}
+
+async function curateAudienceNotes() {
+  if (!episodeId.value) {
+    error.value = '请先保存剧集，再精选热议'
+    return
+  }
+  if (!form.value.original_video_url && !form.value.video_id) {
+    error.value = '需要 YouTube 原链才能抓评论'
+    return
+  }
+  curatingNotes.value = true
+  error.value = ''
+  success.value = ''
+  try {
+    const data = await adminCurateAudienceNotes(episodeId.value)
+    audienceNotes.value = data.notes
+    audienceNoteMeta.value = {
+      fetched: data.fetched,
+      candidates: data.candidates,
+      selected: data.selected,
+    }
+    success.value = `已精选 ${data.selected} 条热议（候选 ${data.candidates} / 抓取 ${data.fetched}）。请校对后点「全部发布」。`
+  } catch (e: unknown) {
+    error.value = adminRequestErrorMessage(e, '精选热议失败')
+  } finally {
+    curatingNotes.value = false
+  }
+}
+
+async function publishAudienceNotes() {
+  if (!episodeId.value || !audienceNotes.value.length) return
+  publishingNotes.value = true
+  error.value = ''
+  try {
+    const data = await adminPublishAudienceNotes(episodeId.value)
+    audienceNotes.value = data.notes
+    success.value = `已发布 ${data.notes.filter((n) => n.is_published).length} 条到用户端「观众怎么说」`
+  } catch (e: unknown) {
+    error.value = adminRequestErrorMessage(e, '发布失败')
+  } finally {
+    publishingNotes.value = false
+  }
+}
+
+async function toggleNotePublished(note: AdminAudienceNote) {
+  if (!episodeId.value) return
+  try {
+    const updated = await adminUpdateAudienceNote(episodeId.value, note.id, {
+      is_published: !note.is_published,
+    })
+    audienceNotes.value = audienceNotes.value.map((row) => (row.id === updated.id ? updated : row))
+  } catch (e: unknown) {
+    error.value = adminRequestErrorMessage(e, '更新失败')
+  }
+}
+
+async function saveNoteText(note: AdminAudienceNote) {
+  if (!episodeId.value) return
+  try {
+    const updated = await adminUpdateAudienceNote(episodeId.value, note.id, {
+      english: note.english,
+      chinese: note.chinese,
+      kind: note.kind,
+      timestamp_sec: note.timestamp_sec,
+    })
+    audienceNotes.value = audienceNotes.value.map((row) => (row.id === updated.id ? updated : row))
+  } catch (e: unknown) {
+    error.value = adminRequestErrorMessage(e, '保存失败')
+  }
+}
+
+async function removeAudienceNote(note: AdminAudienceNote) {
+  if (!episodeId.value) return
+  if (!window.confirm('删除这条热议？')) return
+  try {
+    await adminDeleteAudienceNote(episodeId.value, note.id)
+    audienceNotes.value = audienceNotes.value.filter((row) => row.id !== note.id)
+  } catch (e: unknown) {
+    error.value = adminRequestErrorMessage(e, '删除失败')
+  }
+}
+
+function formatNoteTime(sec: number | null) {
+  if (sec == null || !Number.isFinite(sec) || sec < 0) return ''
+  const total = Math.floor(sec)
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  return `${m}:${String(s).padStart(2, '0')}`
 }
 
 async function loadSeriesOptions() {
@@ -1199,6 +1323,85 @@ watch(
             placeholder="粘贴视频语境内容（HTML / Markdown）…"
             class="w-full rounded-lg border border-black/10 px-3 py-2 text-sm font-mono"
           />
+        </div>
+
+        <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 class="text-sm font-medium text-neutral-800">观众怎么说</h3>
+            <span class="text-xs text-neutral-400">
+              {{ audienceNotes.length ? `${audienceNotes.filter((n) => n.is_published).length}/${audienceNotes.length} 已发布` : '用户端独立 Tab，无内容时不显示' }}
+            </span>
+          </div>
+          <p class="text-xs text-neutral-500 leading-relaxed">
+            用 YouTube 原链抓热评，筛成 5～8 条片后短阅读。重新精选会覆盖本集已有条目。
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="text-sm px-4 py-2 rounded-lg bg-violet-700 text-white hover:bg-violet-800 disabled:opacity-50"
+              :disabled="curatingNotes || !episodeId"
+              @click="curateAudienceNotes"
+            >
+              {{ curatingNotes ? '正在抓评论并精选…' : '从 YouTube 精选热议' }}
+            </button>
+            <button
+              type="button"
+              class="text-sm px-4 py-2 rounded-lg border border-black/10 bg-white hover:bg-neutral-100 disabled:opacity-50"
+              :disabled="publishingNotes || !audienceNotes.length"
+              @click="publishAudienceNotes"
+            >
+              {{ publishingNotes ? '发布中…' : '全部发布到用户端' }}
+            </button>
+          </div>
+          <p v-if="isNew" class="text-xs text-amber-700">请先保存剧集后再精选。</p>
+          <ul v-if="audienceNotes.length" class="space-y-3">
+            <li
+              v-for="note in audienceNotes"
+              :key="note.id"
+              class="rounded-lg border border-black/5 bg-white p-3 space-y-2"
+            >
+              <div class="flex flex-wrap items-center gap-2 text-xs">
+                <select
+                  v-model="note.kind"
+                  class="rounded border border-black/10 px-2 py-1 bg-white"
+                  @change="saveNoteText(note)"
+                >
+                  <option v-for="opt in NOTE_KIND_OPTIONS" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
+                <span v-if="note.timestamp_sec != null" class="text-neutral-500">
+                  {{ formatNoteTime(note.timestamp_sec) }}
+                </span>
+                <span v-if="note.like_count" class="text-neutral-400">{{ note.like_count }} 赞</span>
+                <span v-if="note.author_name" class="text-neutral-400">{{ note.author_name }}</span>
+                <label class="ml-auto inline-flex items-center gap-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    :checked="note.is_published"
+                    @change="toggleNotePublished(note)"
+                  />
+                  发布
+                </label>
+                <button type="button" class="text-red-600" @click="removeAudienceNote(note)">删除</button>
+              </div>
+              <textarea
+                v-model="note.english"
+                rows="3"
+                class="w-full rounded border border-black/10 px-2 py-1.5 text-sm"
+                @change="saveNoteText(note)"
+              />
+              <textarea
+                v-model="note.chinese"
+                rows="2"
+                class="w-full rounded border border-black/10 px-2 py-1.5 text-sm"
+                @change="saveNoteText(note)"
+              />
+              <p v-if="note.phrases.length" class="text-[11px] text-neutral-500">
+                搭配：{{ note.phrases.map((p) => (p.zh ? `${p.en}（${p.zh}）` : p.en)).join(' · ') }}
+              </p>
+            </li>
+          </ul>
         </div>
 
         <div class="rounded-lg border border-black/10 p-4 space-y-3 bg-neutral-50">

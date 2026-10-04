@@ -11,6 +11,7 @@ import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
 import EpisodeWordCardList from '@/components/episode/EpisodeWordCardList.vue'
 import EpisodeVocabSummaryList from '@/components/episode/EpisodeVocabSummaryList.vue'
 import EpisodeVideoContextPanel from '@/components/episode/EpisodeVideoContextPanel.vue'
+import EpisodeAudienceNotesPanel from '@/components/episode/EpisodeAudienceNotesPanel.vue'
 import BlankPrintDocument from '@/components/episode/BlankPrintDocument.vue'
 import BlankPrintSheet from '@/components/episode/BlankPrintSheet.vue'
 import SentenceDictationSheet from '@/components/episode/SentenceDictationSheet.vue'
@@ -524,7 +525,8 @@ let captionGestureMoved = false
 let captionResizeEdge: 'n' | 'e' | 'w' | null = null
 let captionResizeStart = { x: 0, y: 0, w: 0, h: 0, playerW: 0 }
 let captionMoveStart = { y: 0, bottomPct: 0, playerH: 1 }
-const contentView = ref<'subtitles' | 'wordcards' | 'summary' | 'context'>('subtitles')
+const contentView = ref<'subtitles' | 'wordcards' | 'summary' | 'context' | 'audience'>('subtitles')
+const hasAudienceNotes = computed(() => (episode.value?.audience_notes || []).length > 0)
 const showWordCards = computed(() => contentView.value === 'wordcards')
 const vocabSummaryGroups = computed(() => {
   const ep = episode.value
@@ -1565,6 +1567,7 @@ const currentModeLabel = computed(() => {
   if (contentView.value === 'wordcards') return '词卡'
   if (contentView.value === 'summary') return '汇总'
   if (contentView.value === 'context') return '视频语境'
+  if (contentView.value === 'audience') return '观众怎么说'
   return modeButtons.find((m) => m.key === subtitleMode.value)?.label ?? '字幕'
 })
 
@@ -1583,6 +1586,26 @@ function openVocabSummaryView() {
 
 function openVideoContextView() {
   contentView.value = 'context'
+}
+
+function openAudienceNotesView() {
+  contentView.value = 'audience'
+}
+
+function seekAudienceTimestamp(sec: number) {
+  if (!Number.isFinite(sec) || sec < 0) return
+  const v = videoRef.value
+  if (v) {
+    try {
+      v.currentTime = sec
+    } catch {
+      /* ignore */
+    }
+  }
+  const hit =
+    sortedSubs.value.find((s) => sec >= s.start && sec < s.end) ||
+    [...sortedSubs.value].reverse().find((s) => s.start <= sec)
+  if (hit) player.seekTo(hit)
 }
 
 function openBlankPrintSheet() {
@@ -2553,6 +2576,9 @@ watch(isPhone, (phone) => {
 watch(contentView, (view) => {
   if (view !== 'subtitles') stopClipSelectMode()
 })
+watch(hasAudienceNotes, (ok) => {
+  if (!ok && contentView.value === 'audience') contentView.value = 'subtitles'
+})
 watch(subtitlesHidden, (hidden) => {
   if (hidden) stopClipSelectMode()
 })
@@ -3212,6 +3238,25 @@ function subtitleRowClass(index: number) {
               新
             </span>
           </button>
+          <button
+            v-if="hasAudienceNotes"
+            type="button"
+            class="relative inline-flex items-center gap-1.5 px-3 py-1 pr-4 rounded-full whitespace-nowrap"
+            :class="
+              contentView === 'audience'
+                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
+                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+            "
+            @click="openAudienceNotesView"
+            title="精选观众反应，当片后短阅读"
+          >
+            观众怎么说
+            <span
+              class="absolute -top-1.5 -right-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none bg-red-500 text-white shadow-sm"
+            >
+              新
+            </span>
+          </button>
           <div class="flex items-center gap-1.5 ml-auto shrink-0">
             <button
               v-if="contentView === 'subtitles' && subtitleMode === 'blank'"
@@ -3283,6 +3328,13 @@ function subtitleRowClass(index: number) {
         <EpisodeVideoContextPanel
           v-else-if="contentView === 'context'"
           :content="episode.video_context || ''"
+        />
+
+        <EpisodeAudienceNotesPanel
+          v-else-if="contentView === 'audience'"
+          :notes="episode.audience_notes || []"
+          @click="onSubtitleClick"
+          @seek="seekAudienceTimestamp"
         />
 
         <!-- 动态模式 -->
@@ -3606,7 +3658,7 @@ function subtitleRowClass(index: number) {
               class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
               @click="openSubtitleModeFromMore"
             >
-              字幕 / 词卡 / 汇总 / 视频语境
+              字幕 / 词卡 / 汇总 / 语境 / 热议
               <span class="ml-1.5 align-middle px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none bg-red-500 text-white">新</span>
               <span class="float-right text-neutral-400">{{ currentModeLabel }}</span>
             </button>
@@ -3732,11 +3784,13 @@ function subtitleRowClass(index: number) {
       :content-view="contentView"
       :mode-buttons="modeButtons"
       :show-vocab-summary="true"
+      :show-audience-notes="hasAudienceNotes"
       @close="subtitleModeSheetOpen = false"
       @update:subtitle-mode="(m) => { selectSubtitleMode(m); subtitleModeSheetOpen = false }"
       @select-word-cards="openWordCardsView(); subtitleModeSheetOpen = false"
       @select-vocab-summary="openVocabSummaryView(); subtitleModeSheetOpen = false"
       @select-video-context="openVideoContextView(); subtitleModeSheetOpen = false"
+      @select-audience-notes="openAudienceNotesView(); subtitleModeSheetOpen = false"
     />
 
     <BlankPrintSheet

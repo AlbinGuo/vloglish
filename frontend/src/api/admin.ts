@@ -868,6 +868,66 @@ export async function adminFetchMediaFromUrl(payload: {
   return data
 }
 
+export interface AdminAudienceNote {
+  id: number
+  english: string
+  chinese: string
+  kind: string
+  timestamp_sec: number | null
+  like_count: number
+  phrases: { en: string; zh?: string }[]
+  is_published: boolean
+  sort_order: number
+  source_comment_id: string
+  author_name?: string
+}
+
+export interface AdminAudienceNoteList {
+  notes: AdminAudienceNote[]
+  fetched: number
+  candidates: number
+  selected: number
+}
+
+export async function adminListAudienceNotes(episodeId: number) {
+  const { data } = await adminApi.get<AdminAudienceNoteList>(
+    `/api/admin/episodes/${episodeId}/audience-notes/`,
+  )
+  return data
+}
+
+export async function adminCurateAudienceNotes(episodeId: number) {
+  const { data } = await adminApi.post<AdminAudienceNoteList>(
+    `/api/admin/episodes/${episodeId}/audience-notes/curate/`,
+    {},
+    { timeout: 600_000 },
+  )
+  return data
+}
+
+export async function adminPublishAudienceNotes(episodeId: number) {
+  const { data } = await adminApi.post<AdminAudienceNoteList>(
+    `/api/admin/episodes/${episodeId}/audience-notes/publish-all/`,
+  )
+  return data
+}
+
+export async function adminUpdateAudienceNote(
+  episodeId: number,
+  noteId: number,
+  payload: Partial<Pick<AdminAudienceNote, 'english' | 'chinese' | 'kind' | 'timestamp_sec' | 'is_published' | 'sort_order' | 'phrases'>>,
+) {
+  const { data } = await adminApi.patch<AdminAudienceNote>(
+    `/api/admin/episodes/${episodeId}/audience-notes/${noteId}/`,
+    payload,
+  )
+  return data
+}
+
+export async function adminDeleteAudienceNote(episodeId: number, noteId: number) {
+  await adminApi.delete(`/api/admin/episodes/${episodeId}/audience-notes/${noteId}/`)
+}
+
 export interface DemoCodeRow {
   id: number
   code: string

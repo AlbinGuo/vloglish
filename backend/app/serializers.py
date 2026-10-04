@@ -3,6 +3,7 @@ from datetime import datetime
 from .models import Article, ArticleSegment, Author, Episode, Entry, Tag, UserArticleProgress
 from .media import resolve_audio_url, resolve_cover_url, resolve_video_url
 from .services.episode_admin import episode_is_new
+from .services.audience_notes import published_audience_notes
 from .services.vocab_summary import parse_vocab_summary
 
 
@@ -123,6 +124,7 @@ def episode_detail(
             "vocab_summary_text": getattr(episode, "vocab_summary", None) or "",
             "video_context": getattr(episode, "video_context", None) or "",
             "is_favorite": bool(is_favorite),
+            "audience_notes": published_audience_notes(episode),
         },
         "total_episodes": total,
     }

@@ -935,3 +935,98 @@ def lookup_with_deepseek(word: str, token_type: int, context: str, entry_id: int
     if not result["definitions"]:
         raise RuntimeError("DeepSeek 返回的词条格式不完整")
     return result
+
+
+AUDIENCE_NOTES_CURATE_PROMPT = """你是英语学习内容编辑。从观众评论里精选适合当「片后短阅读」的条目。
+
+只返回 JSON：
+{
+  "items": [
+    {
+      "source_id": "原评论 id",
+      "english": "清洗后的英文原文（保留口语味道，去掉链接和表情堆砌）",
+      "chinese": "一句自然中文释义",
+      "kind": "timestamp" 或 "culture" 或 "opinion" 或 "uploader",
+      "timestamp_sec": 133 或 null,
+      "phrases": [{"en": "the way she said", "zh": "她那样说的时候"}]
+    }
+  ]
+}
+
+规则：
+1. 选 5～8 条。质量不够可以少于 5，不要拿感谢/灌水凑数。
+2. 优先：带视频时间戳的反应、解释文化/梗/口音、完整意见句、UP 主置顶或亲自回复。
+3. 丢掉：Thank you / first / subscribe / 纯表情 / 广告 / 与视频无关 / 过短破碎的句子。
+4. phrases 每条 1～2 个口头搭配或话语标记，必须出自 english。
+5. timestamp_sec 仅当评论提到视频内时间（如 2:13）时填写秒数；不要用发帖时间。
+6. 不要编造评论，english 必须能对应到输入的某一条。
+7. kind：timestamp=片中反应，culture=背景/梗，opinion=观众看法，uploader=作者回复。
+"""
+
+
+def curate_audience_notes_with_deepseek(
+    comments: list[dict],
+    *,
+    episode_title: str = "",
+    episode_summary: str = "",
+) -> list[dict]:
+    if not comments:
+        return []
+
+    payload = {
+        "episode": {
+            "title": (episode_title or "").strip(),
+            "summary": (episode_summary or "").strip()[:800],
+        },
+        "comments": comments,
+    }
+    content = _chat_completion(
+        system=AUDIENCE_NOTES_CURATE_PROMPT,
+        user=json.dumps(payload, ensure_ascii=False),
+        response_format={"type": "json_object"},
+        temperature=0.25,
+        timeout=180,
+        max_tokens=3500,
+    )
+    raw = _extract_json(content)
+    items = raw.get("items")
+    if not isinstance(items, list):
+        raise RuntimeError("DeepSeek 热议精选返回格式无效")
+
+    out: list[dict] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        english = str(item.get("english") or "").strip()
+        if not english:
+            continue
+        kind = str(item.get("kind") or "opinion").strip().lower()
+        if kind not in {"timestamp", "culture", "opinion", "uploader"}:
+            kind = "opinion"
+        phrases_raw = item.get("phrases")
+        phrases: list[dict[str, str]] = []
+        if isinstance(phrases_raw, list):
+            for phrase in phrases_raw[:2]:
+                if not isinstance(phrase, dict):
+                    continue
+                en = str(phrase.get("en") or "").strip()
+                zh = str(phrase.get("zh") or "").strip()
+                if en:
+                    phrases.append({"en": en, "zh": zh})
+        ts = item.get("timestamp_sec")
+        timestamp_sec: float | None = None
+        if isinstance(ts, (int, float)) and ts >= 0:
+            timestamp_sec = float(ts)
+        out.append(
+            {
+                "source_id": str(item.get("source_id") or "").strip(),
+                "english": english[:2000],
+                "chinese": str(item.get("chinese") or "").strip()[:800],
+                "kind": kind,
+                "timestamp_sec": timestamp_sec,
+                "phrases": phrases,
+            }
+        )
+        if len(out) >= 8:
+            break
+    return out

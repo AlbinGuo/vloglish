@@ -117,6 +117,26 @@ export interface EpisodeDetail {
   /** 视频语境原文（HTML / Markdown） */
   video_context?: string
   is_favorite?: boolean
+  audience_notes?: AudienceNote[]
+}
+
+export interface AudienceNotePhrase {
+  en: string
+  zh?: string
+}
+
+export interface AudienceNote {
+  id: number
+  english: string
+  chinese?: string
+  kind?: 'timestamp' | 'culture' | 'opinion' | 'uploader' | string
+  timestamp_sec?: number | null
+  like_count?: number
+  phrases?: AudienceNotePhrase[]
+  is_published?: boolean
+  sort_order?: number
+  source_comment_id?: string
+  author_name?: string
 }
 
 export interface VocabSummaryItem {

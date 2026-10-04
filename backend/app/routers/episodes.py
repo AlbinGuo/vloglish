@@ -429,6 +429,7 @@ def get_episode_detail(
             joinedload(Episode.author),
             selectinload(Episode.tags),
             selectinload(Episode.subtitles),
+            selectinload(Episode.audience_notes),
             joinedload(Episode.series),
         )
         .filter(Episode.video_id == video_id, Episode.status == "published")

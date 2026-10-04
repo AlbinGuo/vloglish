@@ -97,6 +97,10 @@ class Episode(Base):
     series: Mapped["EpisodeSeries | None"] = relationship(back_populates="episodes")
     tags: Mapped[list["Tag"]] = relationship(secondary=episode_tags)
     subtitles: Mapped[list["Subtitle"]] = relationship(back_populates="episode", cascade="all, delete-orphan")
+    audience_notes: Mapped[list["EpisodeAudienceNote"]] = relationship(
+        back_populates="episode",
+        cascade="all, delete-orphan",
+    )
 
 
 class Subtitle(Base):
@@ -113,6 +117,50 @@ class Subtitle(Base):
     english_html: Mapped[str] = mapped_column(Text, default="")
 
     episode: Mapped["Episode"] = relationship(back_populates="subtitles")
+
+
+class EpisodeAudienceNote(Base):
+    """片后热议：从 YouTube 评论精选出的学习卡片。"""
+
+    __tablename__ = "episode_audience_notes"
+    __table_args__ = (
+        UniqueConstraint("episode_id", "source_comment_id", name="uq_audience_note_source"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id"), index=True)
+    source_comment_id: Mapped[str] = mapped_column(String(64), default="")
+    english: Mapped[str] = mapped_column(Text, default="")
+    chinese: Mapped[str] = mapped_column(Text, default="")
+    like_count: Mapped[int] = mapped_column(Integer, default=0)
+    author_name: Mapped[str] = mapped_column(String(128), default="")
+    kind: Mapped[str] = mapped_column(String(24), default="opinion")
+    timestamp_sec: Mapped[float | None] = mapped_column(Float, nullable=True)
+    phrases_json: Mapped[str] = mapped_column(Text, default="[]")
+    is_published: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    episode: Mapped["Episode"] = relationship(back_populates="audience_notes")
+
+    @property
+    def phrases(self) -> list[dict]:
+        try:
+            raw = json.loads(self.phrases_json or "[]")
+        except json.JSONDecodeError:
+            return []
+        if not isinstance(raw, list):
+            return []
+        out: list[dict] = []
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            en = str(item.get("en") or "").strip()
+            zh = str(item.get("zh") or "").strip()
+            if en:
+                out.append({"en": en, "zh": zh})
+        return out
 
 
 class Entry(Base):

@@ -4,10 +4,11 @@ import type { SubtitleDisplayMode } from '@/utils/subtitleHtml'
 defineProps<{
   open: boolean
   subtitleMode: SubtitleDisplayMode
-  contentView?: 'subtitles' | 'wordcards' | 'summary' | 'context'
+  contentView?: 'subtitles' | 'wordcards' | 'summary' | 'context' | 'audience'
   modeButtons: { key: SubtitleDisplayMode; label: string }[]
   /** @deprecated 汇总 Tab 始终显示 */
   showVocabSummary?: boolean
+  showAudienceNotes?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -16,6 +17,7 @@ const emit = defineEmits<{
   selectWordCards: []
   selectVocabSummary: []
   selectVideoContext: []
+  selectAudienceNotes: []
 }>()
 </script>
 
@@ -102,6 +104,25 @@ const emit = defineEmits<{
               >
                 看懂背景
               </span>
+            </button>
+            <button
+              v-if="showAudienceNotes"
+              type="button"
+              class="relative col-span-3 flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm border transition-colors text-left"
+              :class="
+                contentView === 'audience'
+                  ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100'
+                  : 'border-black/10 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+              "
+              @click="emit('selectAudienceNotes')"
+            >
+              <span class="inline-flex items-center gap-1.5 font-medium">
+                观众怎么说
+                <span class="px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none bg-red-500 text-white">
+                  新
+                </span>
+              </span>
+              <span class="text-[11px] text-neutral-400">片后热议</span>
             </button>
           </div>
         </div>
