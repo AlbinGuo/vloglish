@@ -18,7 +18,6 @@ import CatalogFilterSheet from '@/components/catalog/CatalogFilterSheet.vue'
 import CatalogEpisodeSkeletons from '@/components/skeleton/CatalogEpisodeSkeletons.vue'
 import EpisodeCard from '@/components/EpisodeCard.vue'
 import EpisodeListRow from '@/components/EpisodeListRow.vue'
-import DailyPathCard from '@/components/ai/DailyPathCard.vue'
 import type { AuthorCatalogItem } from '@/types'
 
 defineOptions({ name: 'HomePage' })
@@ -328,12 +327,6 @@ watch(
           </span>
         </template>
       </div>
-
-      <DailyPathCard
-        v-if="auth.isLoggedIn"
-        class="mb-2 sm:mb-3"
-        variant="compact"
-      />
 
       <!-- 按作者分类 -->
       <template v-if="browseMode === 'author'">

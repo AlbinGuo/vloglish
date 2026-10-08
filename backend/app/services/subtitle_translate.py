@@ -1,4 +1,4 @@
-"""Enrich subtitles with Chinese translation and IPA via DeepSeek."""
+"""Enrich subtitles: Chinese via Index-Translate, IPA via DeepSeek."""
 from __future__ import annotations
 
 import logging
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 BATCH_SIZE = 20
 _BATCH_SIZE = BATCH_SIZE
 _CONTEXT_WINDOW = 6
-# 同轮内最多并行打几路 DeepSeek
+# 同轮内最多并行打几路翻译 / IPA
 PARALLEL_WORKERS = 2
 
 
@@ -32,7 +32,7 @@ def enrich_subtitles_with_deepseek(
 
     Returns (translated_count, ipa_count, translation_brief, remaining_pending, done, batches_run).
     若未传入 translation_brief 且需要翻译，会先生成整集剧情简报。
-    max_batches 限制本轮 DeepSeek 批次数（不含 brief），便于分轮续跑。
+    max_batches 限制本轮翻译批次数（不含 brief），便于分轮续跑。
     """
     pending: list[int] = []
     for i, row in enumerate(subtitles):
