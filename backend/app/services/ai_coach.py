@@ -610,13 +610,25 @@ def daily_learning_path(db: Session, user: User) -> dict:
     if prog:
         p, ep = prog
         if can_access_episode(db, ep, user):
+            line_index = max(0, int(p.last_subtitle_index or 0))
+            cue = (
+                db.query(Subtitle)
+                .filter(Subtitle.episode_id == ep.id)
+                .order_by(Subtitle.index.asc())
+                .offset(line_index)
+                .first()
+            )
             continue_item = {
                 "kind": "continue",
                 "video_id": ep.video_id,
                 "title": ep.short_title or ep.video_id,
                 "cover": ep.thumbnail_url or ep.cover or "",
                 "completion_percent": float(p.completion_percent or 0),
-                "reason": "接着上次学",
+                "reason": "接着这一句",
+                "last_subtitle_index": line_index,
+                "english": (cue.english if cue else "") or "",
+                "chinese": (cue.chinese if cue else "") or "",
+                "path": f"/english/episode/{ep.video_id}?line={line_index}",
             }
 
     recommend = []

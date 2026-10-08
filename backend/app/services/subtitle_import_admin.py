@@ -29,6 +29,7 @@ def _rows_from_subtitle_inputs(subtitles: list[AdminSubtitleIn]) -> list[dict]:
                 "end": float(s.end),
                 "english": english or chinese,
                 "chinese": "" if not english else chinese,
+                "chinese_literal": (s.chinese_literal or "").strip(),
                 "ipa": (s.ipa or "").strip(),
                 "english_html": (s.english_html or "").strip(),
             }

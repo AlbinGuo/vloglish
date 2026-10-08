@@ -93,6 +93,10 @@ export interface DailyPathResult {
     cover: string
     completion_percent?: number
     reason: string
+    last_subtitle_index?: number
+    english?: string
+    chinese?: string
+    path?: string
   } | null
   recommend: {
     kind: string

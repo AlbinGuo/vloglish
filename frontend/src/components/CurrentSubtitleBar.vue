@@ -35,11 +35,14 @@ const props = defineProps<{
   lookupMeta?: WordLookupMeta
   /** 听写中：毛玻璃遮罩 */
   dictationFrost?: boolean
+  glossary?: { en: string; zh: string }[]
+  literalLoading?: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   click: [event: MouseEvent]
   seek: []
+  'need-literal': []
 }>()
 
 const scrollRef = ref<HTMLElement | null>(null)
@@ -55,7 +58,46 @@ const showChinese = computed(() => modeShowsChinese(props.subtitleMode))
 const showEnglish = computed(() => modeShowsEnglish(props.subtitleMode))
 const showIpaLine = computed(() => modeShowsIpa(props.subtitleMode, props.showIpa))
 
-const displayChinese = computed(() => stripSpeakerMarkers(props.sub.chinese || ''))
+const senseMode = ref<'sense' | 'literal'>('sense')
+
+watch(
+  () => props.sub.id,
+  () => {
+    senseMode.value = 'sense'
+  },
+)
+
+const literalText = computed(() => stripSpeakerMarkers(props.sub.chinese_literal || ''))
+const senseText = computed(() => stripSpeakerMarkers(props.sub.chinese || ''))
+const displayChinese = computed(() =>
+  senseMode.value === 'literal' && literalText.value ? literalText.value : senseText.value,
+)
+const showSenseToggle = computed(
+  () =>
+    showChinese.value &&
+    !props.overlay &&
+    !props.dictationFrost &&
+    Boolean(senseText.value || literalText.value || props.literalLoading),
+)
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+const glossaryHits = computed(() => {
+  const text = props.sub.english || ''
+  return (props.glossary || []).filter((item) => {
+    const en = item.en?.trim()
+    if (!en) return false
+    return new RegExp(`(?<![A-Za-z])${escapeRegExp(en)}(?![A-Za-z])`, 'i').test(text)
+  })
+})
+
+function setSenseMode(mode: 'sense' | 'literal') {
+  if (mode === 'literal' && !literalText.value && !props.literalLoading) {
+    emit('need-literal')
+  }
+  senseMode.value = mode
+}
 
 /** 全屏等：高度随内容；中文可选贴底 */
 const usePinLayout = computed(() => Boolean(props.pinChinese) && !props.compact)
@@ -307,7 +349,7 @@ onUnmounted(() => {
                 class="w-full min-w-0"
                 :english-html="englishHtml"
                 :english="sub.english"
-                :chinese="sub.chinese"
+                :chinese="displayChinese"
                 :ipa="sub.ipa"
                 :large="!compact"
                 :align="englishAlign"
@@ -321,7 +363,7 @@ onUnmounted(() => {
                 v-else
                 class="w-full min-w-0"
                 :english-html="englishHtml"
-                :chinese="sub.chinese"
+                :chinese="displayChinese"
                 :ipa="sub.ipa"
                 :large="!compact"
                 :align="englishAlign"
@@ -339,6 +381,27 @@ onUnmounted(() => {
             >
               {{ displayChinese }}
             </p>
+            <div v-if="showSenseToggle" class="current-subtitle-bar__sense" @click.stop>
+              <button
+                type="button"
+                class="cursor-pointer rounded-full px-2 py-0.5"
+                :class="senseMode === 'sense' ? 'is-on' : ''"
+                @click="setSenseMode('sense')"
+              >
+                意译
+              </button>
+              <button
+                type="button"
+                class="cursor-pointer rounded-full px-2 py-0.5"
+                :class="senseMode === 'literal' ? 'is-on' : ''"
+                @click="setSenseMode('literal')"
+              >
+                {{ literalLoading ? '直译中…' : '直译' }}
+              </button>
+              <span v-for="item in glossaryHits" :key="item.en" class="current-subtitle-bar__term">
+                {{ item.en }}{{ item.zh ? ` · ${item.zh}` : '' }}
+              </span>
+            </div>
           </template>
           <div v-else class="subtitle-focus-light current-subtitle-bar__content">
             <IntensiveReadingBlock
@@ -346,7 +409,7 @@ onUnmounted(() => {
               class="w-full min-w-0"
               :english-html="englishHtml"
               :english="sub.english"
-              :chinese="sub.chinese"
+              :chinese="displayChinese"
               :ipa="sub.ipa"
               :large="!compact"
               :align="englishAlign"
@@ -360,7 +423,7 @@ onUnmounted(() => {
               v-else
               class="w-full min-w-0"
               :english-html="englishHtml"
-              :chinese="sub.chinese"
+              :chinese="displayChinese"
               :ipa="sub.ipa"
               :large="!compact"
               :align="englishAlign"
@@ -370,6 +433,27 @@ onUnmounted(() => {
               :show-ipa="showIpaLine"
               @click.stop="$emit('click', $event)"
             />
+            <div v-if="showSenseToggle" class="current-subtitle-bar__sense" @click.stop>
+              <button
+                type="button"
+                class="cursor-pointer rounded-full px-2 py-0.5"
+                :class="senseMode === 'sense' ? 'is-on' : ''"
+                @click="setSenseMode('sense')"
+              >
+                意译
+              </button>
+              <button
+                type="button"
+                class="cursor-pointer rounded-full px-2 py-0.5"
+                :class="senseMode === 'literal' ? 'is-on' : ''"
+                @click="setSenseMode('literal')"
+              >
+                {{ literalLoading ? '直译中…' : '直译' }}
+              </button>
+              <span v-for="item in glossaryHits" :key="item.en" class="current-subtitle-bar__term">
+                {{ item.en }}{{ item.zh ? ` · ${item.zh}` : '' }}
+              </span>
+            </div>
           </div>
         </div>
       </Transition>
@@ -445,6 +529,52 @@ onUnmounted(() => {
   .current-subtitle-bar__viewport {
     padding: 0.875rem 1.25rem;
   }
+}
+
+.current-subtitle-bar__sense {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  margin-top: 0.4rem;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.current-subtitle-bar__sense button {
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: rgb(115 115 115);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.current-subtitle-bar__sense button.is-on {
+  background: #171717;
+  border-color: #171717;
+  color: #fff;
+}
+
+.current-subtitle-bar__term {
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.15rem 0.5rem;
+  color: rgb(82 82 82);
+}
+
+:global(.dark) .current-subtitle-bar__sense button {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgb(163 163 163);
+  background: rgba(23, 23, 23, 0.7);
+}
+
+:global(.dark) .current-subtitle-bar__sense button.is-on {
+  background: #fff;
+  border-color: #fff;
+  color: #171717;
+}
+
+:global(.dark) .current-subtitle-bar__term {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgb(212 212 212);
 }
 
 .current-subtitle-bar__content {

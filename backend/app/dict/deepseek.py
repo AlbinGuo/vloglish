@@ -458,9 +458,22 @@ ENRICH_SYSTEM_PROMPT = """你是资深影视/Vlog 字幕译制，同时输出美
 ## 音标（ipa）
 整句美式 IPA，斜杠包裹，如 /həˈloʊ wɜːrld/
 
+8. **chinese_literal**：同一句的对照直译，尽量贴英文词序，但仍要能读懂；专名同样遵守 glossary
+
 仅返回合法 JSON。
-JSON：{"items": [{"chinese": "中文", "ipa": "/音标/"}, ...]}
+JSON：{"items": [{"chinese": "意译", "chinese_literal": "直译", "ipa": "/音标/"}, ...]}
 条目数必须与 lines 完全一致。"""
+
+
+LITERAL_CHINESE_SYSTEM_PROMPT = """你是字幕直译助手。把一句英文口语句子译成对照用的中文直译。
+要求：
+1. 尽量贴英文词序，便于对照原文，但必须能读懂
+2. glossary 里的专名/梗按给定译法
+3. 可参考 sense_chinese（意译），不要照抄
+4. 不要解释、括号注释、emoji
+5. glossary_hits：本句实际出现的专名/梗，没有则 []
+仅返回合法 JSON。
+JSON：{"chinese_literal":"...","glossary_hits":[{"en":"...","zh":"..."}]}"""
 
 
 IPA_ONLY_SYSTEM_PROMPT = """你是英语语音学助手。对用户提供的每行英文字幕，输出对应的美式英语整句 IPA 音标。
@@ -746,6 +759,7 @@ def _enrich_subtitle_lines_batch(
         result.append(
             {
                 "chinese": str(item.get("chinese", "")).strip(),
+                "chinese_literal": str(item.get("chinese_literal", "")).strip(),
                 "ipa": str(item.get("ipa", "")).strip(),
             }
         )
@@ -776,7 +790,7 @@ def enrich_subtitle_lines_with_deepseek(
         try:
             return _enrich_subtitle_lines_batch(lines, **kwargs)
         except Exception:
-            return [{"chinese": "", "ipa": ""}]
+            return [{"chinese": "", "chinese_literal": "", "ipa": ""}]
 
     try:
         return _enrich_subtitle_lines_batch(lines, **kwargs)
@@ -802,6 +816,40 @@ def enrich_subtitle_lines_with_deepseek(
             translate_chinese=translate_chinese,
             translation_brief=translation_brief,
         )
+
+
+def translate_literal_chinese_with_deepseek(
+    english: str,
+    *,
+    sense_chinese: str = "",
+    glossary: list[dict] | None = None,
+) -> dict:
+    user_payload = {
+        "english": (english or "").strip(),
+        "sense_chinese": (sense_chinese or "").strip(),
+        "glossary": glossary or [],
+    }
+    content = _chat_completion(
+        system=LITERAL_CHINESE_SYSTEM_PROMPT,
+        user=json.dumps(user_payload, ensure_ascii=False),
+        response_format={"type": "json_object"},
+        temperature=0.2,
+        timeout=60,
+        max_tokens=400,
+    )
+    raw = _extract_json(content)
+    literal = str(raw.get("chinese_literal") or raw.get("chinese") or "").strip()
+    hits: list[dict[str, str]] = []
+    raw_hits = raw.get("glossary_hits")
+    if isinstance(raw_hits, list):
+        for item in raw_hits[:8]:
+            if not isinstance(item, dict):
+                continue
+            en = str(item.get("en") or "").strip()
+            zh = str(item.get("zh") or "").strip()
+            if en:
+                hits.append({"en": en, "zh": zh})
+    return {"chinese_literal": literal, "glossary_hits": hits}
 
 
 def localize_video_metadata_with_deepseek(title: str, summary: str) -> dict[str, str]:

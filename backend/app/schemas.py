@@ -383,6 +383,7 @@ class AdminSubtitleIn(BaseModel):
     end: float = Field(ge=0)
     english: str
     chinese: str = ""
+    chinese_literal: str = ""
     ipa: str = ""
     english_html: str = ""
 
@@ -822,6 +823,7 @@ class SubtitleOut(BaseModel):
     end: float
     english: str
     chinese: str
+    chinese_literal: str = ""
     ipa: str
     english_html: str
 
@@ -890,6 +892,7 @@ class EpisodeDetailOut(BaseModel):
     vocab_summary: list[VocabSummaryGroupOut] = []
     vocab_summary_text: str = ""
     video_context: str = ""
+    glossary: list[dict] = []
     is_favorite: bool = False
     audience_notes: list[AudienceNoteOut] = []
 

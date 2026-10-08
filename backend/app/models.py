@@ -67,6 +67,7 @@ class Episode(Base):
     remark: Mapped[str] = mapped_column(Text, default="")
     vocab_summary: Mapped[str] = mapped_column(Text, default="")
     video_context: Mapped[str] = mapped_column(Text, default="")
+    glossary_json: Mapped[str] = mapped_column(Text, default="[]")
     stars: Mapped[int] = mapped_column(Integer, default=3)
     voca_size: Mapped[int] = mapped_column(Integer, default=0)
     subtitle_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -113,6 +114,7 @@ class Subtitle(Base):
     end: Mapped[float] = mapped_column(Float)
     english: Mapped[str] = mapped_column(Text)
     chinese: Mapped[str] = mapped_column(Text, default="")
+    chinese_literal: Mapped[str] = mapped_column(Text, default="")
     ipa: Mapped[str] = mapped_column(Text, default="")
     english_html: Mapped[str] = mapped_column(Text, default="")
 

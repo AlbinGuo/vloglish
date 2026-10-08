@@ -40,12 +40,9 @@ const isCompact = computed(() => props.variant === 'compact')
 const sentence = computed(() => data.value?.today_sentence ?? null)
 const streak = computed(() => sentence.value?.streak_days ?? data.value?.daily_streak ?? 0)
 const preview = computed(() => data.value?.vocab_preview ?? [])
-const continueItem = computed(() => {
-  const item = data.value?.continue_item
-  if (!item) return null
-  if (sentence.value && item.video_id === sentence.value.video_id) return null
-  return item
-})
+const continueItem = computed(() => data.value?.continue_item ?? null)
+const continuePath = computed(() => continueItem.value?.path || (continueItem.value ? `/english/episode/${continueItem.value.video_id}` : ''))
+const continueLine = computed(() => (continueItem.value?.english || continueItem.value?.title || '').trim())
 </script>
 
 <template>
@@ -59,38 +56,43 @@ const continueItem = computed(() => {
       <div class="h-6 w-12 rounded bg-amber-200/50 dark:bg-amber-900/40" />
     </div>
 
-    <div v-else class="flex items-center gap-2 min-w-0">
-      <RouterLink
-        v-if="sentence"
-        :to="sentence.path"
-        class="flex items-center gap-2 min-w-0 flex-1 rounded-lg -m-0.5 p-0.5 active:bg-amber-100/60 dark:active:bg-amber-900/30 transition"
-      >
-        <span class="shrink-0 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-          {{ sentence.completed ? '已打卡' : '今日一句' }}
-        </span>
-        <span class="min-w-0 flex-1 text-sm font-medium truncate text-neutral-900 dark:text-neutral-100">
-          {{ sentence.english }}
-        </span>
-      </RouterLink>
-      <p v-else class="flex-1 text-sm text-neutral-500 truncate">暂时没有今日一句</p>
-
-      <span class="shrink-0 text-[11px] tabular-nums text-amber-800/80 dark:text-amber-300/80">
-        {{ streak }}天
-      </span>
+    <div v-else class="flex flex-col gap-1.5 min-w-0">
       <RouterLink
         v-if="continueItem"
-        :to="`/english/episode/${continueItem.video_id}`"
-        class="shrink-0 text-[11px] font-medium text-amber-800 dark:text-amber-300 px-1.5 py-1 rounded-lg hover:bg-amber-100/80 dark:hover:bg-amber-900/40"
+        :to="continuePath"
+        class="flex items-center gap-2 min-w-0 rounded-lg -m-0.5 p-0.5 active:bg-amber-100/60 dark:active:bg-amber-900/30 transition"
       >
-        继续
+        <span class="shrink-0 text-[11px] font-medium text-amber-700 dark:text-amber-300">接着这一句</span>
+        <span class="min-w-0 flex-1 text-sm font-medium truncate text-neutral-900 dark:text-neutral-100">
+          {{ continueLine }}
+        </span>
+        <span class="shrink-0 text-[11px] font-medium text-amber-800 dark:text-amber-300">去练</span>
       </RouterLink>
-      <RouterLink
-        v-if="preview.length"
-        :to="preview[0].path"
-        class="shrink-0 text-[11px] font-medium text-amber-800 dark:text-amber-300 px-1.5 py-1 rounded-lg hover:bg-amber-100/80 dark:hover:bg-amber-900/40 whitespace-nowrap"
-      >
-        {{ preview.length }}词
-      </RouterLink>
+      <div class="flex items-center gap-2 min-w-0">
+        <RouterLink
+          v-if="sentence"
+          :to="sentence.path"
+          class="flex items-center gap-2 min-w-0 flex-1 rounded-lg -m-0.5 p-0.5 active:bg-amber-100/60 dark:active:bg-amber-900/30 transition"
+        >
+          <span class="shrink-0 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+            {{ sentence.completed ? '已打卡' : '今日一句' }}
+          </span>
+          <span class="min-w-0 flex-1 text-sm font-medium truncate text-neutral-900 dark:text-neutral-100">
+            {{ sentence.english }}
+          </span>
+        </RouterLink>
+        <p v-else-if="!continueItem" class="flex-1 text-sm text-neutral-500 truncate">选一集，停在听不清的那一句</p>
+        <span class="shrink-0 text-[11px] tabular-nums text-amber-800/80 dark:text-amber-300/80">
+          {{ streak }}天
+        </span>
+        <RouterLink
+          v-if="preview.length"
+          :to="preview[0].path"
+          class="shrink-0 text-[11px] font-medium text-amber-800 dark:text-amber-300 px-1.5 py-1 rounded-lg hover:bg-amber-100/80 dark:hover:bg-amber-900/40 whitespace-nowrap"
+        >
+          {{ preview.length }}词
+        </RouterLink>
+      </div>
     </div>
   </section>
 
@@ -126,7 +128,7 @@ const continueItem = computed(() => {
 
       <RouterLink
         v-if="data.continue_item"
-        :to="`/english/episode/${data.continue_item.video_id}`"
+        :to="data.continue_item.path || `/english/episode/${data.continue_item.video_id}`"
         class="flex items-center gap-3 rounded-lg border border-black/5 dark:border-white/10 bg-white/80 dark:bg-neutral-900/60 p-2.5 hover:border-amber-400 transition"
       >
         <div class="w-16 h-10 rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 shrink-0">
@@ -139,7 +141,8 @@ const continueItem = computed(() => {
         </div>
         <div class="min-w-0 flex-1">
           <p class="text-xs text-amber-700 dark:text-amber-300">{{ data.continue_item.reason }}</p>
-          <p class="text-sm font-medium truncate">{{ data.continue_item.title }}</p>
+          <p class="text-sm font-medium truncate">{{ data.continue_item.english || data.continue_item.title }}</p>
+          <p v-if="data.continue_item.english" class="text-[11px] text-neutral-400 truncate">{{ data.continue_item.title }}</p>
         </div>
       </RouterLink>
 

@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'v
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
 import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, completeDailySentence, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
-import { getEpisodeList, setAuthorSubscribe, setEpisodeFavorite, warmEpisodeWordLookups } from '@/api/episodes'
+import { generateSubtitleLiteral, getEpisodeList, setAuthorSubscribe, setEpisodeFavorite, warmEpisodeWordLookups } from '@/api/episodes'
 import { useFavoriteToastStore } from '@/stores/favoriteToast'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 import AuthorSubscribeButton from '@/components/AuthorSubscribeButton.vue'
@@ -484,6 +484,24 @@ const {
 } = useSourceFocusPulse(5000)
 
 const episode = ref<EpisodeDetail | null>(null)
+const literalLoadingId = ref<number | null>(null)
+const episodeGlossary = computed(() => episode.value?.glossary || [])
+
+async function requestLiteral(sub: Subtitle) {
+  if (!sub?.id || (sub.chinese_literal || '').trim() || literalLoadingId.value) return
+  literalLoadingId.value = sub.id
+  try {
+    const data = await generateSubtitleLiteral(props.videoId, sub.id)
+    if (!episode.value) return
+    episode.value.glossary = data.glossary
+    const row = episode.value.subtitles.find((item) => item.id === sub.id)
+    if (row) row.chinese_literal = data.chinese_literal
+  } catch {
+    // keep 意译
+  } finally {
+    literalLoadingId.value = null
+  }
+}
 const loading = ref(true)
 const error = ref('')
 const subtitleMode = ref<SubtitleDisplayMode>('both')
@@ -2061,7 +2079,7 @@ async function load() {
         learnedSubtitleIds.value = new Set()
       }
     }
-    const jumped = await applyVocabDeepLink()
+    const jumped = (await applyVocabDeepLink()) || (await applyLineDeepLink())
     if (!jumped) nextTick(scrollCurrentIntoView)
   } catch (e: unknown) {
     const status = (e as { response?: { status?: number; data?: { detail?: string } } })?.response?.status
@@ -2119,6 +2137,28 @@ function resolveDeepLinkSubtitle(subtitleId: number, word: string): Subtitle | n
     if (hit) return hit
   }
   return base
+}
+
+/** 首页「接着这一句」：按句序号定位 */
+async function applyLineDeepLink(): Promise<boolean> {
+  const raw = route.query.line
+  const line = Number(Array.isArray(raw) ? raw[0] : raw)
+  if (!Number.isFinite(line) || line < 0) return false
+  const sub = sortedSubs.value[Math.min(line, sortedSubs.value.length - 1)]
+  if (!sub) return false
+  clearResumePrompt()
+  player.seekTo(sub)
+  await nextTick()
+  scrollCurrentIntoView()
+  for (const delay of [120, 320, 700]) {
+    window.setTimeout(() => {
+      if (sortedSubs.value.some((row) => row.id === sub.id)) {
+        player.seekTo(sub)
+        scrollCurrentIntoView()
+      }
+    }, delay)
+  }
+  return true
 }
 
 /** 生词本「回看」：按 subtitle id（并可按 word 校正）定位到对应字幕句 */
@@ -3060,7 +3100,10 @@ function subtitleRowClass(index: number) {
                 :show-ipa="false"
                 :english-html="renderHtml(displaySub.english_html, displaySub.id)"
                 :dictation-frost="isDictationFrost(displaySub.id)"
+                :glossary="episodeGlossary"
+                :literal-loading="literalLoadingId === displaySub.id"
                 :data-subtitle-context="displaySub.english"
+                @need-literal="requestLiteral(displaySub)"
                 @seek="player.seekTo(displaySub)"
                 v-on="wordLongPressHandlers"
                 @click="onSubtitleClick"
@@ -3127,7 +3170,10 @@ function subtitleRowClass(index: number) {
               :show-ipa="showIpa"
               :english-html="renderHtml(displaySub.english_html, displaySub.id)"
               :dictation-frost="isDictationFrost(displaySub.id)"
+              :glossary="episodeGlossary"
+              :literal-loading="literalLoadingId === displaySub.id"
               :data-subtitle-context="displaySub.english"
+              @need-literal="requestLiteral(displaySub)"
               @seek="player.seekTo(displaySub)"
               v-on="wordLongPressHandlers"
               @click="onSubtitleClick"

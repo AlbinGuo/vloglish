@@ -130,6 +130,9 @@ def enrich_subtitles_with_deepseek(
                 if zh:
                     row["chinese"] = zh
                     translated += 1
+                literal = item.get("chinese_literal", "").strip()
+                if literal:
+                    row["chinese_literal"] = literal
             if not (row.get("ipa") or "").strip():
                 ipa = item.get("ipa", "").strip()
                 if ipa:

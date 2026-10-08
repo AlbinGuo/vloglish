@@ -86,6 +86,7 @@ export interface Subtitle {
   end: number
   english: string
   chinese: string
+  chinese_literal?: string
   ipa: string
   english_html: string
 }
@@ -116,6 +117,7 @@ export interface EpisodeDetail {
   vocab_summary_text?: string
   /** 视频语境原文（HTML / Markdown） */
   video_context?: string
+  glossary?: { en: string; zh: string }[]
   is_favorite?: boolean
   audience_notes?: AudienceNote[]
 }

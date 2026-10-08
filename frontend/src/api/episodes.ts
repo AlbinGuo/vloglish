@@ -95,6 +95,15 @@ export async function getEpisodeDetail(videoId: string) {
   return data
 }
 
+export async function generateSubtitleLiteral(videoId: string, subtitleId: number) {
+  const { data } = await api.post<{
+    chinese_literal: string
+    glossary: { en: string; zh: string }[]
+    hits: { en: string; zh: string }[]
+  }>(`/api/episode/${videoId}/subtitles/${subtitleId}/literal/`, {}, { timeout: 60000 })
+  return data
+}
+
 export interface EpisodeWordCardDto {
   word: string
   type: 1 | 2
