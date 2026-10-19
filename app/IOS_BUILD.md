@@ -220,7 +220,30 @@ git tag v1.2.0 && git push origin v1.2.0
 
 ---
 
+### 环境要求
+
+App Store Connect 强制要求 **用 iOS 26 SDK（Xcode 26+）构建**，否则上传会被拒绝：
+
+```
+error: exportArchive: Validation failed. SDK version issue.
+This app was built with the iOS 17.5 SDK.
+```
+
+所以 TestFlight 流水线固定跑在 `macos-26` 镜像上（`macos-14` 只有 Xcode 15.4 / iOS 17.5 SDK）。
+流水线开头有「检查 Xcode 版本」步骤，版本不够会**立刻失败并提示**，不会白等十几分钟。
+
+> ad-hoc 那条 `ios.yml` 不上传 App Store Connect，不受此限制，仍跑 `macos-14`。
+
+---
+
 ## 十、常见问题
+
+### TestFlight 相关
+
+- **`SDK version issue` / `built with the iOS 17.5 SDK`** → runner 镜像太旧，必须用 `macos-26`（Xcode 26+）。
+- **`Cloud signing permission error` / `You've been given access to cloud-managed distribution certificates`** → API Key 的 Access 角色权限不够，自动签名需要 **Admin** 角色；且你自己的账号也得是 Admin/Account Holder。
+- **`No app record found matching this bundle identifier`** → App Store Connect 里没有该 Bundle ID 的 App 记录，或选错了 Bundle ID。
+- **`Invalid base64-encoded string`** → `ASC_API_KEY_BASE64` Secret 内容不完整/不是那个 `.p8` 的编码。一个 `.p8`（约 257 字节）的 base64 应该是 **344** 个字符。
 
 - **`No signing certificate found`**：p12 与描述文件类型不匹配，或 `P12_PASSWORD` 不对。
 - **`No profiles for 'cc.vloglish.app' were found`**：描述文件里的 Bundle ID 不一致 / 未导入成功。

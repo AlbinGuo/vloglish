@@ -36,12 +36,26 @@ env:
 
 jobs:
   upload-testflight:
-    runs-on: macos-14
+    # App Store Connect 要求使用 iOS 26 SDK（Xcode 26+）构建，
+    # macos-14 镜像只有 Xcode 15.4 / iOS 17.5 SDK，会被上传校验拒绝。
+    runs-on: macos-26
     timeout-minutes: 90
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # 提前校验 Xcode 版本，避免白等十几分钟
+      - name: 检查 Xcode 版本
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          MAJOR=$(xcodebuild -version | head -1 | awk '{print $2}' | cut -d. -f1)
+          echo "Xcode major version = ${MAJOR}"
+          if [ "${MAJOR}" -lt 26 ]; then
+            echo "::error::App Store Connect 要求 Xcode 26 及以上，当前 runner 只有 ${MAJOR}。"
+            exit 1
+          fi
 
       - name: Setup Node
         uses: actions/setup-node@v4
