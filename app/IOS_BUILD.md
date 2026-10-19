@@ -3,36 +3,47 @@
 把 `app/`（Capacitor 壳）在 macOS runner 上打成可安装的 `.ipa`，推送到 `master` 自动出包。
 
 > 背景：iOS 只能在 macOS 上编译（`xcodebuild`），Windows 本地打不了。
-> 所以这里用 GitHub Actions 的 maccOS runner 完成构建 + 签名 + 导出。
+> 这里用 GitHub Actions 的 macOS runner 完成构建 + 签名 + 导出。
+> **签名走 App Store Connect API Key + 自动签名**，无需 p12 / 描述文件，Windows 用户全程不用 Mac。
 
 ---
 
 ## 一、前置条件
 
 1. **付费 Apple 开发者账号**（$99/年）——否则无法生成能装到真机的正式 ipa。
-2. 仓库托管在 GitHub（当前 `origin` 是 Gitee，见文末「Gitee 镜像」）。
-3. 在 Apple Developer 后台完成：
-   - 注册 App ID：`cc.vloglish.app`（用 Explicit App ID，勾选所需 Capabilities）
-   - 生成 **证书**：Distribution（App Store / Ad Hoc 通用），导出为 `.p12`
-   - 生成 **描述文件**：按你要的分发方式选 Ad Hoc / App Store / Development，得到 `.mobileprovision`
-   - 记录 10 位 **Team ID**（Membership 页）
+2. 仓库托管在 GitHub（当前另有 Gitee 远端 `gitee`，见文末）。
+3. 在 App Store Connect 建一个 **API Key**（见下）。
 
 ---
 
-## 二、需要在 GitHub 仓库配置的 Secrets / Variables
+## 二、创建 App Store Connect API Key
 
-设置路径：`仓库 → Settings → Secrets and variables → Actions`。
+1. 登录 [App Store Connect](https://appstoreconnect.apple.com) → **Users and Access** → **Integrations**（集成）标签 → **App Store Connect API**。
+2. 点 **+** 新建 Key：
+   - Name：任意，如 `vloglish-ci`
+   - Access（角色）：**App Manager** 或 **Admin**（需要能管理证书/描述文件）
+3. 创建后**一次性下载** `.p8`（AuthKey_XXXXXXXXXX.p8，只能下一次）。
+4. 记下页面上的：
+   - **Key ID**（10 位，如 `ABCD123456`）
+   - **Issuer ID**（UUID 形式）
+5. Team ID 在 [developer.apple.com](https://developer.apple.com) → **Membership** 里看（10 位）。
+
+> API Key 的 `.p8` 属于敏感材料，**切勿提交到仓库**。
+
+---
+
+## 三、需要在 GitHub 仓库配置的 Secrets / Variables
+
+设置路径：`仓库 → Settings → Secrets and variables → Actions`，**用 Repository secrets / variables**（workflow 未声明 environment）。
 
 ### Secrets（加密）
 
 | 名称 | 说明 |
 |------|------|
-| `BUILD_CERTIFICATE_BASE64` | 证书 `.p12` 的 base64 编码 |
-| `P12_PASSWORD` | 导出 `.p12` 时设置的密码 |
-| `PROVISIONING_PROFILE_BASE64` | 描述文件 `.mobileprovision` 的 base64 编码 |
-| `KEYCHAIN_PASSWORD` | 任意随机字符串（CI 里临时钥匙串的密码，无需记住） |
-| `APPLE_TEAM_ID` | 10 位 Team ID，如 `ABCDE12345` |
-| `CODE_SIGN_IDENTITY` | 可选。不填则按导出方式自动推断（见下） |
+| `ASC_API_KEY_ID` | API Key 的 Key ID |
+| `ASC_API_ISSUER_ID` | API Key 的 Issuer ID |
+| `ASC_API_KEY_BASE64` | `.p8` 文件的 base64 编码（见第四节） |
+| `APPLE_TEAM_ID` | 10 位 Team ID |
 
 ### Variables（明文，可选）
 
@@ -42,34 +53,32 @@
 
 **导出方式怎么选：**
 
-- `development` —— 只装到**已登记**的设备，用开发证书/描述文件（调试用）。
-- `ad-hoc` —— 装到**已登记**设备（最多 100 台），用分发证书 + Ad Hoc 描述文件。**推荐日常内测。**
-- `app-store-connect` —— 上传 TestFlight / App Store，用分发证书 + App Store 描述文件。
+- `development` —— 装到**已登记**设备，开发用。
+- `ad-hoc` —— 装到**已登记**设备（最多 100 台）。**推荐日常内测。**
+- `app-store-connect` —— 用于 TestFlight / 上架。
 
-> 证书类型与描述文件类型必须匹配 `EXPORT_METHOD`：
-> `development` ↔ 开发证书 + Development 描述文件；
-> `ad-hoc` / `app-store-connect` ↔ 分发证书 + Ad Hoc / App Store 描述文件。
+> `ad-hoc` / `development` 需要目标设备 UDID 已登记到开发者账号；`app-store-connect` 不需要。
 
 ---
 
-## 三、生成 base64（在 macOS 本机执行）
+## 四、生成 `.p8` 的 base64（Windows / PowerShell）
 
-```bash
-# 证书 .p12（导出时设的密码填到 P12_PASSWORD）
-base64 -i cert.p12 | pbcopy
+在 `.p8` 所在目录执行：
 
-# 描述文件 .mobileprovision
-base64 -i profile.mobileprovision | pbcopy
-# Linux / WSL 用：base64 -w0 file | xclip -selection clipboard
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\AuthKey_ABCD123456.p8")) | Set-Clipboard
 ```
 
-把结果粘到对应的 Secret 里即可。
+结果是一整行，直接粘到 `ASC_API_KEY_BASE64`。
+
+> macOS 等价命令：`base64 -i AuthKey_ABCD123456.p8 | pbcopy`
+> **别用** `certutil -encode`（会产生带换行和头尾标记的文本，Secret 会解析失败）。
 
 ---
 
-## 四、触发与产物
+## 五、触发与产物
 
-- **push** 到 `master`（只要改动涉及 `frontend/**`、`app/**` 或本 workflow）
+- **push** 到 `master`（改动涉及 `frontend/**`、`app/**` 或本 workflow）
 - 打 **tag**：`v*`（如 `v1.2.0`）
 - 或手动：Actions → iOS Build → **Run workflow**
 
@@ -84,62 +93,57 @@ npm ci (frontend, app)
 → 生成图标/启动图（含 iOS AppIcon）
 → cap sync ios
 → pod install
-→ 导入证书/描述文件
-→ xcodebuild archive → 导出 .ipa
+→ 写入 ASC API Key
+→ xcodebuild archive（自动签名，-allowProvisioningUpdates）
+→ 导出 .ipa
 → 上传工件
 ```
 
 ---
 
-## 五、建议：把 ios/ 工程提交进仓库
+## 六、建议：把 ios/ 工程提交进仓库
 
 当前 `app/ios/` 尚未生成，workflow 会在 CI 里首次用 `npx cap add ios` 生成。
-**更推荐找一台 Mac 执行一次**，然后把 `app/ios/` 提交进库（`.gitignore` 已忽略 `Pods/`、`DerivedData/`、`public/` 等生成物）：
+**更推荐**找机会生成一次并提交（`.gitignore` 已忽略 `Pods/`、`DerivedData/`、`public/` 等生成物）：
 
 ```bash
 cd app
 npm install
 npx cap add ios      # 生成 app/ios
-npm run sync         # 构建 web + cap sync
+npm run sync
 git add ios
 git commit -m "chore(app): 提交 Capacitor iOS 工程"
 ```
 
-好处：构建更快、版本可控、签名/描述文件匹配更稳定。
+好处：构建更快、版本可控。
 
 ---
 
-## 六、本地 Mac 打包（可选，非 CI）
+## 七、本地 Mac 打包（可选，非 CI）
 
 ```bash
 cd app
 npm install
 npm run add:ios        # 首次
-npm run sync           # 每次改动 web 后
-npx @capacitor/cli open ios   # 用 Xcode 打开，配好签名后 Archive
+npm run sync
+npx @capacitor/cli open ios   # Xcode 里选 Team 自动签名，Product → Archive → Distribute
 ```
 
-Xcode 里：选中 `App` target → Signing & Capabilities → 选 Team（自动签名）→ Product → Archive → Distribute App。
+---
+
+## 八、Gitee → GitHub 同步
+
+当前 `origin` 为 `git@github.com:AlbinGuo/vloglish.git`（SSH over 443），原 Gitee 远端为 `gitee`。
+若要让 GitHub Actions 持续生效，可：
+
+1. Gitee 仓库 → 管理 → 仓库镜像管理 → 配推到 GitHub。
+2. 或本地双推：`git push origin master && git push gitee master`。
 
 ---
 
-## 七、Gitee → GitHub 镜像
+## 九、常见问题
 
-当前 `origin` 是 `https://gitee.com/guonan01/vlogish.git`。要让 GitHub Actions 生效，需把代码同步到 GitHub，两种做法：
-
-1. **Gitee 仓库镜像**：Gitee 仓库 → 管理 → 仓库镜像管理 → 添加推送到 GitHub 的镜像（需要 GitHub 的 PAT）。
-2. **本地双推**：
-   ```bash
-   git remote add github git@github.com:<you>/vlogish.git
-   git push github master
-   ```
-
----
-
-## 八、常见问题
-
-- **`No signing certificate found`**：`.p12` 与描述文件类型不匹配，或 `P12_PASSWORD` 不对。
-- **`No profiles for 'cc.vloglish.app' were found`**：App ID 未注册 / 描述文件里的 Bundle ID 不一致。
-- **导出报 `method` 无效**：Xcode 版本差异，`app-store-connect` 在旧 Xcode 上应写 `app-store`。
-- **install 到设备失败**：`ad-hoc`/`development` 需把设备 UDID 加进开发者后台并重新生成描述文件。
-- **CocoaPods 慢**：可给 `pod install` 加缓存或改用 Capacitor 的 SwiftPM 模式（进阶）。
+- **`Authorization failed`/`No profiles found`**：API Key 角色权限不足（需 App Manager/Admin），或 App ID `cc.vloglish.app` 未注册（自动签名通常会自动创建）。
+- **`-allowProvisioningUpdates` 无效**：确认 `.p8` 解码正确、Key ID / Issuer ID 无空格。
+- **ad-hoc 装不上设备**：设备 UDID 未登记，或 `EXPORT_METHOD` 与证书类型不匹配。
+- **导出报 `method` 无效**：Xcode 版本差异，旧 Xcode 上 `app-store-connect` 应写 `app-store`。
