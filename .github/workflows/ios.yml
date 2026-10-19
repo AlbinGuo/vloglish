@@ -27,6 +27,9 @@ env:
   APP_BUNDLE_ID: cc.vloglish.app
   APP_SCHEME: App
   NODE_VERSION: '20'
+  # 固定 UTF-8 locale，否则 bash 会把中文字节当成变量名的一部分
+  LANG: en_US.UTF-8
+  LC_ALL: en_US.UTF-8
   # development | ad-hoc | app-store-connect —— 默认 ad-hoc（可直接装到已登记设备）
   EXPORT_METHOD: ${{ vars.EXPORT_METHOD }}
 
@@ -107,7 +110,7 @@ jobs:
           [ -z "$PROVISIONING_PROFILE_BASE64" ] && missing="$missing PROVISIONING_PROFILE_BASE64"
           [ -z "$APPLE_TEAM_ID" ] && missing="$missing APPLE_TEAM_ID"
           if [ -n "$missing" ]; then
-            echo "::error::缺少签名 Secrets:$missing，请按 app/IOS_BUILD.md 配置后重试。"
+            echo "::error::缺少签名 Secrets: ${missing}，请按 app/IOS_BUILD.md 配置后重试。"
             exit 1
           fi
 
@@ -199,7 +202,7 @@ jobs:
         run: |
           set -euo pipefail
           METHOD="${EXPORT_METHOD:-ad-hoc}"
-          echo "导出方式：$METHOD，签名身份：$CODE_SIGN_IDENTITY，描述文件：$PP_NAME"
+          echo "导出方式: ${METHOD}，签名身份: ${CODE_SIGN_IDENTITY}，描述文件: ${PP_NAME}"
           xcodebuild \
             -workspace App.xcworkspace \
             -scheme "$APP_SCHEME" \
