@@ -1,0 +1,226 @@
+# 在 macOS runner 上把 Capacitor 工程打成 iOS 安装包（.ipa）。
+#
+# 触发：push 到 master（影响 app/frontend 的改动）、打 v* tag、或手动 dispatch。
+# 产物：可安装的 .ipa（使用你在仓库 Secrets 中配置的证书/描述文件签名）。
+#
+# 需要配置的 Secrets / Variables 见 app/IOS_BUILD.md。
+# 若未配置签名 Secrets，会在“签名前置检查”步骤给出明确报错，不会产出假包。
+
+name: iOS Build
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+    paths:
+      - 'frontend/**'
+      - 'app/**'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+# 同一分支的新构建会取消仍在跑的旧构建
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_BUNDLE_ID: cc.vloglish.app
+  APP_SCHEME: App
+  NODE_VERSION: '20'
+  # development | ad-hoc | app-store-connect —— 默认 ad-hoc（可直接装到已登记设备）
+  EXPORT_METHOD: ${{ vars.EXPORT_METHOD }}
+
+jobs:
+  build-ios:
+    runs-on: macos-14
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            app/package-lock.json
+
+      - name: Setup Python (打包图标脚本用)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安装 Pillow
+        run: python3 -m pip install --upgrade pillow
+
+      - name: 安装前端依赖
+        working-directory: frontend
+        run: npm ci
+
+      - name: 安装 app 依赖
+        working-directory: app
+        run: npm ci
+
+      # ---- 构建 Web 产物（frontend -> app/www）----
+      - name: 构建 Web 资源
+        working-directory: app
+        run: npm run build:web
+
+      # ---- 生成 iOS 原生工程（仓库未提交 ios/ 时首次生成）----
+      - name: 生成 iOS 工程
+        working-directory: app
+        run: |
+          if [ ! -d ios ]; then
+            echo "::group::npx cap add ios"
+            npx @capacitor/cli add ios
+            echo "::endgroup::"
+          else
+            echo "已存在 app/ios，跳过 cap add ios"
+          fi
+
+      # ---- 生成图标 / 启动图（含 iOS AppIcon）----
+      - name: 生成品牌资源（图标 / 启动图）
+        working-directory: app
+        run: python3 scripts/generate-brand-assets.py
+
+      # ---- 同步 Web 产物到原生工程并安装 Pods ----
+      - name: Cap sync ios
+        working-directory: app
+        run: npx @capacitor/cli sync ios
+
+      - name: pod install
+        working-directory: app/ios/App
+        run: pod install --repo-update
+
+      # ---- 签名前置检查 ----
+      - name: 校验签名密钥是否齐备
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=""
+          [ -z "$BUILD_CERTIFICATE_BASE64" ] && missing="$missing BUILD_CERTIFICATE_BASE64"
+          [ -z "$PROVISIONING_PROFILE_BASE64" ] && missing="$missing PROVISIONING_PROFILE_BASE64"
+          [ -z "$APPLE_TEAM_ID" ] && missing="$missing APPLE_TEAM_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::缺少签名 Secrets:$missing，请按 app/IOS_BUILD.md 配置后重试。"
+            exit 1
+          fi
+
+      # ---- 导入证书到临时钥匙串 + 安装描述文件 ----
+      - name: 导入签名证书与描述文件
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERTIFICATE_PATH="$RUNNER_TEMP/build_certificate.p12"
+          PP_PATH="$RUNNER_TEMP/build_pp.mobileprovision"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+          # 用 python 解码 base64，跨 BSD/GNU 都稳
+          export BUILD_CERTIFICATE_BASE64 PROVISIONING_PROFILE_BASE64
+          export CERTIFICATE_PATH PP_PATH
+          python3 - <<'PY'
+          import base64, os
+          for env, out in [("BUILD_CERTIFICATE_BASE64", os.environ["CERTIFICATE_PATH"]),
+                           ("PROVISIONING_PROFILE_BASE64", os.environ["PP_PATH"])]:
+              data = base64.b64decode(os.environ[env])
+              with open(out, "wb") as f:
+                  f.write(data)
+          PY
+
+          # 临时钥匙串
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+          # 安装描述文件
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PP_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/"
+
+          # 读出描述文件名（manual 签名需要 PROVISIONING_PROFILE_SPECIFIER = 描述文件名）
+          PP_NAME=$(security cms -D -i "$PP_PATH" | /usr/libexec/PlistBuddy -c 'Print :Name' /dev/stdin)
+          echo "PP_NAME=$PP_NAME" >> "$GITHUB_ENV"
+          echo "使用的描述文件名：$PP_NAME"
+
+      # ---- 归档 ----
+      - name: xcodebuild archive
+        working-directory: app/ios/App
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CODE_SIGN_IDENTITY: ${{ secrets.CODE_SIGN_IDENTITY }}
+        run: |
+          set -euo pipefail
+          METHOD="${EXPORT_METHOD:-ad-hoc}"
+          # ad-hoc / app-store-connect 用分发证书；development 用开发证书
+          if [ -z "${CODE_SIGN_IDENTITY:-}" ]; then
+            if [ "$METHOD" = "development" ]; then
+              CODE_SIGN_IDENTITY="Apple Development"
+            else
+              CODE_SIGN_IDENTITY="Apple Distribution"
+            fi
+          fi
+          echo "导出方式：$METHOD，签名身份：$CODE_SIGN_IDENTITY"
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme "$APP_SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY" \
+            PROVISIONING_PROFILE_SPECIFIER="$PP_NAME" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            clean archive
+
+      # ---- 导出 ipa ----
+      - name: 导出 ipa
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          METHOD="${EXPORT_METHOD:-ad-hoc}"
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>${METHOD}</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>stripSwiftSymbols</key><true/>
+            <key>compileBitcode</key><false/>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${APP_BUNDLE_ID}</key><string>${PP_NAME}</string>
+            </dict>
+          </dict>
+          </plist>
+          PLIST
+
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -allowProvisioningUpdates
+
+          ls -lh "$RUNNER_TEMP/export"
+
+      - name: 上传 ipa 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: vloglish-ios-${{ github.sha }}
+          path: ${{ runner.temp }}/export/*.ipa
+          if-no-files-found: error
+          retention-days: 30
