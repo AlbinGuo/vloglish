@@ -194,6 +194,18 @@ jobs:
           echo "使用的签名身份: $IDENTITY"
           echo "CODE_SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
 
+      # ---- 把签名设置写入 App 项目级配置 ----
+      # 不能用命令行传 PROVISIONING_PROFILE_SPECIFIER：那会作用到 workspace 里所有
+      # target（含 Pods），导致 "xxx does not support provisioning profiles" 报错。
+      - name: 写入 iOS 签名设置
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          python3 app/scripts/patch-ios-signing.py \
+            app/ios/App/App.xcodeproj/project.pbxproj \
+            "$PP_NAME" "$CODE_SIGN_IDENTITY" "$APPLE_TEAM_ID"
+
       # ---- 归档 ----
       - name: xcodebuild archive
         working-directory: app/ios/App
@@ -212,7 +224,6 @@ jobs:
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY" \
-            PROVISIONING_PROFILE_SPECIFIER="$PP_NAME" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             clean archive
 
