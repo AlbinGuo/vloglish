@@ -111,36 +111,58 @@ jobs:
             exit 1
           fi
 
-      # ---- 导入证书到临时钥匙串 + 安装描述文件 ----
-      - name: 导入签名证书与描述文件
+      # ---- 解码签名材料并输出诊断 ----
+      - name: 解码与诊断签名材料
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
           PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          CERTIFICATE_PATH="$RUNNER_TEMP/build_certificate.p12"
+          PP_PATH="$RUNNER_TEMP/build_pp.mobileprovision"
+
+          # 去掉所有空白，防止 Secret 里混入换行/空格
+          printf '%s' "$BUILD_CERTIFICATE_BASE64" | tr -d ' \t\r\n' > "$RUNNER_TEMP/cert.b64"
+          printf '%s' "$PROVISIONING_PROFILE_BASE64" | tr -d ' \t\r\n' > "$RUNNER_TEMP/pp.b64"
+          openssl base64 -d -A -in "$RUNNER_TEMP/cert.b64" -out "$CERTIFICATE_PATH"
+          openssl base64 -d -A -in "$RUNNER_TEMP/pp.b64" -out "$PP_PATH"
+
+          echo "===== 诊断信息 ====="
+          echo "cert base64 长度 : $(wc -c < "$RUNNER_TEMP/cert.b64" | tr -d ' ')   (应为 4316)"
+          echo "cert 文件大小   : $(wc -c < "$CERTIFICATE_PATH" | tr -d ' ')   (应为 3235)"
+          echo "cert 类型       : $(file -b "$CERTIFICATE_PATH")"
+          echo "cert SHA256     : $(shasum -a 256 "$CERTIFICATE_PATH" | cut -d' ' -f1)"
+          echo "  期望           : db8e909cfcd4bbba95f90621db59e5e373bf82d7f0000156171df90e0a1609ad"
+          echo "pp   base64 长度: $(wc -c < "$RUNNER_TEMP/pp.b64" | tr -d ' ')   (应为 16232)"
+          echo "pp   文件大小   : $(wc -c < "$PP_PATH" | tr -d ' ')   (应为 12174)"
+          echo "P12_PASSWORD 长度: ${#P12_PASSWORD}   (应为 20)"
+
+          echo "===== 用 openssl 校验 p12 密码 ====="
+          if openssl pkcs12 -in "$CERTIFICATE_PATH" -nokeys -passin "pass:$P12_PASSWORD" -noout >/dev/null 2>&1; then
+            echo "OK: P12_PASSWORD 与证书匹配"
+          else
+            echo "FAIL: 密码不匹配，或 BUILD_CERTIFICATE_BASE64 内容不是该 p12"
+            exit 1
+          fi
+
+      # ---- 导入证书到临时钥匙串 + 安装描述文件 ----
+      - name: 导入签名证书与描述文件
+        env:
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
           CERTIFICATE_PATH="$RUNNER_TEMP/build_certificate.p12"
           PP_PATH="$RUNNER_TEMP/build_pp.mobileprovision"
           KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
-
-          # 用 python 解码 base64，跨 BSD/GNU 都稳
-          export BUILD_CERTIFICATE_BASE64 PROVISIONING_PROFILE_BASE64
-          export CERTIFICATE_PATH PP_PATH
-          python3 - <<'PY'
-          import base64, os
-          for env, out in [("BUILD_CERTIFICATE_BASE64", os.environ["CERTIFICATE_PATH"]),
-                           ("PROVISIONING_PROFILE_BASE64", os.environ["PP_PATH"])]:
-              data = base64.b64decode(os.environ[env])
-              with open(out, "wb") as f:
-                  f.write(data)
-          PY
+          P12_PASS="$(printf '%s' "$P12_PASSWORD" | tr -d ' \t\r\n')"
 
           # 临时钥匙串
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security import "$CERTIFICATE_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$P12_PASS" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
 
