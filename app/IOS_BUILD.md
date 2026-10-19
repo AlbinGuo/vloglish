@@ -51,10 +51,20 @@ openssl req -new -newkey rsa:2048 -nodes \
 
 ```bash
 cd ~/ios-certs
+export MSYS_NO_PATHCONV=1
 openssl x509 -inform DER -in distribution.cer -out distribution.pem
+
+# 必须指定 3DES + SHA1：OpenSSL 3 默认生成的是 PBES2/AES-256-CBC，
+# macOS 的 security import 读不了，会报 "MAC verification failed during PKCS12 import"
 openssl pkcs12 -export -inkey ios_dist.key -in distribution.pem \
-  -out distribution.p12 -passout pass:自定义密码
+  -out distribution.p12 -passout pass:自定义密码 \
+  -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1
 ```
+
+> ⚠️ **踩坑提示**：不要用默认参数生成 p12。OpenSSL 3.x 默认用 PBES2/AES-256-CBC 加密，
+> macOS 的 `security import` 只认老式 3DES + SHA1，会直接报 `MAC verification failed`。
+> 上面命令里的 `-certpbe/-keypbe/-macalg` 三个参数不能省。
+> 另外 `-legacy` 参数也不行——它会用 RC2-40，OpenSSL 自己都读不回来。
 
 这里 `自定义密码` 就是后面 Secret `P12_PASSWORD` 的值。
 
