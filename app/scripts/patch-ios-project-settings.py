@@ -1,16 +1,33 @@
 #!/usr/bin/env python3
-"""把签名相关 build settings 写入 App.xcodeproj 的【项目级】build configuration。
+"""把指定的 build settings 注入到 App.xcodeproj 的【项目级】build configuration。
 
-为什么不直接用命令行传？
-    xcodebuild 命令行传入的 build setting 会作用到 workspace 中的所有 target，
-    包括 Pods.xcodeproj 里的 Capacitor / Pods-App 等，于是会报：
+为什么不用命令行传？
+    xcodebuild 命令行传入的 build setting 优先级最高，会作用到 workspace 中的所有
+    target，包括 Pods.xcodeproj 里的 Capacitor / Pods-App / CapacitorSplashScreen 等，
+    于是会报：
 
         error: Capacitor does not support provisioning profiles.
 
-    项目级（project-level）配置只对本项目内的 target 生效，不影响 Pods。
+    项目级（project-level）配置只对本项目内的 target 生效，不会影响 Pods。
 
 用法:
-    python3 patch_ios_signing.py <project.pbxproj> <profile_name> <identity> <team_id>
+    python3 patch_ios_project_settings.py <project.pbxproj> KEY=VALUE [KEY=VALUE ...]
+
+示例（手动签名）:
+    python3 patch_ios_project_settings.py ios/App/App.xcodeproj/project.pbxproj \
+        CODE_SIGN_STYLE=Manual \
+        "CODE_SIGN_IDENTITY=Apple Distribution: Someone (TEAMID)" \
+        PROVISIONING_PROFILE_SPECIFIER="My AdHoc Profile" \
+        DEVELOPMENT_TEAM=ABCDE12345
+
+示例（自动签名 + 版本号）:
+    python3 patch_ios_project_settings.py ios/App/App.xcodeproj/project.pbxproj \
+        CODE_SIGN_STYLE=Automatic \
+        DEVELOPMENT_TEAM=ABCDE12345 \
+        MARKETING_VERSION=1.2.0 \
+        CURRENT_PROJECT_VERSION=42
+
+值里含空格时会自动加引号，无需调用方自己处理。
 """
 
 import re
@@ -79,11 +96,33 @@ def inject(text, config_id, settings):
     return text[:end] + '\n' + '\n'.join(lines) + '\n\t\t\t' + text[end:]
 
 
+def quote_value(value):
+    """含空格的值自动加引号。"""
+    if value and ' ' in value and not (value.startswith('"') and value.endswith('"')):
+        return '"%s"' % value
+    return value
+
+
 def main():
-    if len(sys.argv) != 5:
+    if len(sys.argv) < 3:
         raise SystemExit(__doc__)
 
-    path, profile, identity, team = sys.argv[1:5]
+    path = sys.argv[1]
+    to_set = []
+    to_clear = []
+    for item in sys.argv[2:]:
+        if '=' not in item:
+            raise SystemExit('参数格式应为 KEY=VALUE，收到: %s' % item)
+        key, value = item.split('=', 1)
+        key = key.strip()
+        if not re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', key):
+            raise SystemExit('非法的 setting 名称: %s' % key)
+        value = value.strip()
+        if value == '':
+            # KEY=  表示彻底移除该设置（例如从手动签名切到自动签名时清掉描述文件）
+            to_clear.append(key)
+        else:
+            to_set.append((key, quote_value(value)))
 
     with open(path, 'r', encoding='utf-8') as f:
         text = f.read()
@@ -92,21 +131,19 @@ def main():
     if not config_ids:
         raise SystemExit('项目级 configuration 列表为空')
 
-    settings = [
-        ('CODE_SIGN_STYLE', 'Manual'),
-        ('CODE_SIGN_IDENTITY', '"%s"' % identity),
-        ('PROVISIONING_PROFILE_SPECIFIER', '"%s"' % profile),
-        ('DEVELOPMENT_TEAM', team),
-    ]
-    for key, _ in settings:
+    for key in to_clear + [k for k, _ in to_set]:
         text = strip_setting(text, key)
     for config_id in config_ids:
-        text = inject(text, config_id, settings)
+        text = inject(text, config_id, to_set)
 
     with open(path, 'w', encoding='utf-8') as f:
         f.write(text)
 
-    print('已写入项目级签名设置 -> %s (configurations: %s)' % (profile, ', '.join(config_ids)))
+    print('已写入项目级设置 -> %s (configurations: %s)'
+          % (', '.join('%s=%s' % kv for kv in to_set) or '无',
+             ', '.join(config_ids)))
+    if to_clear:
+        print('已移除设置 -> %s' % ', '.join(to_clear))
 
 
 if __name__ == '__main__':

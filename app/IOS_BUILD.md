@@ -154,7 +154,73 @@ git commit -m "chore(app): 提交 Capacitor iOS 工程"
 
 ---
 
-## 九、常见问题
+## 九、TestFlight 自动上传（`.github/workflows/ios-testflight.yml`）
+
+比 ad-hoc 更适合长期内测分发：**不需要 Mac、不需要重签名、不限设备台数**。
+
+### 与 ad-hoc 流程的差异
+
+| | iOS Build（ad-hoc） | iOS TestFlight |
+|---|---|---|
+| 签名 | 手动（p12 + 描述文件） | **自动**（API Key，Xcode 云端管理） |
+| 需要 Secrets | 5 个 | 4 个（见下） |
+| 产物 | 下载 `App.ipa` 自行安装 | **直接上传 App Store Connect** |
+| 安装方式 | 限已登记 UDID 的设备 | 任何人凭 TestFlight 链接安装，90 天有效 |
+| 版本号 | 固定 | tag 或手动指定，写入 `CFBundleShortVersionString` |
+
+### 前置准备
+
+**① App Store Connect 里要有 App 记录**
+[App Store Connect](https://appstoreconnect.apple.com) → 我的 App → **「+」** → App，填写：
+- 名称：Vloglish
+- 主要语言：简体中文
+- Bundle ID：选 **`cc.vloglish.app`**（已注册）
+- SKU：`vloglish-ios`
+
+> 元数据（截图、描述等）可以不填，**不影响上传和 TestFlight 分发**，只是上架 App Store 前才需要补齐。
+
+**② 创建 App Store Connect API Key**
+Users and Access → **Integrations** → App Store Connect API → **+**：
+- Name：`vloglish-ci`
+- Access：**App Manager** 或 **Admin**（需要能管理证书/描述文件）
+- 下载 `.p8`（只能下载一次），记下 **Key ID** 和 **Issuer ID**
+
+**③ 转 base64**
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\AuthKey_你的KeyID.p8")) | Set-Clipboard
+```
+
+**④ 配置 Repository Secrets**（与 ad-hoc 那套独立，共用 `APPLE_TEAM_ID`）
+
+| 名称 | 说明 |
+|------|------|
+| `ASC_API_KEY_ID` | API Key 的 Key ID |
+| `ASC_API_ISSUER_ID` | API Key 的 Issuer ID |
+| `ASC_API_KEY_BASE64` | `.p8` 的 base64 |
+| `APPLE_TEAM_ID` | 10 位 Team ID |
+
+### 使用
+
+```bash
+# 方式一：打 tag（版本号自动取 tag 名）
+git tag v1.2.0 && git push origin v1.2.0
+
+# 方式二：手动触发
+# Actions → iOS TestFlight → Run workflow → 填版本号
+```
+
+### 分发
+
+构建号取自 `github.run_number`，同一个 tag 重跑会自动递增。
+
+上传成功后，到 App Store Connect → 我的 App → Vloglish → **TestFlight**：
+- 等 Apple 处理构建（通常几分钟）
+- **「+」添加测试人员**（输入对方 Apple ID，或开启「公开链接」任何人可装）
+- 测试人员在 iPhone 上装 **TestFlight App**，接受邀请即可安装
+
+---
+
+## 十、常见问题
 
 - **`No signing certificate found`**：p12 与描述文件类型不匹配，或 `P12_PASSWORD` 不对。
 - **`No profiles for 'cc.vloglish.app' were found`**：描述文件里的 Bundle ID 不一致 / 未导入成功。

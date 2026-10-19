@@ -202,9 +202,12 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
-          python3 app/scripts/patch-ios-signing.py \
+          python3 app/scripts/patch-ios-project-settings.py \
             app/ios/App/App.xcodeproj/project.pbxproj \
-            "$PP_NAME" "$CODE_SIGN_IDENTITY" "$APPLE_TEAM_ID"
+            CODE_SIGN_STYLE=Manual \
+            "CODE_SIGN_IDENTITY=$CODE_SIGN_IDENTITY" \
+            "PROVISIONING_PROFILE_SPECIFIER=$PP_NAME" \
+            "DEVELOPMENT_TEAM=$APPLE_TEAM_ID"
 
       # ---- 归档 ----
       - name: xcodebuild archive
