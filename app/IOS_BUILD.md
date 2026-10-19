@@ -4,146 +4,150 @@
 
 > 背景：iOS 只能在 macOS 上编译（`xcodebuild`），Windows 本地打不了。
 > 这里用 GitHub Actions 的 macOS runner 完成构建 + 签名 + 导出。
-> **签名走 App Store Connect API Key + 自动签名**，无需 p12 / 描述文件，Windows 用户全程不用 Mac。
+> **签名走手动签名**：p12 证书 + `.mobileprovision` 描述文件（Windows 上用 OpenSSL 生成，无需 Mac）。
 
 ---
 
 ## 一、前置条件
 
 1. **付费 Apple 开发者账号**（$99/年）——否则无法生成能装到真机的正式 ipa。
-2. 仓库托管在 GitHub（当前另有 Gitee 远端 `gitee`，见文末）。
-3. 在 App Store Connect 建一个 **API Key**（见下）。
+2. 仓库托管在 GitHub（原 Gitee 远端为 `gitee`，见文末）。
+3. 准备两样东西（见第二、三节）：
+   - 证书文件 `distribution.p12`
+   - 描述文件 `xxx.mobileprovision`
 
 ---
 
-## 二、创建 App Store Connect API Key
+## 二、在 Windows 上生成证书（p12）
 
-1. 登录 [App Store Connect](https://appstoreconnect.apple.com) → **Users and Access** → **Integrations**（集成）标签 → **App Store Connect API**。
-2. 点 **+** 新建 Key：
-   - Name：任意，如 `vloglish-ci`
-   - Access（角色）：**App Manager** 或 **Admin**（需要能管理证书/描述文件）
-3. 创建后**一次性下载** `.p8`（AuthKey_XXXXXXXXXX.p8，只能下一次）。
-4. 记下页面上的：
-   - **Key ID**（10 位，如 `ABCD123456`）
-   - **Issuer ID**（UUID 形式）
-5. Team ID 在 [developer.apple.com](https://developer.apple.com) → **Membership** 里看（10 位）。
+### 1) 生成私钥 + CSR
 
-> API Key 的 `.p8` 属于敏感材料，**切勿提交到仓库**。
+用 Git Bash（自带 OpenSSL）：
+
+```bash
+mkdir -p ~/ios-certs && cd ~/ios-certs
+export MSYS_NO_PATHCONV=1     # 关键：否则 Git Bash 会把 /CN 当路径转换
+
+openssl req -new -newkey rsa:2048 -nodes \
+  -keyout ios_dist.key \
+  -out ios_dist.certSigningRequest \
+  -subj "/emailAddress=你的邮箱/CN=你的名字 Distribution/O=你的名字/C=CN"
+```
+
+- `ios_dist.key`：**私钥，务必妥善保管**，丢了要重签证书。
+- `ios_dist.certSigningRequest`：上传给 Apple 的文件。
+
+### 2) 在 Apple 后台创建证书
+
+登录 [developer.apple.com](https://developer.apple.com) → **Certificates, Identifiers & Profiles** → **Certificates** → **Create a certificate**：
+
+- 类型选 **Apple Distribution**（做 ad-hoc / 上架）
+- 上传上面的 `ios_dist.certSigningRequest`
+- 生成后**下载证书**，保存为 `distribution.cer` 放到 `~/ios-certs/`。
+
+### 3) 合成 p12（Windows）
+
+在 Git Bash 里：
+
+```bash
+cd ~/ios-certs
+openssl x509 -inform DER -in distribution.cer -out distribution.pem
+openssl pkcs12 -export -inkey ios_dist.key -in distribution.pem \
+  -out distribution.p12 -passout pass:自定义密码
+```
+
+这里 `自定义密码` 就是后面 Secret `P12_PASSWORD` 的值。
 
 ---
 
-## 三、需要在 GitHub 仓库配置的 Secrets / Variables
+## 三、创建描述文件（mobileprovision）
 
-设置路径：`仓库 → Settings → Secrets and variables → Actions`，**用 Repository secrets / variables**（workflow 未声明 environment）。
+Apple Developer → **Profiles** → **Create a profile**：
 
-### Secrets（加密）
+- 类型按需选：**Ad Hoc**（装到已登记设备，内测推荐）/ **App Store** / **Development**
+- App ID 选 **`cc.vloglish.app`**（没有就先在 **Identifiers** 里注册）
+- 勾选上面创建的**证书**；Ad Hoc / Development 还要勾选**设备**
+- 生成后下载，得到 `vloglish.mobileprovision`
+
+> 注意：证书类型和描述文件类型必须匹配
+> —— Distribution 证书 ↔ Ad Hoc / App Store 描述文件；Apple Development 证书 ↔ Development 描述文件。
+
+---
+
+## 四、生成两个文件的 base64（Windows / PowerShell）
+
+在文件所在目录执行，结果自动进剪贴板：
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\distribution.p12")) | Set-Clipboard
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\vloglish.mobileprovision")) | Set-Clipboard
+```
+
+> 生成的是**一整行、无换行**。**别用** `certutil -encode`（会产生换行和头尾标记，Secret 会解析失败）。
+> macOS 等价：`base64 -i file | pbcopy`
+
+---
+
+## 五、需要在 GitHub 配置的 Secrets / Variables
+
+`仓库 → Settings → Secrets and variables → Actions`，用 **Repository secrets / variables**（workflow 未声明 environment）。
+
+### Secrets
 
 | 名称 | 说明 |
 |------|------|
-| `ASC_API_KEY_ID` | API Key 的 Key ID |
-| `ASC_API_ISSUER_ID` | API Key 的 Issuer ID |
-| `ASC_API_KEY_BASE64` | `.p8` 文件的 base64 编码（见第四节） |
-| `APPLE_TEAM_ID` | 10 位 Team ID |
+| `BUILD_CERTIFICATE_BASE64` | `distribution.p12` 的 base64 |
+| `P12_PASSWORD` | 导出 p12 时设的密码 |
+| `PROVISIONING_PROFILE_BASE64` | `.mobileprovision` 的 base64 |
+| `KEYCHAIN_PASSWORD` | 任意随机字符串（CI 临时钥匙串用） |
+| `APPLE_TEAM_ID` | 10 位 Team ID（Membership 页） |
+| `CODE_SIGN_IDENTITY` | 可选，不填按导出方式自动推断 |
 
-### Variables（明文，可选）
+### Variables
 
 | 名称 | 默认 | 可选值 |
 |------|------|--------|
 | `EXPORT_METHOD` | `ad-hoc` | `development` / `ad-hoc` / `app-store-connect` |
 
-**导出方式怎么选：**
-
-- `development` —— 装到**已登记**设备，开发用。
-- `ad-hoc` —— 装到**已登记**设备（最多 100 台）。**推荐日常内测。**
-- `app-store-connect` —— 用于 TestFlight / 上架。
-
-> `ad-hoc` / `development` 需要目标设备 UDID 已登记到开发者账号；`app-store-connect` 不需要。
-
 ---
 
-## 四、生成 `.p8` 的 base64（Windows / PowerShell）
-
-在 `.p8` 所在目录执行：
-
-```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\AuthKey_ABCD123456.p8")) | Set-Clipboard
-```
-
-结果是一整行，直接粘到 `ASC_API_KEY_BASE64`。
-
-> macOS 等价命令：`base64 -i AuthKey_ABCD123456.p8 | pbcopy`
-> **别用** `certutil -encode`（会产生带换行和头尾标记的文本，Secret 会解析失败）。
-
----
-
-## 五、触发与产物
+## 六、触发与产物
 
 - **push** 到 `master`（改动涉及 `frontend/**`、`app/**` 或本 workflow）
-- 打 **tag**：`v*`（如 `v1.2.0`）
+- 打 **tag**：`v*`
 - 或手动：Actions → iOS Build → **Run workflow**
 
-产物：`vloglish-ios-<sha>` 工件，内含 `App.ipa`，在 Actions 运行页下载。
-
-流程内部做的事：
-
-```
-npm ci (frontend, app)
-→ frontend 构建到 app/www
-→ 无 app/ios 时 npx cap add ios
-→ 生成图标/启动图（含 iOS AppIcon）
-→ cap sync ios
-→ pod install
-→ 写入 ASC API Key
-→ xcodebuild archive（自动签名，-allowProvisioningUpdates）
-→ 导出 .ipa
-→ 上传工件
-```
+产物：`vloglish-ios-<sha>` 工件，内含 `App.ipa`。
 
 ---
 
-## 六、建议：把 ios/ 工程提交进仓库
+## 七、建议：把 ios/ 工程提交进仓库
 
 当前 `app/ios/` 尚未生成，workflow 会在 CI 里首次用 `npx cap add ios` 生成。
-**更推荐**找机会生成一次并提交（`.gitignore` 已忽略 `Pods/`、`DerivedData/`、`public/` 等生成物）：
+**更推荐**生成一次并提交（`.gitignore` 已忽略 `Pods/`、`DerivedData/`、`public/` 等）：
 
 ```bash
 cd app
 npm install
-npx cap add ios      # 生成 app/ios
+npx cap add ios
 npm run sync
 git add ios
 git commit -m "chore(app): 提交 Capacitor iOS 工程"
 ```
 
-好处：构建更快、版本可控。
-
 ---
 
-## 七、本地 Mac 打包（可选，非 CI）
-
-```bash
-cd app
-npm install
-npm run add:ios        # 首次
-npm run sync
-npx @capacitor/cli open ios   # Xcode 里选 Team 自动签名，Product → Archive → Distribute
-```
-
----
-
-## 八、Gitee → GitHub 同步
+## 八、Gitee 远端
 
 当前 `origin` 为 `git@github.com:AlbinGuo/vloglish.git`（SSH over 443），原 Gitee 远端为 `gitee`。
-若要让 GitHub Actions 持续生效，可：
-
-1. Gitee 仓库 → 管理 → 仓库镜像管理 → 配推到 GitHub。
-2. 或本地双推：`git push origin master && git push gitee master`。
+本地双推：`git push origin master && git push gitee master`。
 
 ---
 
 ## 九、常见问题
 
-- **`Authorization failed`/`No profiles found`**：API Key 角色权限不足（需 App Manager/Admin），或 App ID `cc.vloglish.app` 未注册（自动签名通常会自动创建）。
-- **`-allowProvisioningUpdates` 无效**：确认 `.p8` 解码正确、Key ID / Issuer ID 无空格。
-- **ad-hoc 装不上设备**：设备 UDID 未登记，或 `EXPORT_METHOD` 与证书类型不匹配。
-- **导出报 `method` 无效**：Xcode 版本差异，旧 Xcode 上 `app-store-connect` 应写 `app-store`。
+- **`No signing certificate found`**：p12 与描述文件类型不匹配，或 `P12_PASSWORD` 不对。
+- **`No profiles for 'cc.vloglish.app' were found`**：描述文件里的 Bundle ID 不一致 / 未导入成功。
+- **ad-hoc 装不上设备**：设备 UDID 未登记，或未重新生成描述文件。
+- **`method` 无效**：旧 Xcode 上 `app-store-connect` 应写 `app-store`。
+- **Git Bash 里 `-subj` 报路径错误**：加 `export MSYS_NO_PATHCONV=1`。
