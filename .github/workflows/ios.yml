@@ -171,28 +171,35 @@ jobs:
           cp "$PP_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/"
 
           # 读出描述文件名（manual 签名需要 PROVISIONING_PROFILE_SPECIFIER = 描述文件名）
-          PP_NAME=$(security cms -D -i "$PP_PATH" | /usr/libexec/PlistBuddy -c 'Print :Name' /dev/stdin)
+          # 注意：PlistBuddy 读 /dev/stdin 在 runner 上会拿不到内容，必须先落盘
+          security cms -D -i "$PP_PATH" -o "$RUNNER_TEMP/provisioning.plist"
+          PP_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/provisioning.plist")
+          PP_APPID=$(plutil -extract Entitlements.application-identifier raw "$RUNNER_TEMP/provisioning.plist")
+          echo "描述文件名称 : $PP_NAME"
+          echo "描述文件 AppID: $PP_APPID"
           echo "PP_NAME=$PP_NAME" >> "$GITHUB_ENV"
-          echo "使用的描述文件名：$PP_NAME"
+
+          # 自动探测钥匙串里实际可用的签名身份，避免证书名与 CODE_SIGN_IDENTITY 不匹配
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -z "$IDENTITY" ]; then
+            if [ "${EXPORT_METHOD:-ad-hoc}" = "development" ]; then
+              IDENTITY="Apple Development"
+            else
+              IDENTITY="Apple Distribution"
+            fi
+          fi
+          echo "使用的签名身份: $IDENTITY"
+          echo "CODE_SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
 
       # ---- 归档 ----
       - name: xcodebuild archive
         working-directory: app/ios/App
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          CODE_SIGN_IDENTITY: ${{ secrets.CODE_SIGN_IDENTITY }}
         run: |
           set -euo pipefail
           METHOD="${EXPORT_METHOD:-ad-hoc}"
-          # ad-hoc / app-store-connect 用分发证书；development 用开发证书
-          if [ -z "${CODE_SIGN_IDENTITY:-}" ]; then
-            if [ "$METHOD" = "development" ]; then
-              CODE_SIGN_IDENTITY="Apple Development"
-            else
-              CODE_SIGN_IDENTITY="Apple Distribution"
-            fi
-          fi
-          echo "导出方式：$METHOD，签名身份：$CODE_SIGN_IDENTITY"
+          echo "导出方式：$METHOD，签名身份：$CODE_SIGN_IDENTITY，描述文件：$PP_NAME"
           xcodebuild \
             -workspace App.xcworkspace \
             -scheme "$APP_SCHEME" \
