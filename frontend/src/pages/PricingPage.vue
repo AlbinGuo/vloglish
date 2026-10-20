@@ -31,8 +31,6 @@ const payQr = ref('')
 const payHint = ref('')
 const paidOk = ref(false)
 const payOnComputer = ref(false)
-const activationCode = ref('')
-const activating = ref(false)
 
 const WEB_PAY_URL = 'https://en.yunankexun.com/'
 const copiedUrl = ref(false)
@@ -166,24 +164,6 @@ async function startScanPay() {
   }
 }
 
-async function submitCode() {
-  error.value = ''
-  const code = activationCode.value.trim()
-  if (!code) {
-    error.value = '请输入激活码'
-    return
-  }
-  activating.value = true
-  try {
-    await auth.activateMembership(code)
-    await catalog.loadEpisodes(true)
-    await router.replace('/english')
-  } catch (e) {
-    error.value = getErrorDetail(e) || '激活失败，请检查激活码后重试'
-  } finally {
-    activating.value = false
-  }
-}
 </script>
 
 <template>

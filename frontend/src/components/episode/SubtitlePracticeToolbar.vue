@@ -121,7 +121,7 @@ function fire(kind: ActionKind, e: MouseEvent) {
   e.stopPropagation()
   e.preventDefault()
   closeMenu()
-  emit(kind, e)
+  ;(emit as unknown as (kind: ActionKind, e: MouseEvent) => void)(kind, e)
 }
 
 watch([() => props.variant, () => props.align], () => {

@@ -41,7 +41,6 @@ function notifyFullscreenChange() {
 }
 
 function nativeFullscreenEnabled(): boolean {
-  const doc = fsDoc()
   if (typeof document.fullscreenEnabled === 'boolean') return document.fullscreenEnabled
   return Boolean(
     document.documentElement.requestFullscreen ||

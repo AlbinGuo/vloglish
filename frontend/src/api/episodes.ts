@@ -1,5 +1,5 @@
 import api from './client'
-import { cacheWordLookupEntry, fetchWordLookup, type WordLookupMeta } from '@/composables/useWordLookupCache'
+import { cacheWordLookupEntry, fetchWordLookup } from '@/composables/useWordLookupCache'
 import type {
   AuthorCatalogItem,
   EntryDetail,
@@ -218,7 +218,7 @@ export async function lookupWord(
   context: string,
   meta?: { video_id?: string; subtitle_id?: number; episode_id?: number },
 ) {
-  const entry = await fetchWordLookup(word, type, context, meta satisfies WordLookupMeta)
+  const entry = await fetchWordLookup(word, type, context, meta)
   if (!entry) throw new Error('查词失败')
   return entry
 }

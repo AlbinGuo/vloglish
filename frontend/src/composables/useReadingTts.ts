@@ -88,7 +88,6 @@ export function useReadingTts(opts: {
     if (!audioEl.value) {
       const el = new Audio()
       el.preload = 'auto'
-      el.playsInline = true
       el.setAttribute('playsinline', 'true')
       audioEl.value = el
     }

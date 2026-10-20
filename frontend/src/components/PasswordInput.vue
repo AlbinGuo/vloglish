@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     modelValue: string
     id?: string

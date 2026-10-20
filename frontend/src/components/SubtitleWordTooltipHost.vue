@@ -89,15 +89,15 @@ function pickWordSpan(start: HTMLElement, root: HTMLElement): HTMLElement | null
       span = (span.querySelector(':scope > span') as HTMLElement | null) ?? span
     }
     if (span.parentElement?.classList.contains('subtitle-word-wrap')) {
-      const inner = span.parentElement.querySelector(':scope > span')
+      const inner: Element | null = span.parentElement.querySelector(':scope > span')
       if (inner instanceof HTMLElement) span = inner
     }
     if (span.classList.contains('intensive-gloss-unit')) {
-      const inner = span.querySelector('.intensive-gloss-word span, .intensive-gloss-word')
+      const inner: Element | null = span.querySelector('.intensive-gloss-word span, .intensive-gloss-word')
       if (inner instanceof HTMLElement) span = inner
     }
     if (span.classList.contains('intensive-gloss-word')) {
-      const inner = span.querySelector('span')
+      const inner: Element | null = span.querySelector('span')
       if (inner instanceof HTMLElement) span = inner
     }
 

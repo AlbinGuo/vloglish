@@ -23,7 +23,6 @@ export function useClonedSubtitleSpeak() {
     if (!audio) {
       audio = new Audio()
       audio.preload = 'auto'
-      audio.playsInline = true
       audio.setAttribute('playsinline', 'true')
     }
     return audio

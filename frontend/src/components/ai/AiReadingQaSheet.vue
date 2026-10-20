@@ -9,7 +9,7 @@ const props = defineProps<{
   segmentPreview?: string
 }>()
 
-const emit = defineEmits<{ close: [] }>()
+defineEmits<{ close: [] }>()
 
 const question = ref('')
 const loading = ref(false)

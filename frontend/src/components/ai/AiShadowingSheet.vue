@@ -1319,7 +1319,7 @@ async function startListening() {
   recognition.interimResults = true
   recognition.continuous = false
   recognition.maxAlternatives = 1
-  recognition.onresult = (event) => {
+  recognition.onresult = (event: any) => {
     let text = ''
     for (let i = 0; i < event.results.length; i++) {
       text += event.results[i][0]?.transcript || ''
@@ -1327,7 +1327,7 @@ async function startListening() {
     transcript.value = text.trim()
     if (transcript.value) error.value = ''
   }
-  recognition.onerror = (event) => {
+  recognition.onerror = (event: any) => {
     listening.value = false
     emit('recording', false)
     const code = String(event?.error || '')

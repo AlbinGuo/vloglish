@@ -12,7 +12,6 @@
 -->
 <script setup lang="ts">
 import { computed } from 'vue'
-import AppIcon from '@/components/AppIcon.vue'
 
 interface IconDef {
   vb: string
