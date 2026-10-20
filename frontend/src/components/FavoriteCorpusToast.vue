@@ -25,7 +25,7 @@ const toast = useFavoriteToastStore()
           <div class="relative flex items-start gap-3">
             <div
               class="relative shrink-0 w-11 h-11 rounded-full flex items-center justify-center"
-              :class="toast.added ? 'bg-amber-500 text-white fav-star-pop' : 'bg-neutral-200 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'"
+              :class="toast.added ? 'bg-amber-500 text-white fav-star-pop' : 'bg-sunken text-ink-faint'"
             >
               <svg
                 v-if="toast.added"
@@ -73,7 +73,7 @@ const toast = useFavoriteToastStore()
             </div>
             <button
               type="button"
-              class="shrink-0 w-7 h-7 rounded-full text-neutral-400 hover:text-neutral-700 hover:bg-black/5 dark:hover:text-neutral-200 dark:hover:bg-white/10"
+              class="shrink-0 w-7 h-7 rounded-full text-neutral-400 hover:text-ink-soft hover:bg-black/5 dark:hover:bg-white/10"
               aria-label="关闭"
               @click="toast.hide()"
             >

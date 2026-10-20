@@ -206,7 +206,7 @@ async function submitCode() {
 
       <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-5 items-stretch">
         <section
-          class="lg:col-span-3 rounded-2xl border border-black/8 dark:border-white/10 bg-white/95 dark:bg-neutral-900/95 overflow-hidden flex flex-col"
+          class="lg:col-span-3 rounded-2xl border border-line bg-white/95 dark:bg-neutral-900/95 overflow-hidden flex flex-col"
         >
           <div class="px-5 sm:px-7 pt-6 sm:pt-7 pb-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
@@ -217,7 +217,7 @@ async function submitCode() {
               :class="
                 selected === p.id
                   ? 'border-[#edd577] bg-[#111] text-white'
-                  : 'border-black/10 dark:border-white/10 bg-white dark:bg-neutral-950'
+                  : 'border-line bg-white dark:bg-neutral-950'
               "
               @click="selected = p.id"
             >
@@ -248,7 +248,7 @@ async function submitCode() {
                 <div class="min-w-0">
                   <p
                     class="text-[11px] font-medium tracking-wide"
-                    :class="selected === 'author' ? 'text-white/70' : 'text-neutral-500 dark:text-neutral-400'"
+                    :class="selected === 'author' ? 'text-white/70' : 'text-ink-faint'"
                   >
                     加作者微信
                   </p>
@@ -266,7 +266,7 @@ async function submitCode() {
               </div>
               <p
                 class="mt-3 text-xs leading-relaxed"
-                :class="selected === 'author' ? 'text-white/55' : 'text-neutral-500 dark:text-neutral-400'"
+                :class="selected === 'author' ? 'text-white/55' : 'text-ink-faint'"
               >
                 付款后请备注登录邮箱
               </p>
@@ -304,7 +304,7 @@ async function submitCode() {
 <!--            用微信扫描下方小程序码完成支付。若尚未关联，扫码时会自动绑定到当前网页账号。-->
 <!--          </p>-->
 
-          <div class="flex justify-center min-h-[12rem] items-center rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-black/5 dark:border-white/10 p-4">
+          <div class="flex justify-center min-h-[12rem] items-center rounded-xl bg-canvas border border-line-soft p-4">
             <img
               v-if="selected === 'author'"
               :src="AUTHOR_QR"
@@ -368,7 +368,7 @@ async function submitCode() {
       </div>
 
       <p class="text-sm text-neutral-500 dark:text-neutral-400 text-center mt-7">
-        <RouterLink style="color: #333;" to="/english" class="text-neutral-800 dark:text-neutral-200 font-medium hover:underline underline-offset-2">
+        <RouterLink style="color: #333;" to="/english" class="text-ink-soft font-medium hover:underline underline-offset-2">
           返回学习
         </RouterLink>
       </p>

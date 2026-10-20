@@ -65,7 +65,7 @@ watch(
 
 <template>
   <nav
-    class="flex items-center gap-1 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-black/5 dark:border-white/10"
+    class="flex items-center gap-1 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-line-soft"
     :class="stretch ? 'w-full' : 'w-fit'"
     aria-label="主导航"
   >
@@ -75,8 +75,8 @@ watch(
       :class="[
         stretch ? 'flex-1 text-center' : '',
         active === 'videos'
-          ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm'
-          : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
+          ? 'bg-card text-ink shadow-sm'
+          : 'text-ink-faint hover:text-ink-soft',
       ]"
     >
       视频
@@ -94,8 +94,8 @@ watch(
       :class="[
         stretch ? 'flex-1 text-center' : '',
         active === 'listen'
-          ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm'
-          : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
+          ? 'bg-card text-ink shadow-sm'
+          : 'text-ink-faint hover:text-ink-soft',
       ]"
     >
       收听
@@ -106,8 +106,8 @@ watch(
       :class="[
         stretch ? 'flex-1 text-center' : '',
         active === 'series'
-          ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm'
-          : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
+          ? 'bg-card text-ink shadow-sm'
+          : 'text-ink-faint hover:text-ink-soft',
       ]"
     >
       合集
@@ -131,8 +131,8 @@ watch(
       :class="[
         stretch ? 'flex-1 text-center' : '',
         active === 'reading'
-          ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm'
-          : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200',
+          ? 'bg-card text-ink shadow-sm'
+          : 'text-ink-faint hover:text-ink-soft',
       ]"
     >
       月刊

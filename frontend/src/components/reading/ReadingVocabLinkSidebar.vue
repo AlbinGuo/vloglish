@@ -391,7 +391,7 @@ defineExpose({ expanded })
                         :class="
                           isSavedWord(item.en)
                             ? 'border-emerald-500/40 bg-emerald-500 text-white'
-                            : 'border-black/10 dark:border-white/15 bg-white/80 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                            : 'border-line-strong bg-white/80 dark:bg-neutral-800 text-ink-soft hover:bg-neutral-100 dark:hover:bg-neutral-700'
                         "
                         :disabled="rowState[itemKey(item, index)]?.saving"
                         :title="isSavedWord(item.en) ? '已在生词本' : '加入生词本'"

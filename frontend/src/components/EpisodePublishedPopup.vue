@@ -89,7 +89,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     >
       <div class="absolute inset-0 bg-black/45 backdrop-blur-[1px]" aria-hidden="true" />
       <div
-        class="relative w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl bg-white dark:bg-neutral-900 shadow-xl border border-black/5 dark:border-white/10 overflow-hidden max-h-[90vh] flex flex-col"
+        class="relative w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl bg-card shadow-xl border border-line-soft overflow-hidden max-h-[90vh] flex flex-col"
       >
         <div class="p-5 sm:p-6 pb-3 flex items-start justify-between gap-3 shrink-0">
           <div>
@@ -101,7 +101,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           </div>
           <button
             type="button"
-            class="w-8 h-8 shrink-0 rounded-full text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50"
+            class="w-8 h-8 shrink-0 rounded-full text-neutral-500 hover:bg-sunken disabled:opacity-50"
             aria-label="关闭"
             :disabled="busy"
             @click="emit('dismiss')"
@@ -237,7 +237,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
                 class="text-xs font-medium mb-1"
                 :class="
                   isNewRelease
-                    ? 'text-amber-700 dark:text-amber-400'
+                    ? 'text-warning'
                     : 'text-emerald-700 dark:text-emerald-400'
                 "
               >
@@ -265,7 +265,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
             </div>
             <button
               type="button"
-              class="w-8 h-8 shrink-0 rounded-full text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50"
+              class="w-8 h-8 shrink-0 rounded-full text-neutral-500 hover:bg-sunken disabled:opacity-50"
               aria-label="关闭"
               :disabled="busy"
               @click="emit('dismiss')"
@@ -281,7 +281,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           </p>
           <p v-else class="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
             你于
-            <span class="font-medium text-neutral-800 dark:text-neutral-100">{{
+            <span class="font-medium text-ink-soft">{{
               single.submitted_at || '近期'
             }}</span>
             上传的「{{ displayTitle }}」已通过审核，该视频已放入你的个人语料库。
@@ -290,7 +290,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           <div class="mt-5 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
             <button
               type="button"
-              class="px-4 py-2.5 rounded-xl text-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition disabled:opacity-50"
+              class="px-4 py-2.5 rounded-xl text-sm text-neutral-600 dark:text-neutral-300 hover:bg-sunken transition disabled:opacity-50"
               :disabled="busy"
               @click="emit('dismiss')"
             >

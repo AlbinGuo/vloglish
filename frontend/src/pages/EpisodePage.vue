@@ -2851,7 +2851,7 @@ function subtitleRowClass(index: number) {
       >
         <button
           type="button"
-          class="text-xs px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40 disabled:pointer-events-none"
+          class="text-xs px-2.5 py-1.5 rounded-lg border border-line text-neutral-600 dark:text-neutral-300 hover:bg-sunken disabled:opacity-40 disabled:pointer-events-none"
           :disabled="!episode.series.prev_video_id"
           @click="goSeriesEpisode(episode.series.prev_video_id)"
         >
@@ -2859,7 +2859,7 @@ function subtitleRowClass(index: number) {
         </button>
         <button
           type="button"
-          class="text-xs px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40 disabled:pointer-events-none"
+          class="text-xs px-2.5 py-1.5 rounded-lg border border-line text-neutral-600 dark:text-neutral-300 hover:bg-sunken disabled:opacity-40 disabled:pointer-events-none"
           :disabled="!episode.series.next_video_id"
           @click="goSeriesEpisode(episode.series.next_video_id)"
         >
@@ -2879,7 +2879,7 @@ function subtitleRowClass(index: number) {
         <button
           v-if="!adminPreview && episode"
           type="button"
-          class="inline-flex items-center justify-center h-8 px-2.5 rounded-lg text-xs font-medium text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-300 dark:hover:text-white dark:hover:bg-neutral-800"
+          class="inline-flex items-center justify-center h-8 px-2.5 rounded-lg text-xs font-medium text-neutral-600 hover:text-black hover:bg-sunken dark:text-neutral-300 dark:hover:text-white"
           title="收听模式"
           @click="goListenMode"
         >
@@ -2888,7 +2888,7 @@ function subtitleRowClass(index: number) {
         <button
           v-if="auth.isMember && !adminPreview"
           type="button"
-          class="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
+          class="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-sunken transition-colors disabled:opacity-50"
           :disabled="favoriteLoading"
           :aria-label="isFavorite ? '取消收藏' : '添加收藏'"
           :title="isFavorite ? '取消收藏' : '添加收藏'"
@@ -2969,7 +2969,7 @@ function subtitleRowClass(index: number) {
           mobileVideoImmersive ? 'max-lg:!p-0 max-lg:!gap-0 max-lg:!rounded-none' : '',
           isVideoPanelFullscreen ? 'video-panel--fullscreen' : '',
           videoPanelLayoutClass,
-          canResizeSplit ? '' : 'lg:border-r border-black/5 dark:border-white/10',
+          canResizeSplit ? '' : 'lg:border-r border-line-soft',
         ]"
         :style="videoPanelSplitStyle"
       >
@@ -3225,8 +3225,8 @@ function subtitleRowClass(index: number) {
             class="px-3 py-1 rounded-full whitespace-nowrap"
             :class="
               contentView === 'subtitles' && subtitleMode === m.key
-                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
-                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+                ? 'bg-black text-ink-inverse dark:bg-neutral-100'
+                : 'bg-sunken dark:text-neutral-300'
             "
             @click="selectSubtitleMode(m.key)"
           >
@@ -3237,8 +3237,8 @@ function subtitleRowClass(index: number) {
             class="px-3 py-1 rounded-full whitespace-nowrap"
             :class="
               contentView === 'wordcards'
-                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
-                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+                ? 'bg-black text-ink-inverse dark:bg-neutral-100'
+                : 'bg-sunken dark:text-neutral-300'
             "
             @click="openWordCardsView"
           >
@@ -3249,8 +3249,8 @@ function subtitleRowClass(index: number) {
             class="px-3 py-1 rounded-full whitespace-nowrap"
             :class="
               contentView === 'summary'
-                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
-                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+                ? 'bg-black text-ink-inverse dark:bg-neutral-100'
+                : 'bg-sunken dark:text-neutral-300'
             "
             @click="openVocabSummaryView"
           >
@@ -3261,8 +3261,8 @@ function subtitleRowClass(index: number) {
             class="relative inline-flex items-center gap-1.5 px-3 py-1 pr-4 rounded-full whitespace-nowrap"
             :class="
               contentView === 'context'
-                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
-                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+                ? 'bg-black text-ink-inverse dark:bg-neutral-100'
+                : 'bg-sunken dark:text-neutral-300'
             "
             @click="openVideoContextView"
             title="结合视频背景，帮助理解内容"
@@ -3272,7 +3272,7 @@ function subtitleRowClass(index: number) {
               class="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded-full"
               :class="
                 contentView === 'context'
-                  ? 'bg-white/20 text-white dark:bg-neutral-900/15 dark:text-neutral-900'
+                  ? 'bg-white/20 text-ink-inverse dark:bg-neutral-900/15'
                   : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
               "
             >
@@ -3290,8 +3290,8 @@ function subtitleRowClass(index: number) {
             class="relative inline-flex items-center gap-1.5 px-3 py-1 pr-4 rounded-full whitespace-nowrap"
             :class="
               contentView === 'audience'
-                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
-                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+                ? 'bg-black text-ink-inverse dark:bg-neutral-100'
+                : 'bg-sunken dark:text-neutral-300'
             "
             @click="openAudienceNotesView"
             title="精选观众反应，当片后短阅读"
@@ -3335,7 +3335,7 @@ function subtitleRowClass(index: number) {
             <button
               v-if="!adminPreview && !showSidePanel"
               type="button"
-              class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+              class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-line text-neutral-500 dark:text-neutral-400 hover:bg-sunken transition-colors"
               @click="toggleSidePanel"
             >
               显示侧栏
@@ -3483,7 +3483,7 @@ function subtitleRowClass(index: number) {
                 :class="
                   learnedSubtitleIds.has(row.sub.id)
                     ? 'bg-emerald-500 border-emerald-500 text-white'
-                    : 'bg-white/80 border-black/10 text-neutral-400 hover:border-emerald-400 dark:bg-neutral-800/80 dark:border-white/10 dark:text-neutral-500 dark:hover:border-emerald-500'
+                    : 'bg-white/80 border-line text-ink-disabled hover:border-emerald-400 dark:bg-neutral-800/80 dark:hover:border-emerald-500'
                 "
                 :title="learnedSubtitleIds.has(row.sub.id) ? '取消已掌握' : '标记已掌握'"
                 @click="toggleSubtitleLearned(row.sub, $event)"
@@ -3694,14 +3694,14 @@ function subtitleRowClass(index: number) {
             <RouterLink
               v-if="episode?.author.id && !episode.series"
               :to="`/english/authors/${episode.author.id}`"
-              class="block w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              class="block w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-sunken"
               @click="closeMobileMore"
             >
               查看作者主页
             </RouterLink>
             <button
               type="button"
-              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-sunken"
               @click="openSubtitleModeFromMore"
             >
               字幕 / 词卡 / 汇总 / 语境 / 热议
@@ -3711,7 +3711,7 @@ function subtitleRowClass(index: number) {
             <button
               v-if="auth.isLoggedIn"
               type="button"
-              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-sunken"
               @click="closeMobileMore(); toggleClipSelectMode()"
             >
               {{ clipSelectMode ? '关闭划选' : '划选加入摘录' }}
@@ -3719,7 +3719,7 @@ function subtitleRowClass(index: number) {
             </button>
             <button
               type="button"
-              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-sunken"
               @click="closeMobileMore(); subtitlesHidden = !subtitlesHidden"
             >
               {{ subtitlesHidden ? '显示字幕' : '隐藏字幕' }}

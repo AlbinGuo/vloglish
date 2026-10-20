@@ -11,7 +11,7 @@ const { intensiveMode, toggleIntensiveMode } = useIntensiveReadingMode()
     :class="
       intensiveMode
         ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200'
-        : 'border-black/10 text-neutral-500 hover:border-red-200 hover:text-red-600 dark:border-white/10 dark:text-neutral-400 dark:hover:border-red-900 dark:hover:text-red-300'
+        : 'border-line text-ink-faint hover:border-red-200 hover:text-red-600 dark:hover:border-red-900 dark:hover:text-red-300'
     "
     :aria-pressed="intensiveMode"
     @click="toggleIntensiveMode"

@@ -114,7 +114,7 @@ watch(
         v-model="search"
         type="search"
         placeholder="搜索要听的节目"
-        class="w-full mb-4 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 dark:text-white px-3 py-2.5 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
+        class="w-full mb-4 rounded-xl border border-line bg-card dark:text-white px-3 py-2.5 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
       />
 
       <p v-if="loading && !episodes.length" class="py-24 text-center text-neutral-500">加载中...</p>
@@ -125,7 +125,7 @@ watch(
           v-for="ep in episodes"
           :key="ep.video_id"
           type="button"
-          class="w-full flex items-center gap-3 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-3 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800 transition"
+          class="w-full flex items-center gap-3 rounded-xl border border-line-soft bg-card p-3 text-left hover:bg-sunken transition"
           :class="ep.video_id === listen.currentVideoId ? 'ring-1 ring-amber-400/80' : ''"
           @click="playRow(ep)"
         >

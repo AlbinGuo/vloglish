@@ -47,8 +47,8 @@ const emit = defineEmits<{
               class="px-3 py-2.5 rounded-xl text-sm border transition-colors"
               :class="
                 contentView === 'subtitles' && subtitleMode === m.key
-                  ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100'
-                  : 'border-black/10 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                  ? 'bg-ink text-ink-inverse border-neutral-900 dark:border-neutral-100'
+                  : 'border-line hover:bg-sunken'
               "
               @click="emit('update:subtitleMode', m.key)"
             >
@@ -59,8 +59,8 @@ const emit = defineEmits<{
               class="px-3 py-2.5 rounded-xl text-sm border transition-colors"
               :class="
                 contentView === 'wordcards'
-                  ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100'
-                  : 'border-black/10 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                  ? 'bg-ink text-ink-inverse border-neutral-900 dark:border-neutral-100'
+                  : 'border-line hover:bg-sunken'
               "
               @click="emit('selectWordCards')"
             >
@@ -71,8 +71,8 @@ const emit = defineEmits<{
               class="px-3 py-2.5 rounded-xl text-sm border transition-colors"
               :class="
                 contentView === 'summary'
-                  ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100'
-                  : 'border-black/10 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                  ? 'bg-ink text-ink-inverse border-neutral-900 dark:border-neutral-100'
+                  : 'border-line hover:bg-sunken'
               "
               @click="emit('selectVocabSummary')"
             >
@@ -83,8 +83,8 @@ const emit = defineEmits<{
               class="relative col-span-3 flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm border transition-colors text-left"
               :class="
                 contentView === 'context'
-                  ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100'
-                  : 'border-black/10 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                  ? 'bg-ink text-ink-inverse border-neutral-900 dark:border-neutral-100'
+                  : 'border-line hover:bg-sunken'
               "
               @click="emit('selectVideoContext')"
             >
@@ -98,7 +98,7 @@ const emit = defineEmits<{
                 class="text-[11px] font-medium leading-none px-1.5 py-0.5 rounded-full shrink-0"
                 :class="
                   contentView === 'context'
-                    ? 'bg-white/20 text-white dark:bg-neutral-900/15 dark:text-neutral-900'
+                    ? 'bg-white/20 text-ink-inverse dark:bg-neutral-900/15'
                     : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
                 "
               >
@@ -111,8 +111,8 @@ const emit = defineEmits<{
               class="relative col-span-3 flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm border transition-colors text-left"
               :class="
                 contentView === 'audience'
-                  ? 'bg-neutral-900 text-white border-neutral-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100'
-                  : 'border-black/10 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                  ? 'bg-ink text-ink-inverse border-neutral-900 dark:border-neutral-100'
+                  : 'border-line hover:bg-sunken'
               "
               @click="emit('selectAudienceNotes')"
             >

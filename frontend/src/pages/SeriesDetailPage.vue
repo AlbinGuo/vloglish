@@ -93,7 +93,7 @@ watch(slug, load)
 
     <template v-else-if="series">
       <div class="mb-6 flex flex-col sm:flex-row gap-4 sm:gap-6">
-        <div class="w-full sm:w-56 shrink-0 aspect-video rounded-xl overflow-hidden bg-neutral-200 dark:bg-neutral-800">
+        <div class="w-full sm:w-56 shrink-0 aspect-video rounded-xl overflow-hidden bg-sunken">
           <img
             v-if="series.cover"
             :src="resolveMediaUrl(series.cover)"
@@ -102,7 +102,7 @@ watch(slug, load)
           />
         </div>
         <div class="min-w-0 flex-1">
-          <RouterLink to="/english/series" class="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200">
+          <RouterLink to="/english/series" class="text-xs text-neutral-500 hover:text-ink-soft">
             ← 全部合集
           </RouterLink>
           <h1 class="mt-2 text-2xl font-semibold tracking-tight">{{ series.title }}</h1>
@@ -117,10 +117,10 @@ watch(slug, load)
         <li v-for="ep in series.episodes" :key="ep.video_id" class="flex items-stretch gap-2">
           <RouterLink
             :to="episodeLink(ep)"
-            class="flex flex-1 min-w-0 gap-3 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-3 hover:shadow-sm transition group"
+            class="flex flex-1 min-w-0 gap-3 rounded-xl border border-line-soft bg-card p-3 hover:shadow-sm transition group"
             @click="ep.requires_membership ? undefined : requestEpisodeAutoplay"
           >
-            <div class="relative w-28 sm:w-36 shrink-0 aspect-video rounded-lg overflow-hidden bg-neutral-200 dark:bg-neutral-800">
+            <div class="relative w-28 sm:w-36 shrink-0 aspect-video rounded-lg overflow-hidden bg-sunken">
               <img
                 :src="resolveMediaUrl(ep.cover)"
                 :alt="ep.short_title"
@@ -149,7 +149,7 @@ watch(slug, load)
             <div class="flex-1 min-w-0 py-0.5">
               <p class="text-xs text-neutral-500 mb-1">
                 第 {{ ep.series_index ?? ep.index }} 集
-                <span :class="isOpenToFreeUsers(ep) ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'">
+                <span :class="isOpenToFreeUsers(ep) ? 'text-emerald-700 dark:text-emerald-400' : 'text-warning'">
                   · {{ isOpenToFreeUsers(ep) ? '免费' : '会员' }}
                 </span>
               </p>
@@ -157,7 +157,7 @@ watch(slug, load)
                 {{ ep.short_title }}
               </p>
               <p v-if="ep.summary" class="mt-1 text-xs text-neutral-500 line-clamp-2">{{ ep.summary }}</p>
-              <div v-if="ep.progress_percent && ep.progress_percent > 0 && !ep.is_learned" class="mt-2 h-1 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+              <div v-if="ep.progress_percent && ep.progress_percent > 0 && !ep.is_learned" class="mt-2 h-1 rounded-full bg-sunken overflow-hidden">
                 <div
                   class="h-full bg-amber-500 rounded-full"
                   :style="{ width: `${Math.min(100, Math.round(ep.progress_percent))}%` }"
@@ -167,7 +167,7 @@ watch(slug, load)
           </RouterLink>
           <button
             type="button"
-            class="shrink-0 self-center w-10 h-10 rounded-full border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 flex items-center justify-center"
+            class="shrink-0 self-center w-10 h-10 rounded-full border border-line bg-card text-ink-soft flex items-center justify-center"
             aria-label="听这一集"
             @click="playListen(ep)"
           >

@@ -187,7 +187,7 @@ watch(
           </div>
           <button
             type="button"
-            class="shrink-0 text-[11px] px-2 py-1 rounded-full border border-black/10 dark:border-white/15 text-neutral-500 hover:text-amber-700 hover:border-amber-400/70 dark:text-neutral-400 dark:hover:text-amber-300 transition disabled:opacity-50"
+            class="shrink-0 text-[11px] px-2 py-1 rounded-full border border-line-strong text-neutral-500 hover:text-amber-700 hover:border-amber-400/70 dark:text-neutral-400 dark:hover:text-amber-300 transition disabled:opacity-50"
             :disabled="cycling"
             @click.stop="cycleAvatar"
           >
@@ -198,7 +198,7 @@ watch(
         <button
           v-if="!wxBound"
           type="button"
-          class="w-full px-3 py-2.5 text-left text-sm font-medium text-amber-900 bg-amber-50 hover:bg-amber-100 dark:text-amber-200 dark:bg-amber-950/40 dark:hover:bg-amber-950/70 border-b border-amber-200/60 dark:border-amber-500/20"
+          class="w-full px-3 py-2.5 text-left text-sm font-medium text-amber-900 bg-warning-soft hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-950/70 border-b border-amber-200/60 dark:border-amber-500/20"
           @click="bindOpen = true; close()"
         >
           关联小程序
@@ -240,7 +240,7 @@ watch(
                   class="flex items-center gap-2.5 px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/80 transition"
                   @click="requestEpisodeAutoplay(); close()"
                 >
-                  <div class="relative w-[4.5rem] aspect-video rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 shrink-0">
+                  <div class="relative w-[4.5rem] aspect-video rounded-md overflow-hidden bg-sunken shrink-0">
                     <img
                       v-if="item.cover"
                       :src="resolveMediaUrl(item.cover)"

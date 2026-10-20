@@ -76,7 +76,7 @@ function formatTime(iso: string | null) {
   <article
     role="button"
     tabindex="0"
-    class="group flex gap-2.5 sm:gap-2.5 overflow-hidden rounded-2xl border border-black/5 dark:border-white/10 bg-neutral-50/90 dark:bg-neutral-950/50 p-3 sm:p-2.5 text-left cursor-pointer transition hover:border-amber-200/80 dark:hover:border-amber-800/50 hover:bg-white dark:hover:bg-neutral-900/80 active:bg-white dark:active:bg-neutral-900/80"
+    class="group flex gap-2.5 sm:gap-2.5 overflow-hidden rounded-2xl border border-line-soft bg-neutral-50/90 dark:bg-neutral-950/50 p-3 sm:p-2.5 text-left cursor-pointer transition hover:border-amber-200/80 dark:hover:border-amber-800/50 hover:bg-white dark:hover:bg-neutral-900/80 active:bg-white dark:active:bg-neutral-900/80"
     @click="emit('open')"
     @keydown.enter.prevent="emit('open')"
     @keydown.space.prevent="emit('open')"
@@ -134,7 +134,7 @@ function formatTime(iso: string | null) {
           class="shrink-0 flex flex-col items-center justify-center min-w-[2.75rem] rounded-xl px-1.5 py-1"
           :class="{
             'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/45 dark:text-emerald-200': scoreTone === 'good',
-            'bg-amber-100 text-amber-900 dark:bg-amber-900/45 dark:text-amber-200': scoreTone === 'mid',
+            'bg-amber-100 text-warning dark:bg-amber-900/45': scoreTone === 'mid',
             'bg-rose-100 text-rose-800 dark:bg-rose-900/45 dark:text-rose-200': scoreTone === 'low',
           }"
         >

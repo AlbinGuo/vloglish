@@ -69,14 +69,14 @@ watch(
 
 <template>
   <aside
-    class="shrink-0 w-full lg:w-72 xl:w-80 border-t lg:border-t-0 lg:border-l border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 flex flex-col"
+    class="shrink-0 w-full lg:w-72 xl:w-80 border-t lg:border-t-0 lg:border-l border-black/5 dark:border-white/10 bg-card flex flex-col"
     :class="drawer ? 'h-full max-h-none' : 'max-h-56 lg:max-h-none'"
   >
     <div class="shrink-0 px-3 py-2.5 border-b border-black/5 dark:border-white/10 flex items-center gap-1">
       <button
         type="button"
         class="flex-1 text-xs py-1.5 rounded-lg transition-colors cursor-pointer"
-        :class="tab === 'related' ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900' : 'text-neutral-500 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-800'"
+        :class="tab === 'related' ? 'bg-ink text-ink-inverse' : 'text-ink-faint hover:bg-sunken'"
         @click="emit('update:tab', 'related')"
       >
         {{ relatedLabel || '相似视频' }}
@@ -85,7 +85,7 @@ watch(
         v-if="showLookupTab"
         type="button"
         class="flex-1 text-xs py-1.5 rounded-lg transition-colors cursor-pointer"
-        :class="tab === 'lookup' ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900' : 'text-neutral-500 hover:bg-neutral-50 dark:text-neutral-400 dark:hover:bg-neutral-800'"
+        :class="tab === 'lookup' ? 'bg-ink text-ink-inverse' : 'text-ink-faint hover:bg-sunken'"
         @click="emit('update:tab', 'lookup')"
       >
         查词历史
@@ -122,7 +122,7 @@ watch(
           :class="
             ep.video_id === currentVideoId
               ? 'border-amber-500 bg-amber-50/80 dark:border-amber-400 dark:bg-amber-950/40 ring-1 ring-amber-500/30'
-              : 'border-black/5 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+              : 'border-line-soft hover:bg-sunken'
           "
           @click="emit('selectEpisode', ep.video_id)"
         >
@@ -154,7 +154,7 @@ watch(
               class="text-sm font-medium leading-snug line-clamp-2 transition-colors"
               :class="
                 ep.video_id === currentVideoId
-                  ? 'text-amber-800 dark:text-amber-300'
+                  ? 'text-warning'
                   : 'group-hover:text-amber-800 dark:group-hover:text-amber-400'
               "
             >

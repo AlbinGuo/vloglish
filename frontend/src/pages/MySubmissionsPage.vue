@@ -102,7 +102,7 @@ watch(
 <template>
   <div class="page-container py-6">
     <div class="flex items-center gap-3 text-sm mb-4">
-      <RouterLink to="/english" class="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">← 返回目录</RouterLink>
+      <RouterLink to="/english" class="text-ink-faint hover:text-ink">← 返回目录</RouterLink>
       <span class="text-neutral-300 dark:text-neutral-600">|</span>
       <span class="font-medium">我的语料库</span>
       <span class="flex-1" />
@@ -127,8 +127,8 @@ watch(
         type="button"
         class="px-3.5 py-1.5 text-sm rounded-lg transition"
         :class="tab === 'favorites'
-          ? 'bg-white dark:bg-neutral-900 shadow-sm font-medium'
-          : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'"
+          ? 'bg-card shadow-sm font-medium'
+          : 'text-neutral-500 hover:text-ink-soft'"
         @click="setTab('favorites')"
       >
         收藏
@@ -138,8 +138,8 @@ watch(
         type="button"
         class="px-3.5 py-1.5 text-sm rounded-lg transition"
         :class="tab === 'videos'
-          ? 'bg-white dark:bg-neutral-900 shadow-sm font-medium'
-          : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'"
+          ? 'bg-card shadow-sm font-medium'
+          : 'text-neutral-500 hover:text-ink-soft'"
         @click="setTab('videos')"
       >
         我上传的视频
@@ -149,8 +149,8 @@ watch(
         type="button"
         class="px-3.5 py-1.5 text-sm rounded-lg transition"
         :class="tab === 'articles'
-          ? 'bg-white dark:bg-neutral-900 shadow-sm font-medium'
-          : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'"
+          ? 'bg-card shadow-sm font-medium'
+          : 'text-neutral-500 hover:text-ink-soft'"
         @click="setTab('articles')"
       >
         我上传的文章

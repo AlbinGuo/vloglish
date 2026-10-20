@@ -108,7 +108,7 @@ onUnmounted(() => {
             按水平与目标灵活选用 · 和站内视频单句循环、听写、跟读一一对应
           </p>
           <p
-            class="mt-4 max-w-2xl text-sm leading-relaxed text-neutral-700 dark:text-neutral-300 rounded-2xl bg-white/70 dark:bg-neutral-950/40 border border-black/5 dark:border-white/10 px-4 py-3"
+            class="mt-4 max-w-2xl text-sm leading-relaxed text-neutral-700 dark:text-neutral-300 rounded-2xl bg-white/70 dark:bg-neutral-950/40 border border-line-soft px-4 py-3"
           >
             {{ STUDY_PREMISE }}
           </p>
@@ -126,7 +126,7 @@ onUnmounted(() => {
             :class="
               activeId === m.id
                 ? 'border-teal-600 bg-teal-600 text-white'
-                : 'border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 text-neutral-600 dark:text-neutral-300'
+                : 'border-line bg-card text-ink-soft'
             "
             @click="scrollToId(m.id)"
           >
@@ -226,7 +226,7 @@ onUnmounted(() => {
                     />
                     <div
                       v-else-if="samplesLoading"
-                      class="rounded-xl overflow-hidden border border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800 animate-pulse"
+                      class="rounded-xl overflow-hidden border border-line-soft bg-sunken animate-pulse"
                     >
                       <div class="aspect-video bg-neutral-200 dark:bg-neutral-700" />
                       <div class="h-16" />
@@ -249,7 +249,7 @@ onUnmounted(() => {
                 <div
                   v-for="plan in STUDY_PLANS"
                   :key="plan.scene"
-                  class="rounded-2xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 p-5"
+                  class="rounded-2xl border border-line bg-card p-5"
                 >
                   <p class="text-sm font-semibold">{{ plan.scene }}</p>
                   <p class="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
@@ -276,13 +276,13 @@ onUnmounted(() => {
 
             <p class="text-center text-sm text-neutral-400 pt-2">
               选好方法后，回
-              <RouterLink to="/english" class="text-teal-700 dark:text-teal-300 hover:underline">视频目录</RouterLink>
+              <RouterLink to="/english" class="text-brand hover:underline">视频目录</RouterLink>
               挑一集，用单句循环开始练。
             </p>
           </div>
 
           <aside class="hidden lg:block">
-            <div class="sticky top-24 rounded-2xl border border-black/8 dark:border-white/10 bg-white/90 dark:bg-neutral-900/90 backdrop-blur p-3">
+            <div class="sticky top-24 rounded-2xl border border-line bg-white/90 dark:bg-neutral-900/90 backdrop-blur p-3">
               <p class="px-2 pb-2 text-[11px] font-semibold tracking-wide text-neutral-400">目录</p>
               <nav class="flex flex-col gap-0.5" aria-label="方法目录">
                 <button
@@ -292,8 +292,8 @@ onUnmounted(() => {
                   class="text-left rounded-lg px-2.5 py-1.5 text-[13px] transition"
                   :class="
                     activeId === m.id
-                      ? 'bg-teal-50 dark:bg-teal-950/50 text-teal-800 dark:text-teal-200 font-medium'
-                      : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                      ? 'bg-brand-soft text-brand-on-soft font-medium'
+                      : 'text-ink-soft hover:bg-sunken'
                   "
                   @click="scrollToId(m.id)"
                 >

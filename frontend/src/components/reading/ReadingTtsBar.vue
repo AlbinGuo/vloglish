@@ -83,7 +83,7 @@ function manageVoice() {
     <div class="mx-auto max-w-3xl flex items-center gap-2 sm:gap-3 flex-wrap">
       <button
         type="button"
-        class="shrink-0 p-1.5 rounded-lg text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100 dark:hover:text-neutral-200 dark:hover:bg-neutral-800 disabled:opacity-30"
+        class="shrink-0 p-1.5 rounded-lg text-neutral-500 hover:text-ink-soft hover:bg-sunken disabled:opacity-30"
         :disabled="currentIndex <= 0"
         aria-label="上一段"
         @click="onPrev"
@@ -95,7 +95,7 @@ function manageVoice() {
 
       <button
         type="button"
-        class="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-full bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
+        class="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-full bg-ink text-ink-inverse"
         :aria-label="busy ? '暂停朗读' : '从当前段连续朗读'"
         @click="togglePlay"
       >
@@ -132,8 +132,8 @@ function manageVoice() {
           class="px-2 py-1 rounded-md transition-colors"
           :class="
             !usingCloned
-              ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
-              : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+              ? 'bg-ink text-ink-inverse'
+              : 'text-neutral-500 hover:bg-sunken'
           "
           @click="selectVoice('original')"
         >
@@ -144,8 +144,8 @@ function manageVoice() {
           class="px-2 py-1 rounded-md transition-colors"
           :class="
             usingCloned
-              ? 'bg-teal-700 text-white dark:bg-teal-500 dark:text-neutral-900'
-              : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+              ? 'bg-teal-700 text-ink-inverse dark:bg-teal-500'
+              : 'text-neutral-500 hover:bg-sunken'
           "
           @click="selectVoice('cloned')"
         >
@@ -171,8 +171,8 @@ function manageVoice() {
           class="px-2 py-1 rounded-md text-xs transition-colors"
           :class="
             ttsRate === rate
-              ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
-              : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+              ? 'bg-ink text-ink-inverse'
+              : 'text-neutral-500 hover:bg-sunken'
           "
           @click="setTtsRate(rate)"
         >

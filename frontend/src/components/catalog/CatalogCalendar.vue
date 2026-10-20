@@ -55,11 +55,11 @@ function selectDay(cell: (typeof weeks.value)[number]) {
 </script>
 
 <template>
-  <div class="rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4">
+  <div class="rounded-2xl border border-line-soft bg-card p-4">
     <div class="flex items-center justify-between mb-3">
-      <button type="button" class="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500" @click="prevMonth">‹</button>
+      <button type="button" class="p-1 rounded hover:bg-sunken text-neutral-500" @click="prevMonth">‹</button>
       <span class="text-sm font-medium">{{ monthLabel }}</span>
-      <button type="button" class="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500" @click="nextMonth">›</button>
+      <button type="button" class="p-1 rounded hover:bg-sunken text-neutral-500" @click="nextMonth">›</button>
     </div>
     <div class="grid grid-cols-7 gap-1 text-center text-[10px] text-neutral-400 mb-1">
       <span v-for="w in ['一', '二', '三', '四', '五', '六', '日']" :key="w">{{ w }}</span>
@@ -72,8 +72,8 @@ function selectDay(cell: (typeof weeks.value)[number]) {
         class="aspect-square rounded-lg text-xs flex items-center justify-center transition cursor-pointer"
         :class="[
           !cell.day ? 'invisible' : '',
-          cell.disabled ? 'text-neutral-300 dark:text-neutral-600 cursor-not-allowed' : 'hover:bg-neutral-100 dark:hover:bg-neutral-800',
-          store.filters.date === cell.date ? 'bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200' : '',
+          cell.disabled ? 'text-neutral-300 dark:text-neutral-600 cursor-not-allowed' : 'hover:bg-sunken',
+          store.filters.date === cell.date ? 'bg-ink text-ink-inverse hover:bg-neutral-800 dark:hover:bg-neutral-200' : '',
           cell.isToday && store.filters.date !== cell.date ? 'ring-1 ring-neutral-300 dark:ring-neutral-600' : '',
         ]"
         :disabled="!cell.date || cell.disabled"

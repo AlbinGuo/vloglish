@@ -73,7 +73,7 @@ onUnmounted(stop)
       class="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-4"
       @click.self="open = false"
     >
-      <div class="w-full max-w-sm rounded-2xl bg-white dark:bg-neutral-900 p-5 shadow-xl">
+      <div class="w-full max-w-sm rounded-2xl bg-card p-5 shadow-xl">
         <h2 class="text-base font-semibold text-neutral-900 dark:text-white">扫码关联微信</h2>
         <p class="mt-1 text-sm text-neutral-500 leading-relaxed">{{ hint }}</p>
         <div class="mt-4 flex justify-center min-h-[11rem] items-center">
@@ -83,7 +83,7 @@ onUnmounted(stop)
         <p v-if="error" class="mt-2 text-sm text-red-600">{{ error }}</p>
         <button
           type="button"
-          class="mt-4 w-full py-2 rounded-lg text-sm bg-neutral-100 dark:bg-neutral-800"
+          class="mt-4 w-full py-2 rounded-lg text-sm bg-sunken"
           @click="open = false"
         >
           关闭

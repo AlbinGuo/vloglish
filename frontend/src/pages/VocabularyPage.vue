@@ -272,7 +272,7 @@ onUnmounted(() => {
       <div class="flex items-center gap-3 text-sm min-w-0">
         <RouterLink
           to="/english/learning"
-          class="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white shrink-0"
+          class="text-ink-faint hover:text-ink shrink-0"
         >
           ← 学习统计
         </RouterLink>
@@ -428,8 +428,8 @@ onUnmounted(() => {
                 group.sourceType === 'article'
                   ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300'
                   : group.sourceType === 'video'
-                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
-                    : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
+                    ? 'bg-amber-100 text-warning dark:bg-amber-950/40'
+                    : 'bg-sunken text-ink-soft'
               "
             >
               {{ sourceTypeLabel(group.sourceType) }}
@@ -469,7 +469,7 @@ onUnmounted(() => {
                 :class="
                   isSpeaking(item.word)
                     ? 'bg-teal-500 text-white shadow-sm scale-105'
-                    : 'bg-teal-500/10 text-teal-700 ring-1 ring-teal-500/15 hover:bg-teal-500/15 dark:text-teal-300 dark:bg-teal-400/10 dark:ring-teal-400/20'
+                    : 'bg-brand-soft text-brand ring-1 ring-teal-500/15 hover:bg-teal-500/15 dark:ring-teal-400/20'
                 "
                 aria-label="朗读"
                 @click.stop="speakWord(item.word)"

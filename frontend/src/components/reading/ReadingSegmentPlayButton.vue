@@ -30,10 +30,10 @@ function onClick() {
   <button
     v-if="playable"
     type="button"
-    class="shrink-0 mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-black/8 dark:border-white/10 text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+    class="shrink-0 mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-line text-ink-faint hover:text-neutral-800 hover:bg-sunken dark:hover:text-neutral-100 transition-colors"
     :class="
       active
-        ? 'text-amber-600 border-amber-300/60 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/20'
+        ? 'text-warning border-amber-300/60 bg-amber-50 dark:bg-amber-900/20'
         : ''
     "
     :aria-label="active ? '暂停朗读' : '朗读本段'"

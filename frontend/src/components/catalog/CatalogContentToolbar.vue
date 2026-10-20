@@ -74,13 +74,13 @@ const durationSelectValue = computed({
 })
 
 const segmentIdle =
-  'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
+  'text-ink-faint hover:text-ink-soft'
 const segmentActive =
-  'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm'
+  'bg-card text-ink shadow-sm'
 const pillIdle =
-  'border-black/10 bg-white text-neutral-700 hover:border-neutral-300 dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:border-neutral-600'
+  'border-line bg-card text-ink-soft hover:border-neutral-300 dark:hover:border-neutral-600'
 const pillActive =
-  'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-100 dark:text-neutral-900'
+  'border-neutral-900 bg-ink text-ink-inverse dark:border-neutral-200'
 
 watch(searchQuery, (value) => {
   clearTimeout(searchTimer)
@@ -131,12 +131,12 @@ onMounted(() => {
         v-model="searchQuery"
         type="search"
         placeholder="搜索视频名称或作者"
-        class="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 dark:text-white px-3 sm:px-4 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
+        class="w-full rounded-xl border border-line bg-card dark:text-white px-3 sm:px-4 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
       />
     </div>
 
     <div
-      class="inline-flex items-center gap-0.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-black/5 dark:border-white/10"
+      class="inline-flex items-center gap-0.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-line-soft"
       role="group"
       aria-label="浏览方式"
     >
@@ -154,7 +154,7 @@ onMounted(() => {
 
     <div
       v-if="showViewToggle"
-      class="inline-flex items-center gap-0.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-black/5 dark:border-white/10"
+      class="inline-flex items-center gap-0.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-line-soft"
       role="group"
       aria-label="列表样式"
     >

@@ -33,8 +33,8 @@ function learnerLabel() {
 
 <template>
   <RouterLink :to="to" class="block group cursor-pointer" @click="requestEpisodeAutoplay">
-    <article class="rounded-xl overflow-hidden border border-black/5 dark:border-white/10 shadow-sm hover:shadow-md transition bg-white dark:bg-neutral-900 h-full">
-      <div class="relative aspect-video bg-neutral-200 dark:bg-neutral-800">
+    <article class="rounded-xl overflow-hidden border border-line-soft shadow-sm hover:shadow-md transition bg-card h-full">
+      <div class="relative aspect-video bg-sunken">
         <img
           :src="resolveMediaUrl(episode.cover)"
           :alt="episode.short_title"

@@ -17,7 +17,7 @@ const viewOptions: { value: CatalogViewMode; label: string }[] = [
 </script>
 
 <template>
-  <div class="rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 space-y-5">
+  <div class="rounded-2xl border border-line-soft bg-card p-4 space-y-5">
     <div>
       <span class="text-sm font-medium block mb-3">设置</span>
       <div class="grid grid-cols-1 gap-2">
@@ -28,8 +28,8 @@ const viewOptions: { value: CatalogViewMode; label: string }[] = [
           class="w-full text-sm px-3 py-2 rounded-lg border text-center transition cursor-pointer"
           :class="
             browseMode === opt.value
-              ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-300 dark:bg-neutral-100 dark:text-neutral-900'
-              : 'border-black/10 bg-neutral-50 hover:border-neutral-300 text-neutral-700 dark:border-white/10 dark:bg-neutral-800 dark:hover:border-neutral-600 dark:text-neutral-300'
+              ? 'border-neutral-900 bg-ink text-ink-inverse dark:border-neutral-300'
+              : 'border-line bg-neutral-50 hover:border-neutral-300 text-ink-soft dark:bg-neutral-800 dark:hover:border-neutral-600'
           "
           @click="setBrowseMode(opt.value)"
         >
@@ -48,8 +48,8 @@ const viewOptions: { value: CatalogViewMode; label: string }[] = [
           class="flex-1 text-sm px-3 py-2 rounded-lg border text-center transition cursor-pointer"
           :class="
             viewMode === opt.value
-              ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-300 dark:bg-neutral-100 dark:text-neutral-900'
-              : 'border-black/10 bg-neutral-50 hover:border-neutral-300 text-neutral-700 dark:border-white/10 dark:bg-neutral-800 dark:hover:border-neutral-600 dark:text-neutral-300'
+              ? 'border-neutral-900 bg-ink text-ink-inverse dark:border-neutral-300'
+              : 'border-line bg-neutral-50 hover:border-neutral-300 text-ink-soft dark:bg-neutral-800 dark:hover:border-neutral-600'
           "
           @click="setViewMode(opt.value)"
         >

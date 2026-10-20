@@ -194,7 +194,7 @@ onMounted(() => {
 
     <template v-else>
       <!-- 落地页二维码（固定） -->
-      <section class="rounded-2xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 sm:p-5 space-y-3">
+      <section class="rounded-2xl border border-line bg-card p-4 sm:p-5 space-y-3">
         <div class="flex items-start justify-between gap-3">
           <div>
             <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-50">落地页二维码（印刷用）</h2>
@@ -207,7 +207,7 @@ onMounted(() => {
         </div>
 
         <div class="flex flex-col sm:flex-row gap-4 items-start">
-          <div class="shrink-0 rounded-xl border border-black/8 dark:border-white/10 bg-white p-2">
+          <div class="shrink-0 rounded-xl border border-line bg-white p-2">
             <img
               v-if="qrDataUrl"
               :src="qrDataUrl"
@@ -222,21 +222,21 @@ onMounted(() => {
           </div>
           <div class="min-w-0 flex-1 space-y-2">
             <div class="flex flex-wrap items-center gap-2">
-              <code class="text-xs break-all rounded-lg bg-neutral-100 dark:bg-neutral-800 px-2 py-1.5 text-neutral-800 dark:text-neutral-100">
+              <code class="text-xs break-all rounded-lg bg-sunken px-2 py-1.5 text-neutral-800 dark:text-neutral-100">
                 {{ landingUrl }}
               </code>
             </div>
             <div class="flex flex-wrap gap-2">
               <button
                 type="button"
-                class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-black/10 dark:border-white/15 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-line-strong hover:bg-sunken"
                 @click="copyText(landingUrl, 'landing')"
               >
                 {{ copied === 'landing' ? '已复制' : '复制落地页地址' }}
               </button>
               <button
                 type="button"
-                class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 disabled:opacity-50"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-ink text-white dark:text-neutral-900 disabled:opacity-50"
                 :disabled="!qrDataUrl"
                 @click="downloadLandingQr"
               >
@@ -246,7 +246,7 @@ onMounted(() => {
                 :href="landingUrl"
                 target="_blank"
                 rel="noopener"
-                class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-black/10 dark:border-white/15 hover:bg-neutral-50 dark:hover:bg-neutral-800 inline-flex items-center"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-line-strong hover:bg-sunken inline-flex items-center"
               >
                 预览落地页
               </a>
@@ -256,7 +256,7 @@ onMounted(() => {
       </section>
 
       <!-- 下载统计 -->
-      <section class="rounded-2xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 sm:p-5">
+      <section class="rounded-2xl border border-line bg-card p-4 sm:p-5">
         <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-50">下载统计</h2>
         <p class="mt-3 text-3xl font-semibold tracking-tight text-teal-700 dark:text-teal-300">
           {{ downloadCountLabel }}
@@ -268,7 +268,7 @@ onMounted(() => {
       </section>
 
       <!-- Android -->
-      <section class="rounded-2xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 sm:p-5 space-y-3">
+      <section class="rounded-2xl border border-line bg-card p-4 sm:p-5 space-y-3">
         <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-50">Android</h2>
 
         <div class="grid sm:grid-cols-2 gap-3">
@@ -278,7 +278,7 @@ onMounted(() => {
               v-model="form.android_version"
               type="text"
               placeholder="例如 1.0.2（与 build.gradle 一致）"
-              class="w-full rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-3 py-2 text-sm"
+              class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
             />
           </label>
           <label class="block text-xs space-y-1">
@@ -289,7 +289,7 @@ onMounted(() => {
               min="1"
               step="1"
               placeholder="例如 2（每次发版 +1）"
-              class="w-full rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-3 py-2 text-sm"
+              class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
             />
           </label>
         </div>
@@ -309,7 +309,7 @@ onMounted(() => {
               </button>
             </div>
             <div v-if="uploading" class="space-y-1">
-              <div class="h-2 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+              <div class="h-2 rounded-full bg-sunken overflow-hidden">
                 <div
                   class="h-full rounded-full bg-teal-500 transition-[width] duration-150 ease-out"
                   :style="{ width: `${uploadPercent}%` }"
@@ -319,7 +319,7 @@ onMounted(() => {
             </div>
             <p v-else-if="apkSizeLabel" class="text-[12px] text-neutral-600 dark:text-neutral-300">
               当前安装包体积：
-              <span class="font-semibold text-neutral-900 dark:text-neutral-50">{{ apkSizeLabel }}</span>
+              <span class="font-semibold text-ink">{{ apkSizeLabel }}</span>
             </p>
           </div>
           <label class="block text-xs space-y-1">
@@ -330,12 +330,12 @@ onMounted(() => {
               min="0"
               step="1"
               placeholder="0 表示不限制；低于此码强制更新"
-              class="w-full rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-3 py-2 text-sm"
+              class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
             />
           </label>
         </div>
 
-        <label class="flex items-start gap-2.5 rounded-xl border border-black/8 dark:border-white/10 px-3 py-2.5 cursor-pointer">
+        <label class="flex items-start gap-2.5 rounded-xl border border-line px-3 py-2.5 cursor-pointer">
           <input v-model="form.force_update" type="checkbox" class="mt-0.5 rounded border-neutral-300" />
           <span class="min-w-0">
             <span class="block text-sm font-medium text-neutral-900 dark:text-neutral-50">强制更新</span>
@@ -350,11 +350,11 @@ onMounted(() => {
               v-model="form.android_apk_url"
               type="url"
               placeholder="上传后自动填充，也可粘贴外链"
-              class="min-w-0 flex-1 rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-3 py-2 text-sm"
+              class="min-w-0 flex-1 rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
             />
             <button
               type="button"
-              class="shrink-0 px-3 py-2 rounded-lg text-xs font-semibold border border-black/10 dark:border-white/15 disabled:opacity-40"
+              class="shrink-0 px-3 py-2 rounded-lg text-xs font-semibold border border-line-strong disabled:opacity-40"
               :disabled="!form.android_apk_url"
               @click="copyText(form.android_apk_url, 'apk')"
             >
@@ -372,20 +372,20 @@ onMounted(() => {
             v-model="form.android_changelog"
             rows="3"
             placeholder="本次更新要点"
-            class="w-full rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-3 py-2 text-sm"
+            class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
           />
         </label>
       </section>
 
       <!-- iOS -->
-      <section class="rounded-2xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 sm:p-5 space-y-3">
+      <section class="rounded-2xl border border-line bg-card p-4 sm:p-5 space-y-3">
         <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-50">iOS</h2>
         <label class="block text-xs space-y-1">
           <span class="text-neutral-500">未上架说明</span>
           <textarea
             v-model="form.ios_note"
             rows="2"
-            class="w-full rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-3 py-2 text-sm"
+            class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
           />
         </label>
         <label class="block text-xs space-y-1">
@@ -394,7 +394,7 @@ onMounted(() => {
             v-model="form.ios_link"
             type="url"
             placeholder="https://"
-            class="w-full rounded-lg border border-black/10 dark:border-white/15 bg-transparent px-3 py-2 text-sm"
+            class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
           />
         </label>
       </section>
@@ -402,7 +402,7 @@ onMounted(() => {
       <div class="flex gap-2">
         <button
           type="button"
-          class="px-4 py-2 rounded-xl text-sm font-semibold bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 disabled:opacity-50"
+          class="px-4 py-2 rounded-xl text-sm font-semibold bg-ink text-white dark:text-neutral-900 disabled:opacity-50"
           :disabled="saving || uploading"
           @click="save"
         >

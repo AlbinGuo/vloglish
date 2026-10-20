@@ -127,8 +127,8 @@ function toggleSettings() {
           class="shrink-0 min-h-10 px-3.5 rounded-lg text-[13px] font-semibold border touch-manipulation active:scale-[0.98] transition disabled:opacity-50"
           :class="
             isRecording
-              ? 'border-rose-400 text-rose-700 bg-white dark:border-rose-600 dark:text-rose-100 dark:bg-neutral-900'
-              : 'border-amber-400 text-amber-800 bg-white dark:border-amber-700 dark:text-amber-100 dark:bg-neutral-900'
+              ? 'border-rose-400 text-rose-700 bg-card dark:border-rose-600 dark:text-rose-100'
+              : 'border-amber-400 text-amber-800 bg-card dark:border-amber-700 dark:text-amber-100'
           "
           :disabled="busy || phase === 'stopping'"
           @click="emit('stop')"
@@ -204,7 +204,7 @@ function toggleSettings() {
               class="min-h-9 rounded-md px-1 transition touch-manipulation active:scale-[0.98]"
               :class="
                 delaySec === opt.value
-                  ? 'bg-white text-teal-900 shadow-sm dark:bg-neutral-800 dark:text-teal-50'
+                  ? 'bg-card text-teal-900 shadow-sm dark:text-teal-50'
                   : 'text-teal-800/75 dark:text-teal-200/70'
               "
               :disabled="busy"
@@ -226,7 +226,7 @@ function toggleSettings() {
               class="min-h-9 rounded-md px-1 transition touch-manipulation active:scale-[0.98]"
               :class="
                 rate === opt.value
-                  ? 'bg-white text-teal-900 shadow-sm dark:bg-neutral-800 dark:text-teal-50'
+                  ? 'bg-card text-teal-900 shadow-sm dark:text-teal-50'
                   : 'text-teal-800/75 dark:text-teal-200/70'
               "
               :disabled="busy"
@@ -244,7 +244,7 @@ function toggleSettings() {
           :class="
             micEnabled
               ? 'border-teal-300/70 bg-white dark:border-teal-700 dark:bg-neutral-900/60'
-              : 'border-black/8 bg-neutral-50 dark:border-white/10 dark:bg-neutral-900/40'
+              : 'border-line bg-neutral-50 dark:bg-neutral-900/40'
           "
           :disabled="busy"
           @click="emit('update:micEnabled', !micEnabled)"

@@ -339,7 +339,7 @@ onUnmounted(() => {
   <div class="page-container py-6 max-w-4xl space-y-6">
     <div class="flex items-center justify-between gap-3">
       <div class="flex items-center gap-3 text-sm">
-        <RouterLink to="/english" class="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">← 返回目录</RouterLink>
+        <RouterLink to="/english" class="text-ink-faint hover:text-ink">← 返回目录</RouterLink>
         <span class="text-neutral-300 dark:text-neutral-600">|</span>
         <span class="font-medium">学习统计</span>
       </div>
@@ -375,13 +375,13 @@ onUnmounted(() => {
         />
       </div>
 
-      <section class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-5">
+      <section class="rounded-xl border border-line-soft bg-card p-5">
         <h2 class="font-medium mb-2">近 90 天学习热力</h2>
         <p class="text-xs text-neutral-400 mb-4">颜色越深表示当日学习时长越长，悬停可查看详情</p>
         <LearningHeatmapChart :days="calendar" :range-days="90" theme="amber" height="220px" />
       </section>
 
-      <section class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 sm:p-5">
+      <section class="rounded-xl border border-line-soft bg-card p-4 sm:p-5">
         <div class="flex flex-col gap-3 mb-3 sm:flex-row sm:items-start sm:justify-between">
           <div class="min-w-0">
             <h2 class="font-medium">练习记录</h2>
@@ -407,8 +407,8 @@ onUnmounted(() => {
               class="shrink-0 min-h-8 px-2.5 py-1.5 rounded-lg transition-colors"
               :class="
                 practiceFilter === opt.value
-                  ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
-                  : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                  ? 'bg-amber-100 text-warning dark:bg-amber-900/40'
+                  : 'text-neutral-500 hover:bg-sunken'
               "
               @click="practiceFilter = opt.value as '' | PracticeMode"
             >
@@ -464,7 +464,7 @@ onUnmounted(() => {
         @remove="removePractice"
       />
 
-      <section class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-5">
+      <section class="rounded-xl border border-line-soft bg-card p-5">
         <div class="flex items-start justify-between gap-3 mb-1">
           <div class="min-w-0">
             <h2 class="font-medium">
@@ -496,7 +496,7 @@ onUnmounted(() => {
           <li
             v-for="item in displayLookups"
             :key="item.id"
-            class="rounded-xl border border-black/5 dark:border-white/10 bg-neutral-50/80 dark:bg-neutral-950/40 p-3 flex flex-col min-h-[7.5rem]"
+            class="rounded-xl border border-line-soft bg-neutral-50/80 dark:bg-neutral-950/40 p-3 flex flex-col min-h-[7.5rem]"
             :class="item.is_saved ? 'opacity-70' : ''"
           >
             <div class="flex items-start justify-between gap-1.5 min-w-0">

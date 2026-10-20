@@ -99,7 +99,7 @@ watch(tags, async () => {
   >
     <button
       type="button"
-      class="hidden sm:inline-flex shrink-0 h-8 w-8 items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 disabled:opacity-30 disabled:pointer-events-none transition"
+      class="hidden sm:inline-flex shrink-0 h-8 w-8 items-center justify-center rounded-full border border-line bg-card text-neutral-500 hover:text-ink-soft disabled:opacity-30 disabled:pointer-events-none transition"
       aria-label="向左滑动标签"
       :disabled="!canScrollLeft"
       @click="scrollByDir(-1)"
@@ -132,8 +132,8 @@ watch(tags, async () => {
             class="shrink-0 text-xs px-2.5 py-1.5 rounded-full border transition cursor-pointer whitespace-nowrap"
             :class="
               allSelected
-                ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-300 dark:bg-neutral-100 dark:text-neutral-900'
-                : 'border-black/10 bg-neutral-50 text-neutral-700 hover:border-neutral-300 dark:border-white/10 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-neutral-600'
+                ? 'border-neutral-900 bg-ink text-ink-inverse dark:border-neutral-300'
+                : 'border-line bg-neutral-50 text-ink-soft hover:border-neutral-300 dark:bg-neutral-800 dark:hover:border-neutral-600'
             "
             @click="onAllClick"
           >
@@ -146,8 +146,8 @@ watch(tags, async () => {
             class="shrink-0 text-xs px-2.5 py-1.5 rounded-full border transition cursor-pointer whitespace-nowrap"
             :class="
               store.filters.tagIds.includes(t.id)
-                ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-300 dark:bg-neutral-100 dark:text-neutral-900'
-                : 'border-black/10 bg-neutral-50 text-neutral-700 hover:border-neutral-300 dark:border-white/10 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-neutral-600'
+                ? 'border-neutral-900 bg-ink text-ink-inverse dark:border-neutral-300'
+                : 'border-line bg-neutral-50 text-ink-soft hover:border-neutral-300 dark:bg-neutral-800 dark:hover:border-neutral-600'
             "
             @click="onTagClick(t.id, $event)"
           >

@@ -87,7 +87,7 @@ function formatRate(rate: number) {
 
         <div class="grid grid-cols-4 gap-3 px-4 pt-3 pb-2">
           <button type="button" class="flex flex-col items-center gap-2" @click="openTimer">
-            <span class="w-14 h-14 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+            <span class="w-14 h-14 rounded-2xl bg-sunken flex items-center justify-center">
               <svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.7">
                 <circle cx="12" cy="13" r="8" />
                 <path stroke-linecap="round" d="M12 9v4l2.5 1.5M9 4h6" />
@@ -101,7 +101,7 @@ function formatRate(rate: number) {
           <button type="button" class="flex flex-col items-center gap-2" @click="speedOpen = !speedOpen">
             <span
               class="w-14 h-14 rounded-2xl flex items-center justify-center"
-              :class="speedOpen || listen.playbackRate !== 1 ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200' : 'bg-neutral-100 dark:bg-neutral-800'"
+              :class="speedOpen || listen.playbackRate !== 1 ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200' : 'bg-sunken'"
             >
               <svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.7">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 6v12l6-6V6l8 6-8 6" />
@@ -115,7 +115,7 @@ function formatRate(rate: number) {
           <button type="button" class="flex flex-col items-center gap-2" @click="listen.toggleLoopSingle()">
             <span
               class="w-14 h-14 rounded-2xl flex items-center justify-center"
-              :class="listen.loopSingle ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200' : 'bg-neutral-100 dark:bg-neutral-800'"
+              :class="listen.loopSingle ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200' : 'bg-sunken'"
             >
               <svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.7">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h8a4 4 0 0 1 0 8h-1M17 17H9a4 4 0 0 1 0-8h1" />
@@ -149,8 +149,8 @@ function formatRate(rate: number) {
               class="min-w-[3.25rem] px-3 py-2 rounded-full text-sm font-medium"
               :class="
                 listen.playbackRate === rate
-                  ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
-                  : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200'
+                  ? 'bg-neutral-900 text-ink-inverse dark:bg-white'
+                  : 'bg-sunken text-ink-soft'
               "
               @click="pickRate(rate)"
             >

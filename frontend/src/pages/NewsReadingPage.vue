@@ -592,7 +592,7 @@ watch(layoutMode, async () => {
     class="reading-page flex flex-col h-full min-h-0 bg-neutral-100 dark:bg-neutral-950"
     :class="[readingPageClass, intensivePageClass]"
   >
-    <header class="shrink-0 flex items-center gap-3 px-4 py-3 bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10">
+    <header class="shrink-0 flex items-center gap-3 px-4 py-3 bg-card border-b border-black/5 dark:border-white/10">
       <button type="button" class="text-sm text-neutral-500 hover:text-black dark:hover:text-white shrink-0" @click="goBack">
         {{ fromVocabulary ? '← 生词本' : fromLearning ? '← 学习统计' : '← 返回' }}
       </button>
@@ -622,7 +622,7 @@ watch(layoutMode, async () => {
         :class="
           vocabLinkMode
             ? 'bg-sky-600 text-white border-sky-600 dark:bg-sky-500 dark:border-sky-500'
-            : 'bg-white text-neutral-600 border-black/10 dark:bg-neutral-800 dark:text-neutral-300 dark:border-white/10'
+            : 'bg-card text-ink-soft border-line'
         "
         :aria-pressed="vocabLinkMode"
         @click="toggleVocabLinkMode"

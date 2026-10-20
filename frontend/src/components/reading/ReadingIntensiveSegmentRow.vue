@@ -24,8 +24,8 @@ const englishHtml = computed(() =>
     class="intensive-segment-card rounded-xl border transition-colors cursor-pointer overflow-hidden"
     :class="
       active
-        ? 'border-red-300/80 dark:border-red-700/50 ring-1 ring-red-200/60 dark:ring-red-900/30 bg-white dark:bg-neutral-900'
-        : 'border-red-100/80 dark:border-red-950/40 bg-white dark:bg-neutral-900 hover:border-red-200 dark:hover:border-red-900/60'
+        ? 'border-red-300/80 dark:border-red-700/50 ring-1 ring-red-200/60 dark:ring-red-900/30 bg-card'
+        : 'border-red-100/80 dark:border-red-950/40 bg-card hover:border-red-200 dark:hover:border-red-900/60'
     "
     :data-reading-segment-id="segment.id"
     :data-reading-context="segment.english"

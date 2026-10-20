@@ -129,9 +129,9 @@ const continueLine = computed(() => (continueItem.value?.english || continueItem
       <RouterLink
         v-if="data.continue_item"
         :to="data.continue_item.path || `/english/episode/${data.continue_item.video_id}`"
-        class="flex items-center gap-3 rounded-lg border border-black/5 dark:border-white/10 bg-white/80 dark:bg-neutral-900/60 p-2.5 hover:border-amber-400 transition"
+        class="flex items-center gap-3 rounded-lg border border-line-soft bg-white/80 dark:bg-neutral-900/60 p-2.5 hover:border-amber-400 transition"
       >
-        <div class="w-16 h-10 rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 shrink-0">
+        <div class="w-16 h-10 rounded-md overflow-hidden bg-sunken shrink-0">
           <img
             v-if="data.continue_item.cover"
             :src="resolveMediaUrl(data.continue_item.cover)"
@@ -154,7 +154,7 @@ const continueLine = computed(() => (continueItem.value?.english || continueItem
           :to="`/english/episode/${item.video_id}`"
           class="flex items-center gap-3 rounded-lg px-1 py-1.5 hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition"
         >
-          <div class="w-14 h-9 rounded-md overflow-hidden bg-neutral-200 dark:bg-neutral-800 shrink-0">
+          <div class="w-14 h-9 rounded-md overflow-hidden bg-sunken shrink-0">
             <img
               v-if="item.cover"
               :src="resolveMediaUrl(item.cover)"

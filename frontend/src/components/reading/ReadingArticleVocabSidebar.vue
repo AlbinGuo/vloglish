@@ -56,7 +56,7 @@ function speakItem(item: ArticleVocabularyItem) {
   <div class="hidden lg:block relative shrink-0 min-h-0 self-stretch">
     <button
       type="button"
-      class="absolute top-1/2 z-20 left-0 -translate-x-full -translate-y-1/2 flex h-10 w-5 items-center justify-center rounded-l-md border border-r-0 border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 shadow-sm transition-colors"
+      class="absolute top-1/2 z-20 left-0 -translate-x-full -translate-y-1/2 flex h-10 w-5 items-center justify-center rounded-l-md border border-r-0 border-black/10 dark:border-white/10 bg-card text-neutral-400 hover:text-ink-soft shadow-sm transition-colors"
       :aria-label="expanded ? '隐藏生词本' : '显示生词本'"
       :aria-expanded="expanded"
       @click="toggleExpanded"

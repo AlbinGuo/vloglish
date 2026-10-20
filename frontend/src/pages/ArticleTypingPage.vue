@@ -460,7 +460,7 @@ onUnmounted(() => {
             <span class="font-medium truncate tracking-tight">打字练习</span>
             <span
               v-if="title"
-              class="hidden sm:inline shrink-0 max-w-[12rem] truncate text-[11px] px-2 py-0.5 rounded-md bg-teal-500/10 text-teal-800 dark:text-teal-200 dark:bg-teal-400/10"
+              class="hidden sm:inline shrink-0 max-w-[12rem] truncate text-[11px] px-2 py-0.5 rounded-md bg-brand-soft text-teal-800 dark:text-teal-200"
               :title="title"
             >
               {{ title }}
@@ -470,7 +470,7 @@ onUnmounted(() => {
             <button
               v-if="started && current"
               type="button"
-              class="text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition"
+              class="text-xs text-neutral-400 hover:text-ink-soft transition"
               @click="skipSentence"
             >
               跳过
@@ -483,7 +483,7 @@ onUnmounted(() => {
           class="mt-2.5 flex items-center gap-3"
         >
           <div
-            class="inline-flex rounded-full border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/[0.04] p-0.5"
+            class="inline-flex rounded-full border border-line bg-white/70 dark:bg-white/[0.04] p-0.5"
             role="group"
             aria-label="练习模式"
           >
@@ -493,7 +493,7 @@ onUnmounted(() => {
               :class="
                 typingMode === 'compare'
                   ? 'bg-teal-600 text-white'
-                  : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+                  : 'text-neutral-500 hover:text-ink-soft'
               "
               :aria-pressed="typingMode === 'compare'"
               @click="setTypingMode('compare')"
@@ -506,7 +506,7 @@ onUnmounted(() => {
               :class="
                 typingMode === 'zh-prompt'
                   ? 'bg-teal-600 text-white'
-                  : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+                  : 'text-neutral-500 hover:text-ink-soft'
               "
               :aria-pressed="typingMode === 'zh-prompt'"
               @click="setTypingMode('zh-prompt')"
@@ -627,8 +627,8 @@ onUnmounted(() => {
                     segmentStatus(i) === 'current'
                       ? 'bg-teal-500 text-white'
                       : segmentStatus(i) === 'done'
-                        ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300'
-                        : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500'
+                        ? 'bg-teal-500/15 text-brand'
+                        : 'bg-sunken text-ink-disabled'
                   "
                 >
                   {{ i + 1 }}
@@ -706,7 +706,7 @@ onUnmounted(() => {
                         class="text-xs font-medium rounded-full px-2.5 py-1 transition"
                         :class="
                           peeking
-                            ? 'text-teal-800 bg-teal-500/15 dark:text-teal-200'
+                            ? 'text-brand-on-soft bg-teal-500/15'
                             : 'text-neutral-500 hover:text-teal-700 dark:hover:text-teal-300'
                         "
                         :aria-pressed="peeking"

@@ -51,13 +51,13 @@ const mySubmissionsLink = computed(() =>
 )
 
 const segmentIdle =
-  'text-neutral-500 dark:text-neutral-400'
+  'text-ink-faint'
 const segmentActive =
-  'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm'
+  'bg-card text-ink shadow-sm'
 const pillIdle =
-  'border-black/10 bg-white text-neutral-700 dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-300'
+  'border-line bg-card text-ink-soft'
 const pillActive =
-  'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-100 dark:text-neutral-900'
+  'border-neutral-900 bg-ink text-ink-inverse dark:border-neutral-200'
 
 watch(
   () => props.open,
@@ -94,7 +94,7 @@ async function onReset() {
       @click.self="onClose"
     >
       <div
-        class="w-full max-w-lg max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-white dark:bg-neutral-900 shadow-2xl pb-[env(safe-area-inset-bottom)]"
+        class="w-full max-w-lg max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-card shadow-2xl pb-[env(safe-area-inset-bottom)]"
         role="dialog"
         aria-modal="true"
         aria-label="筛选"
@@ -109,7 +109,7 @@ async function onReset() {
           <div class="flex items-center gap-3">
             <button
               type="button"
-              class="text-sm text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
+              class="text-sm text-neutral-500 hover:text-ink-soft dark:text-neutral-400"
               @click="onReset"
             >
               重置
@@ -128,7 +128,7 @@ async function onReset() {
           <section>
             <p class="text-xs font-medium text-neutral-500 mb-2">浏览方式</p>
             <div
-              class="inline-flex w-full items-center gap-0.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-black/5 dark:border-white/10"
+              class="inline-flex w-full items-center gap-0.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-line-soft"
               role="group"
               aria-label="浏览方式"
             >

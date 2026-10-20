@@ -572,8 +572,8 @@ const voiceModeLabel = computed(() =>
             class="px-1.5 h-7 rounded-full text-[10px] font-medium transition-colors"
             :class="
               fsCaptionMode === 'both'
-                ? 'bg-neutral-700 text-white dark:bg-neutral-200 dark:text-neutral-900'
-                : 'text-neutral-600 dark:text-neutral-300'
+                ? 'bg-neutral-700 text-ink-inverse dark:bg-neutral-200'
+                : 'text-ink-soft'
             "
             :aria-pressed="fsCaptionMode === 'both'"
             title="中英字幕"
@@ -586,8 +586,8 @@ const voiceModeLabel = computed(() =>
             class="px-1.5 h-7 rounded-full text-[10px] font-medium transition-colors"
             :class="
               fsCaptionMode === 'en'
-                ? 'bg-neutral-700 text-white dark:bg-neutral-200 dark:text-neutral-900'
-                : 'text-neutral-600 dark:text-neutral-300'
+                ? 'bg-neutral-700 text-ink-inverse dark:bg-neutral-200'
+                : 'text-ink-soft'
             "
             :aria-pressed="fsCaptionMode === 'en'"
             title="仅英文字幕"
@@ -600,8 +600,8 @@ const voiceModeLabel = computed(() =>
             class="px-1.5 h-7 rounded-full text-[10px] font-medium transition-colors"
             :class="
               fsCaptionMode === 'blind'
-                ? 'bg-neutral-700 text-white dark:bg-neutral-200 dark:text-neutral-900'
-                : 'text-neutral-600 dark:text-neutral-300'
+                ? 'bg-neutral-700 text-ink-inverse dark:bg-neutral-200'
+                : 'text-ink-soft'
             "
             :aria-pressed="fsCaptionMode === 'blind'"
             title="盲听，不显示字幕"
@@ -681,7 +681,7 @@ const voiceModeLabel = computed(() =>
         title="下一句"
         @click="player.nextSentence()"
       >
-        <svg class="w-8 h-8 text-neutral-800 dark:text-neutral-200" viewBox="0 0 24 24" fill="currentColor">
+        <svg class="w-8 h-8 text-ink-soft" viewBox="0 0 24 24" fill="currentColor">
           <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm4.28 10.28a.75.75 0 0 0 0-1.06l-3-3a.75.75 0 1 0-1.06 1.06l1.72 1.72H8.25a.75.75 0 0 0 0 1.5h5.69l-1.72 1.72a.75.75 0 0 0 1.06 1.06l3-3Z" />
         </svg>
         <span class="text-[11px] leading-tight mt-0.5">下一句</span>
@@ -724,7 +724,7 @@ const voiceModeLabel = computed(() =>
         <button
           type="button"
           class="flex flex-col items-center text-xs transition-all active:scale-95 focus:outline-none cursor-pointer"
-          :class="loopActive ? 'text-neutral-900 dark:text-neutral-100' : ''"
+          :class="loopActive ? 'text-ink' : ''"
           title="单句循环与句末停下"
           @click.stop="toggleLoopMenu"
         >
@@ -733,7 +733,7 @@ const voiceModeLabel = computed(() =>
               class="w-8 h-8"
               :class="
                 loopActive || player.pauseAfterSentence.value
-                  ? 'text-amber-600 dark:text-amber-400'
+                  ? 'text-warning'
                   : ''
               "
               viewBox="0 0 24 24"
@@ -808,7 +808,7 @@ const voiceModeLabel = computed(() =>
         @click.self="moreOpen = false"
       >
         <div
-          class="w-full max-w-lg rounded-t-2xl bg-white dark:bg-neutral-900 shadow-2xl border-t border-black/10 dark:border-white/10 pb-[env(safe-area-inset-bottom)]"
+          class="w-full max-w-lg rounded-t-2xl bg-card shadow-2xl border-t border-black/10 dark:border-white/10 pb-[env(safe-area-inset-bottom)]"
           @click.stop
         >
           <div class="flex justify-center pt-3 pb-2">
@@ -817,12 +817,12 @@ const voiceModeLabel = computed(() =>
           <p class="text-sm font-medium text-center mb-3">更多控制</p>
           <div class="grid grid-cols-4 gap-3 px-4 pb-4">
             <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="toggleHideVideo(); moreOpen = false">
-              <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">{{ videoHidden ? '显' : '隐' }}</div>
+              <div class="w-11 h-11 rounded-full bg-sunken flex items-center justify-center">{{ videoHidden ? '显' : '隐' }}</div>
               <span>{{ videoHidden ? '显示视频' : '隐藏视频' }}</span>
             </button>
             <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="toggleHideSubtitles(); moreOpen = false">
               <div
-                class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center"
+                class="w-11 h-11 rounded-full bg-sunken flex items-center justify-center"
                 :class="subtitlesHidden ? 'text-orange-500' : ''"
               >
                 <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -951,7 +951,7 @@ const voiceModeLabel = computed(() =>
               :class="
                 player.playbackRate.value === r
                   ? 'bg-neutral-600 border-neutral-600 text-white'
-                  : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800'
+                  : 'border-neutral-200 hover:bg-sunken dark:border-neutral-700'
               "
               @click="selectRate(r)"
             >
@@ -992,7 +992,7 @@ const voiceModeLabel = computed(() =>
               :class="
                 player.sentenceLoopCount.value === n
                   ? 'bg-neutral-600 border-neutral-600 text-white'
-                  : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800'
+                  : 'border-neutral-200 hover:bg-sunken dark:border-neutral-700'
               "
               @click="selectLoopCount(n)"
             >
@@ -1006,7 +1006,7 @@ const voiceModeLabel = computed(() =>
               :class="
                 player.pauseAfterSentence.value
                   ? 'bg-orange-50 text-orange-900 dark:bg-orange-950/50 dark:text-orange-100'
-                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+                  : 'hover:bg-sunken text-ink-soft'
               "
               @click="togglePauseAfterSentence"
             >
@@ -1034,8 +1034,8 @@ const voiceModeLabel = computed(() =>
                 player.pauseAfterSentence.value
                   ? 'opacity-40 cursor-not-allowed text-neutral-400'
                   : player.autoAdvanceAfterLoop.value
-                    ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
-                    : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+                    ? 'bg-amber-50 text-warning dark:bg-amber-950/50'
+                    : 'hover:bg-sunken text-ink-soft'
               "
               :disabled="player.pauseAfterSentence.value"
               @click="toggleAutoAdvanceAfterLoop"
@@ -1066,8 +1066,8 @@ const voiceModeLabel = computed(() =>
               class="w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors"
               :class="
                 player.dictationAfterLoop.value
-                  ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
-                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+                  ? 'bg-amber-50 text-warning dark:bg-amber-950/50'
+                  : 'hover:bg-sunken text-ink-soft'
               "
               @click="toggleDictationAfterLoop"
             >
@@ -1118,7 +1118,7 @@ const voiceModeLabel = computed(() =>
             :class="
               player.playbackRate.value === r
                 ? 'bg-neutral-600 border-neutral-600 text-white'
-                : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800'
+                : 'border-neutral-200 hover:bg-sunken dark:border-neutral-700'
             "
             @click="selectRate(r)"
           >
@@ -1156,7 +1156,7 @@ const voiceModeLabel = computed(() =>
             :class="
               player.sentenceLoopCount.value === n
                 ? 'bg-neutral-600 border-neutral-600 text-white'
-                : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800'
+                : 'border-neutral-200 hover:bg-sunken dark:border-neutral-700'
             "
             @click="selectLoopCount(n)"
           >
@@ -1170,7 +1170,7 @@ const voiceModeLabel = computed(() =>
             :class="
               player.pauseAfterSentence.value
                 ? 'bg-orange-50 text-orange-900 dark:bg-orange-950/50 dark:text-orange-100'
-                : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+                : 'hover:bg-sunken text-ink-soft'
             "
             title="按循环次数连播，播满后暂停"
             @click="togglePauseAfterSentence"
@@ -1199,8 +1199,8 @@ const voiceModeLabel = computed(() =>
               player.pauseAfterSentence.value
                 ? 'opacity-40 cursor-not-allowed text-neutral-400'
                 : player.autoAdvanceAfterLoop.value
-                  ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
-                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+                  ? 'bg-amber-50 text-warning dark:bg-amber-950/50'
+                  : 'hover:bg-sunken text-ink-soft'
             "
             :disabled="player.pauseAfterSentence.value"
             :title="
@@ -1236,8 +1236,8 @@ const voiceModeLabel = computed(() =>
             class="w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors"
             :class="
               player.dictationAfterLoop.value
-                ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
-                : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+                ? 'bg-amber-50 text-warning dark:bg-amber-950/50'
+                : 'hover:bg-sunken text-ink-soft'
             "
             :title="
               player.autoAdvanceAfterLoop.value

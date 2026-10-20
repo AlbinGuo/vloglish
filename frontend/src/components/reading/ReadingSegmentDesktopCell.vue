@@ -26,7 +26,7 @@ const cellClass = computed(() => {
     return 'min-w-0'
   }
   const base =
-    'min-w-0 p-4 lg:p-5 border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 transition-colors cursor-pointer hover:border-black/10 dark:hover:border-white/15'
+    'min-w-0 p-4 lg:p-5 border border-line-soft bg-card transition-colors cursor-pointer hover:border-black/10 dark:hover:border-white/15'
   const radius =
     props.side === 'english'
       ? 'rounded-l-xl rounded-r-none'

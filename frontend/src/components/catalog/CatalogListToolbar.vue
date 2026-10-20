@@ -39,7 +39,7 @@ watch(
         v-model="query"
         type="search"
         placeholder="搜索标题或作者"
-        class="w-full rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 dark:text-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
+        class="w-full rounded-lg border border-line bg-card dark:text-white px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
       />
     </div>
 
@@ -51,8 +51,8 @@ watch(
         class="text-xs px-2.5 py-1.5 rounded-full border transition cursor-pointer"
         :class="
           store.filters.duration === opt.value
-            ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-100 dark:text-neutral-900'
-            : 'border-black/10 bg-white text-neutral-700 hover:border-neutral-300 dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:border-neutral-600'
+            ? 'border-neutral-900 bg-ink text-ink-inverse dark:border-neutral-200'
+            : 'border-line bg-card text-ink-soft hover:border-neutral-300 dark:hover:border-neutral-600'
         "
         @click="store.setDuration(opt.value)"
       >

@@ -104,8 +104,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-dvh flex items-center justify-center px-4 py-12 bg-neutral-50 dark:bg-neutral-950">
-    <div class="w-full max-w-md rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-6 sm:p-8 shadow-sm">
+  <div class="min-h-dvh flex items-center justify-center px-4 py-12 bg-canvas">
+    <div class="w-full max-w-md rounded-2xl border border-line-soft bg-card p-6 sm:p-8 shadow-sm">
       <h1 class="text-xl font-semibold mb-1">支付结果</h1>
       <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">订单号 {{ orderNo() || '—' }}</p>
 
@@ -155,7 +155,7 @@ onUnmounted(() => {
           <RouterLink
             v-else
             to="/pricing"
-            class="block w-full text-center text-sm text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+            class="block w-full text-center text-sm text-neutral-500 hover:text-ink-soft"
           >
             返回购买页
           </RouterLink>

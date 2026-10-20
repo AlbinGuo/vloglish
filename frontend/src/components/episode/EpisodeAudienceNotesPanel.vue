@@ -101,18 +101,18 @@ function tokenizeEnglish(english: string, phrases: { en: string }[]) {
       <article
         v-for="note in items"
         :key="note.id"
-        class="rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-800/60 p-4 sm:p-5 space-y-2.5"
+        class="rounded-2xl border border-line-soft bg-white dark:bg-neutral-800/60 p-4 sm:p-5 space-y-2.5"
       >
         <div class="flex flex-wrap items-center gap-2 text-[11px]">
           <span
-            class="px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-200"
+            class="px-1.5 py-0.5 rounded-full bg-sunken text-neutral-600 dark:text-neutral-200"
           >
             {{ kindLabel(note.kind) }}
           </span>
           <button
             v-if="note.timestamp_sec != null"
             type="button"
-            class="px-1.5 py-0.5 rounded-full bg-teal-50 text-teal-700 dark:bg-teal-950/50 dark:text-teal-200"
+            class="px-1.5 py-0.5 rounded-full bg-brand-soft text-teal-700 dark:text-teal-200"
             @click="emit('seek', Number(note.timestamp_sec))"
           >
             {{ formatTime(note.timestamp_sec) }} 跳到这里

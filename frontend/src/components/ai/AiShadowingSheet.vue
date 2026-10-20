@@ -277,7 +277,7 @@ const dimensionItems = computed(() => {
 function wordToneClass(score: number) {
   if (score >= 85) return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
   if (score >= 75) return 'bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300'
-  if (score >= 55) return 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
+  if (score >= 55) return 'bg-sunken text-ink-soft'
   return 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300'
 }
 
@@ -1559,7 +1559,7 @@ onUnmounted(() => {
               <p class="text-[12px] text-neutral-500 dark:text-neutral-400">
                 <span
                   class="font-medium"
-                  :class="useOral ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'"
+                  :class="useOral ? 'text-emerald-700 dark:text-emerald-400' : 'text-warning'"
                 >{{ engineLabel }}</span>
                 <span class="mx-1 opacity-40">·</span>
                 <span>{{ step === 'listen' ? '听示范' : step === 'record' ? '跟读录音' : '查看结果' }}</span>
@@ -1567,7 +1567,7 @@ onUnmounted(() => {
             </div>
             <button
               type="button"
-              class="w-9 h-9 flex items-center justify-center rounded-full text-neutral-400 hover:text-neutral-700 hover:bg-black/5 dark:hover:text-neutral-200 dark:hover:bg-white/10 shrink-0"
+              class="w-9 h-9 flex items-center justify-center rounded-full text-neutral-400 hover:text-ink-soft hover:bg-black/5 dark:hover:bg-white/10 shrink-0"
               aria-label="关闭"
               @click="$emit('close')"
             >
@@ -1588,7 +1588,7 @@ onUnmounted(() => {
                   ? 'bg-amber-500'
                   : i < (['listen', 'record', 'result'] as Step[]).indexOf(step)
                     ? 'bg-amber-300/80 dark:bg-amber-700/60'
-                    : 'bg-neutral-200 dark:bg-neutral-800'
+                    : 'bg-sunken'
               "
             />
           </div>
@@ -1628,7 +1628,7 @@ onUnmounted(() => {
                   class="rounded-xl px-2.5 py-2 transition-colors"
                   :class="
                     i === activeBlockIndex
-                      ? 'bg-amber-50 dark:bg-amber-950/40 ring-1 ring-amber-200/80 dark:ring-amber-800/50'
+                      ? 'bg-warning-soft ring-1 ring-amber-200/80 dark:ring-amber-800/50'
                       : 'bg-transparent'
                   "
                 >
@@ -1695,7 +1695,7 @@ onUnmounted(() => {
                   :class="
                     demoVoice === 'original'
                       ? 'bg-white text-amber-800 shadow-sm dark:bg-neutral-700 dark:text-amber-200'
-                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                      : 'text-ink-faint hover:text-neutral-700'
                   "
                   @click="setDemoVoice('original')"
                 >
@@ -1707,7 +1707,7 @@ onUnmounted(() => {
                   :class="
                     demoVoice === 'Ryan'
                       ? 'bg-white text-amber-800 shadow-sm dark:bg-neutral-700 dark:text-amber-200'
-                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                      : 'text-ink-faint hover:text-neutral-700'
                   "
                   @click="setDemoVoice('Ryan')"
                 >
@@ -1719,7 +1719,7 @@ onUnmounted(() => {
                   :class="
                     demoVoice === 'Katerina'
                       ? 'bg-white text-amber-800 shadow-sm dark:bg-neutral-700 dark:text-amber-200'
-                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                      : 'text-ink-faint hover:text-neutral-700'
                   "
                   @click="setDemoVoice('Katerina')"
                 >
@@ -1736,7 +1736,7 @@ onUnmounted(() => {
                   :class="
                     demoRate === 0.5
                       ? 'bg-white text-amber-800 shadow-sm dark:bg-neutral-700 dark:text-amber-200'
-                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                      : 'text-ink-faint hover:text-neutral-700'
                   "
                   @click="setDemoRate(0.5)"
                 >
@@ -1748,7 +1748,7 @@ onUnmounted(() => {
                   :class="
                     demoRate === 1
                       ? 'bg-white text-amber-800 shadow-sm dark:bg-neutral-700 dark:text-amber-200'
-                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                      : 'text-ink-faint hover:text-neutral-700'
                   "
                   @click="setDemoRate(1)"
                 >
@@ -1930,7 +1930,7 @@ onUnmounted(() => {
 
             <button
               type="button"
-              class="mt-1 text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition"
+              class="mt-1 text-sm text-neutral-400 hover:text-ink-soft transition"
               @click="$emit('close')"
             >
               稍后再练
@@ -2029,7 +2029,7 @@ onUnmounted(() => {
                   <p
                     class="text-lg font-semibold"
                     :class="{
-                      'text-emerald-700 dark:text-emerald-300': scoreTone === 'good',
+                      'text-success': scoreTone === 'good',
                       'text-amber-700 dark:text-amber-300': scoreTone === 'mid',
                       'text-rose-700 dark:text-rose-300': scoreTone === 'low',
                     }"
@@ -2104,7 +2104,7 @@ onUnmounted(() => {
                   class="h-9 px-2.5 rounded-full text-[11px] font-medium transition touch-manipulation"
                   :class="
                     feedbackTtsMuted
-                      ? 'text-neutral-500 bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-400'
+                      ? 'text-ink-faint bg-sunken'
                       : 'text-violet-700 bg-violet-50 dark:bg-violet-950/40 dark:text-violet-300'
                   "
                   :aria-label="feedbackTtsMuted ? '开启自动播报' : '关闭自动播报'"
@@ -2382,7 +2382,7 @@ onUnmounted(() => {
           <template v-else>
             <button
               type="button"
-              class="flex-1 h-11 rounded-2xl text-sm border border-black/10 dark:border-white/15 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
+              class="flex-1 h-11 rounded-2xl text-sm border border-line-strong hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
               :disabled="loading || listening"
               @click.stop="retry"
             >

@@ -90,7 +90,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-dvh bg-gradient-to-b from-teal-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900 text-neutral-900 dark:text-neutral-50">
+  <div class="min-h-dvh bg-gradient-to-b from-teal-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900 text-ink">
     <div class="mx-auto max-w-lg px-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
       <header class="pt-6 pb-8 text-center">
         <p class="text-sm font-semibold tracking-wide text-teal-700 dark:text-teal-300">Vloglish</p>
@@ -106,7 +106,7 @@ onMounted(async () => {
       <template v-else-if="data">
         <p
           v-if="emptyHint"
-          class="mb-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-900 dark:text-amber-100 text-center leading-relaxed"
+          class="mb-4 rounded-xl bg-warning-soft px-3 py-2 text-sm text-amber-900 dark:text-amber-100 text-center leading-relaxed"
         >
           {{ emptyHint }}
         </p>
@@ -171,7 +171,7 @@ onMounted(async () => {
 
         <section
           v-if="showIos"
-          class="rounded-2xl border border-black/8 dark:border-white/10 bg-white/80 dark:bg-neutral-900/70 p-5"
+          class="rounded-2xl border border-line bg-white/80 dark:bg-neutral-900/70 p-5"
           :class="showAndroid ? 'mt-4' : ''"
         >
           <div class="flex items-center gap-2">
@@ -191,7 +191,7 @@ onMounted(async () => {
             :href="iosLink"
             target="_blank"
             rel="noopener"
-            class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl bg-neutral-900 text-white text-[15px] font-semibold dark:bg-neutral-100 dark:text-neutral-900 active:scale-[0.99]"
+            class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl bg-ink text-white text-[15px] font-semibold dark:text-neutral-900 active:scale-[0.99]"
           >
             {{ client === 'ios' ? '前往下载' : '打开 iOS 下载页' }}
           </a>

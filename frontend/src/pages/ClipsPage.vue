@@ -120,7 +120,7 @@ onMounted(() => {
     <div class="mb-6 flex items-center gap-3 text-sm min-w-0">
       <RouterLink
         to="/english/learning"
-        class="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white shrink-0"
+        class="text-ink-faint hover:text-ink shrink-0"
       >
         ← 学习统计
       </RouterLink>
@@ -174,13 +174,13 @@ onMounted(() => {
               <textarea
                 v-model="draftText"
                 rows="2"
-                class="w-full rounded-xl border border-black/10 dark:border-white/15 bg-white dark:bg-neutral-950 px-3 py-2 text-sm leading-relaxed"
+                class="w-full rounded-xl border border-line-strong bg-white dark:bg-neutral-950 px-3 py-2 text-sm leading-relaxed"
               />
               <label class="block text-xs text-neutral-500 mt-3 mb-1">备注 / 中文</label>
               <textarea
                 v-model="draftNote"
                 rows="2"
-                class="w-full rounded-xl border border-black/10 dark:border-white/15 bg-white dark:bg-neutral-950 px-3 py-2 text-sm leading-relaxed"
+                class="w-full rounded-xl border border-line-strong bg-white dark:bg-neutral-950 px-3 py-2 text-sm leading-relaxed"
                 placeholder="可选，例如句型或自己的理解"
               />
               <p v-if="saveError" class="text-xs text-red-600 dark:text-red-400 mt-2">{{ saveError }}</p>
@@ -195,7 +195,7 @@ onMounted(() => {
                 </button>
                 <button
                   type="button"
-                  class="px-3 py-1.5 rounded-lg text-sm border border-black/10 dark:border-white/15"
+                  class="px-3 py-1.5 rounded-lg text-sm border border-line-strong"
                   :disabled="saving"
                   @click="cancelEdit"
                 >
@@ -266,7 +266,7 @@ onMounted(() => {
                 </button>
                 <button
                   type="button"
-                  class="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+                  class="text-xs text-neutral-500 hover:text-ink-soft"
                   @click="startEdit(item)"
                 >
                   编辑

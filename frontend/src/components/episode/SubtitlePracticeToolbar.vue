@@ -57,19 +57,19 @@ const justifyClass = computed(() => {
 
 const shadowBtnClass = computed(() => {
   if (props.shadowActive) {
-    return 'border-teal-500 bg-teal-50 text-teal-800 ring-2 ring-teal-400/30 dark:border-teal-500 dark:bg-teal-950/50 dark:text-teal-200'
+    return 'border-teal-500 bg-brand-soft text-brand-on-soft ring-2 ring-teal-400/30 dark:border-teal-500'
   }
   if (props.hasShadowTrack) {
-    return 'border-teal-300/80 text-teal-700 dark:border-teal-700 dark:text-teal-300'
+    return 'border-teal-300/80 text-brand dark:border-teal-700'
   }
   return ''
 })
 
 const btnBase =
-  'inline-flex items-center justify-center gap-1 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300 touch-manipulation shrink-0'
+  'inline-flex items-center justify-center gap-1 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-line text-neutral-600 dark:bg-neutral-800/90 dark:text-neutral-300 touch-manipulation shrink-0'
 
 const menuItemBase =
-  'w-full flex items-center justify-between gap-3 px-3 py-2 text-left text-[13px] text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800 transition'
+  'w-full flex items-center justify-between gap-3 px-3 py-2 text-left text-[13px] text-neutral-700 hover:bg-sunken dark:text-neutral-200 transition'
 
 function measureWidth() {
   const el = rootRef.value
@@ -297,7 +297,7 @@ onUnmounted(() => {
           <button
             type="button"
             role="menuitem"
-            :class="[menuItemBase, dictationActive ? 'bg-amber-50 dark:bg-amber-950/40' : '']"
+            :class="[menuItemBase, dictationActive ? 'bg-warning-soft' : '']"
             @click="fire('dictation', $event)"
           >
             听写
@@ -313,7 +313,7 @@ onUnmounted(() => {
         class="inline-flex items-center gap-1 px-2.5 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-neutral-400 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300 dark:hover:border-neutral-500"
         :class="
           shadowActive || hasShadowTrack || dictationActive
-            ? 'border-teal-400/70 text-teal-700 dark:border-teal-600 dark:text-teal-300'
+            ? 'border-teal-400/70 text-brand dark:border-teal-600'
             : ''
         "
         :aria-expanded="menuOpen"
@@ -374,7 +374,7 @@ onUnmounted(() => {
         <button
           type="button"
           role="menuitem"
-          :class="[menuItemBase, dictationActive ? 'bg-amber-50 dark:bg-amber-950/40' : '']"
+          :class="[menuItemBase, dictationActive ? 'bg-warning-soft' : '']"
           @click="fire('dictation', $event)"
         >
           听写

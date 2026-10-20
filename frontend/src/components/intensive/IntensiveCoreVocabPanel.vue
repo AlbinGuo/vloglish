@@ -42,7 +42,7 @@ function toggleExpanded() {
   <div class="intensive-core-vocab hidden lg:block relative shrink-0 min-h-0 self-stretch">
     <button
       type="button"
-      class="absolute top-1/2 z-20 left-0 -translate-x-full -translate-y-1/2 flex h-10 w-5 items-center justify-center rounded-l-md border border-r-0 border-red-200/80 dark:border-red-900/50 bg-white dark:bg-neutral-900 text-red-400 hover:text-red-600 dark:hover:text-red-300 shadow-sm transition-colors"
+      class="absolute top-1/2 z-20 left-0 -translate-x-full -translate-y-1/2 flex h-10 w-5 items-center justify-center rounded-l-md border border-r-0 border-red-200/80 dark:border-red-900/50 bg-card text-red-400 hover:text-red-600 dark:hover:text-red-300 shadow-sm transition-colors"
       :aria-label="expanded ? '隐藏核心词汇' : '显示核心词汇'"
       :aria-expanded="expanded"
       @click="toggleExpanded"

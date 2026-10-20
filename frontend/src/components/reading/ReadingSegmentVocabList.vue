@@ -71,7 +71,7 @@ const rootClass = computed(() => {
   if (props.variant === 'dual') {
     return 'px-4 lg:px-5 pb-4 pt-1'
   }
-  return 'mx-4 mb-4 rounded-lg border border-black/5 dark:border-white/10 bg-neutral-50/80 dark:bg-neutral-800/40 px-3 py-2.5'
+  return 'mx-4 mb-4 rounded-lg border border-line-soft bg-neutral-50/80 dark:bg-neutral-800/40 px-3 py-2.5'
 })
 </script>
 
@@ -84,13 +84,13 @@ const rootClass = computed(() => {
         :key="row.word"
         class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm leading-snug"
       >
-        <span class="font-medium text-neutral-900 dark:text-neutral-100">{{ row.word }}</span>
+        <span class="font-medium text-ink">{{ row.word }}</span>
         <template v-if="row.loading">
           <span class="text-xs text-neutral-400 animate-pulse">加载中…</span>
         </template>
         <template v-else>
           <span v-if="row.ipa" class="text-xs text-neutral-500 dark:text-neutral-400 font-mono">{{ row.ipa }}</span>
-          <span class="text-neutral-600 dark:text-neutral-300">{{ row.meaning }}</span>
+          <span class="text-ink-soft">{{ row.meaning }}</span>
         </template>
       </li>
     </ul>

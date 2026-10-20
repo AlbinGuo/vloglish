@@ -88,7 +88,7 @@ function confirm() {
                   :class="
                     hintMode === 'en-only'
                       ? 'border-neutral-900 dark:border-neutral-100 bg-neutral-50 dark:bg-neutral-800/80'
-                      : 'border-black/10 dark:border-white/10'
+                      : 'border-line'
                   "
                 >
                   <input v-model="hintMode" type="radio" value="en-only" class="mt-1" />
@@ -102,7 +102,7 @@ function confirm() {
                   :class="
                     hintMode === 'with-chinese'
                       ? 'border-neutral-900 dark:border-neutral-100 bg-neutral-50 dark:bg-neutral-800/80'
-                      : 'border-black/10 dark:border-white/10'
+                      : 'border-line'
                   "
                 >
                   <input v-model="hintMode" type="radio" value="with-chinese" class="mt-1" />

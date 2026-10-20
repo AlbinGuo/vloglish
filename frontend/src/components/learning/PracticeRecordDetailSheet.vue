@@ -84,7 +84,7 @@ const { label: durationLabel } = useAudioDuration(detailAudioUrl)
 
 function wordToneClass(score: number) {
   if (score >= 80) return 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200'
-  if (score >= 60) return 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
+  if (score >= 60) return 'bg-amber-100 text-warning dark:bg-amber-900/40'
   return 'bg-rose-100 text-rose-900 dark:bg-rose-900/40 dark:text-rose-200'
 }
 
@@ -320,7 +320,7 @@ function onRemove() {
                     <p
                       class="text-lg font-semibold"
                       :class="{
-                        'text-emerald-700 dark:text-emerald-300': scoreTone === 'good',
+                        'text-success': scoreTone === 'good',
                         'text-amber-700 dark:text-amber-300': scoreTone === 'mid',
                         'text-rose-700 dark:text-rose-300': scoreTone === 'low',
                       }"
@@ -511,7 +511,7 @@ function onRemove() {
                 <RouterLink
                   v-if="sourcePath"
                   :to="sourcePath"
-                  class="flex-1 h-11 rounded-2xl text-sm font-semibold bg-amber-50 text-amber-900 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800/50 inline-flex items-center justify-center touch-manipulation"
+                  class="flex-1 h-11 rounded-2xl text-sm font-semibold bg-warning-soft text-amber-900 border border-amber-200/80 dark:text-amber-200 dark:border-amber-800/50 inline-flex items-center justify-center touch-manipulation"
                   @click="emit('close')"
                 >
                   回看来源

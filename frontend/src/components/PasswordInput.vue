@@ -41,7 +41,7 @@ function onInput(event: Event) {
       :placeholder="placeholder"
       :class="
         inputClass ||
-        'w-full rounded-lg border border-black/10 dark:border-white/10 dark:bg-neutral-800 dark:text-white px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10'
+        'w-full rounded-lg border border-line dark:bg-neutral-800 dark:text-white px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10'
       "
       @input="onInput"
     />

@@ -318,7 +318,7 @@ onUnmounted(() => {
 <template>
   <div
     ref="rootRef"
-    class="current-subtitle-bar relative rounded-2xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 dark:border-white/10 cursor-pointer shadow-sm transition-shadow hover:shadow-md"
+    class="current-subtitle-bar relative rounded-2xl border border-line bg-card cursor-pointer shadow-sm transition-shadow hover:shadow-md"
     :class="[
       compact && !overlay ? 'current-subtitle-bar--compact shrink-0 overflow-hidden' : '',
       !compact && !overlay && !pinChinese ? 'min-h-0 flex-1 overflow-hidden overflow-x-hidden' : '',

@@ -47,8 +47,8 @@ async function submit() {
 </script>
 
 <template>
-  <div class="min-h-dvh flex items-center justify-center px-4 py-12 bg-neutral-50 dark:bg-neutral-950">
-    <div class="w-full max-w-md rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-6 sm:p-8 shadow-sm">
+  <div class="min-h-dvh flex items-center justify-center px-4 py-12 bg-canvas">
+    <div class="w-full max-w-md rounded-2xl border border-line-soft bg-card p-6 sm:p-8 shadow-sm">
       <h1 class="text-xl font-semibold mb-1">重置密码</h1>
       <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">请设置新的登录密码</p>
 
@@ -68,7 +68,7 @@ async function submit() {
             autocomplete="new-password"
             required
             minlength="8"
-            class="w-full rounded-lg border border-black/10 dark:border-white/10 dark:bg-neutral-800 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
+            class="w-full rounded-lg border border-line dark:bg-neutral-800 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
           />
         </div>
         <div>
@@ -79,7 +79,7 @@ async function submit() {
             autocomplete="new-password"
             required
             minlength="8"
-            class="w-full rounded-lg border border-black/10 dark:border-white/10 dark:bg-neutral-800 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
+            class="w-full rounded-lg border border-line dark:bg-neutral-800 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
           />
         </div>
 
@@ -87,7 +87,7 @@ async function submit() {
 
         <button
           type="submit"
-          class="w-full rounded-lg bg-neutral-900 text-white py-2.5 text-sm font-medium hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-60"
+          class="w-full rounded-lg bg-ink text-white py-2.5 text-sm font-medium hover:bg-neutral-800 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-60"
           :disabled="loading"
         >
           {{ loading ? '保存中...' : '保存新密码' }}

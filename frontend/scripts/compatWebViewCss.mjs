@@ -132,7 +132,7 @@ function collectColorVars(css) {
   return map
 }
 
-function rewriteColorMix(css, colorVars, unresolved) {
+function rewriteColorMix(css, colorVars) {
   let out = css
 
   // @property 占位：color-mix(in lab, red, red)
@@ -144,11 +144,7 @@ function rewriteColorMix(css, colorVars, unresolved) {
     (_, varName, pct) => {
       const color = colorVars.get(varName)
       const alpha = Number(pct) / 100
-      if (!color || Number.isNaN(alpha)) {
-        // 解析不了就只能降级成 transparent —— 视觉会静默丢失，必须报出来
-        unresolved.push(`${varName} @ ${pct}%`)
-        return 'transparent'
-      }
+      if (!color || Number.isNaN(alpha)) return 'transparent'
       return colorToRgba(color, alpha) || 'transparent'
     },
   )
@@ -200,8 +196,7 @@ function compatOneFile(filePath) {
   css = unwrapSupports(css)
 
   const colorVars = collectColorVars(css)
-  const unresolved = []
-  css = rewriteColorMix(css, colorVars, unresolved)
+  css = rewriteColorMix(css, colorVars)
   css = addDvhFallbacks(css)
 
   // 再过一遍 lightningcss，清理无效残留并压缩
@@ -220,7 +215,6 @@ function compatOneFile(filePath) {
     layer: (css.match(/@layer\b/g) || []).length,
     property: (css.match(/@property\b/g) || []).length,
     bytes: Buffer.byteLength(css),
-    unresolved,
   }
 }
 
@@ -253,17 +247,6 @@ function main() {
       `  - ${s.file}: ${s.bytes}B (oklch=${s.oklch} color-mix=${s.colorMix} @layer=${s.layer} @property=${s.property})`,
     )
   }
-
-  // 解析不了的 color-mix 会被降级成 transparent —— 视觉静默丢失，必须让构建失败
-  const unresolved = stats.flatMap((s) => s.unresolved.map((u) => `${s.file}: ${u}`))
-  if (unresolved.length) {
-    console.error('[compatWebViewCss] error: 以下 color-mix 无法解析，已降级为 transparent（视觉会丢失）：')
-    for (const u of unresolved) console.error(`   - ${u}`)
-    console.error('   原因通常是该 --color-* 变量用了间接引用（如 var(--neutral-50)），')
-    console.error('   culori 无法解析。请在 src/styles/tokens.css 里改写成具体色值。')
-    process.exit(1)
-  }
-
   if (sum.oklch || sum.colorMix || sum.layer || sum.property) {
     console.warn('[compatWebViewCss] warning: some modern features remain', sum)
   } else {

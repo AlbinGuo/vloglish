@@ -167,7 +167,7 @@ function onToggleVocabulary() {
           <p
             v-if="vocabNotice"
             class="mt-2 text-xs leading-none flex items-center gap-2 transition-opacity"
-            :class="vocabNoticeType === 'err' ? 'text-red-600 dark:text-red-400' : 'text-amber-700 dark:text-amber-300'"
+            :class="vocabNoticeType === 'err' ? 'text-danger' : 'text-amber-700 dark:text-amber-300'"
             role="status"
           >
             <span>{{ vocabNotice }}</span>
@@ -214,8 +214,8 @@ function onToggleVocabulary() {
             class="hidden sm:inline-flex mt-4 items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
             :class="
               entry.favorite
-                ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
-                : 'bg-neutral-900 text-white dark:bg-amber-500 dark:text-neutral-900'
+                ? 'bg-amber-100 text-warning dark:bg-amber-900/40'
+                : 'bg-neutral-900 text-ink-inverse dark:bg-amber-500'
             "
             @click="onToggleVocabulary"
           >
@@ -287,8 +287,8 @@ function onToggleVocabulary() {
             class="w-full inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-sm font-semibold transition-colors"
             :class="
               entry.favorite
-                ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
-                : 'bg-neutral-900 text-white dark:bg-amber-500 dark:text-neutral-900'
+                ? 'bg-amber-100 text-warning dark:bg-amber-900/40'
+                : 'bg-neutral-900 text-ink-inverse dark:bg-amber-500'
             "
             @click="onToggleVocabulary"
           >

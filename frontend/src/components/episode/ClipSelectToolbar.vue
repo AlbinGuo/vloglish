@@ -41,7 +41,7 @@ const preview = computed(() => {
         </button>
         <button
           type="button"
-          class="shrink-0 w-8 h-8 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-black/5 dark:hover:bg-white/10"
+          class="shrink-0 w-8 h-8 rounded-full text-neutral-400 hover:text-ink-soft hover:bg-black/5 dark:hover:bg-white/10"
           aria-label="取消"
           @click="emit('dismiss')"
         >

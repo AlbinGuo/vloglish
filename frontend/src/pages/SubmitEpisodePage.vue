@@ -72,13 +72,13 @@ async function submit() {
 <template>
   <div class="page-container py-6 max-w-2xl">
     <div class="flex items-center gap-3 text-sm mb-6">
-      <RouterLink to="/english" class="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">← 返回目录</RouterLink>
+      <RouterLink to="/english" class="text-ink-faint hover:text-ink">← 返回目录</RouterLink>
       <span class="text-neutral-300 dark:text-neutral-600">|</span>
       <span class="font-medium">上传视频</span>
       <span class="flex-1" />
       <RouterLink
         to="/english/my-submissions"
-        class="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+        class="text-ink-faint hover:text-ink"
       >
         我的语料库
       </RouterLink>
@@ -91,7 +91,7 @@ async function submit() {
       {{ error }}
     </p>
 
-    <section class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-5 space-y-4">
+    <section class="rounded-xl border border-line-soft bg-card p-5 space-y-4">
       <div>
         <h1 class="text-lg font-semibold">上传视频</h1>
         <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
@@ -100,14 +100,14 @@ async function submit() {
       </div>
 
       <label class="block text-sm">
-        <span class="text-neutral-500 dark:text-neutral-400">视频链接</span>
+        <span class="text-ink-faint">视频链接</span>
         <input
           v-model="sourceUrl"
           placeholder="https://www.youtube.com/watch?v=... 或 https://www.tiktok.com/@.../video/..."
           class="mt-1 w-full rounded-lg border px-3 py-2.5 dark:bg-neutral-800 dark:text-white"
           :class="fieldError
             ? 'border-red-400 dark:border-red-500'
-            : 'border-black/10 dark:border-white/10'"
+            : 'border-line'"
           :disabled="submitting"
           @input="fieldError = ''"
         />

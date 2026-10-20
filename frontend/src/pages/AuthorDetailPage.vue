@@ -70,7 +70,7 @@ watch(authorId, load)
       <div class="mb-6 min-w-0">
         <RouterLink
           to="/english"
-          class="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+          class="text-xs text-neutral-500 hover:text-ink-soft"
         >
           ← 返回视频
         </RouterLink>

@@ -124,7 +124,7 @@ watch(
 
     <div
       v-if="previewBanner"
-      class="mb-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-900 dark:text-amber-200"
+      class="mb-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-warning-soft px-4 py-3 text-sm text-amber-900 dark:text-amber-200"
     >
       {{ previewBanner }}
     </div>
@@ -246,7 +246,7 @@ watch(
                   :class="
                     article.progress.is_completed
                       ? 'bg-emerald-500 text-white'
-                      : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 ring-1 ring-black/8 dark:ring-white/10'
+                      : 'bg-card text-ink-soft ring-1 ring-black/8 dark:ring-white/10'
                   "
                 >
                   {{ article.progress.is_completed ? '完' : `${Math.round(article.progress.completion_percent)}%` }}
@@ -263,18 +263,18 @@ watch(
             <div class="mt-auto pt-3.5 flex flex-wrap items-center gap-1.5">
               <span
                 v-if="article.topic"
-                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-sunken text-neutral-600 dark:text-neutral-300"
               >
                 {{ article.topic }}
               </span>
               <span
                 v-if="article.source"
-                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-sunken text-neutral-600 dark:text-neutral-300"
               >
                 {{ article.source }}
               </span>
               <span
-                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40"
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-warning-soft"
                 :title="`${article.stars} 星`"
               >
                 {{ starsLabel(article.stars) }}

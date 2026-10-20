@@ -26,7 +26,7 @@ function tooltipAlign(stars: number) {
     >
       <button
         type="button"
-        class="p-0.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 cursor-pointer"
+        class="p-0.5 rounded-md hover:bg-sunken transition focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 cursor-pointer"
         :aria-label="`筛选 ${level.stars} 星 ${level.label}`"
         @click="emit('select', level.stars)"
       >

@@ -37,7 +37,7 @@ function goPricing() {
       @click.self="dismiss"
     >
       <div
-        class="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-white dark:bg-neutral-900 border border-black/5 dark:border-white/10 shadow-xl p-5 sm:p-6"
+        class="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-card border border-line-soft shadow-xl p-5 sm:p-6"
         role="dialog"
         aria-modal="true"
         aria-labelledby="ai-quota-title"
@@ -51,7 +51,7 @@ function goPricing() {
         <div class="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
           <button
             type="button"
-            class="px-4 py-2 rounded-xl text-sm border border-black/10 dark:border-white/15 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+            class="px-4 py-2 rounded-xl text-sm border border-line-strong text-neutral-700 dark:text-neutral-200 hover:bg-sunken"
             @click="dismiss"
           >
             稍后再说

@@ -68,23 +68,23 @@ function tagClass(tag: { key: string; kind: string; label: string }) {
     const examKey = tag.key.replace(/^exam-/i, '')
     return examTagClass(examKey || tag.label)
   }
-  return typeTagClass[tag.label] || 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'
+  return typeTagClass[tag.label] || 'bg-sunken text-ink-soft'
 }
 
 const hlGroupClass: Record<string, string> = {
   'HL-a': 'bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300',
   'HL-d': 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300',
-  'HL-i': 'bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300',
+  'HL-i': 'bg-sky-50 text-info dark:bg-sky-950/50',
   'HL-c': 'bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300',
   'HL-l': 'bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-300',
   'HL-p': 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
-  'HL-f': 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
+  'HL-f': 'bg-emerald-50 text-success dark:bg-emerald-950/50',
 }
 
 function tabClass(group: WordCardExamGroup, active: boolean) {
   const color = hlGroupClass[group.key] || examTagClass(group.key)
   if (active) return `${color} ring-1 ring-black/10 dark:ring-white/20`
-  return 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400 hover:bg-neutral-200/80 dark:hover:bg-neutral-700'
+  return 'bg-sunken text-ink-faint hover:bg-neutral-200/80 dark:hover:bg-neutral-700'
 }
 
 function speakItem(item: WordCardItem, event: Event) {
@@ -131,7 +131,7 @@ function speakItem(item: WordCardItem, event: Event) {
       </div>
 
       <ul
-        class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 overflow-hidden divide-y divide-black/5 dark:divide-white/10"
+        class="rounded-xl border border-line-soft bg-card overflow-hidden divide-y divide-black/5 dark:divide-white/10"
       >
         <li v-for="(item, index) in listItems" :key="`${activeGroup?.key}-${item.word}`">
           <div

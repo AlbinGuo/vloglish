@@ -16,7 +16,7 @@ function toggleTheme() {
 <template>
   <button
     type="button"
-    class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition-colors"
+    class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-ink-soft hover:text-black hover:bg-sunken dark:hover:text-white transition-colors"
     :title="ariaLabel"
     :aria-label="ariaLabel"
     @click="toggleTheme"
