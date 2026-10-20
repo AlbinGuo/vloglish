@@ -11,6 +11,7 @@ import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSiteConfigStore } from '@/stores/siteConfig'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
+import AppIcon from '@/components/AppIcon.vue'
 
 const auth = useAuthStore()
 const siteConfig = useSiteConfigStore()
@@ -235,9 +236,7 @@ watch(
                     class="w-full h-full flex items-center justify-center text-neutral-300 dark:text-neutral-600"
                     aria-hidden="true"
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                      <path d="M4 6h16v12H4zM8 10h.01M12 14l3-3 3 4" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
+                    <AppIcon name="notification" :size="20" />
                   </div>
                 </div>
                 <span

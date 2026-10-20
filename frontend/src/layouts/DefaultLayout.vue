@@ -32,6 +32,7 @@ import ListenPlayerHost from '@/components/listen/ListenPlayerHost.vue'
 import ListenPlaylistSheet from '@/components/listen/ListenPlaylistSheet.vue'
 import ListenSleepSheet from '@/components/listen/ListenSleepSheet.vue'
 import { useListenPlayerStore } from '@/stores/listenPlayer'
+import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -359,21 +360,7 @@ watch(
             title="联系作者"
             @click="contactAuthorOpen = true"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.75"
-              class="w-5 h-5 shrink-0"
-              aria-hidden="true"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M7.5 8.25h9m-9 3.75h5.25M21 12c0 4.556-4.03 8.25-9 8.25a9.76 9.76 0 0 1-2.53-.33l-3.97 1.32a.75.75 0 0 1-.95-.95l1.32-3.97A8.7 8.7 0 0 1 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"
-              />
-            </svg>
+            <AppIcon name="chat-bubble" class="w-5 h-5 shrink-0" />
             <span class="hidden sm:inline">联系作者</span>
           </button>
           <AppDownloadEntry variant="header" />
@@ -390,39 +377,14 @@ watch(
               aria-label="怎么学"
               title="英语学习方法"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.75"
-                class="w-5 h-5 shrink-0"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"
-                />
-              </svg>
+              <AppIcon name="book-open" class="w-5 h-5 shrink-0" />
               <span class="hidden sm:inline">怎么学</span>
             </RouterLink>
             <RouterLink
               to="/english/learning"
               class="hidden sm:inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-ink-soft hover:text-ink hover:bg-sunken transition"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.75"
-                class="w-5 h-5 shrink-0"
-                aria-hidden="true"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M7 19V11M12 19V5M17 19V15" />
-                <path stroke-linecap="round" d="M4 19h16" />
-              </svg>
+              <AppIcon name="chart-bar" class="w-5 h-5 shrink-0" />
               学习统计
             </RouterLink>
             <RouterLink
@@ -436,21 +398,7 @@ watch(
               ]"
               aria-label="生词本"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.75"
-                class="w-5 h-5 shrink-0"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z"
-                />
-              </svg>
+              <AppIcon name="flag" class="w-5 h-5 shrink-0" />
               <span class="hidden sm:inline">生词本</span>
               <span
                 v-if="vocabCount > 0"
@@ -470,21 +418,7 @@ watch(
               ]"
               aria-label="我的摘录"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.75"
-                class="w-5 h-5 shrink-0"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h4.5M3.75 6.75A2.25 2.25 0 0 1 6 4.5h12A2.25 2.25 0 0 1 20.25 6.75v10.5A2.25 2.25 0 0 1 18 19.5H6a2.25 2.25 0 0 1-2.25-2.25V6.75Z"
-                />
-              </svg>
+              <AppIcon name="clipboard-list" class="w-5 h-5 shrink-0" />
               <span class="hidden sm:inline">摘录</span>
               <span
                 v-if="clipCount > 0"
@@ -498,14 +432,7 @@ watch(
               class="relative p-2 rounded-lg text-ink-soft hover:text-ink hover:bg-sunken transition"
               aria-label="通知"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
-                <path
-                  fill-rule="evenodd"
-                  d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.077 2.125 5.548a.75.75 0 0 1-.513 1.297H3.638a.75.75 0 0 1-.513-1.297A6.75 6.75 0 0 0 5.25 9Zm2.25 0a4.5 4.5 0 1 1 9 0v.75c0 1.214.455 2.34 1.204 3.192a.75.75 0 0 1-.204 1.058H6.5a.75.75 0 0 1-.204-1.058A4.5 4.5 0 0 0 7.5 9.75V9Z"
-                  clip-rule="evenodd"
-                />
-                <path d="M9 18.75a3 3 0 0 0 6 0H9Z" />
-              </svg>
+              <AppIcon name="bell" class="w-5 h-5" />
               <span
                 v-if="notifications.unreadCount > 0"
                 class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-danger text-ink-inverse text-[10px] font-semibold flex items-center justify-center leading-none"
@@ -521,15 +448,7 @@ watch(
               aria-label="开通会员"
               title="开通会员"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                class="w-5 h-5 sm:hidden"
-                aria-hidden="true"
-              >
-                <path d="M5 16 3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5Zm0 2h14v2H5v-2Z" />
-              </svg>
+              <AppIcon name="crown" class="w-5 h-5 sm:hidden" />
               <span class="hidden sm:inline text-sm font-medium">开通会员</span>
             </RouterLink>
             <button

@@ -14,6 +14,7 @@ import { useListenPlayerStore, type ListenQueueItem } from '@/stores/listenPlaye
 import { formatListenTime } from '@/utils/formatListenTime'
 import { stripSpeakerMarkers } from '@/utils/subtitleHtml'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
+import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
 const listen = useListenPlayerStore()
@@ -450,9 +451,7 @@ const backdropTint = computed(() => {
               aria-label="收起"
               @click="collapseSheet"
             >
-              <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
-              </svg>
+              <AppIcon name="check-circle" class="w-6 h-6" />
             </button>
 
             <div class="flex-1 flex justify-center">
@@ -586,11 +585,7 @@ const backdropTint = computed(() => {
                 aria-label="更多"
                 @click="moreOpen = true"
               >
-                <svg viewBox="0 0 24 24" class="w-5 h-5" fill="currentColor">
-                  <circle cx="5" cy="12" r="1.7" />
-                  <circle cx="12" cy="12" r="1.7" />
-                  <circle cx="19" cy="12" r="1.7" />
-                </svg>
+                <AppIcon name="more-horizontal" class="w-5 h-5" />
                 <span class="text-[10px] leading-none">更多</span>
               </button>
             </div>
@@ -620,10 +615,7 @@ const backdropTint = computed(() => {
               aria-label="定时关闭"
               @click="listen.sleepOpen = true"
             >
-              <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.7">
-                <circle cx="12" cy="13" r="8" />
-                <path stroke-linecap="round" d="M12 9v4l2.5 1.5M9 4h6" />
-              </svg>
+              <AppIcon name="clock" class="w-6 h-6" />
               <span class="text-[10px] leading-none">定时</span>
             </button>
             <button
@@ -632,9 +624,7 @@ const backdropTint = computed(() => {
               aria-label="上一首"
               @click="listen.playPrev()"
             >
-              <svg viewBox="0 0 24 24" class="w-7 h-7" fill="currentColor">
-                <path d="M18 18V6l-8.5 6L18 18ZM6 6h2v12H6V6Z" />
-              </svg>
+              <AppIcon name="pause-square" class="w-7 h-7" />
             </button>
             <button
               type="button"
@@ -642,12 +632,8 @@ const backdropTint = computed(() => {
               :aria-label="listen.isPlaying ? '暂停' : '播放'"
               @click="listen.togglePlay()"
             >
-              <svg v-if="listen.isPlaying" viewBox="0 0 24 24" class="w-8 h-8" fill="currentColor">
-                <path d="M7 5h4v14H7V5Zm6 0h4v14h-4V5Z" />
-              </svg>
-              <svg v-else viewBox="0 0 24 24" class="w-8 h-8" fill="currentColor">
-                <path d="M8 5.2v13.6L19.5 12 8 5.2Z" />
-              </svg>
+              <AppIcon name="pause" v-if="listen.isPlaying" class="w-8 h-8" />
+              <AppIcon name="play" class="w-8 h-8" />
             </button>
             <button
               type="button"
@@ -655,9 +641,7 @@ const backdropTint = computed(() => {
               aria-label="下一首"
               @click="listen.playNext()"
             >
-              <svg viewBox="0 0 24 24" class="w-7 h-7" fill="currentColor">
-                <path d="M6 6v12l8.5-6L6 6Zm10 0h2v12h-2V6Z" />
-              </svg>
+              <AppIcon name="fast-forward" class="w-7 h-7" />
             </button>
             <button
               type="button"
@@ -665,9 +649,7 @@ const backdropTint = computed(() => {
               aria-label="播放列表"
               @click="listen.playlistOpen = true"
             >
-              <svg viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor">
-                <path d="M4 6h16v2H4V6Zm0 5h10v2H4v-2Zm0 5h16v2H4v-2Z" />
-              </svg>
+              <AppIcon name="align-left" class="w-6 h-6" />
               <span class="text-[10px] leading-none">列表</span>
             </button>
           </div>
@@ -702,9 +684,7 @@ const backdropTint = computed(() => {
         :disabled="switching"
         @click="switchBySwipe('prev')"
       >
-        <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 14l6-6 6 6" />
-        </svg>
+        <AppIcon name="check-circle" class="w-6 h-6" />
       </button>
       <button
         type="button"
@@ -713,9 +693,7 @@ const backdropTint = computed(() => {
         :disabled="switching"
         @click="switchBySwipe('next')"
       >
-        <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 10l6 6 6-6" />
-        </svg>
+        <AppIcon name="chevron-down" class="w-6 h-6" />
       </button>
     </div>
 

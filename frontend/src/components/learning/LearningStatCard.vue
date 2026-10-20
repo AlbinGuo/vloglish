@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{
   label: string
@@ -37,103 +38,14 @@ const toneClass = computed(() => {
         class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
         :class="toneClass"
       >
-        <svg
-          v-if="icon === 'clock'"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.75"
-          class="w-5 h-5"
-        >
-          <circle cx="12" cy="12" r="9" />
-          <path stroke-linecap="round" d="M12 7v5l3 2" />
-        </svg>
-        <svg
-          v-else-if="icon === 'check-circle'"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.75"
-          class="w-5 h-5"
-        >
-          <circle cx="12" cy="12" r="9" />
-          <path stroke-linecap="round" stroke-linejoin="round" d="M8 12l2.5 2.5L16 9" />
-        </svg>
-        <svg
-          v-else-if="icon === 'play-circle'"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.75"
-          class="w-5 h-5"
-        >
-          <circle cx="12" cy="12" r="9" />
-          <path fill="currentColor" stroke="none" d="M10 8.5v7l5.5-3.5L10 8.5Z" />
-        </svg>
-        <svg
-          v-else-if="icon === 'fire'"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          class="w-5 h-5"
-        >
-          <path
-            d="M12 2c1.2 2.8 3.6 4.2 3.6 7.2 0 2.2-1.4 3.8-3.2 3.8-1.8 0-3.2-1.6-3.2-3.8 0-1.4.6-2.4 1.4-3.4C9.8 5.2 10.8 3.8 12 2Zm0 20c3.6 0 6.5-2.6 6.5-6.1 0-2.8-1.2-4.4-2.6-5.9-.4-.4-1-.1-1 .4.2 1.4-.4 2.8-1.6 3.6-1 .7-1.6 1.8-1.6 3 0 2.2 1.8 4 4 4Z"
-          />
-        </svg>
-        <svg
-          v-else-if="icon === 'sun'"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.75"
-          class="w-5 h-5"
-        >
-          <circle cx="12" cy="12" r="4" />
-          <path stroke-linecap="round" d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-        </svg>
-        <svg
-          v-else-if="icon === 'calendar'"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.75"
-          class="w-5 h-5"
-        >
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path stroke-linecap="round" d="M8 3v4M16 3v4M3 10h18" />
-        </svg>
-        <svg
-          v-else-if="icon === 'search'"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.75"
-          class="w-5 h-5"
-        >
-          <circle cx="11" cy="11" r="6" />
-          <path stroke-linecap="round" d="M20 20l-3.5-3.5" />
-        </svg>
-        <svg
-          v-else-if="icon === 'bookmark'"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.75"
-          class="w-5 h-5"
-        >
-          <path
-            stroke-linejoin="round"
-            d="M6 4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V19l-6-3.5L6 19V4.5Z"
-          />
-        </svg>
+        <AppIcon name="clock" v-if="icon === 'clock'" class="w-5 h-5" />
+        <AppIcon name="clock" v-else-if="icon === 'check-circle'" class="w-5 h-5" />
+        <AppIcon name="play-circle" v-else-if="icon === 'play-circle'" class="w-5 h-5" />
+        <AppIcon name="flame" v-else-if="icon === 'fire'" class="w-5 h-5" />
+        <AppIcon name="sun" v-else-if="icon === 'sun'" class="w-5 h-5" />
+        <AppIcon name="calendar" v-else-if="icon === 'calendar'" class="w-5 h-5" />
+        <AppIcon name="search" v-else-if="icon === 'search'" class="w-5 h-5" />
+        <AppIcon name="bookmark" v-else-if="icon === 'bookmark'" class="w-5 h-5" />
       </div>
       <p class="text-xs text-neutral-500 leading-snug">{{ label }}</p>
     </div>

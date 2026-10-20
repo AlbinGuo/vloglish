@@ -5,6 +5,7 @@ import type { WordLookupRecord } from '@/api/learning'
 import EpisodeAccessBadge from '@/components/EpisodeAccessBadge.vue'
 import { isOpenToFreeUsers } from '@/utils/episodeAccess'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{
   tab: 'related' | 'lookup'
@@ -97,9 +98,7 @@ watch(
         title="隐藏侧栏"
         @click="emit('close')"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
+        <AppIcon name="close" :size="14" />
       </button>
     </div>
 

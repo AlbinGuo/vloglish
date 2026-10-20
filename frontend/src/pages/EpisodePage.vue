@@ -103,6 +103,7 @@ import {
 } from '@/utils/subtitleHtml'
 import { applyUserClipMarks, clipMarkSnippet } from '@/utils/clipMarks'
 import { exitAppFullscreen, getFullscreenElement, subscribeFullscreenChange } from '@/utils/fullscreen'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{ videoId: string; backTo?: string; adminPreview?: boolean }>()
 const route = useRoute()
@@ -2909,11 +2910,7 @@ function subtitleRowClass(index: number) {
           aria-label="更多"
           @click="openMobileMore"
         >
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <circle cx="5" cy="12" r="1.75" />
-            <circle cx="12" cy="12" r="1.75" />
-            <circle cx="19" cy="12" r="1.75" />
-          </svg>
+          <AppIcon name="more-horizontal" class="w-5 h-5" />
         </button>
         <IntensiveModeToggle />
         <SettingsButton v-if="!isPhone" @click="showSettings = true" />
@@ -3623,9 +3620,7 @@ function subtitleRowClass(index: number) {
         :aria-expanded="false"
         @click.stop="toggleMobileChrome"
       >
-        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
+        <AppIcon name="menu" class="h-4 w-4" />
       </button>
 
       <div

@@ -11,6 +11,7 @@ import type { EpisodeSummary } from '@/types'
 import { formatListenTime } from '@/utils/formatListenTime'
 import { isOpenToFreeUsers } from '@/utils/episodeAccess'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
+import AppIcon from '@/components/AppIcon.vue'
 
 defineOptions({ name: 'ListenHomePage' })
 
@@ -140,7 +141,7 @@ watch(
             <p class="mt-1 text-xs text-neutral-500 truncate">{{ ep.author.name }}</p>
           </div>
           <span class="shrink-0 w-9 h-9 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 flex items-center justify-center">
-            <svg viewBox="0 0 24 24" class="w-4 h-4 ml-0.5" fill="currentColor"><path d="M8 5.5v13l11-6.5L8 5.5Z" /></svg>
+            <AppIcon name="play" class="w-4 h-4 ml-0.5" />
           </span>
         </button>
       </div>

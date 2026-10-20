@@ -3,6 +3,7 @@ import { computed, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { PracticeRecord } from '@/api/practiceRecords'
 import { useAudioDuration } from '@/composables/useAudioDuration'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{
   item: PracticeRecord
@@ -171,13 +172,8 @@ function formatTime(iso: string | null) {
             class="relative flex h-7 w-7 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-white/20"
             aria-hidden="true"
           >
-            <svg v-if="playing" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-              <rect x="6" y="5" width="4" height="14" rx="1" />
-              <rect x="14" y="5" width="4" height="14" rx="1" />
-            </svg>
-            <svg v-else class="ml-0.5" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7L8 5z" />
-            </svg>
+            <AppIcon name="pause" v-if="playing" :size="12" />
+            <AppIcon name="play" class="ml-0.5" :size="13" />
           </span>
           <span class="relative inline-flex items-baseline gap-1">
             <span>{{ playing ? '播放中' : '听一听' }}</span>
@@ -197,11 +193,7 @@ function formatTime(iso: string | null) {
             aria-label="回看来源"
             title="回看"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M15 3h6v6" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M10 14 21 3" stroke-linecap="round" />
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
+            <AppIcon name="external-link" :size="15" />
           </RouterLink>
 
           <button
@@ -212,14 +204,8 @@ function formatTime(iso: string | null) {
             title="删除"
             @click="emit('remove')"
           >
-            <svg v-if="deleting" class="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
-            </svg>
-            <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M3 6h18" stroke-linecap="round" />
-              <path d="M8 6V4h8v2" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M19 6l-1 14H6L5 6" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
+            <AppIcon name="spinner" v-if="deleting" class="animate-spin" :size="14" />
+            <AppIcon name="trash" :size="14" />
           </button>
         </div>
       </div>

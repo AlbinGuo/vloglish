@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import type { ArticleSegment } from '@/api/articles'
 import ReadingSegmentVocabList from '@/components/reading/ReadingSegmentVocabList.vue'
 import { extractHighlightTokens } from '@/utils/readingHighlights'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -35,22 +36,7 @@ function toggleExpanded() {
             :aria-expanded="expanded"
             @click="toggleExpanded"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="transition-transform duration-200"
-              :class="expanded ? 'rotate-180' : ''"
-              aria-hidden="true"
-            >
-              <path d="m6 9 6 6 6-6" />
-            </svg>
+            <AppIcon name="chevron-down" class="transition-transform duration-200" :size="18" />
           </button>
         </div>
         <div aria-hidden="true" />
@@ -73,22 +59,7 @@ function toggleExpanded() {
           :aria-expanded="expanded"
           @click="toggleExpanded"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="transition-transform duration-200"
-            :class="expanded ? 'rotate-180' : ''"
-            aria-hidden="true"
-          >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
+          <AppIcon name="chevron-down" class="transition-transform duration-200" :size="18" />
         </button>
       </div>
       <ReadingSegmentVocabList

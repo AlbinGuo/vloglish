@@ -3,6 +3,7 @@ import { computed, inject } from 'vue'
 import { READING_TTS_KEY } from '@/composables/useReadingTts'
 import { useReadingSettings } from '@/composables/useReadingSettings'
 import { useVoiceCloneStore } from '@/stores/voiceClone'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{
   currentIndex: number
@@ -88,9 +89,7 @@ function manageVoice() {
         aria-label="上一段"
         @click="onPrev"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="m15 18-6-6 6-6" />
-        </svg>
+        <AppIcon name="chevron-left" :size="18" />
       </button>
 
       <button
@@ -99,15 +98,9 @@ function manageVoice() {
         :aria-label="busy ? '暂停朗读' : '从当前段连续朗读'"
         @click="togglePlay"
       >
-        <svg v-if="synthesizing && !isPlaying" class="h-4 w-4 animate-pulse" viewBox="0 0 24 24" fill="currentColor">
-          <circle cx="12" cy="12" r="4" />
-        </svg>
-        <svg v-else-if="isPlaying" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" />
-        </svg>
-        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M8 5v14l11-7L8 5z" />
-        </svg>
+        <AppIcon name="pulse-dot" v-if="synthesizing && !isPlaying" class="h-4 w-4 animate-pulse" />
+        <AppIcon name="pause" v-else-if="isPlaying" :size="16" />
+        <AppIcon name="play" :size="16" />
       </button>
 
       <button
@@ -117,9 +110,7 @@ function manageVoice() {
         aria-label="下一段"
         @click="onNext"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="m9 18 6-6-6-6" />
-        </svg>
+        <AppIcon name="chevron-left" :size="18" />
       </button>
 
       <span class="text-xs text-neutral-500 tabular-nums shrink-0">{{ progressLabel }}</span>

@@ -7,6 +7,7 @@ import {
   vocabGroupTagClass,
   vocabLevelTagClass,
 } from '@/utils/vocabSummary'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -277,30 +278,8 @@ async function onAdd(item: VocabSummaryItem, index: number) {
               "
               @click.stop="onAdd(item, index)"
             >
-              <svg
-                v-if="savedKeys.has(item.en.trim().toLowerCase())"
-                class="h-3.5 w-3.5"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.3a1 1 0 0 1-1.432.012l-3.25-3.2a1 1 0 1 1 1.4-1.426l2.53 2.49 6.54-6.58a1 1 0 0 1 1.456-.01Z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-              <svg
-                v-else
-                class="h-3.5 w-3.5"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.2"
-                aria-hidden="true"
-              >
-                <path stroke-linecap="round" d="M10 5v10M5 10h10" />
-              </svg>
+              <AppIcon name="check-xs" v-if="savedKeys.has(item.en.trim().toLowerCase())" class="h-3.5 w-3.5" />
+              <AppIcon name="plus" class="h-3.5 w-3.5" />
             </button>
           </div>
         </li>

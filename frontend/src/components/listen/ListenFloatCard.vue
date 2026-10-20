@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useListenPlayerStore } from '@/stores/listenPlayer'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
+import AppIcon from '@/components/AppIcon.vue'
 
 const listen = useListenPlayerStore()
 
@@ -34,12 +35,8 @@ function onClose() {
       :aria-label="listen.isPlaying ? '暂停' : '播放'"
       @click.stop="listen.togglePlay()"
     >
-      <svg v-if="listen.isPlaying" viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="currentColor">
-        <path d="M8 6h3v12H8V6Zm5 0h3v12h-3V6Z" />
-      </svg>
-      <svg v-else viewBox="0 0 24 24" class="w-3.5 h-3.5 ml-px" fill="currentColor">
-        <path d="M8 5.5v13l11-6.5L8 5.5Z" />
-      </svg>
+      <AppIcon name="pause" v-if="listen.isPlaying" class="w-3.5 h-3.5" />
+      <AppIcon name="play" class="w-3.5 h-3.5 ml-px" />
     </button>
     <button
       type="button"
@@ -47,9 +44,7 @@ function onClose() {
       aria-label="关闭听播放"
       @click.stop="onClose"
     >
-      <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.4">
-        <path stroke-linecap="round" d="M7 7l10 10M17 7 7 17" />
-      </svg>
+      <AppIcon name="close" class="w-3.5 h-3.5" />
     </button>
   </div>
 </template>

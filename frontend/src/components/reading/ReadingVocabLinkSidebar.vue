@@ -12,6 +12,7 @@ import {
   vocabGroupTagClass,
   vocabLevelTagClass,
 } from '@/utils/vocabSummary'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -398,52 +399,9 @@ defineExpose({ expanded })
                         :aria-label="isSavedWord(item.en) ? '已在生词本' : `将 ${item.en} 加入生词本`"
                         @click.stop="onAdd(item, index)"
                       >
-                        <svg
-                          v-if="rowState[itemKey(item, index)]?.saving"
-                          class="h-3.5 w-3.5 animate-spin"
-                          viewBox="0 0 20 20"
-                          fill="none"
-                          aria-hidden="true"
-                        >
-                          <circle
-                            cx="10"
-                            cy="10"
-                            r="7"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            class="opacity-25"
-                          />
-                          <path
-                            d="M17 10a7 7 0 0 0-7-7"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                          />
-                        </svg>
-                        <svg
-                          v-else-if="isSavedWord(item.en)"
-                          class="h-3.5 w-3.5"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          aria-hidden="true"
-                        >
-                          <path
-                            fill-rule="evenodd"
-                            d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.3a1 1 0 0 1-1.432.012l-3.25-3.2a1 1 0 1 1 1.4-1.426l2.53 2.49 6.54-6.58a1 1 0 0 1 1.456-.01Z"
-                            clip-rule="evenodd"
-                          />
-                        </svg>
-                        <svg
-                          v-else
-                          class="h-3.5 w-3.5"
-                          viewBox="0 0 20 20"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2.2"
-                          aria-hidden="true"
-                        >
-                          <path stroke-linecap="round" d="M10 5v10M5 10h10" />
-                        </svg>
+                        <AppIcon name="loader-circle" v-if="rowState[itemKey(item, index)]?.saving" class="h-3.5 w-3.5 animate-spin" />
+                        <AppIcon name="check-xs" v-else-if="isSavedWord(item.en)" class="h-3.5 w-3.5" />
+                        <AppIcon name="plus" class="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>

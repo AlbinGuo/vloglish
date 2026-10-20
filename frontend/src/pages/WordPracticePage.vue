@@ -18,6 +18,7 @@ import {
   playSessionDone,
   playWordCorrect,
 } from '@/utils/wordPracticeSounds'
+import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -868,19 +869,7 @@ onUnmounted(() => {
               class="shrink-0 inline-flex items-center gap-1 text-xs text-neutral-400"
             >
               {{ previewOpen ? '收起' : '展开' }}
-              <svg
-                class="h-3.5 w-3.5 transition-transform duration-200"
-                :class="previewOpen ? 'rotate-180' : ''"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
-                  clip-rule="evenodd"
-                />
-              </svg>
+              <AppIcon name="chevron-down-xs" class="h-3.5 w-3.5 transition-transform duration-200" />
             </span>
           </button>
           <div
@@ -913,11 +902,7 @@ onUnmounted(() => {
                   :title="`朗读 ${item.word}`"
                   @click.stop="playWordPronunciation(item.word)"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path
-                      d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"
-                    />
-                  </svg>
+                  <AppIcon name="volume-up" :size="14" />
                 </button>
               </li>
             </ol>
@@ -1032,11 +1017,7 @@ onUnmounted(() => {
                 :title="`朗读 ${current.word}`"
                 @click.stop="playWordPronunciation(current.word)"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path
-                    d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"
-                  />
-                </svg>
+                <AppIcon name="volume-up" :size="16" />
               </button>
             </div>
             <p v-if="current.ipa" class="text-sm text-neutral-400 dark:text-neutral-500 tracking-wide">

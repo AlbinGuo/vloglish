@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useListenPlayerStore } from '@/stores/listenPlayer'
 import { formatListenTime } from '@/utils/formatListenTime'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
+import AppIcon from '@/components/AppIcon.vue'
 
 const listen = useListenPlayerStore()
 
@@ -45,7 +46,7 @@ const progress = computed(() => {
         aria-label="播放列表"
         @click="listen.playlistOpen = true"
       >
-        <svg viewBox="0 0 24 24" class="w-5 h-5" fill="currentColor"><path d="M4 6h16v2H4V6Zm0 5h10v2H4v-2Zm0 5h16v2H4v-2Z"/></svg>
+        <AppIcon name="align-left" class="w-5 h-5" />
       </button>
       <button
         type="button"
@@ -53,12 +54,8 @@ const progress = computed(() => {
         :aria-label="listen.isPlaying ? '暂停' : '播放'"
         @click="listen.togglePlay()"
       >
-        <svg v-if="listen.isPlaying" viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor">
-          <path d="M8 6h3v12H8V6Zm5 0h3v12h-3V6Z" />
-        </svg>
-        <svg v-else viewBox="0 0 24 24" class="w-6 h-6" fill="currentColor">
-          <path d="M8 5.5v13l11-6.5L8 5.5Z" />
-        </svg>
+        <AppIcon name="pause" v-if="listen.isPlaying" class="w-6 h-6" />
+        <AppIcon name="play" class="w-6 h-6" />
       </button>
       <button
         type="button"
@@ -66,7 +63,7 @@ const progress = computed(() => {
         aria-label="下一首"
         @click="listen.playNext()"
       >
-        <svg viewBox="0 0 24 24" class="w-5 h-5" fill="currentColor"><path d="M6 6v12l8.5-6L6 6Zm10 0h2v12h-2V6Z"/></svg>
+        <AppIcon name="fast-forward" class="w-5 h-5" />
       </button>
     </div>
   </div>

@@ -4,6 +4,7 @@ import { ARTICLE_VOCABULARY_KEY } from '@/composables/useArticleVocabulary'
 import { formatExamTags, asExamTagList, examTagClass } from '@/utils/examTags'
 import { playWordPronunciation } from '@/utils/speakWord'
 import type { ArticleVocabularyItem } from '@/api/learning'
+import AppIcon from '@/components/AppIcon.vue'
 
 const VOCAB_SIDEBAR_KEY = 'reading-vocab-sidebar-visible'
 
@@ -133,9 +134,7 @@ function speakItem(item: ArticleVocabularyItem) {
                   aria-label="朗读"
                   @click="speakItem(item)"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
-                  </svg>
+                  <AppIcon name="volume-up" :size="14" />
                 </button>
                 <button
                   type="button"
@@ -143,9 +142,7 @@ function speakItem(item: ArticleVocabularyItem) {
                   aria-label="移出生词本"
                   @click="vocab?.remove(item.entry_id)"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
+                  <AppIcon name="close" :size="14" />
                 </button>
               </div>
             </div>

@@ -10,6 +10,7 @@ import EpisodeAccessBadge from '@/components/EpisodeAccessBadge.vue'
 import { isOpenToFreeUsers } from '@/utils/episodeAccess'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
 import type { SeriesDetail } from '@/types'
+import AppIcon from '@/components/AppIcon.vue'
 
 defineOptions({ name: 'SeriesDetailPage' })
 
@@ -171,7 +172,7 @@ watch(slug, load)
             aria-label="听这一集"
             @click="playListen(ep)"
           >
-            <svg viewBox="0 0 24 24" class="w-4 h-4 ml-0.5" fill="currentColor"><path d="M8 5.5v13l11-6.5L8 5.5Z" /></svg>
+            <AppIcon name="play" class="w-4 h-4 ml-0.5" />
           </button>
         </li>
       </ol>

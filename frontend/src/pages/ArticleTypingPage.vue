@@ -14,6 +14,7 @@ import {
   playSessionDone,
   playWordCorrect,
 } from '@/utils/wordPracticeSounds'
+import AppIcon from '@/components/AppIcon.vue'
 
 type TypingMode = 'compare' | 'zh-prompt'
 
@@ -694,11 +695,7 @@ onUnmounted(() => {
                         title="朗读本段"
                         @click="playCurrentSentence"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                          <path
-                            d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"
-                          />
-                        </svg>
+                        <AppIcon name="volume-up" :size="16" />
                       </button>
                       <button
                         v-if="started && isZhPrompt && currentHasChinese"

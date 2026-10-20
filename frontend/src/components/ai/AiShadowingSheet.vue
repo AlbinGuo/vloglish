@@ -18,6 +18,7 @@ import { playWordPronunciation, stopSpeaking } from '@/utils/speakWord'
 import { buildPracticeFeedbackSpeech } from '@/utils/practiceFeedbackSpeech'
 import { formatAudioClock, probeAudioDuration } from '@/utils/audioDuration'
 import { highlightVocabLinkText, type VocabSummaryGroup } from '@/utils/vocabSummary'
+import AppIcon from '@/components/AppIcon.vue'
 
 /** 篇章评测：按段落展示，播放中随语音切换浅底 */
 export type PassagePracticeBlock = {
@@ -1571,9 +1572,7 @@ onUnmounted(() => {
               aria-label="关闭"
               @click="$emit('close')"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
+              <AppIcon name="close" :size="18" />
             </button>
           </div>
 
@@ -1801,42 +1800,9 @@ onUnmounted(() => {
                       class="absolute inset-0 rounded-full bg-amber-400/40 animate-ping"
                       aria-hidden="true"
                     />
-                    <svg
-                      v-if="demoLoading"
-                      class="relative animate-spin"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.2"
-                      aria-hidden="true"
-                    >
-                      <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
-                    </svg>
-                    <svg
-                      v-else-if="demoPlaying"
-                      class="relative"
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <rect x="6" y="5" width="4" height="14" rx="1" />
-                      <rect x="14" y="5" width="4" height="14" rx="1" />
-                    </svg>
-                    <svg
-                      v-else
-                      class="relative ml-0.5"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path d="M8 5v14l11-7L8 5z" />
-                    </svg>
+                    <AppIcon name="spinner" v-if="demoLoading" class="relative animate-spin" :size="20" />
+                    <AppIcon name="pause" v-else-if="demoPlaying" class="relative" :size="18" />
+                    <AppIcon name="play" class="relative ml-0.5" :size="20" />
                   </span>
 
                   <span class="min-w-0 flex-1">
@@ -1900,11 +1866,7 @@ onUnmounted(() => {
                   <span
                     class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/18 ring-1 ring-white/25 transition group-hover:scale-105"
                   >
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                      <path
-                        d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"
-                      />
-                    </svg>
+                    <AppIcon name="mic" :size="22" />
                   </span>
                   <span class="min-w-0 flex-1">
                     <span class="block text-[15px] font-semibold tracking-wide">开始跟读</span>
@@ -1912,18 +1874,7 @@ onUnmounted(() => {
                       {{ useOral ? '对着麦克风读，系统直接评发音' : '跟读后自动识别并点评' }}
                     </span>
                   </span>
-                  <svg
-                    class="shrink-0 opacity-80 transition group-hover:translate-x-0.5"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.2"
-                    aria-hidden="true"
-                  >
-                    <path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
+                  <AppIcon name="check" class="shrink-0 opacity-80 transition group-hover:translate-x-0.5" :size="18" />
                 </span>
               </button>
             </div>
@@ -1958,26 +1909,9 @@ onUnmounted(() => {
                 class="absolute inset-[-6px] rounded-full border-2 border-rose-300/70 animate-ping"
                 aria-hidden="true"
               />
-              <svg
-                v-if="loading"
-                class="animate-spin"
-                width="28"
-                height="28"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
-              </svg>
-              <svg v-else-if="!listening" width="30" height="30" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"
-                />
-              </svg>
-              <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="6" y="6" width="12" height="12" rx="2" />
-              </svg>
+              <AppIcon name="spinner" v-if="loading" class="animate-spin" :size="28" />
+              <AppIcon name="mic" v-else-if="!listening" :size="30" />
+              <AppIcon name="stop" :size="24" />
             </button>
 
             <p class="text-sm text-neutral-600 dark:text-neutral-300 text-center min-h-[1.25rem] px-2">
@@ -2063,31 +1997,9 @@ onUnmounted(() => {
                     class="relative flex h-6 w-6 items-center justify-center rounded-full bg-white/20"
                     aria-hidden="true"
                   >
-                    <svg
-                      v-if="feedbackTtsLoading"
-                      class="animate-spin"
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.2"
-                    >
-                      <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
-                    </svg>
-                    <svg
-                      v-else-if="feedbackTtsPlaying"
-                      width="11"
-                      height="11"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <rect x="6" y="5" width="4" height="14" rx="1" />
-                      <rect x="14" y="5" width="4" height="14" rx="1" />
-                    </svg>
-                    <svg v-else class="ml-0.5" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M8 5v14l11-7L8 5z" />
-                    </svg>
+                    <AppIcon name="spinner" v-if="feedbackTtsLoading" class="animate-spin" :size="12" />
+                    <AppIcon name="pause" v-else-if="feedbackTtsPlaying" :size="11" />
+                    <AppIcon name="play" class="ml-0.5" :size="12" />
                   </span>
                   <span>
                     {{
@@ -2190,42 +2102,9 @@ onUnmounted(() => {
                       class="absolute inset-0 rounded-full bg-emerald-400/35 animate-ping"
                       aria-hidden="true"
                     />
-                    <svg
-                      v-if="playbackLoading"
-                      class="relative animate-spin"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.2"
-                      aria-hidden="true"
-                    >
-                      <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
-                    </svg>
-                    <svg
-                      v-else-if="playbackPlaying"
-                      class="relative"
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <rect x="6" y="5" width="4" height="14" rx="1" />
-                      <rect x="14" y="5" width="4" height="14" rx="1" />
-                    </svg>
-                    <svg
-                      v-else
-                      class="relative ml-0.5"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path d="M8 5v14l11-7L8 5z" />
-                    </svg>
+                    <AppIcon name="spinner" v-if="playbackLoading" class="relative animate-spin" :size="20" />
+                    <AppIcon name="pause" v-else-if="playbackPlaying" class="relative" :size="18" />
+                    <AppIcon name="play" class="relative ml-0.5" :size="20" />
                   </span>
 
                   <span class="min-w-0 flex-1">
@@ -2311,18 +2190,7 @@ onUnmounted(() => {
                 @click="showTips = !showTips"
               >
                 <span>{{ showTips ? '收起建议' : '改进建议' }}</span>
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  class="transition-transform"
-                  :class="showTips ? 'rotate-180' : ''"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
+                <AppIcon name="chevron-down" class="transition-transform" :size="16" />
               </button>
               <div
                 v-if="showTips"

@@ -9,6 +9,7 @@ import { READING_TTS_KEY } from '@/composables/useReadingTts'
 import { examTagClass, formatExamTags } from '@/utils/examTags'
 import { playWordPronunciation } from '@/utils/speakWord'
 import { resolveReadingContext, resolveReadingSegmentId } from '@/utils/readingContext'
+import AppIcon from '@/components/AppIcon.vue'
 
 defineOptions({ inheritAttrs: false })
 
@@ -258,9 +259,7 @@ onUnmounted(() => {
                 aria-label="朗读单词"
                 @click.stop="speakWord"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
-                </svg>
+                <AppIcon name="volume-up" :size="14" />
               </button>
             </p>
             <p v-else-if="entry" class="text-xs leading-snug">
@@ -269,9 +268,7 @@ onUnmounted(() => {
                 class="inline-flex items-center gap-1 text-neutral-400 hover:text-white transition-colors"
                 @click.stop="speakWord"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
-                </svg>
+                <AppIcon name="volume-up" :size="14" />
                 朗读
               </button>
             </p>
@@ -286,16 +283,7 @@ onUnmounted(() => {
             :aria-label="isSaved ? '移出生词本' : '加入本篇生词本'"
             @click.stop="toggleFavorite"
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              :fill="isSaved ? 'currentColor' : 'none'"
-              stroke="currentColor"
-              stroke-width="1.75"
-            >
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            </svg>
+            <AppIcon name="star" :size="18" :fill="isSaved ? 'currentColor' : 'none'" />
           </button>
         </div>
       </template>

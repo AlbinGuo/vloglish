@@ -3,6 +3,7 @@ import { onUnmounted, ref, watch } from 'vue'
 import { lookupWord } from '@/api/episodes'
 import { saveVocabulary } from '@/api/learning'
 import { type VocabDanmakuSource } from '@/utils/vocabDanmaku'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -546,30 +547,8 @@ function laneTop(lane: number) {
         @pointerdown.stop
         @click="onAddClick(b, $event)"
       >
-        <svg
-          v-if="b.saved"
-          class="w-3.5 h-3.5"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          aria-hidden="true"
-        >
-          <path
-            fill-rule="evenodd"
-            d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.3a1 1 0 0 1-1.432.012l-3.25-3.2a1 1 0 1 1 1.4-1.426l2.53 2.49 6.54-6.58a1 1 0 0 1 1.456-.01Z"
-            clip-rule="evenodd"
-          />
-        </svg>
-        <svg
-          v-else
-          class="w-3.5 h-3.5"
-          viewBox="0 0 20 20"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          aria-hidden="true"
-        >
-          <path stroke-linecap="round" d="M10 4v12M4 10h12" />
-        </svg>
+        <AppIcon name="check-xs" v-if="b.saved" class="w-3.5 h-3.5" />
+        <AppIcon name="plus" class="w-3.5 h-3.5" />
       </button>
     </div>
   </div>

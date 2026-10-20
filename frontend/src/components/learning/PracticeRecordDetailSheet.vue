@@ -5,6 +5,7 @@ import { fetchPracticeTts } from '@/api/practiceTts'
 import { getPracticeRecord, type PracticeRecord } from '@/api/practiceRecords'
 import { useAudioDuration } from '@/composables/useAudioDuration'
 import { buildPracticeFeedbackSpeech } from '@/utils/practiceFeedbackSpeech'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{
   open: boolean
@@ -278,9 +279,7 @@ function onRemove() {
               aria-label="关闭"
               @click="emit('close')"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
+              <AppIcon name="close" :size="18" />
             </button>
           </div>
         </div>
@@ -353,31 +352,9 @@ function onRemove() {
                       class="relative flex h-6 w-6 items-center justify-center rounded-full bg-white/20"
                       aria-hidden="true"
                     >
-                      <svg
-                        v-if="feedbackTtsLoading"
-                        class="animate-spin"
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2.2"
-                      >
-                        <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
-                      </svg>
-                      <svg
-                        v-else-if="feedbackTtsPlaying"
-                        width="11"
-                        height="11"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                      >
-                        <rect x="6" y="5" width="4" height="14" rx="1" />
-                        <rect x="14" y="5" width="4" height="14" rx="1" />
-                      </svg>
-                      <svg v-else class="ml-0.5" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M8 5v14l11-7L8 5z" />
-                      </svg>
+                      <AppIcon name="spinner" v-if="feedbackTtsLoading" class="animate-spin" :size="12" />
+                      <AppIcon name="pause" v-else-if="feedbackTtsPlaying" :size="11" />
+                      <AppIcon name="play" class="ml-0.5" :size="12" />
                     </span>
                     <span>
                       {{
@@ -493,13 +470,8 @@ function onRemove() {
                   aria-hidden="true"
                 />
                 <span class="relative flex h-7 w-7 items-center justify-center rounded-full bg-white/20">
-                  <svg v-if="playing" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <rect x="6" y="5" width="4" height="14" rx="1" />
-                    <rect x="14" y="5" width="4" height="14" rx="1" />
-                  </svg>
-                  <svg v-else class="ml-0.5" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M8 5v14l11-7L8 5z" />
-                  </svg>
+                  <AppIcon name="pause" v-if="playing" :size="14" />
+                  <AppIcon name="play" class="ml-0.5" :size="15" />
                 </span>
                 <span class="relative">{{ playing ? '正在播放…' : '听一听自己的发音' }}</span>
                 <span

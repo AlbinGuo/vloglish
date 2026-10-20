@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import type { WordCardExamGroup, WordCardItem } from '@/composables/useEpisodeWordCards'
 import { examTagClass } from '@/utils/examTags'
 import { playWordPronunciation } from '@/utils/speakWord'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{
   items: WordCardItem[]
@@ -156,11 +157,7 @@ function speakItem(item: WordCardItem, event: Event) {
                   aria-label="朗读"
                   @click="speakItem(item, $event)"
                 >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path
-                      d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"
-                    />
-                  </svg>
+                  <AppIcon name="volume-up" :size="15" />
                 </button>
                 <span v-if="item.loading" class="text-[11px] text-neutral-400 shrink-0">…</span>
                 <span
@@ -188,16 +185,7 @@ function speakItem(item: WordCardItem, event: Event) {
                 </span>
               </div>
             </div>
-            <svg
-              class="w-4 h-4 shrink-0 mt-1 text-neutral-300 dark:text-neutral-600"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              aria-hidden="true"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6" />
-            </svg>
+            <AppIcon name="chevron-left" class="w-4 h-4 shrink-0 mt-1 text-neutral-300 dark:text-neutral-600" />
           </div>
         </li>
       </ul>

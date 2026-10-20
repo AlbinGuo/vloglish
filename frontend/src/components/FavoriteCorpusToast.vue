@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import { useFavoriteToastStore } from '@/stores/favoriteToast'
+import AppIcon from '@/components/AppIcon.vue'
 
 const toast = useFavoriteToastStore()
 </script>
@@ -27,26 +28,8 @@ const toast = useFavoriteToastStore()
               class="relative shrink-0 w-11 h-11 rounded-full flex items-center justify-center"
               :class="toast.added ? 'bg-amber-500 text-white fav-star-pop' : 'bg-sunken text-ink-faint'"
             >
-              <svg
-                v-if="toast.added"
-                viewBox="0 0 24 24"
-                class="w-6 h-6"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path d="M12 2.5l2.7 6.3 6.8.6-5.2 4.5 1.6 6.6L12 16.9 6.1 20.5l1.6-6.6L2.5 9.4l6.8-.6L12 2.5z" />
-              </svg>
-              <svg
-                v-else
-                viewBox="0 0 24 24"
-                class="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.8"
-                aria-hidden="true"
-              >
-                <path d="M12 2.5l2.7 6.3 6.8.6-5.2 4.5 1.6 6.6L12 16.9 6.1 20.5l1.6-6.6L2.5 9.4l6.8-.6L12 2.5z" />
-              </svg>
+              <AppIcon name="sparkle" v-if="toast.added" class="w-6 h-6" />
+              <AppIcon name="sparkle" class="w-5 h-5" />
               <span v-if="toast.added" class="fav-sparkle fav-sparkle-a" aria-hidden="true" />
               <span v-if="toast.added" class="fav-sparkle fav-sparkle-b" aria-hidden="true" />
               <span v-if="toast.added" class="fav-sparkle fav-sparkle-c" aria-hidden="true" />

@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { formatAudioClock } from '@/utils/audioDuration'
 import { useAudioDuration } from '@/composables/useAudioDuration'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{
   audioUrl: string
@@ -188,13 +189,8 @@ onUnmounted(() => {
         :aria-label="playing ? '暂停' : '播放我的跟读'"
         @click="togglePlay"
       >
-        <svg v-if="playing" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <rect x="6" y="5" width="4" height="14" rx="1" />
-          <rect x="14" y="5" width="4" height="14" rx="1" />
-        </svg>
-        <svg v-else class="ml-px" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M8 5v14l11-7L8 5z" />
-        </svg>
+        <AppIcon name="pause" v-if="playing" :size="10" />
+        <AppIcon name="play" class="ml-px" :size="11" />
       </button>
 
       <!-- 音轨波形进度 -->
@@ -242,14 +238,8 @@ onUnmounted(() => {
         :disabled="uploading"
         @click="menuOpen = !menuOpen"
       >
-        <svg v-if="menuOpen" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
-          <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round" />
-        </svg>
-        <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <circle cx="5" cy="12" r="1.5" />
-          <circle cx="12" cy="12" r="1.5" />
-          <circle cx="19" cy="12" r="1.5" />
-        </svg>
+        <AppIcon name="close" v-if="menuOpen" :size="12" />
+        <AppIcon name="more-horizontal" :size="14" />
       </button>
     </div>
 

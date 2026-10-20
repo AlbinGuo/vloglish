@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject } from 'vue'
 import { READING_TTS_KEY } from '@/composables/useReadingTts'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{
   segmentIndex: number
@@ -39,25 +40,7 @@ function onClick() {
     :aria-label="active ? '暂停朗读' : '朗读本段'"
     @click.stop="onClick"
   >
-    <svg
-      v-if="active"
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" />
-    </svg>
-    <svg
-      v-else
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M8 5v14l11-7L8 5z" />
-    </svg>
+    <AppIcon name="pause" v-if="active" :size="14" />
+    <AppIcon name="play" :size="14" />
   </button>
 </template>

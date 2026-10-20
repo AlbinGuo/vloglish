@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted } from 'vue'
 import type { EpisodePublishedPopup } from '@/api/notifications'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{
   item: EpisodePublishedPopup | null
@@ -189,33 +190,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
             <span
               class="w-12 h-12 rounded-full bg-white/95 text-neutral-900 flex items-center justify-center shadow-md"
             >
-              <svg
-                v-if="!isArticle"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                class="w-6 h-6 ml-0.5"
-              >
-                <path
-                  d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14Z"
-                />
-              </svg>
-              <svg
-                v-else
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.8"
-                class="w-6 h-6"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M4.5 5.25h10.5A1.5 1.5 0 0 1 16.5 6.75v11.25H6A1.5 1.5 0 0 1 4.5 16.5V5.25Z"
-                />
-                <path stroke-linecap="round" d="M16.5 6.75h3v11.25a1.5 1.5 0 0 1-1.5 1.5" />
-              </svg>
+              <AppIcon name="play" v-if="!isArticle" class="w-6 h-6 ml-0.5" />
+              <AppIcon name="article" class="w-6 h-6" />
             </span>
           </span>
         </button>
