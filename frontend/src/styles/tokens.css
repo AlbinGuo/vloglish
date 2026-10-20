@@ -1,0 +1,214 @@
+/* ============================================================
+ * 设计 Token（单一样式来源）
+ *
+ * 三层结构：
+ *   1. primitive —— 原始色板（--brand-500、--neutral-200…），仅供本文件使用
+ *   2. semantic  —— 语义层（--color-canvas、--color-ink…），组件只允许用这一层
+ *   3. component —— 组件层由各组件 scoped CSS 组合而成，不在此处定义
+ *
+ * 换肤 / 换品牌色 = 只改本文件，不动任何组件。
+ * Tailwind 侧通过 @theme inline 暴露为工具类（bg-canvas / text-ink-soft / border-line…）。
+ * ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* ---------- 1. primitive：中性色板 ---------- */
+  --neutral-0: #ffffff;
+  --neutral-50: #fafafa;
+  --neutral-100: #f5f5f5;
+  --neutral-200: #e5e5e5;
+  --neutral-300: #d4d4d4;
+  --neutral-400: #a3a3a3;
+  --neutral-500: #737373;
+  --neutral-600: #525252;
+  --neutral-700: #404040;
+  --neutral-800: #262626;
+  --neutral-900: #171717;
+  --neutral-950: #0a0a0a;
+
+  /* ---------- 1. primitive：品牌色板（teal 系）---------- */
+  --brand-50: #f0fdfa;
+  --brand-100: #ccfbf1;
+  --brand-200: #99f6e4;
+  --brand-300: #5eead4;
+  --brand-400: #2dd4bf;
+  --brand-500: #14b8a6;
+  --brand-600: #0d9488;
+  --brand-700: #0f766e;
+  --brand-800: #115e59;
+  --brand-900: #134e4a;
+
+  /* ---------- 1. primitive：状态色板 ---------- */
+  --success-soft: #ecfdf5;
+  --success: #047857;
+  --success-strong: #065f46;
+  --warning-soft: #fffbeb;
+  --warning: #b45309;
+  --warning-strong: #92400e;
+  --danger-soft: #fef2f2;
+  --danger: #b91c1c;
+  --danger-strong: #991b1b;
+  --info-soft: #eff6ff;
+  --info: #1d4ed8;
+  --info-strong: #1e40af;
+
+  /* ---------- 2. semantic：浅色主题 ---------- */
+  --color-canvas: var(--neutral-50); /* 页面底色 */
+  --color-card: var(--neutral-0); /* 卡片 / 面板 */
+  --color-elevated: var(--neutral-0); /* 浮层 / 弹窗 */
+  --color-sunken: var(--neutral-100); /* 凹陷区 / 轨道 */
+  --color-scrim: rgb(0 0 0 / 0.45); /* 遮罩 */
+
+  --color-ink: var(--neutral-900); /* 主文字 */
+  --color-ink-soft: var(--neutral-600); /* 次要文字 */
+  --color-ink-faint: var(--neutral-500); /* 辅助 / 占位文字 */
+  --color-ink-disabled: var(--neutral-400); /* 禁用态文字 */
+  --color-ink-inverse: var(--neutral-50); /* 反色文字（深色按钮上） */
+
+  --color-line: rgb(0 0 0 / 0.1); /* 常规描边 */
+  --color-line-soft: rgb(0 0 0 / 0.06); /* 弱分隔线 */
+  --color-line-strong: rgb(0 0 0 / 0.2); /* 强描边 / 输入框 */
+
+  --color-brand: var(--brand-700);
+  --color-brand-hover: var(--brand-800);
+  --color-brand-soft: var(--brand-50);
+  --color-brand-on-soft: var(--brand-800);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  --color-focus-ring: rgb(13 148 136 / 0.45);
+
+  /* ---------- 阴影 / 圆角 ---------- */
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.05);
+  --shadow-popover: 0 8px 24px rgb(0 0 0 / 0.12);
+  --shadow-sheet: 0 -8px 32px rgb(0 0 0 / 0.16);
+  --shadow-none: none;
+
+  --radius-card: 0.875rem;
+  --radius-control: 0.5rem; /* 与 Tailwind rounded-lg 对齐，可 1:1 替换 */
+  --radius-pill: 9999px;
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* ---------- 2. semantic：深色主题 ---------- */
+  --color-canvas: var(--neutral-950);
+  --color-card: var(--neutral-900);
+  --color-elevated: var(--neutral-800);
+  --color-sunken: rgb(255 255 255 / 0.04);
+  --color-scrim: rgb(0 0 0 / 0.6);
+
+  --color-ink: var(--neutral-50);
+  --color-ink-soft: var(--neutral-400);
+  --color-ink-faint: var(--neutral-500);
+  --color-ink-disabled: var(--neutral-600);
+  --color-ink-inverse: var(--neutral-900);
+
+  --color-line: rgb(255 255 255 / 0.12);
+  --color-line-soft: rgb(255 255 255 / 0.07);
+  --color-line-strong: rgb(255 255 255 / 0.24);
+
+  --color-brand: var(--brand-300);
+  --color-brand-hover: var(--brand-200);
+  --color-brand-soft: rgb(20 184 166 / 0.14);
+  --color-brand-on-soft: var(--brand-200);
+
+  --color-success: #34d399;
+  --color-success-soft: rgb(52 211 153 / 0.14);
+  --color-warning: #fbbf24;
+  --color-warning-soft: rgb(251 191 36 / 0.14);
+  --color-danger: #f87171;
+  --color-danger-soft: rgb(248 113 113 / 0.14);
+  --color-info: #93c5fd;
+  --color-info-soft: rgb(147 197 253 / 0.14);
+
+  --color-focus-ring: rgb(45 212 191 / 0.5);
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 12px rgb(0 0 0 / 0.3);
+  --shadow-popover: 0 8px 24px rgb(0 0 0 / 0.5);
+  --shadow-sheet: 0 -8px 32px rgb(0 0 0 / 0.55);
+}
+
+/* ============================================================
+ * Tailwind 映射
+ * inline 关键字让工具类直接引用 CSS 变量，从而跟随 .dark 实时切换。
+ * ============================================================ */
+@theme inline {
+  /* 表面 */
+  --color-canvas: var(--color-canvas);
+  --color-card: var(--color-card);
+  --color-elevated: var(--color-elevated);
+  --color-sunken: var(--color-sunken);
+  --color-scrim: var(--color-scrim);
+
+  /* 文字 */
+  --color-ink: var(--color-ink);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-ink-faint: var(--color-ink-faint);
+  --color-ink-disabled: var(--color-ink-disabled);
+  --color-ink-inverse: var(--color-ink-inverse);
+
+  /* 描边 */
+  --color-line: var(--color-line);
+  --color-line-soft: var(--color-line-soft);
+  --color-line-strong: var(--color-line-strong);
+
+  /* 品牌 */
+  --color-brand: var(--color-brand);
+  --color-brand-hover: var(--color-brand-hover);
+  --color-brand-soft: var(--color-brand-soft);
+  --color-brand-on-soft: var(--color-brand-on-soft);
+
+  /* 状态 */
+  --color-success: var(--color-success);
+  --color-success-soft: var(--color-success-soft);
+  --color-warning: var(--color-warning);
+  --color-warning-soft: var(--color-warning-soft);
+  --color-danger: var(--color-danger);
+  --color-danger-soft: var(--color-danger-soft);
+  --color-info: var(--color-info);
+  --color-info-soft: var(--color-info-soft);
+
+  /* 焦点 */
+  --color-focus-ring: var(--color-focus-ring);
+
+  /* 阴影 / 圆角 */
+  --shadow-card: var(--shadow-card);
+  --shadow-popover: var(--shadow-popover);
+  --shadow-sheet: var(--shadow-sheet);
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+  --radius-pill: var(--radius-pill);
+}
+
+/* ============================================================
+ * Base：全局默认取用语义 token
+ * ============================================================ */
+@layer base {
+  html {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* 统一的键盘焦点环，仅在键盘导航时出现 */
+  :focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}

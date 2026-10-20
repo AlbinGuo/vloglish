@@ -8,6 +8,7 @@
     "build": "vue-tsc -b && vite build",
     "build:docker": "vite build",
     "build:app-assets": "vite build --mode app --outDir ../app/www --emptyOutDir && node scripts/compatWebViewCss.mjs",
+    "verify:tokens": "node scripts/check-design-tokens.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

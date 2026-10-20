@@ -326,12 +326,12 @@ watch(
 
 <template>
   <div
-    class="flex flex-col bg-neutral-50 dark:bg-neutral-950"
+    class="flex flex-col bg-canvas"
     :class="immersive ? 'h-dvh overflow-hidden' : 'min-h-dvh'"
   >
     <header
       v-if="!immersive"
-      class="z-40 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-b border-black/5 dark:border-white/10 transition-transform duration-300 ease-out will-change-transform pt-[env(safe-area-inset-top,0px)]"
+      class="z-40 bg-card/90 backdrop-blur border-b border-line-soft transition-transform duration-300 ease-out will-change-transform pt-[env(safe-area-inset-top,0px)]"
       :class="[
         catalogHeaderAutoHide ? 'fixed inset-x-0 top-0' : 'sticky top-0',
         catalogHeaderVisible ? 'translate-y-0' : '-translate-y-full',
@@ -345,7 +345,7 @@ watch(
           />
           <span class="flex flex-col min-w-0">
             <span class="text-[1.05rem] font-semibold tracking-[-0.02em] leading-tight">Vloglish</span>
-            <span class="text-[11px] text-neutral-500 dark:text-neutral-400 tracking-[0.01em] leading-tight mt-0.5">
+            <span class="text-[11px] text-ink-faint tracking-[0.01em] leading-tight mt-0.5">
               Real vlogs · Real English
             </span>
           </span>
@@ -354,7 +354,7 @@ watch(
         <div class="flex items-center gap-1 sm:gap-3 text-sm shrink-0">
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg transition p-2 sm:px-2 sm:py-1.5 text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800"
+            class="inline-flex items-center gap-1.5 rounded-lg transition p-2 sm:px-2 sm:py-1.5 text-ink-soft hover:text-ink hover:bg-sunken"
             aria-label="联系作者"
             title="联系作者"
             @click="contactAuthorOpen = true"
@@ -384,8 +384,8 @@ watch(
               class="inline-flex items-center gap-1.5 rounded-lg transition p-2 sm:px-2 sm:py-1.5"
               :class="
                 route.path.startsWith('/english/study')
-                  ? 'text-teal-800 bg-teal-50 dark:text-teal-200 dark:bg-teal-950/50'
-                  : 'text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800'
+                  ? 'text-brand-on-soft bg-brand-soft'
+                  : 'text-ink-soft hover:text-ink hover:bg-sunken'
               "
               aria-label="怎么学"
               title="英语学习方法"
@@ -409,7 +409,7 @@ watch(
             </RouterLink>
             <RouterLink
               to="/english/learning"
-              class="hidden sm:inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition"
+              class="hidden sm:inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-ink-soft hover:text-ink hover:bg-sunken transition"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -430,8 +430,8 @@ watch(
               class="relative inline-flex items-center gap-1.5 rounded-lg transition"
               :class="[
                 vocabNavActive
-                  ? 'text-amber-800 bg-amber-50 dark:text-amber-200 dark:bg-amber-950/50'
-                  : 'text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800',
+                  ? 'text-warning bg-warning-soft'
+                  : 'text-ink-soft hover:text-ink hover:bg-sunken',
                 'p-2 sm:px-2 sm:py-1.5',
               ]"
               aria-label="生词本"
@@ -454,7 +454,7 @@ watch(
               <span class="hidden sm:inline">生词本</span>
               <span
                 v-if="vocabCount > 0"
-                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none"
+                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-warning text-ink-inverse text-[10px] font-semibold flex items-center justify-center leading-none"
               >
                 {{ vocabBadgeLabel }}
               </span>
@@ -464,8 +464,8 @@ watch(
               class="relative inline-flex items-center gap-1.5 rounded-lg transition"
               :class="[
                 clipNavActive
-                  ? 'text-sky-800 bg-sky-50 dark:text-sky-200 dark:bg-sky-950/50'
-                  : 'text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800',
+                  ? 'text-info bg-info-soft'
+                  : 'text-ink-soft hover:text-ink hover:bg-sunken',
                 'p-2 sm:px-2 sm:py-1.5',
               ]"
               aria-label="我的摘录"
@@ -488,14 +488,14 @@ watch(
               <span class="hidden sm:inline">摘录</span>
               <span
                 v-if="clipCount > 0"
-                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-sky-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none"
+                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-info text-ink-inverse text-[10px] font-semibold flex items-center justify-center leading-none"
               >
                 {{ clipBadgeLabel }}
               </span>
             </RouterLink>
             <RouterLink
               to="/english/notifications"
-              class="relative p-2 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition"
+              class="relative p-2 rounded-lg text-ink-soft hover:text-ink hover:bg-sunken transition"
               aria-label="通知"
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
@@ -508,7 +508,7 @@ watch(
               </svg>
               <span
                 v-if="notifications.unreadCount > 0"
-                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none"
+                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-danger text-ink-inverse text-[10px] font-semibold flex items-center justify-center leading-none"
               >
                 {{ notifications.unreadCount > 99 ? '99+' : notifications.unreadCount }}
               </span>
@@ -517,7 +517,7 @@ watch(
             <RouterLink
               v-if="!auth.isMember && siteConfig.isContentGated"
               to="/pricing"
-              class="inline-flex items-center justify-center rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition p-2 sm:px-3 sm:py-1.5"
+              class="inline-flex items-center justify-center rounded-lg bg-brand text-ink-inverse hover:bg-brand-hover transition p-2 sm:px-3 sm:py-1.5"
               aria-label="开通会员"
               title="开通会员"
             >
@@ -535,7 +535,7 @@ watch(
             <button
               v-if="!auth.user?.wx_bound"
               type="button"
-              class="inline-flex items-center rounded-lg border border-amber-700/30 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-500/30 px-2 py-1.5 text-xs sm:text-sm font-medium transition"
+              class="inline-flex items-center rounded-lg border border-warning/30 bg-warning-soft text-warning hover:opacity-90 px-2 py-1.5 text-xs sm:text-sm font-medium transition"
               title="扫一下即关联微信"
               @click="bindWechatOpen = true"
             >
@@ -547,10 +547,10 @@ watch(
             />
           </template>
           <template v-else>
-            <RouterLink to="/login" class="text-neutral-600 hover:text-black dark:text-neutral-400 dark:hover:text-white">登录</RouterLink>
+            <RouterLink to="/login" class="text-ink-soft hover:text-ink">登录</RouterLink>
             <RouterLink
               to="/signup"
-              class="px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-sm hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+              class="px-3 py-1.5 rounded-lg bg-ink text-ink-inverse text-sm hover:opacity-90"
             >
               注册
             </RouterLink>

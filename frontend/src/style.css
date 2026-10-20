@@ -1,16 +1,10 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   font-family: Inter, system-ui, -apple-system, sans-serif;
-  color: #111;
-  background: #fafafa;
-}
-
-.dark {
-  color: #f5f5f5;
-  background: #0a0a0a;
 }
 
 body {

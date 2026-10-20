@@ -72,6 +72,11 @@ jobs:
         working-directory: app
         run: npm run build:web
 
+      # ---- 设计 token 守卫：token 层被破坏时立刻失败，而不是静默掉样式 ----
+      - name: 校验设计 token
+        working-directory: frontend
+        run: npm run verify:tokens -- ../app/www
+
       # ---- 生成 iOS 原生工程（仓库未提交 ios/ 时首次生成）----
       - name: 生成 iOS 工程
         working-directory: app
