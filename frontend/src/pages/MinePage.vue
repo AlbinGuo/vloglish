@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
@@ -13,6 +13,7 @@ import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 import { useNotificationStore } from '@/stores/notifications'
 import { useVocabularyStore } from '@/stores/vocabulary'
 import { useVoiceCloneStore } from '@/stores/voiceClone'
+import { isNativePlatform } from '@/utils/platform'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -28,6 +29,25 @@ const bindWechatOpen = ref(false)
 const contactAuthorOpen = ref(false)
 const feedbackOpen = ref(false)
 const cycling = ref(false)
+
+const appVersion = ref('')
+
+onMounted(async () => {
+  let version = ''
+  let build = ''
+  if (isNativePlatform()) {
+    try {
+      const { App } = await import('@capacitor/app')
+      const info = await App.getInfo()
+      version = info.version || ''
+      build = info.build || ''
+    } catch {
+      /* 原生信息不可用时回退到构建版本 */
+    }
+  }
+  if (!version && typeof __APP_VERSION__ !== 'undefined') version = __APP_VERSION__
+  appVersion.value = version ? `v${version}${build ? ` (${build})` : ''}` : ''
+})
 
 const displayName = computed(() => auth.user?.nickname || auth.user?.email || '账户')
 const memberUntilLabel = computed(() => {
@@ -226,6 +246,10 @@ async function handleLogout() {
         <span class="flex-1 text-[14px]">退出登录</span>
       </button>
     </section>
+
+    <p v-if="appVersion" class="mt-6 mb-1 text-center text-[11px] tracking-wide text-ink-faint">
+      Vloglish {{ appVersion }}
+    </p>
 
     <BindWechatDialog v-model:open="bindWechatOpen" />
     <ContactAuthorDialog v-model:open="contactAuthorOpen" />
