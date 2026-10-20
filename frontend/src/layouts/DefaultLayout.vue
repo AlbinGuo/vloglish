@@ -331,7 +331,7 @@ watch(
   >
     <header
       v-if="!immersive"
-      class="z-40 bg-card/90 backdrop-blur border-b border-line-soft transition-transform duration-300 ease-out will-change-transform pt-[env(safe-area-inset-top,0px)]"
+      class="z-40 bg-card-glass backdrop-blur border-b border-line-soft transition-transform duration-300 ease-out will-change-transform pt-[env(safe-area-inset-top,0px)]"
       :class="[
         catalogHeaderAutoHide ? 'fixed inset-x-0 top-0' : 'sticky top-0',
         catalogHeaderVisible ? 'translate-y-0' : '-translate-y-full',

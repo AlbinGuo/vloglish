@@ -53,38 +53,44 @@
   --info: #1d4ed8;
   --info-strong: #1e40af;
 
-  /* ---------- 2. semantic：浅色主题 ---------- */
-  --color-canvas: var(--neutral-50); /* 页面底色 */
-  --color-card: var(--neutral-0); /* 卡片 / 面板 */
-  --color-elevated: var(--neutral-0); /* 浮层 / 弹窗 */
-  --color-sunken: var(--neutral-100); /* 凹陷区 / 轨道 */
-  --color-scrim: rgb(0 0 0 / 0.45); /* 遮罩 */
+  /* ---------- 2. semantic：浅色主题 ----------
+   * 注意：这里必须写「具体色值」而不是 var(--neutral-xxx) 间接引用。
+   * 原因：scripts/compatWebViewCss.mjs 需要用 culori 解析这些变量，
+   * 才能把 color-mix(... var(--color-x) N%, transparent) 正确降级为 rgba。
+   * 写成间接引用时解析失败，会被降级成 transparent（视觉静默丢失）。
+   */
+  --color-canvas: #fafafa; /* 页面底色 */
+  --color-card: #ffffff; /* 卡片 / 面板 */
+  --color-elevated: #ffffff; /* 浮层 / 弹窗 */
+  --color-sunken: #f5f5f5; /* 凹陷区 / 轨道 */
+  --color-scrim: rgba(0, 0, 0, 0.45); /* 遮罩 */
+  --color-card-glass: rgba(255, 255, 255, 0.9); /* 半透明卡片（header 毛玻璃底） */
 
-  --color-ink: var(--neutral-900); /* 主文字 */
-  --color-ink-soft: var(--neutral-600); /* 次要文字 */
-  --color-ink-faint: var(--neutral-500); /* 辅助 / 占位文字 */
-  --color-ink-disabled: var(--neutral-400); /* 禁用态文字 */
-  --color-ink-inverse: var(--neutral-50); /* 反色文字（深色按钮上） */
+  --color-ink: #171717; /* 主文字 */
+  --color-ink-soft: #525252; /* 次要文字 */
+  --color-ink-faint: #737373; /* 辅助 / 占位文字 */
+  --color-ink-disabled: #a3a3a3; /* 禁用态文字 */
+  --color-ink-inverse: #fafafa; /* 反色文字（深色按钮上） */
 
-  --color-line: rgb(0 0 0 / 0.1); /* 常规描边 */
-  --color-line-soft: rgb(0 0 0 / 0.06); /* 弱分隔线 */
-  --color-line-strong: rgb(0 0 0 / 0.2); /* 强描边 / 输入框 */
+  --color-line: rgba(0, 0, 0, 0.1); /* 常规描边 */
+  --color-line-soft: rgba(0, 0, 0, 0.06); /* 弱分隔线 */
+  --color-line-strong: rgba(0, 0, 0, 0.2); /* 强描边 / 输入框 */
 
-  --color-brand: var(--brand-700);
-  --color-brand-hover: var(--brand-800);
-  --color-brand-soft: var(--brand-50);
-  --color-brand-on-soft: var(--brand-800);
+  --color-brand: #0f766e;
+  --color-brand-hover: #115e59;
+  --color-brand-soft: #f0fdfa;
+  --color-brand-on-soft: #134e4a;
 
-  --color-success: var(--success);
-  --color-success-soft: var(--success-soft);
-  --color-warning: var(--warning);
-  --color-warning-soft: var(--warning-soft);
-  --color-danger: var(--danger);
-  --color-danger-soft: var(--danger-soft);
-  --color-info: var(--info);
-  --color-info-soft: var(--info-soft);
+  --color-success: #047857;
+  --color-success-soft: #ecfdf5;
+  --color-warning: #b45309;
+  --color-warning-soft: #fffbeb;
+  --color-danger: #b91c1c;
+  --color-danger-soft: #fef2f2;
+  --color-info: #1d4ed8;
+  --color-info-soft: #eff6ff;
 
-  --color-focus-ring: rgb(13 148 136 / 0.45);
+  --color-focus-ring: rgba(13, 148, 136, 0.45);
 
   /* ---------- 阴影 / 圆角 ---------- */
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 12px rgb(0 0 0 / 0.05);
@@ -101,37 +107,38 @@
   color-scheme: dark;
 
   /* ---------- 2. semantic：深色主题 ---------- */
-  --color-canvas: var(--neutral-950);
-  --color-card: var(--neutral-900);
-  --color-elevated: var(--neutral-800);
-  --color-sunken: rgb(255 255 255 / 0.04);
-  --color-scrim: rgb(0 0 0 / 0.6);
+  --color-canvas: #0a0a0a;
+  --color-card: #171717;
+  --color-elevated: #262626;
+  --color-sunken: rgba(255, 255, 255, 0.04);
+  --color-scrim: rgba(0, 0, 0, 0.6);
+  --color-card-glass: rgba(23, 23, 23, 0.9);
 
-  --color-ink: var(--neutral-50);
-  --color-ink-soft: var(--neutral-400);
-  --color-ink-faint: var(--neutral-500);
-  --color-ink-disabled: var(--neutral-600);
-  --color-ink-inverse: var(--neutral-900);
+  --color-ink: #fafafa;
+  --color-ink-soft: #a3a3a3;
+  --color-ink-faint: #737373;
+  --color-ink-disabled: #525252;
+  --color-ink-inverse: #171717;
 
-  --color-line: rgb(255 255 255 / 0.12);
-  --color-line-soft: rgb(255 255 255 / 0.07);
-  --color-line-strong: rgb(255 255 255 / 0.24);
+  --color-line: rgba(255, 255, 255, 0.12);
+  --color-line-soft: rgba(255, 255, 255, 0.07);
+  --color-line-strong: rgba(255, 255, 255, 0.24);
 
-  --color-brand: var(--brand-300);
-  --color-brand-hover: var(--brand-200);
-  --color-brand-soft: rgb(20 184 166 / 0.14);
-  --color-brand-on-soft: var(--brand-200);
+  --color-brand: #5eead4;
+  --color-brand-hover: #99f6e4;
+  --color-brand-soft: rgba(20, 184, 166, 0.14);
+  --color-brand-on-soft: #99f6e4;
 
   --color-success: #34d399;
-  --color-success-soft: rgb(52 211 153 / 0.14);
+  --color-success-soft: rgba(52, 211, 153, 0.14);
   --color-warning: #fbbf24;
-  --color-warning-soft: rgb(251 191 36 / 0.14);
+  --color-warning-soft: rgba(251, 191, 36, 0.14);
   --color-danger: #f87171;
-  --color-danger-soft: rgb(248 113 113 / 0.14);
+  --color-danger-soft: rgba(248, 113, 113, 0.14);
   --color-info: #93c5fd;
-  --color-info-soft: rgb(147 197 253 / 0.14);
+  --color-info-soft: rgba(147, 197, 253, 0.14);
 
-  --color-focus-ring: rgb(45 212 191 / 0.5);
+  --color-focus-ring: rgba(45, 212, 191, 0.5);
 
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 12px rgb(0 0 0 / 0.3);
   --shadow-popover: 0 8px 24px rgb(0 0 0 / 0.5);
@@ -149,6 +156,7 @@
   --color-elevated: var(--color-elevated);
   --color-sunken: var(--color-sunken);
   --color-scrim: var(--color-scrim);
+  --color-card-glass: var(--color-card-glass);
 
   /* 文字 */
   --color-ink: var(--color-ink);
