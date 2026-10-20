@@ -6,7 +6,7 @@ import { LANDING_MOCKS } from '@/data/landing'
 
 <template>
   <div
-    class="auth-shell grid min-h-dvh grid-cols-1 bg-[#f6f6f6] text-neutral-900 lg:h-dvh lg:grid-cols-[minmax(0,1fr)_26.5rem] lg:overflow-hidden xl:grid-cols-[minmax(0,1fr)_28.5rem]"
+    class="auth-shell relative grid min-h-dvh grid-cols-1 bg-gradient-to-br from-[#f8f8f6] via-[#f5f5f4] to-[#eef3f1] text-neutral-900 lg:h-dvh lg:grid-cols-[minmax(0,1fr)_26.5rem] lg:overflow-hidden xl:grid-cols-[minmax(0,1fr)_28.5rem]"
   >
     <aside class="relative flex flex-col overflow-hidden lg:h-full" aria-label="产品介绍">
       <div
@@ -22,12 +22,14 @@ import { LANDING_MOCKS } from '@/data/landing'
         <p class="text-[13px] text-neutral-400 lg:hidden">真实 vlog · 一句一练</p>
       </div>
 
-      <div class="hidden min-h-0 flex-1 items-center justify-center px-4 py-4 lg:flex lg:px-10">
-        <img
-          :src="LANDING_MOCKS.macCues"
-          alt="书桌精听"
-          class="h-full w-full object-contain"
-        />
+      <div class="hidden min-h-0 flex-1 items-center justify-center px-6 py-6 lg:flex lg:px-10">
+        <div class="relative w-full rounded-[1.75rem] bg-white/60 p-3 ring-1 ring-black/5 shadow-[0_30px_60px_-30px_rgba(15,23,42,0.25)] backdrop-blur">
+          <img
+            :src="LANDING_MOCKS.macCues"
+            alt="书桌精听"
+            class="h-full w-full rounded-[1.25rem] object-contain"
+          />
+        </div>
       </div>
 
       <div class="hidden px-12 pb-10 lg:block">
@@ -40,7 +42,7 @@ import { LANDING_MOCKS } from '@/data/landing'
     <main
       class="flex items-start justify-center px-5 pb-[max(2rem,env(safe-area-inset-bottom))] pt-6 sm:px-8 lg:items-center lg:overflow-y-auto lg:px-9 lg:py-12"
     >
-      <div class="w-full max-w-md lg:max-w-[21.5rem]">
+      <div class="w-full max-w-md rounded-[1.75rem] bg-white/80 p-6 shadow-[0_20px_50px_-25px_rgba(15,23,42,0.25)] ring-1 ring-black/5 backdrop-blur sm:p-8 lg:max-w-[21.5rem] lg:p-7">
         <slot />
       </div>
     </main>

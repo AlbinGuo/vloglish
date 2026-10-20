@@ -337,6 +337,12 @@ const userRoutes: RouteRecordRaw[] = [
         component: () => import('@/pages/WishWallPage.vue'),
         meta: { requiresAuth: true },
       },
+      {
+        path: 'english/mine',
+        name: 'Mine',
+        component: () => import('@/pages/MinePage.vue'),
+        meta: { requiresAuth: true },
+      },
     ],
   },
   {

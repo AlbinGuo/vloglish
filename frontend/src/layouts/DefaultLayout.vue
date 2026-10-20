@@ -34,7 +34,6 @@ import ListenSleepSheet from '@/components/listen/ListenSleepSheet.vue'
 import { useListenPlayerStore } from '@/stores/listenPlayer'
 import AppIcon from '@/components/AppIcon.vue'
 import BottomTabBar from '@/components/layout/BottomTabBar.vue'
-import MobileMoreSheet from '@/components/layout/MobileMoreSheet.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -46,7 +45,6 @@ const vocabulary = useVocabularyStore()
 const clips = useClipsStore()
 const voiceClone = useVoiceCloneStore()
 const feedbackOpen = ref(false)
-const moreOpen = ref(false)
 const bindWechatOpen = ref(false)
 const contactAuthorOpen = ref(false)
 /** 会员，或关内容限制后的登录用户 */
@@ -338,7 +336,7 @@ watch(
   >
     <header
       v-if="!immersive"
-      class="z-40 bg-card-glass backdrop-blur border-b border-line-soft transition-transform duration-300 ease-out will-change-transform pt-[env(safe-area-inset-top,0px)]"
+      class="max-sm:hidden z-40 bg-card-glass backdrop-blur border-b border-line-soft transition-transform duration-300 ease-out will-change-transform pt-[env(safe-area-inset-top,0px)]"
       :class="[
         catalogHeaderAutoHide ? 'fixed inset-x-0 top-0' : 'sticky top-0',
         catalogHeaderVisible ? 'translate-y-0' : '-translate-y-full',
@@ -486,7 +484,7 @@ watch(
     <!-- 占位高度勿做 transition：动画过程中 scrollY 连续跳变会触发 header 显隐闪烁 -->
     <div
       v-if="!immersive && catalogHeaderAutoHide"
-      class="shrink-0 pointer-events-none overflow-hidden"
+      class="max-sm:hidden shrink-0 pointer-events-none overflow-hidden"
       :class="catalogHeaderVisible ? 'h-[calc(4.25rem+env(safe-area-inset-top,0px))]' : 'h-0'"
       aria-hidden="true"
     />
@@ -531,13 +529,7 @@ watch(
     >
       <ListenFloatCard />
     </div>
-    <BottomTabBar v-if="showBottomTabs" :vocab-count="vocabCount" @more="moreOpen = true" />
-    <MobileMoreSheet
-      v-model:open="moreOpen"
-      @contact="contactAuthorOpen = true"
-      @feedback="feedbackOpen = true"
-      @logout="handleLogout"
-    />
+    <BottomTabBar v-if="showBottomTabs" :vocab-count="vocabCount" />
     <ListenPlayerHost />
     <ListenPlaylistSheet />
     <ListenSleepSheet />

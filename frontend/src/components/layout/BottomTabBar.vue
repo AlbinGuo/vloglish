@@ -4,7 +4,6 @@ import { RouterLink, useRoute } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{ vocabCount?: number }>()
-const emit = defineEmits<{ (e: 'more'): void }>()
 
 const route = useRoute()
 
@@ -31,14 +30,14 @@ const tabs = computed<Tab[]>(() => [
   },
   {
     key: 'listen',
-    label: '听力',
+    label: '合集',
     icon: 'headphones',
     to: '/english/listen',
     match: (p) => p.startsWith('/english/listen'),
   },
   {
     key: 'reading',
-    label: '阅读',
+    label: '月刊',
     icon: 'book-open',
     to: '/english/reading',
     match: (p) => p.startsWith('/english/reading'),
@@ -53,10 +52,15 @@ const tabs = computed<Tab[]>(() => [
   },
 ])
 
-const moreActive = computed(() =>
-  ['/english/learning', '/english/clips', '/english/study', '/english/notifications', '/english/wish-wall'].some(
-    (p) => route.path.startsWith(p),
-  ),
+const mineActive = computed(() =>
+  [
+    '/english/mine',
+    '/english/learning',
+    '/english/clips',
+    '/english/study',
+    '/english/notifications',
+    '/english/wish-wall',
+  ].some((p) => route.path.startsWith(p)),
 )
 </script>
 
@@ -86,17 +90,16 @@ const moreActive = computed(() =>
         <span class="text-[10.5px] leading-none">{{ tab.label }}</span>
       </RouterLink>
 
-      <button
-        type="button"
+      <RouterLink
+        to="/english/mine"
         class="relative flex flex-col items-center justify-center gap-0.5 transition-colors duration-150 active:scale-95"
-        :class="moreActive ? 'text-brand' : 'text-ink-faint'"
+        :class="mineActive ? 'text-brand' : 'text-ink-faint'"
         :style="{ height: 'var(--tabbar-height)' }"
-        aria-label="更多"
-        @click="emit('more')"
+        aria-label="我的"
       >
         <AppIcon name="user" class="w-[1.375rem] h-[1.375rem]" />
         <span class="text-[10.5px] leading-none">我的</span>
-      </button>
+      </RouterLink>
     </div>
   </nav>
 </template>
