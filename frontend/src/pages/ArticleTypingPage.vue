@@ -127,7 +127,7 @@ const maskEnglish = computed(
 const startHint = computed(() =>
   isZhPrompt.value
     ? '看中文，打出对应英文 · 卡住可点「看一眼」'
-    : '建议使用实体键盘 · 打对才前进 · 完成本段自动下一段',
+    : '打对才前进 · 完成本段自动下一段',
 )
 
 function setTypingMode(mode: TypingMode) {
@@ -358,36 +358,29 @@ function skipSentence() {
   })
 }
 
-function onKeydown(e: KeyboardEvent) {
-  if (summary.value || loading.value || !current.value || showReveal.value) return
-  if (e.ctrlKey || e.metaKey || e.altKey) return
+function guardActive() {
+  return !(summary.value || loading.value || !current.value || showReveal.value)
+}
 
-  if (!started.value) {
-    if (e.key.length === 1 || e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      started.value = true
-      beginTimer()
-      playCurrentSentence()
-    }
-    return
-  }
+function startSession() {
+  if (started.value) return
+  started.value = true
+  beginTimer()
+  playCurrentSentence()
+}
 
+function handleBackspace() {
+  if (input.value) input.value = input.value.slice(0, -1)
+}
+
+function handleChar(key: string) {
   const word = targetText.value
   if (!word) return
-
-  if (e.key === 'Backspace') {
-    e.preventDefault()
-    if (input.value) input.value = input.value.slice(0, -1)
-    return
-  }
-  if (e.key.length !== 1) return
-  e.preventDefault()
-
   const expected = word[input.value.length]
   if (expected == null) return
 
   charsTyped.value += 1
-  if (!charsMatch(e.key, expected)) {
+  if (!charsMatch(key, expected)) {
     playKeyError()
     wrongFlash.value = true
     hadWrongThisSentence.value = true
@@ -407,6 +400,65 @@ function onKeydown(e: KeyboardEvent) {
       skipped: false,
     })
   }
+}
+
+/** 手机端软键盘输入载体（隐藏），点正文区调起键盘 */
+const hiddenInputEl = ref<HTMLInputElement | null>(null)
+
+function focusTypingInput() {
+  hiddenInputEl.value?.focus()
+}
+
+function onKeydown(e: KeyboardEvent) {
+  // 软键盘输入走 hidden input 的 beforeinput，避免 Android 同时触发 keydown 导致重复计数
+  if (hiddenInputEl.value && e.target === hiddenInputEl.value) return
+  if (!guardActive()) return
+  if (e.ctrlKey || e.metaKey || e.altKey) return
+
+  if (!started.value) {
+    if (e.key.length === 1 || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      startSession()
+    }
+    return
+  }
+
+  if (e.key === 'Backspace') {
+    e.preventDefault()
+    handleBackspace()
+    return
+  }
+  if (e.key.length !== 1) return
+  e.preventDefault()
+  handleChar(e.key)
+}
+
+function onHiddenBeforeInput(e: InputEvent) {
+  if (!guardActive()) return
+  const type = e.inputType || ''
+  if (type === 'insertText' || type === 'insertCompositionText') {
+    e.preventDefault()
+    const data = e.data ?? ''
+    if (!data) return
+    if (!started.value) startSession()
+    for (const ch of data) handleChar(ch)
+    return
+  }
+  if (type === 'insertLineBreak' || type === 'insertParagraph') {
+    e.preventDefault()
+    if (!started.value) startSession()
+    return
+  }
+  if (
+    type === 'deleteContentBackward' ||
+    type === 'deleteWordBackward' ||
+    type === 'deleteContentForward'
+  ) {
+    e.preventDefault()
+    if (started.value) handleBackspace()
+    return
+  }
+  e.preventDefault()
 }
 
 function retryFromStart() {
@@ -601,7 +653,8 @@ onUnmounted(() => {
           class="shrink-0 mb-3 text-center px-4 animate-[atPulseSoft_2.2s_ease-in-out_infinite]"
         >
           <p class="text-base sm:text-lg font-medium text-neutral-700 dark:text-neutral-200 tracking-tight">
-            按任意键开始 · 从第 1 段练起
+            <span class="hidden sm:inline">按任意键开始 · 从第 1 段练起</span>
+            <span class="sm:hidden">点一下正文，调起键盘开始输入</span>
           </p>
           <p class="mt-1 text-xs text-neutral-400">{{ startHint }}</p>
         </div>
@@ -613,7 +666,19 @@ onUnmounted(() => {
             'shadow-[0_18px_50px_-24px_rgba(20,184,166,0.45)]': showReveal,
           }"
         >
-          <ol class="px-5 py-6 sm:px-8 sm:py-8 lg:px-10 space-y-5 sm:space-y-6">
+          <input
+            ref="hiddenInputEl"
+            type="text"
+            inputmode="text"
+            autocapitalize="off"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            aria-hidden="true"
+            class="pointer-events-none fixed left-0 top-0 h-px w-px opacity-0"
+            @beforeinput="onHiddenBeforeInput"
+          />
+          <ol class="px-5 py-6 sm:px-8 sm:py-8 lg:px-10 space-y-5 sm:space-y-6" @click="focusTypingInput">
             <li
               v-for="(seg, i) in segments"
               :key="seg.id"
