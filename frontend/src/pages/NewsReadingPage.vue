@@ -592,7 +592,7 @@ watch(layoutMode, async () => {
     class="reading-page flex flex-col h-full min-h-0 bg-neutral-100 dark:bg-neutral-950"
     :class="[readingPageClass, intensivePageClass]"
   >
-    <header class="shrink-0 flex items-center gap-3 px-4 py-3 bg-card border-b border-black/5 dark:border-white/10">
+    <header class="shrink-0 flex items-center gap-3 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-card border-b border-black/5 dark:border-white/10">
       <button type="button" class="text-sm text-neutral-500 hover:text-black dark:hover:text-white shrink-0" @click="goBack">
         {{ fromVocabulary ? '← 生词本' : fromLearning ? '← 学习统计' : '← 返回' }}
       </button>

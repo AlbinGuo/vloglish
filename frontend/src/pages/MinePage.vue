@@ -77,7 +77,7 @@ async function handleLogout() {
 </script>
 
 <template>
-  <div class="mine-page mx-auto w-full max-w-2xl px-4 pb-8 pt-[max(1rem,env(safe-area-inset-top))] sm:pt-6">
+  <div class="mine-page mx-auto w-full max-w-2xl px-4 pb-8 pt-4 sm:pt-6">
     <!-- 用户卡片 -->
     <section
       class="relative overflow-hidden rounded-3xl border border-line-soft bg-card p-5 shadow-sm"

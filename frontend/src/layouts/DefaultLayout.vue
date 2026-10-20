@@ -490,7 +490,11 @@ watch(
     />
     <main
       class="flex-1"
-      :class="[immersive ? 'min-h-0 overflow-hidden' : '', showBottomTabs ? 'pb-[var(--tabbar-offset)]' : '']"
+      :class="[
+        immersive ? 'min-h-0 overflow-hidden' : '',
+        !immersive ? 'max-sm:pt-[env(safe-area-inset-top,0px)]' : '',
+        showBottomTabs ? 'pb-[var(--tabbar-offset)]' : '',
+      ]"
     >
       <RouterView v-slot="{ Component, route }">
         <KeepAlive include="HomePage">

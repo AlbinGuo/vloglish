@@ -24,16 +24,15 @@ const tabs = computed<Tab[]>(() => [
     to: '/english',
     match: (p) =>
       p === '/english' ||
-      p.startsWith('/english/series') ||
       p.startsWith('/english/episode') ||
       p.startsWith('/english/author'),
   },
   {
-    key: 'listen',
+    key: 'series',
     label: '合集',
-    icon: 'headphones',
-    to: '/english/listen',
-    match: (p) => p.startsWith('/english/listen'),
+    icon: 'text-lines',
+    to: '/english/series',
+    match: (p) => p.startsWith('/english/series'),
   },
   {
     key: 'reading',

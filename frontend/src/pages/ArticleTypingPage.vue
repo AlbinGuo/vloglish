@@ -446,7 +446,7 @@ onUnmounted(() => {
     class="relative h-full min-h-0 overflow-hidden flex flex-col text-neutral-900 dark:text-neutral-50 bg-[radial-gradient(ellipse_80%_55%_at_50%_-10%,rgba(20,184,166,0.16),transparent_55%),radial-gradient(ellipse_50%_40%_at_100%_80%,rgba(245,158,11,0.08),transparent_50%),linear-gradient(180deg,#f8fafb_0%,#f1f5f4_100%)] dark:bg-[radial-gradient(ellipse_80%_55%_at_50%_-10%,rgba(45,212,191,0.12),transparent_55%),radial-gradient(ellipse_50%_40%_at_0%_90%,rgba(15,118,110,0.18),transparent_50%),linear-gradient(180deg,#0a0f0e_0%,#0c1211_100%)]"
   >
     <div
-      class="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10 pt-5 sm:pt-7 pb-3 sm:pb-4 flex-1 min-h-0 flex flex-col"
+      class="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10 pt-[max(1.25rem,env(safe-area-inset-top,0px))] sm:pt-7 pb-3 sm:pb-4 flex-1 min-h-0 flex flex-col"
     >
       <header class="shrink-0 mb-4 sm:mb-5">
         <div class="flex items-center justify-between gap-3 text-sm min-w-0">

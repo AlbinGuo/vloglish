@@ -3,9 +3,9 @@ import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 </script>
 
 <template>
-  <!-- 仅手机：紧贴全局顶栏；PC 仍用页内原 Tab -->
+  <!-- 移动端主导航已迁移到底部 Tab Bar，此顶部菜单项默认隐藏 -->
   <div
-    class="sm:hidden border-b border-black/5 dark:border-white/10 bg-white/90 dark:bg-neutral-900/90 backdrop-blur"
+    class="hidden border-b border-black/5 dark:border-white/10 bg-white/90 dark:bg-neutral-900/90 backdrop-blur"
   >
     <div class="page-container py-2">
       <EnglishNavTabs stretch />
