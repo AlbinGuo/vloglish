@@ -283,40 +283,41 @@ onUnmounted(() => {
         <span v-if="refreshing" class="text-[11px] text-neutral-400">更新中…</span>
       </div>
 
-      <div v-if="items.length" class="flex flex-col gap-1.5">
-      <div class="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3">
-        <div class="flex flex-wrap items-center gap-2">
+      <div v-if="items.length" class="rounded-2xl border border-line-soft bg-card p-3 shadow-sm sm:p-4">
+        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
           <RouterLink
             to="/english/word-practice?source=vocab&limit=15"
-            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-teal-600 text-white hover:bg-teal-500 shadow-sm shadow-teal-600/20 transition"
+            class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-ink-inverse shadow-sm transition hover:opacity-90 active:scale-[0.98]"
             title="优先抽取错词与未练习的单词"
           >
-            <AppIcon name="align-left" :size="15" />
+            <AppIcon name="align-left" :size="16" />
             拼写练习
           </RouterLink>
           <RouterLink
             to="/english/word-practice?source=vocab_wrong&limit=15"
-            class="inline-flex items-center px-3.5 py-2 rounded-xl text-sm font-medium border border-amber-300/70 text-amber-800 dark:border-amber-700/80 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition"
+            class="inline-flex items-center justify-center gap-2 rounded-xl border border-warning bg-warning-soft px-4 py-3 text-sm font-medium text-warning transition hover:opacity-90 active:scale-[0.98]"
           >
+            <AppIcon name="repeat" :size="16" />
             错词复习
           </RouterLink>
-        </div>
-        <div class="hidden sm:block w-px h-6 bg-black/8 dark:bg-white/10 shrink-0" aria-hidden="true" />
-        <div class="flex flex-wrap items-center gap-2">
           <button
             ref="reviewBtnRef"
             type="button"
-            class="px-3.5 py-2 rounded-xl text-sm font-medium bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-60 transition ring-offset-2 dark:ring-offset-neutral-950"
-            :class="highlightReview ? 'ring-2 ring-amber-400' : ''"
+            class="inline-flex items-center justify-center gap-2 rounded-xl bg-warning px-4 py-3 text-sm font-semibold text-ink-inverse transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+            :class="highlightReview ? 'ring-2 ring-brand ring-offset-2 ring-offset-card' : ''"
             :disabled="reviewLoading"
             @click="startReview(false)"
           >
+            <AppIcon name="sparkles" :size="16" />
             {{ primaryReviewLabel }}
           </button>
+        </div>
+        <div class="mt-2.5 flex items-center justify-between gap-2">
+          <p class="text-[11px] text-ink-faint">拼写练习优先错词与未练习，已掌握会后排</p>
           <button
             v-if="hasCachedReview || reviewCards.length"
             type="button"
-            class="px-3 py-2 rounded-xl text-sm font-medium border border-black/10 dark:border-white/15 text-neutral-600 dark:text-neutral-300 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60"
+            class="shrink-0 rounded-lg border border-line-soft px-3 py-1.5 text-[12px] font-medium text-ink-soft transition hover:bg-sunken disabled:opacity-60"
             :disabled="reviewLoading"
             title="重新调用 AI 生成，会消耗额度"
             @click="startReview(true)"
@@ -324,10 +325,6 @@ onUnmounted(() => {
             重新生成
           </button>
         </div>
-      </div>
-      <p class="text-[11px] text-neutral-400 dark:text-neutral-500">
-        拼写练习优先错词与未练习，已掌握会后排
-      </p>
       </div>
     </div>
 
