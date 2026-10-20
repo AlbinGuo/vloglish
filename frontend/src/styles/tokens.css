@@ -101,6 +101,10 @@
   --radius-card: 0.875rem;
   --radius-control: 0.5rem; /* 与 Tailwind rounded-lg 对齐，可 1:1 替换 */
   --radius-pill: 9999px;
+
+  /* ---------- 布局：移动端底部 Tab Bar ---------- */
+  --tabbar-height: 3.5rem;
+  --tabbar-offset: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
 }
 
 .dark {

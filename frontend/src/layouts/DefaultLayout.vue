@@ -33,6 +33,8 @@ import ListenPlaylistSheet from '@/components/listen/ListenPlaylistSheet.vue'
 import ListenSleepSheet from '@/components/listen/ListenSleepSheet.vue'
 import { useListenPlayerStore } from '@/stores/listenPlayer'
 import AppIcon from '@/components/AppIcon.vue'
+import BottomTabBar from '@/components/layout/BottomTabBar.vue'
+import MobileMoreSheet from '@/components/layout/MobileMoreSheet.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -44,6 +46,7 @@ const vocabulary = useVocabularyStore()
 const clips = useClipsStore()
 const voiceClone = useVoiceCloneStore()
 const feedbackOpen = ref(false)
+const moreOpen = ref(false)
 const bindWechatOpen = ref(false)
 const contactAuthorOpen = ref(false)
 /** 会员，或关内容限制后的登录用户 */
@@ -124,6 +127,9 @@ const showListenFloatCard = computed(
     route.name !== 'AdminEpisodePreview',
 )
 const { headerVisible: catalogHeaderVisible, catalogHeaderAutoHide } = useCatalogMobileHeaderHide()
+
+/** 移动端底部 Tab Bar：仅非沉浸式页面、已登录时显示 */
+const showBottomTabs = computed(() => !immersive.value && auth.isLoggedIn && !route.meta.landing)
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let popupPollTimer: ReturnType<typeof setInterval> | null = null
@@ -484,7 +490,10 @@ watch(
       :class="catalogHeaderVisible ? 'h-[calc(4.25rem+env(safe-area-inset-top,0px))]' : 'h-0'"
       aria-hidden="true"
     />
-    <main class="flex-1" :class="immersive ? 'min-h-0 overflow-hidden' : ''">
+    <main
+      class="flex-1"
+      :class="[immersive ? 'min-h-0 overflow-hidden' : '', showBottomTabs ? 'pb-[var(--tabbar-offset)]' : '']"
+    >
       <RouterView v-slot="{ Component, route }">
         <KeepAlive include="HomePage">
           <component
@@ -497,21 +506,38 @@ watch(
     <div
       v-if="showListenMiniBarSpacer"
       class="shrink-0"
-      :style="{ height: 'calc(4.35rem + env(safe-area-inset-bottom, 0px))' }"
+      :style="{
+        height: showBottomTabs
+          ? 'calc(4.35rem + var(--tabbar-offset))'
+          : 'calc(4.35rem + env(safe-area-inset-bottom, 0px))',
+      }"
       aria-hidden="true"
     />
     <div
       v-if="showListenMiniBar"
-      class="fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom,0px)]"
+      class="fixed inset-x-0 z-40"
+      :class="showBottomTabs ? 'bottom-[var(--tabbar-offset)]' : 'bottom-0 pb-[env(safe-area-inset-bottom,0px)]'"
     >
       <ListenMiniBar />
     </div>
     <div
       v-if="showListenFloatCard"
-      class="fixed z-40 right-3 bottom-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+0.85rem))]"
+      class="fixed z-40 right-3"
+      :class="
+        showBottomTabs
+          ? 'bottom-[calc(var(--tabbar-offset)+0.85rem)]'
+          : 'bottom-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+0.85rem))]'
+      "
     >
       <ListenFloatCard />
     </div>
+    <BottomTabBar v-if="showBottomTabs" :vocab-count="vocabCount" @more="moreOpen = true" />
+    <MobileMoreSheet
+      v-model:open="moreOpen"
+      @contact="contactAuthorOpen = true"
+      @feedback="feedbackOpen = true"
+      @logout="handleLogout"
+    />
     <ListenPlayerHost />
     <ListenPlaylistSheet />
     <ListenSleepSheet />
