@@ -100,7 +100,7 @@ function manageVoice() {
       >
         <AppIcon name="pulse-dot" v-if="synthesizing && !isPlaying" class="h-4 w-4 animate-pulse" />
         <AppIcon name="pause" v-else-if="isPlaying" :size="16" />
-        <AppIcon name="play" :size="16" />
+        <AppIcon v-else name="play" :size="16" />
       </button>
 
       <button

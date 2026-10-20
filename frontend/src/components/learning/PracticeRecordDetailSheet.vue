@@ -354,7 +354,7 @@ function onRemove() {
                     >
                       <AppIcon name="spinner" v-if="feedbackTtsLoading" class="animate-spin" :size="12" />
                       <AppIcon name="pause" v-else-if="feedbackTtsPlaying" :size="11" />
-                      <AppIcon name="play" class="ml-0.5" :size="12" />
+                      <AppIcon v-else name="play" class="ml-0.5" :size="12" />
                     </span>
                     <span>
                       {{
@@ -471,7 +471,7 @@ function onRemove() {
                 />
                 <span class="relative flex h-7 w-7 items-center justify-center rounded-full bg-white/20">
                   <AppIcon name="pause" v-if="playing" :size="14" />
-                  <AppIcon name="play" class="ml-0.5" :size="15" />
+                  <AppIcon v-else name="play" class="ml-0.5" :size="15" />
                 </span>
                 <span class="relative">{{ playing ? '正在播放…' : '听一听自己的发音' }}</span>
                 <span

@@ -254,7 +254,7 @@ function toggleSettings() {
             aria-hidden="true"
           >
             <AppIcon name="mic" v-if="micEnabled" :size="13" />
-            <AppIcon name="mic-off" :size="13" />
+            <AppIcon v-else name="mic-off" :size="13" />
           </span>
           <span class="min-w-0 flex-1 text-left">
             <span class="block text-[12px] font-semibold text-neutral-900 dark:text-neutral-100">

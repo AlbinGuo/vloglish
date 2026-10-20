@@ -548,7 +548,7 @@ function laneTop(lane: number) {
         @click="onAddClick(b, $event)"
       >
         <AppIcon name="check-xs" v-if="b.saved" class="w-3.5 h-3.5" />
-        <AppIcon name="plus" class="w-3.5 h-3.5" />
+        <AppIcon v-else name="plus" class="w-3.5 h-3.5" />
       </button>
     </div>
   </div>

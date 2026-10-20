@@ -55,7 +55,7 @@ const progress = computed(() => {
         @click="listen.togglePlay()"
       >
         <AppIcon name="pause" v-if="listen.isPlaying" class="w-6 h-6" />
-        <AppIcon name="play" class="w-6 h-6" />
+        <AppIcon v-else name="play" class="w-6 h-6" />
       </button>
       <button
         type="button"

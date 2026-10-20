@@ -29,7 +29,7 @@ const toast = useFavoriteToastStore()
               :class="toast.added ? 'bg-amber-500 text-white fav-star-pop' : 'bg-sunken text-ink-faint'"
             >
               <AppIcon name="sparkle" v-if="toast.added" class="w-6 h-6" />
-              <AppIcon name="sparkle" class="w-5 h-5" />
+              <AppIcon v-else name="sparkle" class="w-5 h-5" />
               <span v-if="toast.added" class="fav-sparkle fav-sparkle-a" aria-hidden="true" />
               <span v-if="toast.added" class="fav-sparkle fav-sparkle-b" aria-hidden="true" />
               <span v-if="toast.added" class="fav-sparkle fav-sparkle-c" aria-hidden="true" />

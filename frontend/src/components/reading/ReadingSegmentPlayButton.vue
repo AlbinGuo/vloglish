@@ -41,6 +41,6 @@ function onClick() {
     @click.stop="onClick"
   >
     <AppIcon name="pause" v-if="active" :size="14" />
-    <AppIcon name="play" :size="14" />
+    <AppIcon v-else name="play" :size="14" />
   </button>
 </template>

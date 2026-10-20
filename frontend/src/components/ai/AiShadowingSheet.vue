@@ -1802,7 +1802,7 @@ onUnmounted(() => {
                     />
                     <AppIcon name="spinner" v-if="demoLoading" class="relative animate-spin" :size="20" />
                     <AppIcon name="pause" v-else-if="demoPlaying" class="relative" :size="18" />
-                    <AppIcon name="play" class="relative ml-0.5" :size="20" />
+                    <AppIcon v-else name="play" class="relative ml-0.5" :size="20" />
                   </span>
 
                   <span class="min-w-0 flex-1">
@@ -1911,7 +1911,7 @@ onUnmounted(() => {
               />
               <AppIcon name="spinner" v-if="loading" class="animate-spin" :size="28" />
               <AppIcon name="mic" v-else-if="!listening" :size="30" />
-              <AppIcon name="stop" :size="24" />
+              <AppIcon v-else name="stop" :size="24" />
             </button>
 
             <p class="text-sm text-neutral-600 dark:text-neutral-300 text-center min-h-[1.25rem] px-2">
@@ -1999,7 +1999,7 @@ onUnmounted(() => {
                   >
                     <AppIcon name="spinner" v-if="feedbackTtsLoading" class="animate-spin" :size="12" />
                     <AppIcon name="pause" v-else-if="feedbackTtsPlaying" :size="11" />
-                    <AppIcon name="play" class="ml-0.5" :size="12" />
+                    <AppIcon v-else name="play" class="ml-0.5" :size="12" />
                   </span>
                   <span>
                     {{
@@ -2104,7 +2104,7 @@ onUnmounted(() => {
                     />
                     <AppIcon name="spinner" v-if="playbackLoading" class="relative animate-spin" :size="20" />
                     <AppIcon name="pause" v-else-if="playbackPlaying" class="relative" :size="18" />
-                    <AppIcon name="play" class="relative ml-0.5" :size="20" />
+                    <AppIcon v-else name="play" class="relative ml-0.5" :size="20" />
                   </span>
 
                   <span class="min-w-0 flex-1">

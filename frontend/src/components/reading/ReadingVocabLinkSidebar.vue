@@ -401,7 +401,7 @@ defineExpose({ expanded })
                       >
                         <AppIcon name="loader-circle" v-if="rowState[itemKey(item, index)]?.saving" class="h-3.5 w-3.5 animate-spin" />
                         <AppIcon name="check-xs" v-else-if="isSavedWord(item.en)" class="h-3.5 w-3.5" />
-                        <AppIcon name="plus" class="h-3.5 w-3.5" />
+                        <AppIcon v-else name="plus" class="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>

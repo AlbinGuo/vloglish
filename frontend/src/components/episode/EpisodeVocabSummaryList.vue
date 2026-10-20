@@ -279,7 +279,7 @@ async function onAdd(item: VocabSummaryItem, index: number) {
               @click.stop="onAdd(item, index)"
             >
               <AppIcon name="check-xs" v-if="savedKeys.has(item.en.trim().toLowerCase())" class="h-3.5 w-3.5" />
-              <AppIcon name="plus" class="h-3.5 w-3.5" />
+              <AppIcon v-else name="plus" class="h-3.5 w-3.5" />
             </button>
           </div>
         </li>

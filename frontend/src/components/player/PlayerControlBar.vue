@@ -436,7 +436,7 @@ const voiceModeLabel = computed(() =>
 
       <button type="button" class="shrink-0 p-0.5 active:scale-95" :title="player.mainActionLabel.value" @click="handleMainAction">
         <AppIcon name="pause-circle" v-if="player.isPlaying.value || clonedSpeaking" class="w-11 h-11" />
-        <AppIcon name="play-circle" class="w-11 h-11" />
+        <AppIcon v-else name="play-circle" class="w-11 h-11" />
       </button>
 
       <button type="button" class="shrink-0 p-1 active:scale-95" title="下一句" @click="player.nextSentence()">
@@ -454,7 +454,7 @@ const voiceModeLabel = computed(() =>
       >
         <div class="w-10 h-10 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10">
           <AppIcon name="chevron-down" v-if="chromeVisible !== false" class="w-5 h-5" />
-          <AppIcon name="menu" class="w-5 h-5" />
+          <AppIcon v-else name="menu" class="w-5 h-5" />
         </div>
       </button>
 
@@ -500,7 +500,7 @@ const voiceModeLabel = computed(() =>
       >
         <div class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10">
           <AppIcon name="eye-off" v-if="videoHidden" class="w-4 h-4" />
-          <AppIcon name="eye" class="w-4 h-4" />
+          <AppIcon v-else name="eye" class="w-4 h-4" />
         </div>
         <span class="text-[11px] leading-tight mt-0.5">{{ videoHidden ? '显示视频' : '隐藏视频' }}</span>
       </button>
@@ -517,7 +517,7 @@ const voiceModeLabel = computed(() =>
           :class="subtitlesHidden ? 'text-orange-500' : ''"
         >
           <AppIcon name="subtitles-off" v-if="subtitlesHidden" class="w-4 h-4" />
-          <AppIcon name="subtitles" class="w-4 h-4" />
+          <AppIcon v-else name="subtitles" class="w-4 h-4" />
         </div>
         <span class="text-[11px] leading-tight mt-0.5">{{ subtitlesHidden ? '显示字幕' : '隐藏字幕' }}</span>
       </button>
@@ -584,7 +584,7 @@ const voiceModeLabel = computed(() =>
       >
         <div class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10">
           <AppIcon name="fullscreen" v-if="isFullscreen" class="w-4 h-4" />
-          <AppIcon name="fullscreen-exit" class="w-4 h-4" />
+          <AppIcon v-else name="fullscreen-exit" class="w-4 h-4" />
         </div>
         <span class="text-[11px] leading-tight mt-0.5">全屏</span>
       </button>
@@ -623,7 +623,7 @@ const voiceModeLabel = computed(() =>
         @click="handleMainAction"
       >
         <AppIcon name="pause-circle" v-if="player.isPlaying.value || clonedSpeaking" class="w-8 h-8 text-neutral-800 dark:text-neutral-200" />
-        <AppIcon name="play-circle" class="w-8 h-8 text-neutral-800 dark:text-neutral-200" />
+        <AppIcon v-else name="play-circle" class="w-8 h-8 text-neutral-800 dark:text-neutral-200" />
         <span class="text-[11px] leading-tight mt-0.5">{{ clonedSpeaking ? '停止' : player.mainActionLabel.value }}</span>
       </button>
 

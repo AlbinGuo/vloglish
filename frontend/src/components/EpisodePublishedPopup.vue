@@ -191,7 +191,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
               class="w-12 h-12 rounded-full bg-white/95 text-neutral-900 flex items-center justify-center shadow-md"
             >
               <AppIcon name="play" v-if="!isArticle" class="w-6 h-6 ml-0.5" />
-              <AppIcon name="article" class="w-6 h-6" />
+              <AppIcon v-else name="article" class="w-6 h-6" />
             </span>
           </span>
         </button>

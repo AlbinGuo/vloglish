@@ -54,7 +54,7 @@ function onInput(event: Event) {
       @click="visible = !visible"
     >
       <AppIcon name="eye" v-if="visible" class="w-4 h-4" />
-      <AppIcon name="eye-off" class="w-4 h-4" />
+      <AppIcon v-else name="eye-off" class="w-4 h-4" />
     </button>
   </div>
 </template>

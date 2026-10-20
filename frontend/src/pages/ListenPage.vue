@@ -633,7 +633,7 @@ const backdropTint = computed(() => {
               @click="listen.togglePlay()"
             >
               <AppIcon name="pause" v-if="listen.isPlaying" class="w-8 h-8" />
-              <AppIcon name="play" class="w-8 h-8" />
+              <AppIcon v-else name="play" class="w-8 h-8" />
             </button>
             <button
               type="button"

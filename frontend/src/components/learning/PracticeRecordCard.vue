@@ -173,7 +173,7 @@ function formatTime(iso: string | null) {
             aria-hidden="true"
           >
             <AppIcon name="pause" v-if="playing" :size="12" />
-            <AppIcon name="play" class="ml-0.5" :size="13" />
+            <AppIcon v-else name="play" class="ml-0.5" :size="13" />
           </span>
           <span class="relative inline-flex items-baseline gap-1">
             <span>{{ playing ? '播放中' : '听一听' }}</span>
@@ -205,7 +205,7 @@ function formatTime(iso: string | null) {
             @click="emit('remove')"
           >
             <AppIcon name="spinner" v-if="deleting" class="animate-spin" :size="14" />
-            <AppIcon name="trash" :size="14" />
+            <AppIcon v-else name="trash" :size="14" />
           </button>
         </div>
       </div>

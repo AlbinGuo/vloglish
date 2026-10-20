@@ -23,6 +23,6 @@ function toggleTheme() {
     @click="toggleTheme"
   >
     <AppIcon name="moon" v-if="isDark" class="w-5 h-5" />
-    <AppIcon name="sun" class="w-5 h-5" />
+    <AppIcon v-else name="sun" class="w-5 h-5" />
   </button>
 </template>

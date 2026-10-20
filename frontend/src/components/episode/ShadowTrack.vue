@@ -190,7 +190,7 @@ onUnmounted(() => {
         @click="togglePlay"
       >
         <AppIcon name="pause" v-if="playing" :size="10" />
-        <AppIcon name="play" class="ml-px" :size="11" />
+        <AppIcon v-else name="play" class="ml-px" :size="11" />
       </button>
 
       <!-- 音轨波形进度 -->
@@ -239,7 +239,7 @@ onUnmounted(() => {
         @click="menuOpen = !menuOpen"
       >
         <AppIcon name="close" v-if="menuOpen" :size="12" />
-        <AppIcon name="more-horizontal" :size="14" />
+        <AppIcon v-else name="more-horizontal" :size="14" />
       </button>
     </div>
 

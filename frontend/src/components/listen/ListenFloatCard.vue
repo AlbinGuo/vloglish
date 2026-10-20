@@ -36,7 +36,7 @@ function onClose() {
       @click.stop="listen.togglePlay()"
     >
       <AppIcon name="pause" v-if="listen.isPlaying" class="w-3.5 h-3.5" />
-      <AppIcon name="play" class="w-3.5 h-3.5 ml-px" />
+      <AppIcon v-else name="play" class="w-3.5 h-3.5 ml-px" />
     </button>
     <button
       type="button"
