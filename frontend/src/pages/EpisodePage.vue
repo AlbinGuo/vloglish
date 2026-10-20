@@ -1812,6 +1812,7 @@ const {
   enabled: mobileChromeEnabled,
   isPlaying: player.isPlaying,
   isBlocked: mobileChromeBlocked,
+  autoHide: false,
 })
 
 const mobileListBottomPad = computed(() => {
@@ -3624,11 +3625,11 @@ function subtitleRowClass(index: number) {
       </button>
 
       <div
-        class="pointer-events-auto transition-transform duration-300 ease-out pb-[env(safe-area-inset-bottom)]"
+        class="pointer-events-auto transition-transform duration-300 ease-out"
         :class="mobileChromeVisible || adminPreview ? 'translate-y-0' : 'translate-y-full'"
         @pointerdown="onMobileChromeInteraction"
       >
-        <div class="border-t border-black/10 bg-white/95 backdrop-blur-md dark:border-white/10 dark:bg-neutral-900/95">
+        <div class="border-t border-black/10 bg-white/95 backdrop-blur-md dark:border-white/10 dark:bg-neutral-900/95 pb-[env(safe-area-inset-bottom)]">
           <VideoProgressBar :video="videoRef" variant="dock" />
           <PlayerControls
             v-if="!adminPreview"

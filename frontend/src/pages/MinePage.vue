@@ -70,7 +70,6 @@ const navLinks = [
   { to: '/english/learning', icon: 'chart-bar', label: '学习统计', desc: '进度与打卡' },
   { to: '/english/clips', icon: 'clipboard-list', label: '我的摘录', desc: '收藏的句子' },
   { to: '/english/series', icon: 'text-lines', label: '全部系列', desc: '按系列浏览' },
-  { to: '/english/wish-wall', icon: 'sparkles', label: '心愿墙', desc: '想看的内容' },
 ]
 
 async function changeAvatar() {

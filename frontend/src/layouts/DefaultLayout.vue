@@ -33,6 +33,7 @@ import ListenPlaylistSheet from '@/components/listen/ListenPlaylistSheet.vue'
 import ListenSleepSheet from '@/components/listen/ListenSleepSheet.vue'
 import { useListenPlayerStore } from '@/stores/listenPlayer'
 import AppIcon from '@/components/AppIcon.vue'
+import UserAvatar from '@/components/UserAvatar.vue'
 import BottomTabBar from '@/components/layout/BottomTabBar.vue'
 
 const route = useRoute()
@@ -481,6 +482,48 @@ watch(
         </div>
       </div>
     </header>
+    <!-- 移动端轻量 header：品牌 + 通知 + 我的头像（底部 Tab 负责主导航） -->
+    <header
+      v-if="!immersive"
+      class="sm:hidden sticky top-0 z-40 bg-card-glass backdrop-blur border-b border-line-soft pt-[env(safe-area-inset-top,0px)]"
+    >
+      <div class="px-4 py-2 flex items-center justify-between gap-3">
+        <RouterLink to="/english" class="flex items-center gap-2 min-w-0 shrink-0">
+          <BrandLogo :size="26" />
+          <span class="text-[1rem] font-semibold tracking-[-0.02em] leading-none">Vloglish</span>
+        </RouterLink>
+        <div class="flex items-center gap-0.5">
+          <RouterLink
+            v-if="auth.isLoggedIn"
+            to="/english/notifications"
+            class="relative inline-flex items-center justify-center rounded-lg p-2 text-ink-soft transition hover:bg-sunken"
+            aria-label="通知"
+          >
+            <AppIcon name="bell" class="w-5 h-5" />
+            <span
+              v-if="notifications.unreadCount > 0"
+              class="absolute top-0.5 right-0.5 min-w-[1.05rem] h-[1.05rem] px-1 rounded-full bg-danger text-ink-inverse text-[10px] font-semibold flex items-center justify-center leading-none"
+            >
+              {{ notifications.unreadCount > 99 ? '99+' : notifications.unreadCount }}
+            </span>
+          </RouterLink>
+          <RouterLink
+            :to="auth.isLoggedIn ? '/english/mine' : '/login'"
+            class="inline-flex items-center justify-center rounded-full p-1 transition active:scale-95"
+            aria-label="我的"
+          >
+            <UserAvatar
+              v-if="auth.isLoggedIn"
+              :avatar-key="auth.user?.avatar_key"
+              :user-id="auth.user?.id"
+              size-class="w-7 h-7"
+              alt=""
+            />
+            <AppIcon v-else name="user" class="w-6 h-6 text-ink-soft" />
+          </RouterLink>
+        </div>
+      </div>
+    </header>
     <!-- 占位高度勿做 transition：动画过程中 scrollY 连续跳变会触发 header 显隐闪烁 -->
     <div
       v-if="!immersive && catalogHeaderAutoHide"
@@ -492,7 +535,6 @@ watch(
       class="flex-1"
       :class="[
         immersive ? 'min-h-0 overflow-hidden' : '',
-        !immersive ? 'max-sm:pt-[env(safe-area-inset-top,0px)]' : '',
         showBottomTabs ? 'pb-[var(--tabbar-offset)]' : '',
       ]"
     >

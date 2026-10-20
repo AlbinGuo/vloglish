@@ -395,8 +395,10 @@ router.beforeEach(async (to) => {
     await siteConfig.hydrate()
   }
 
-  if (to.meta.landing && auth.isLoggedIn) {
-    return '/english'
+  if (to.meta.landing) {
+    if (auth.isLoggedIn) return '/english'
+    // App 端不显示介绍/落地页，未登录直接进登录页
+    if (isMobile) return '/login'
   }
 
   if (to.meta.requiresAuth && !auth.isLoggedIn) {

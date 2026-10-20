@@ -6,7 +6,10 @@ export function useMobilePlayerChrome(options: {
   enabled: Ref<boolean>
   isPlaying: Ref<boolean>
   isBlocked?: Ref<boolean>
+  /** 是否在播放中自动隐藏控制栏（默认 true）。App 视频页关闭后始终常驻显示 */
+  autoHide?: boolean
 }) {
+  const autoHide = options.autoHide !== false
   const visible = ref(true)
   let hideTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -19,6 +22,7 @@ export function useMobilePlayerChrome(options: {
 
   function scheduleHide() {
     clearHideTimer()
+    if (!autoHide) return
     if (!options.enabled.value || !options.isPlaying.value) return
     if (options.isBlocked?.value) return
 
@@ -35,6 +39,10 @@ export function useMobilePlayerChrome(options: {
   }
 
   function toggle() {
+    if (!autoHide) {
+      visible.value = true
+      return
+    }
     if (visible.value) {
       visible.value = false
       clearHideTimer()
