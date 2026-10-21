@@ -80,16 +80,24 @@ def verify_apple_identity_token(identity_token: str) -> dict[str, Any]:
 
     public_key = jwk.construct(jwk_data)
     try:
+        # 注意：python-jose 的 audience 参数只接受字符串，传 list 会报
+        # "audience must be a string or None"。因此这里关闭内置 audience 校验，
+        # 手动比对（支持配置多个允许的 aud）。
         claims = jwt.decode(
             token,
             public_key,
             algorithms=["RS256"],
-            audience=_audiences(),
             issuer=APPLE_ISSUER,
-            options={"verify_aud": True, "verify_iss": True, "verify_exp": True},
+            options={"verify_aud": False, "verify_iss": True, "verify_exp": True},
         )
     except Exception as exc:  # noqa: BLE001
         raise ValueError("Apple 身份令牌校验失败") from exc
+
+    allowed_aud = _audiences()
+    aud_claim = claims.get("aud")
+    aud_list = aud_claim if isinstance(aud_claim, list) else [aud_claim]
+    if not any(a in allowed_aud for a in aud_list):
+        raise ValueError("Apple 身份令牌的受众（aud）与本应用不匹配")
 
     if not claims.get("sub"):
         raise ValueError("Apple 身份令牌缺少用户标识")
