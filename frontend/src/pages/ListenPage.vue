@@ -91,7 +91,6 @@ let touchStartX = 0
 let touchStartY = 0
 let tracking = false
 let captured = false
-let startedInList = false
 let lastWheelAt = 0
 
 function measurePage() {
@@ -127,19 +126,6 @@ const swipeHintRef = ref<{ dismiss: () => void } | null>(null)
 function isBlockedTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false
   return Boolean(target.closest('input[type="range"], textarea, select, [data-listen-no-swipe]'))
-}
-
-function listConsumes(dy: number) {
-  // 只有手势从字幕列表内部开始时，才把竖向滑动交给列表滚动；
-  // 在视频区/header/底部控制区滑动也能正常切换上下集。
-  if (!startedInList) return false
-  if (listen.viewMode !== 'subtitles') return false
-  const el = listRoot.value
-  if (!el) return false
-  if (el.scrollHeight <= el.clientHeight + 8) return false
-  if (dy < 0 && el.scrollTop + el.clientHeight < el.scrollHeight - 8) return true
-  if (dy > 0 && el.scrollTop > 8) return true
-  return false
 }
 
 function swipeThreshold() {
@@ -189,7 +175,6 @@ function onTouchStart(e: TouchEvent) {
   tracking = true
   captured = false
   dragging.value = false
-  startedInList = Boolean(listRoot.value && e.target instanceof Node && listRoot.value.contains(e.target))
 }
 
 function onTouchMove(e: TouchEvent) {
@@ -204,7 +189,7 @@ function onTouchMove(e: TouchEvent) {
       tracking = false
       return
     }
-    if (listConsumes(dy) || overlayOpen()) {
+    if (overlayOpen()) {
       tracking = false
       return
     }
@@ -706,7 +691,7 @@ const backdropTint = computed(() => {
 <style scoped>
 .listen-page-sheet {
   will-change: transform;
-  touch-action: pan-y;
+  touch-action: none;
   overscroll-behavior: none;
 }
 .listen-side-arrow {

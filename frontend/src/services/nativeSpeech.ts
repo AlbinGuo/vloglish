@@ -69,12 +69,10 @@ export async function startNativeListen(
     return null
   }
 
+  // 某些机型首次 available() 可能瞬时返回 false，这里不再据此直接放弃，
+  // 交给真正的 start() 去判定（可用性异常会在 start 阶段报错）。
   try {
-    const avail = await SR.available()
-    if (!avail?.available) {
-      h.onError?.('当前设备不支持语音识别')
-      return null
-    }
+    await SR.available()
   } catch {
     /* 某些平台无 available 实现时继续尝试 */
   }

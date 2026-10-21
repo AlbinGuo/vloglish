@@ -75,7 +75,7 @@ function playRow(ep: EpisodeSummary) {
     void router.push({ path: '/pricing', query: { next: `/english/listen/${ep.video_id}` } })
     return
   }
-  void listen.enqueueAndPlay(ep, true)
+  void listen.playPlaylist(episodes.value, ep.video_id)
 }
 
 onMounted(async () => {
