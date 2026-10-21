@@ -158,6 +158,8 @@ git commit -m "chore(app): 提交 Capacitor iOS 工程"
 
 比 ad-hoc 更适合长期内测分发：**不需要 Mac、不需要重签名、不限设备台数**。
 
+> 正式上架 App Store 还需补齐商务/内购/元数据/隐私/审核信息，见 **[APP_STORE_SUBMISSION.md](./APP_STORE_SUBMISSION.md)**。
+
 ### 与 ad-hoc 流程的差异
 
 | | iOS Build（ad-hoc） | iOS TestFlight |

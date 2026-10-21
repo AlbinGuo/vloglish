@@ -355,6 +355,16 @@ const userRoutes: RouteRecordRaw[] = [
     name: 'AppDownload',
     component: () => import('@/pages/AppDownloadPage.vue'),
   },
+  {
+    path: '/privacy',
+    name: 'PrivacyPolicy',
+    component: () => import('@/pages/PrivacyPolicyPage.vue'),
+  },
+  {
+    path: '/terms',
+    name: 'Terms',
+    component: () => import('@/pages/TermsPage.vue'),
+  },
 ]
 
 const routes: RouteRecordRaw[] = isMobile ? userRoutes : [...adminRoutes, ...userRoutes]

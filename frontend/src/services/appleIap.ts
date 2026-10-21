@@ -269,6 +269,24 @@ export async function restoreApplePurchases(): Promise<void> {
   }
 }
 
+/**
+ * 打开 App Store 的「管理订阅」页（Apple 3.1.2 要求订阅用户可随时管理/取消）。
+ * 优先用插件原生 API；不可用时回退到系统订阅管理网页。
+ */
+export async function manageAppleSubscriptions(): Promise<void> {
+  const C = getCdv()
+  try {
+    const fn = C?.store?.showManageSubscriptions
+    if (typeof fn === 'function') {
+      await fn.call(C.store)
+      return
+    }
+  } catch {
+    /* 回退到网页 */
+  }
+  window.open('https://apps.apple.com/account/subscriptions', '_blank', 'noopener')
+}
+
 /** 调试用：返回当前 App Store 已加载的商品 id，便于排查“商品未就绪” */
 export function appleIapDebugInfo(): { available: boolean; products: string[] } {
   const C = getCdv()

@@ -9,7 +9,7 @@ import { copyText } from '@/utils/clipboard'
 import AppIcon from '@/components/AppIcon.vue'
 import { getNativePlatform, isMobileAppBuild, isNativePlatform } from '@/utils/platform'
 import { verifyApplePurchase } from '@/api/membership'
-import { applePurchase, appleIapWarmup, isAppleIapAvailable, restoreApplePurchases } from '@/services/appleIap'
+import { applePurchase, appleIapWarmup, isAppleIapAvailable, restoreApplePurchases, manageAppleSubscriptions } from '@/services/appleIap'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -121,6 +121,10 @@ async function restorePurchase() {
 function goBack() {
   if (window.history.length > 1) router.back()
   else void router.push('/english')
+}
+
+async function manageSubscription() {
+  await manageAppleSubscriptions()
 }
 
 async function copyWebPayUrl() {
@@ -334,14 +338,24 @@ async function startScanPay() {
         {{ appleSuccess }}
       </p>
 
-      <button
-        type="button"
-        class="w-full text-center text-[12px] text-ink-faint underline-offset-2 hover:underline disabled:opacity-50"
-        :disabled="restoring"
-        @click="restorePurchase"
-      >
-        {{ restoring ? '恢复中…' : '恢复购买' }}
-      </button>
+      <div class="flex items-center justify-center gap-4">
+        <button
+          type="button"
+          class="text-center text-[12px] text-ink-faint underline-offset-2 hover:underline disabled:opacity-50"
+          :disabled="restoring"
+          @click="restorePurchase"
+        >
+          {{ restoring ? '恢复中…' : '恢复购买' }}
+        </button>
+        <span class="text-[12px] text-line">|</span>
+        <button
+          type="button"
+          class="text-center text-[12px] text-ink-faint underline-offset-2 hover:underline"
+          @click="manageSubscription"
+        >
+          管理订阅
+        </button>
+      </div>
 
       <p class="pt-1 text-center text-[11px] leading-relaxed text-ink-faint">
         通过 Apple ID 安全支付，可随时在 App Store 的「订阅」中管理或取消。

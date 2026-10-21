@@ -312,6 +312,24 @@ async function confirmDeleteAccount() {
         <AppIcon name="chevron-right" class="h-4 w-4 text-ink-faint" />
       </button>
 
+      <RouterLink
+        to="/privacy"
+        class="flex w-full items-center gap-3 border-t border-line-soft px-4 py-3.5 text-left text-ink-soft transition hover:bg-sunken"
+      >
+        <AppIcon name="document-text" class="h-5 w-5 shrink-0" />
+        <span class="flex-1 text-[14px]">隐私政策</span>
+        <AppIcon name="chevron-right" class="h-4 w-4 text-ink-faint" />
+      </RouterLink>
+
+      <RouterLink
+        to="/terms"
+        class="flex w-full items-center gap-3 border-t border-line-soft px-4 py-3.5 text-left text-ink-soft transition hover:bg-sunken"
+      >
+        <AppIcon name="document-text" class="h-5 w-5 shrink-0" />
+        <span class="flex-1 text-[14px]">用户协议</span>
+        <AppIcon name="chevron-right" class="h-4 w-4 text-ink-faint" />
+      </RouterLink>
+
       <button
         type="button"
         class="flex w-full items-center gap-3 border-t border-line-soft px-4 py-3.5 text-left text-danger transition hover:bg-sunken"
