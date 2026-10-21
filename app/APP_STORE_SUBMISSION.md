@@ -57,6 +57,20 @@ https://<你的域名>/#/privacy
 
 ---
 
+## 四之补充：Sign in with Apple 配置（代码已接入，后台需开启能力）
+
+代码已接入 SIWA：iOS 原生壳里的登录 / 注册页会显示「通过 Apple 继续」，后端 `POST /api/auth/apple/` 校验 Apple identity token。上线前**必须**在后台开启能力，否则签名会因 entitlement 不匹配失败：
+
+- [ ] 开发者后台 → **Identifiers** → 选 App ID `cc.vloglish.app` → 勾选 **Sign In with Apple** → **Save**
+- [ ] **重新生成 App Store 描述文件**（Profiles → 该描述文件 → 编辑/重存，或新建），确认它包含 SIWA 能力
+- [ ] 重新导出描述文件 → base64 → 更新 Secret `APPSTORE_PROVISIONING_PROFILE_BASE64`
+- [ ] CI 会自动写入 `App/App.entitlements` 并设置 `CODE_SIGN_ENTITLEMENTS`（无需手动改 Xcode）
+- [ ] 后端如需自定义可设环境变量 `APPLE_BUNDLE_IDS`（默认 `cc.vloglish.app`，多值逗号分隔）
+
+> 说明：Apple 要求「提供了第三方登录的 App 也要提供 Sign in with Apple」，这是接入它的合规原因。
+
+---
+
 ## 五、审核备注模板（复制到 App Store Connect「备注」）
 
 ```

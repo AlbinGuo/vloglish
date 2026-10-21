@@ -268,6 +268,8 @@ class User(Base):
     member_plan: Mapped[str | None] = mapped_column(String(16), nullable=True)
     # 微信 jscode2session 的 session_key，虚拟支付用户态签名用
     wx_session_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # Sign in with Apple 的用户唯一标识（Apple 账号 sub），未绑定时为空
+    apple_sub: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
     session_version: Mapped[int] = mapped_column(Integer, default=1)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # 最近一次心跳客户端：web | android | ios | weixin

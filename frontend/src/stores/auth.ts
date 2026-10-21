@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import {
   activateMembership as activateMembershipApi,
+  appleLogin as appleLoginApi,
   deleteAccount as deleteAccountApi,
   fetchCurrentUser,
   setUserAvatar,
@@ -44,6 +45,16 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(email: string, password: string) {
     const data = await loginApi(email, password)
+    setSession(data.access, data.refresh, data.user)
+    return data.user
+  }
+
+  async function loginWithApple(payload: {
+    identity_token: string
+    authorization_code?: string
+    full_name?: string
+  }) {
+    const data = await appleLoginApi(payload)
     setSession(data.access, data.refresh, data.user)
     return data.user
   }
@@ -123,6 +134,7 @@ export const useAuthStore = defineStore('auth', () => {
     isMember,
     register,
     login,
+    loginWithApple,
     refreshAccess,
     fetchMe,
     activateMembership,

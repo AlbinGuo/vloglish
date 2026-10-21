@@ -28,6 +28,7 @@ from ..models import ActivationCode, PasswordResetToken, RefreshToken, User
 from ..database import get_db
 from ..schemas import (
     ActivateMembershipIn,
+    AppleLoginIn,
     AuthTokensOut,
     ForgotPasswordIn,
     ForgotPasswordOut,
@@ -41,6 +42,8 @@ from ..schemas import (
     UserOut,
 )
 from ..services.daily_visits import record_daily_visit
+from ..services import apple_auth as apple_auth_svc
+from ..services import wechat_mini as wechat_mini_svc
 from ..services.user_avatar import (
     DEFAULT_AVATAR_KEYS,
     ensure_user_avatar,
@@ -49,7 +52,6 @@ from ..services.user_avatar import (
 )
 from ..services.user_geo import apply_signup_geo, backfill_signup_geo
 from ..services.account_merge import is_wechat_only, wechat_placeholder_email
-from ..services import wechat_mini as wechat_mini_svc
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -266,6 +268,83 @@ def wechat_mini_login(
     wx_sk = (session.get("session_key") or "").strip()
     if wx_sk:
         user.wx_session_key = wx_sk
+    db.commit()
+    db.refresh(user)
+    merge_device_favorites(db, user.id, device_id)
+    return issue_tokens(db, user, device_id)
+
+
+@router.post("/apple/", response_model=AuthTokensOut)
+def apple_login(
+    body: AppleLoginIn,
+    request: Request,
+    db: Session = Depends(get_db),
+    device_id: str = Depends(get_device_id),
+):
+    """Sign in with Apple：校验 identity token → 自动注册/登录，返回同一套 JWT。
+
+    - 已绑定该 Apple sub 的账号直接登录；
+    - 邮箱已存在且 Apple 声明邮箱已验证 → 绑定到该账号（合并到邮箱主账号）；
+    - 否则新建账号（隐藏邮箱时用基于 sub 的占位邮箱）。
+    """
+    try:
+        claims = apple_auth_svc.verify_apple_identity_token(body.identity_token)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc) or "Apple 身份校验失败") from exc
+
+    sub = str(claims.get("sub") or "").strip()
+    email = (claims.get("email") or "").strip().lower() or None
+    verified = claims.get("email_verified") in (True, "true", "True", 1)
+    full_name = (body.full_name or "").strip()[:64] or None
+
+    user = db.query(User).filter(User.apple_sub == sub).first()
+
+    if not user and email and verified:
+        # Apple 提供了「已验证」的邮箱，且该邮箱已有邮箱账号 → 绑定登录
+        user = db.query(User).filter(User.email == email).first()
+        if user is not None and (user.apple_sub in (None, "") or user.apple_sub == sub):
+            user.apple_sub = sub
+
+    if user is None:
+        placeholder = apple_auth_svc.apple_placeholder_email(sub)
+        # 之前的占位账号（同一 sub）复用它
+        user = db.query(User).filter(User.email == placeholder).first()
+        if user is not None:
+            user.apple_sub = sub
+        else:
+            mail = email if (email and verified) else placeholder
+            if mail != placeholder and db.query(User).filter(User.email == mail).first():
+                mail = placeholder
+            user = User(
+                email=mail,
+                password_hash=hash_password(secrets.token_urlsafe(32)),
+                nickname=full_name,
+                apple_sub=sub,
+                is_member=False,
+            )
+            apply_signup_geo(user, get_client_ip(request))
+            db.add(user)
+            try:
+                db.flush()
+            except IntegrityError:
+                db.rollback()
+                user = db.query(User).filter(User.apple_sub == sub).first() or db.query(
+                    User
+                ).filter(User.email == placeholder).first()
+                if user is None:
+                    raise HTTPException(status_code=409, detail="Apple 登录冲突，请重试") from None
+                user.apple_sub = sub
+            ensure_user_avatar(user)
+    else:
+        if not user.is_active:
+            raise HTTPException(status_code=403, detail="账号已停用")
+        if full_name and not user.nickname:
+            user.nickname = full_name
+        backfill_signup_geo(user, get_client_ip(request))
+        ensure_user_avatar(user)
+
+    client = (request.headers.get("X-Client") or "").strip().lower()
+    user.last_client = "web" if client == "web" else "ios"
     db.commit()
     db.refresh(user)
     merge_device_favorites(db, user.id, device_id)

@@ -23,6 +23,15 @@ export async function login(email: string, password: string) {
   return data
 }
 
+export async function appleLogin(payload: {
+  identity_token: string
+  authorization_code?: string
+  full_name?: string
+}) {
+  const { data } = await api.post<AuthTokensResponse>('/api/auth/apple/', payload)
+  return data
+}
+
 export async function refreshAuthToken(refresh: string) {
   const { data } = await api.post<AuthTokensResponse>('/api/token/refresh/', { refresh })
   return data

@@ -431,6 +431,18 @@ def _migrate_schema():
         print("[vloglish] migrated users.wx_session_key")
         insp = inspect(engine)
         cols = {c["name"] for c in insp.get_columns("users")}
+    if "apple_sub" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN apple_sub VARCHAR(255)"))
+        print("[vloglish] migrated users.apple_sub")
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("users")}
+    # 为 apple_sub 建唯一索引（ALTER 加列不会带唯一约束；NULL 可重复）
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_apple_sub ON users (apple_sub)"))
+    except Exception as exc:  # noqa: BLE001 - 索引已存在等场景忽略
+        print(f"[vloglish] skip apple_sub unique index: {exc}")
     for col, col_type in (
         ("signup_country", "VARCHAR(64)"),
         ("signup_region", "VARCHAR(64)"),

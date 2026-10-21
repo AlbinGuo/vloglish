@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { consumeRemoteLoginNotice } from '@/api/tokens'
 import AppDownloadEntry from '@/components/AppDownloadEntry.vue'
+import AppleSignInButton from '@/components/auth/AppleSignInButton.vue'
 import AuthSplitShell from '@/components/auth/AuthSplitShell.vue'
 import { authButtonClass, authInputClass, authLabelClass, authLinkClass, authPasswordClass } from '@/components/auth/authField'
 import PasswordInput from '@/components/PasswordInput.vue'
@@ -90,6 +91,8 @@ async function submit() {
         {{ loading ? '登录中...' : '登录' }}
       </button>
     </form>
+
+    <AppleSignInButton />
 
     <p class="mt-7 text-center text-[13px] text-neutral-500">
       还没有账号？

@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppDownloadEntry from '@/components/AppDownloadEntry.vue'
+import AppleSignInButton from '@/components/auth/AppleSignInButton.vue'
 import AuthSplitShell from '@/components/auth/AuthSplitShell.vue'
 import { authButtonClass, authInputClass, authLabelClass, authLinkClass, authPasswordClass } from '@/components/auth/authField'
 import PasswordInput from '@/components/PasswordInput.vue'
@@ -122,6 +123,8 @@ async function submit() {
         {{ loading ? '注册中...' : (hasInvite || activationCode.trim() ? '注册并开通会员' : '免费注册') }}
       </button>
     </form>
+
+    <AppleSignInButton />
 
     <p class="mt-7 text-center text-[13px] text-neutral-500">
       已有账号？

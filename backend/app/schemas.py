@@ -50,6 +50,12 @@ class WechatMiniLoginIn(BaseModel):
     platform: str | None = Field(default=None, max_length=16)
 
 
+class AppleLoginIn(BaseModel):
+    identity_token: str = Field(min_length=16, max_length=4096)
+    authorization_code: str | None = Field(default=None, max_length=1024)
+    full_name: str | None = Field(default=None, max_length=128)
+
+
 class RefreshIn(BaseModel):
     refresh: str
 
