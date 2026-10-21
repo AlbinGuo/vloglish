@@ -32,6 +32,7 @@ import ListenPlayerHost from '@/components/listen/ListenPlayerHost.vue'
 import ListenPlaylistSheet from '@/components/listen/ListenPlaylistSheet.vue'
 import ListenSleepSheet from '@/components/listen/ListenSleepSheet.vue'
 import { useListenPlayerStore } from '@/stores/listenPlayer'
+import { isMobileAppBuild } from '@/utils/platform'
 import AppIcon from '@/components/AppIcon.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import BottomTabBar from '@/components/layout/BottomTabBar.vue'
@@ -167,7 +168,9 @@ async function refreshPendingPopups() {
     return
   }
   try {
-    const results = await getPendingPopups()
+    const raw = await getPendingPopups()
+    // App 端不展示"新剧集/文章发布"类弹窗（管理端发布后不应打扰移动端用户）
+    const results = isMobileAppBuild() ? raw.filter((r) => !isReleasePopup(r)) : raw
     const units = buildPopupUnits(results)
     const head = currentUnit.value
     if (head) {

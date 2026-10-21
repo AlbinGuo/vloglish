@@ -283,7 +283,7 @@ onUnmounted(() => {
         <span v-if="refreshing" class="text-[11px] text-neutral-400">更新中…</span>
       </div>
 
-      <div v-if="items.length" class="rounded-2xl border border-line-soft bg-card p-3 shadow-sm sm:p-4">
+      <div v-if="items.length" class="hidden rounded-2xl border border-line-soft bg-card p-3 shadow-sm sm:p-4">
         <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
           <RouterLink
             to="/english/word-practice?source=vocab&limit=15"

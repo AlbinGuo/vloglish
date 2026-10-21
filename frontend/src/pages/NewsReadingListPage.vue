@@ -2,7 +2,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
-  getArticleFilters,
   getArticleList,
   type ArticleSummary,
 } from '@/api/articles'
@@ -30,8 +29,6 @@ const topic = ref('')
 const stars = ref<number | ''>('')
 const status = ref<'all' | 'in_progress' | 'completed'>('all')
 const search = ref('')
-
-const filterOptions = ref<{ sources: string[]; topics: string[] }>({ sources: [], topics: [] })
 
 const previewBanner = computed(() => {
   if (auth.isMember) return null
@@ -100,11 +97,6 @@ function loadMore() {
 }
 
 onMounted(async () => {
-  try {
-    filterOptions.value = await getArticleFilters()
-  } catch {
-    filterOptions.value = { sources: [], topics: [] }
-  }
   await load(true)
 })
 
@@ -152,63 +144,8 @@ watch(
           class="shrink-0 rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-ink-inverse transition hover:opacity-90 active:scale-[0.98]"
           @click="applyFilters"
         >
-          筛选
+          搜索
         </button>
-      </div>
-
-      <!-- 下拉筛选 -->
-      <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <label class="block min-w-0">
-          <span class="mb-1 block text-[11px] font-medium text-ink-faint">来源</span>
-          <select v-model="source" class="w-full rounded-xl border border-line-soft bg-canvas px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none" @change="applyFilters">
-            <option value="">全部</option>
-            <option v-for="s in filterOptions.sources" :key="s" :value="s">{{ s }}</option>
-          </select>
-        </label>
-        <label class="block min-w-0">
-          <span class="mb-1 block text-[11px] font-medium text-ink-faint">主题</span>
-          <select v-model="topic" class="w-full rounded-xl border border-line-soft bg-canvas px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none" @change="applyFilters">
-            <option value="">全部</option>
-            <option v-for="t in filterOptions.topics" :key="t" :value="t">{{ t }}</option>
-          </select>
-        </label>
-        <label class="block min-w-0">
-          <span class="mb-1 block text-[11px] font-medium text-ink-faint">难度</span>
-          <select v-model="stars" class="w-full rounded-xl border border-line-soft bg-canvas px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none" @change="applyFilters">
-            <option value="">全部</option>
-            <option v-for="n in 5" :key="n" :value="n">{{ n }} 星</option>
-          </select>
-        </label>
-        <label v-if="auth.isLoggedIn" class="block min-w-0">
-          <span class="mb-1 block text-[11px] font-medium text-ink-faint">状态</span>
-          <select v-model="status" class="w-full rounded-xl border border-line-soft bg-canvas px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none" @change="applyFilters">
-            <option value="all">全部</option>
-            <option value="in_progress">进行中</option>
-            <option value="completed">已读完</option>
-          </select>
-        </label>
-      </div>
-
-      <!-- 上传 / 我的语料库 -->
-      <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-line-soft pt-3">
-        <RouterLink
-          :to="auth.isMember || siteConfig.memberToolsOpen ? '/english/submit-article' : '/pricing'"
-          class="inline-flex items-center gap-1.5 rounded-xl bg-warning px-3 py-2 text-xs font-medium text-ink-inverse transition hover:opacity-90 active:scale-[0.98]"
-        >
-          <AppIcon name="plus" class="h-3.5 w-3.5" />
-          上传文章
-        </RouterLink>
-        <RouterLink
-          :to="
-            auth.isMember || siteConfig.memberToolsOpen
-              ? '/english/my-submissions?tab=articles'
-              : '/pricing'
-          "
-          class="inline-flex items-center gap-1.5 rounded-xl border border-line-soft bg-canvas px-3 py-2 text-xs font-medium text-ink-soft transition hover:bg-sunken active:scale-[0.98]"
-        >
-          <AppIcon name="inbox" class="h-3.5 w-3.5" />
-          我的语料库
-        </RouterLink>
       </div>
     </div>
 
