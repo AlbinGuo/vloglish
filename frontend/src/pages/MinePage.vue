@@ -8,6 +8,7 @@ import FeedbackModal from '@/components/FeedbackModal.vue'
 import LearningHeatmapChart from '@/components/charts/LearningHeatmapChart.vue'
 import LearningStatCard from '@/components/learning/LearningStatCard.vue'
 import { getLearningCalendar, getLearningSummary } from '@/api/learning'
+import { getErrorDetail } from '@/api/tokens'
 import { useIsPhone } from '@/composables/useBreakpoint'
 import { useTheme } from '@/composables/useTheme'
 import { useAuthStore } from '@/stores/auth'
@@ -33,6 +34,11 @@ const isPhone = useIsPhone()
 const contactAuthorOpen = ref(false)
 const feedbackOpen = ref(false)
 const cycling = ref(false)
+
+const deleteOpen = ref(false)
+const deleteChecked = ref(false)
+const deleting = ref(false)
+const deleteError = ref('')
 
 const appVersion = ref('')
 
@@ -131,6 +137,32 @@ async function handleLogout() {
   clips.clear()
   voiceClone.clear()
   await router.replace('/english')
+}
+
+function openDeleteDialog() {
+  deleteChecked.value = false
+  deleteError.value = ''
+  deleteOpen.value = true
+}
+
+async function confirmDeleteAccount() {
+  if (!deleteChecked.value || deleting.value) return
+  deleting.value = true
+  deleteError.value = ''
+  try {
+    await auth.deleteAccount()
+    notifications.clear()
+    corpusBadge.clear()
+    vocabulary.clear()
+    clips.clear()
+    voiceClone.clear()
+    deleteOpen.value = false
+    await router.replace('/login')
+  } catch (e) {
+    deleteError.value = getErrorDetail(e) || '注销失败，请稍后重试'
+  } finally {
+    deleting.value = false
+  }
 }
 </script>
 
@@ -288,6 +320,16 @@ async function handleLogout() {
         <AppIcon name="logout" class="h-5 w-5 shrink-0" />
         <span class="flex-1 text-[14px]">退出登录</span>
       </button>
+
+      <button
+        type="button"
+        class="flex w-full items-center gap-3 border-t border-line-soft px-4 py-3.5 text-left text-danger transition hover:bg-sunken"
+        @click="openDeleteDialog"
+      >
+        <AppIcon name="trash" class="h-5 w-5 shrink-0" />
+        <span class="flex-1 text-[14px]">注销账号</span>
+        <AppIcon name="chevron-right" class="h-4 w-4 text-ink-faint" />
+      </button>
     </section>
 
     <p v-if="appVersion" class="mt-6 mb-1 text-center text-[11px] tracking-wide text-ink-faint">
@@ -296,5 +338,50 @@ async function handleLogout() {
 
     <ContactAuthorDialog v-model:open="contactAuthorOpen" />
     <FeedbackModal v-model:open="feedbackOpen" />
+
+    <!-- 注销账号确认弹窗 -->
+    <div
+      v-if="deleteOpen"
+      class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-8 sm:items-center"
+      @click.self="deleteOpen = false"
+    >
+      <div class="w-full max-w-md rounded-2xl bg-card p-5 shadow-xl">
+        <div class="flex items-center gap-2 text-danger">
+          <AppIcon name="trash" class="h-5 w-5" />
+          <h3 class="text-[16px] font-semibold">注销账号</h3>
+        </div>
+        <p class="mt-3 text-[13px] leading-relaxed text-ink-soft">
+          注销后将立即退出登录，账号及个人身份信息会被匿名化并停用，且无法恢复。会员权益将一并失效，剩余时长不予退还。
+        </p>
+        <label class="mt-4 flex items-start gap-2 text-[13px] text-ink-soft">
+          <input v-model="deleteChecked" type="checkbox" class="mt-0.5 h-4 w-4" />
+          <span>我已了解注销后数据不可恢复，确认注销该账号</span>
+        </label>
+        <p
+          v-if="deleteError"
+          class="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-[12px] text-danger"
+        >
+          {{ deleteError }}
+        </p>
+        <div class="mt-5 flex gap-3">
+          <button
+            type="button"
+            class="flex-1 rounded-xl border border-line-soft py-2.5 text-[14px] text-ink transition active:scale-[0.99]"
+            @click="deleteOpen = false"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            class="flex-1 rounded-xl py-2.5 text-[14px] font-medium text-white transition active:scale-[0.99] disabled:opacity-50"
+            style="background: #dc2626"
+            :disabled="!deleteChecked || deleting"
+            @click="confirmDeleteAccount"
+          >
+            {{ deleting ? '注销中…' : '确认注销' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

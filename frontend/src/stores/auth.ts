@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import {
   activateMembership as activateMembershipApi,
+  deleteAccount as deleteAccountApi,
   fetchCurrentUser,
   setUserAvatar,
   login as loginApi,
@@ -89,6 +90,11 @@ export const useAuthStore = defineStore('auth', () => {
     clearSession()
   }
 
+  async function deleteAccount(password = '') {
+    await deleteAccountApi({ password, confirmation: '注销' })
+    clearSession()
+  }
+
   async function hydrate() {
     try {
       if (accessToken.value) {
@@ -122,6 +128,7 @@ export const useAuthStore = defineStore('auth', () => {
     activateMembership,
     cycleAvatar,
     logout,
+    deleteAccount,
     hydrate,
     clearSession,
   }

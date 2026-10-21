@@ -49,6 +49,10 @@ export async function logout(refresh: string) {
   await api.post('/api/auth/logout/', { refresh })
 }
 
+export async function deleteAccount(payload: { password?: string; confirmation: string }) {
+  await api.post('/api/auth/delete-account/', payload)
+}
+
 export async function prepareBindWechat() {
   const { data } = await api.post<{ token: string; expires_in: number }>('/api/auth/bind-wechat/prepare/')
   return data

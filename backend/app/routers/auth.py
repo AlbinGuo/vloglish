@@ -2,6 +2,7 @@ import secrets
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -335,6 +336,53 @@ def logout(
 ):
     token_hash = hash_refresh_token(body.refresh)
     db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).delete()
+    db.commit()
+    return {"success": True}
+
+
+class DeleteAccountIn(BaseModel):
+    password: str = ""
+    confirmation: str = ""
+
+
+@router.post("/delete-account/")
+def delete_account(
+    body: DeleteAccountIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """注销账号：校验确认后匿名化并停用，撤销全部登录会话。
+
+    Apple App Store 要求 App 内可发起账号注销。此处做匿名化 + 停用，
+    保留订单等依法需留存的数据，但清除个人身份信息且账号无法再登录。
+    """
+    confirm = (body.confirmation or "").strip().upper()
+    if confirm not in {"注销", "DELETE", "确认注销"}:
+        raise HTTPException(status_code=400, detail="请输入确认文字以注销账号")
+    if (body.password or "").strip() and not verify_password(body.password, user.password_hash):
+        raise HTTPException(status_code=400, detail="密码不正确")
+    if user.is_staff:
+        raise HTTPException(status_code=400, detail="管理员账号请在后台处理注销")
+
+    # 撤销所有设备的登录会话
+    db.query(RefreshToken).filter(RefreshToken.user_id == user.id).delete(synchronize_session=False)
+    user.session_version = (user.session_version or 1) + 1
+
+    # 匿名化个人身份信息
+    anon_email = f"deleted_{user.id}_{secrets.token_hex(4)}@deleted.vloglish.invalid"
+    user.email = anon_email[:255]
+    user.password_hash = hash_password(secrets.token_hex(16))
+    user.nickname = None
+    user.phone = None
+    user.wx_openid = None
+    user.wx_unionid = None
+    user.wx_session_key = None
+    user.avatar_key = None
+    user.is_active = False
+    user.is_member = False
+    user.member_until = None
+    user.member_activated_at = None
+    user.member_plan = None
     db.commit()
     return {"success": True}
 
