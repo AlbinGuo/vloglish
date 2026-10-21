@@ -151,13 +151,26 @@ function ensureStoreReady(): Promise<void> {
   return storeReady
 }
 
-/** 等待商品加载完成（initialize/update 是异步的，get 可能一开始拿不到） */
+function isProductLoaded(p: any): boolean {
+  if (!p) return false
+  try {
+    return Array.isArray(p.offers) && p.offers.length > 0
+  } catch {
+    return false
+  }
+}
+
+/** 等待商品「真正加载完成」（含可购买 offer）；仅注册未加载的占位商品不算就绪 */
 async function waitForProduct(
   C: CdvPurchase,
   id: string,
-  timeoutMs = 10000,
+  timeoutMs = 15000,
 ): Promise<any | null> {
-  const found = getProduct(C, id)
+  const ready = (): any | null => {
+    const p = getProduct(C, id)
+    return isProductLoaded(p) ? p : null
+  }
+  const found = ready()
   if (found) return found
   try {
     C.store.update?.()
@@ -168,28 +181,54 @@ async function waitForProduct(
     let settled = false
     let iv: ReturnType<typeof setInterval> | undefined
     let to: ReturnType<typeof setTimeout> | undefined
+    let ticks = 0
     const finish = (p: any | null) => {
       if (settled) return
       settled = true
       if (iv) clearInterval(iv)
       if (to) clearTimeout(to)
-      resolve(p || getProduct(C, id) || null)
+      resolve(isProductLoaded(p) ? p : ready())
     }
-    to = setTimeout(() => finish(getProduct(C, id)), timeoutMs)
+    to = setTimeout(() => finish(ready()), timeoutMs)
     try {
       const when = C.store.when?.()
       when?.productUpdated?.((p: any) => {
-        if (p?.id === id) finish(p)
+        if (p?.id === id && isProductLoaded(p)) finish(p)
       })
-      when?.productList?.(() => finish(getProduct(C, id)))
+      when?.productList?.(() => finish(ready()))
     } catch {
       /* ignore */
     }
     iv = setInterval(() => {
-      const p = getProduct(C, id)
+      ticks += 1
+      if (ticks % 4 === 0) {
+        try {
+          C.store.update?.()
+        } catch {
+          /* ignore */
+        }
+      }
+      const p = ready()
       if (p) finish(p)
     }, 600)
   })
+}
+
+/** 把插件返回的错误对象转成对用户有意义的提示 */
+function describePurchaseError(err: any): string {
+  const raw = typeof err?.message === 'string' ? err.message : ''
+  const code = typeof err?.code === 'number' ? err.code : undefined
+  if (code === 6777003) {
+    // ErrorCode.PURCHASE：无法发起/完成购买
+    return (
+      '购买未能完成（商品未在 App Store 就绪、未登录沙盒账号或网络异常等）。' +
+      '请在「设置 → App Store → 沙盒账户」用测试账号登录后重试；' +
+      '若持续失败，确认商品已在 App Store Connect 配置为「准备提交/已批准」并填好价格。' +
+      (raw ? `（原始错误：${raw}）` : '')
+    )
+  }
+  const msg = raw || '支付未完成'
+  return code ? `${msg} (${code})` : msg
 }
 
 /** 发起购买，成功（交易已批准）后 resolve；用户取消/失败 reject */
@@ -206,14 +245,17 @@ export async function applePurchase(productId: string): Promise<ApplePurchaseRes
     }
   }
 
-  const product = await waitForProduct(C, productId, 10000)
+  const product = await waitForProduct(C, productId, 15000)
   if (!product) {
-    const ids = loadedProductIds(C)
+    const ids = (C.store.products ?? [])
+      .filter(isProductLoaded)
+      .map((p: any) => p?.id)
+      .filter(Boolean)
     throw new Error(
-      '商品未就绪（未能从 App Store 拉到该商品）。' +
-        `已加载商品：${ids.length ? ids.join('、') : '无'}。` +
+      '商品未就绪（未能从 App Store 拉到该商品的可购买信息）。' +
+        `已就绪商品：${ids.length ? ids.join('、') : '无'}。` +
         '请检查：① App Store Connect 是否已签署「付费 App 协议」；' +
-        '② 商品状态是否为「准备提交/已批准」且已填价格、本地化、审核截图；' +
+        '② 商品状态是否为「准备提交/已批准」且已填价格、本地化、审核截图（订阅须在「订阅组」内）；' +
         '③ 产品 ID 是否与后台完全一致（区分大小写）；' +
         '④ 是否为真机 + 沙盒环境测试。',
     )
@@ -235,8 +277,7 @@ export async function applePurchase(productId: string): Promise<ApplePurchaseRes
         if (err) {
           const rej = pendingReject
           clearPending()
-          const msg = typeof err?.message === 'string' && err.message ? err.message : '支付未完成'
-          rej?.(new Error(err?.code ? `${msg} (${err.code})` : msg))
+          rej?.(new Error(describePurchaseError(err)))
         }
       })
       .catch((e: unknown) => {
