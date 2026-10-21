@@ -9,7 +9,7 @@ import { copyText } from '@/utils/clipboard'
 import AppIcon from '@/components/AppIcon.vue'
 import { getNativePlatform, isMobileAppBuild, isNativePlatform } from '@/utils/platform'
 import { verifyApplePurchase } from '@/api/membership'
-import { applePurchase, isAppleIapAvailable, restoreApplePurchases } from '@/services/appleIap'
+import { applePurchase, appleIapWarmup, isAppleIapAvailable, restoreApplePurchases } from '@/services/appleIap'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -162,7 +162,10 @@ function stopPay() {
 }
 
 onMounted(async () => {
-  if (isIosApp) selected.value = 'year'
+  if (isIosApp) {
+    selected.value = 'year'
+    void appleIapWarmup(Object.values(APPLE_PRODUCT_IDS))
+  }
   if (!auth.isLoggedIn) {
     await router.replace({ path: '/login', query: { next: '/pricing' } })
     return
