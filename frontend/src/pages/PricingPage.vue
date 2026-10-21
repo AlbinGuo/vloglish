@@ -21,7 +21,6 @@ type PayChoice = PlanId | 'author'
 const AUTHOR_QR = '/author-wechat-qr.png'
 
 const plans: { id: PlanId; name: string; price: string; period: string; note: string; recommend: boolean }[] = [
-  { id: 'week', name: '周会员', price: '1', period: '7 天', note: '限时尝鲜', recommend: false },
   { id: 'quarter', name: '季度会员', price: '38', period: '3 个月', note: '约 ¥12.7 / 月', recommend: false },
   { id: 'year', name: '年度会员', price: '78', period: '12 个月', note: '约 ¥6.5 / 月', recommend: false },
   { id: 'forever', name: '永久会员', price: '98', period: '一次买断', note: '不再续费', recommend: false },

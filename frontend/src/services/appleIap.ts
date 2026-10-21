@@ -31,14 +31,29 @@ export function isAppleIapAvailable(): boolean {
   return isNativePlatform() && getNativePlatform() === 'ios' && Boolean(getCdv())
 }
 
-let initPromise: Promise<void> | null = null
-const registered = new Set<string>()
+let storeReady: Promise<void> | null = null
+const catalog = new Set<string>()
 let pendingResolve: ((r: ApplePurchaseResult) => void) | null = null
 let pendingReject: ((e: Error) => void) | null = null
 let purchaseTimer: ReturnType<typeof setTimeout> | null = null
 
 function isNonConsumable(productId: string): boolean {
   return /forever|permanent|lifetime/i.test(productId)
+}
+
+function productType(C: CdvPurchase, id: string) {
+  return isNonConsumable(id) ? C.ProductType.NON_CONSUMABLE : C.ProductType.PAID_SUBSCRIPTION
+}
+
+/** 注册商品后再初始化：必须在 initialize 之前把所有商品 register，原生才会加载它们。 */
+function registerProducts(C: CdvPurchase, ids: string[]): boolean {
+  const toAdd = ids.filter((id) => id && !catalog.has(id))
+  if (!toAdd.length) return false
+  C.store.register(
+    toAdd.map((id) => ({ id, type: productType(C, id), platform: C.Platform.APPLE_APPSTORE })),
+  )
+  toAdd.forEach((id) => catalog.add(id))
+  return true
 }
 
 function getProduct(C: CdvPurchase, id: string): any | null {
@@ -84,73 +99,53 @@ function extractAppReceipt(tx: any): string {
   return ''
 }
 
-async function ensureInitialized(productId: string): Promise<void> {
+function attachHandlers(C: CdvPurchase) {
+  try {
+    C.store.verbosity = C.LogLevel?.DEBUG ?? 0
+  } catch {
+    /* ignore */
+  }
+  const when = C.store.when?.()
+  when?.approved?.((tx: any) => {
+    const pid = String(tx?.products?.[0]?.id ?? tx?.productId ?? '')
+    const result: ApplePurchaseResult = {
+      productId: pid,
+      transactionId: String(tx?.transactionId ?? ''),
+      receipt: extractAppReceipt(tx),
+    }
+    try {
+      tx?.finish?.()
+    } catch {
+      /* ignore */
+    }
+    const resolve = pendingResolve
+    clearPending()
+    resolve?.(result)
+  })
+  when?.cancelled?.(() => {
+    const reject = pendingReject
+    clearPending()
+    reject?.(new Error('已取消支付'))
+  })
+  when?.error?.((err: any) => {
+    // 仅在“有进行中的购买”时，把错误判定为购买失败；加载商品阶段忽略
+    const reject = pendingReject
+    if (!reject) return
+    clearPending()
+    const msg = typeof err?.message === 'string' && err.message ? err.message : '支付失败'
+    reject(new Error(err?.code ? `${msg} (${err.code})` : msg))
+  })
+}
+
+/** 注册（调用方已登记商品）后只初始化一次；initialize 必须在 register 之后调用。 */
+function ensureStoreReady(): Promise<void> {
   const C = getCdv()
-  if (!C) throw new Error('Apple 内购插件未安装，请更新到最新版本 App')
-  const { store, ProductType, Platform } = C
-  const apple = Platform.APPLE_APPSTORE
-
-  let newlyRegistered = false
-  if (!registered.has(productId)) {
-    store.register([
-      {
-        id: productId,
-        type: isNonConsumable(productId)
-          ? ProductType.NON_CONSUMABLE
-          : ProductType.PAID_SUBSCRIPTION,
-        platform: apple,
-      },
-    ])
-    registered.add(productId)
-    newlyRegistered = true
+  if (!C) return Promise.reject(new Error('Apple 内购插件未安装，请更新到最新版本 App'))
+  if (!storeReady) {
+    attachHandlers(C)
+    storeReady = Promise.resolve(C.store.initialize([C.Platform.APPLE_APPSTORE]))
   }
-
-  if (!initPromise) {
-    try {
-      store.verbosity = C.LogLevel?.WARNING ?? 0
-    } catch {
-      /* ignore */
-    }
-    const when = store.when?.()
-    when?.approved?.((tx: any) => {
-      const pid = String(tx?.products?.[0]?.id ?? tx?.productId ?? '')
-      const result: ApplePurchaseResult = {
-        productId: pid,
-        transactionId: String(tx?.transactionId ?? ''),
-        receipt: extractAppReceipt(tx),
-      }
-      try {
-        tx?.finish?.()
-      } catch {
-        /* ignore */
-      }
-      const resolve = pendingResolve
-      clearPending()
-      resolve?.(result)
-    })
-    when?.cancelled?.(() => {
-      const reject = pendingReject
-      clearPending()
-      reject?.(new Error('已取消支付'))
-    })
-    when?.error?.((err: any) => {
-      // 仅在“有进行中的购买”时，把错误判定为购买失败；加载商品阶段忽略
-      const reject = pendingReject
-      if (!reject) return
-      clearPending()
-      reject(new Error(err?.message || '支付失败'))
-    })
-    initPromise = Promise.resolve(store.initialize([apple]))
-  }
-
-  await initPromise
-  if (newlyRegistered) {
-    try {
-      store.update?.()
-    } catch {
-      /* ignore */
-    }
-  }
+  return storeReady
 }
 
 /** 等待商品加载完成（initialize/update 是异步的，get 可能一开始拿不到） */
@@ -198,7 +193,15 @@ async function waitForProduct(
 export async function applePurchase(productId: string): Promise<ApplePurchaseResult> {
   const C = getCdv()
   if (!C) throw new Error('Apple 内购插件未安装，请更新到最新版本 App')
-  await ensureInitialized(productId)
+  const added = registerProducts(C, [productId])
+  await ensureStoreReady()
+  if (added) {
+    try {
+      C.store.update?.()
+    } catch {
+      /* ignore */
+    }
+  }
 
   const product = await waitForProduct(C, productId, 10000)
   if (!product) {
@@ -229,7 +232,8 @@ export async function applePurchase(productId: string): Promise<ApplePurchaseRes
         if (err) {
           const rej = pendingReject
           clearPending()
-          rej?.(new Error(err?.message || '支付未完成'))
+          const msg = typeof err?.message === 'string' && err.message ? err.message : '支付未完成'
+          rej?.(new Error(err?.code ? `${msg} (${err.code})` : msg))
         }
       })
       .catch((e: unknown) => {
@@ -244,12 +248,12 @@ export async function applePurchase(productId: string): Promise<ApplePurchaseRes
 export async function appleIapWarmup(productIds: string[]): Promise<void> {
   const C = getCdv()
   if (!C) return
-  for (const id of productIds) {
-    try {
-      await ensureInitialized(id)
-    } catch {
-      /* ignore */
-    }
+  // 先把所有商品注册好，再初始化，确保原生一次性加载全部商品
+  registerProducts(C, productIds)
+  try {
+    await ensureStoreReady()
+  } catch {
+    return
   }
   try {
     C.store.update?.()
