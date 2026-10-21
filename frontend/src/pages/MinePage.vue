@@ -3,9 +3,12 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
-import BindWechatDialog from '@/components/BindWechatDialog.vue'
 import ContactAuthorDialog from '@/components/ContactAuthorDialog.vue'
 import FeedbackModal from '@/components/FeedbackModal.vue'
+import LearningHeatmapChart from '@/components/charts/LearningHeatmapChart.vue'
+import LearningStatCard from '@/components/learning/LearningStatCard.vue'
+import { getLearningCalendar, getLearningSummary } from '@/api/learning'
+import { useIsPhone } from '@/composables/useBreakpoint'
 import { useTheme } from '@/composables/useTheme'
 import { useAuthStore } from '@/stores/auth'
 import { useClipsStore } from '@/stores/clips'
@@ -25,12 +28,17 @@ const voiceClone = useVoiceCloneStore()
 
 const { themeMode, setThemeMode } = useTheme()
 
-const bindWechatOpen = ref(false)
+const isPhone = useIsPhone()
+
 const contactAuthorOpen = ref(false)
 const feedbackOpen = ref(false)
 const cycling = ref(false)
 
 const appVersion = ref('')
+
+const statsLoading = ref(true)
+const summary = ref<Awaited<ReturnType<typeof getLearningSummary>> | null>(null)
+const calendar = ref<{ date: string; watch_time_sec: number; sessions: number }[]>([])
 
 onMounted(async () => {
   let version = ''
@@ -47,6 +55,16 @@ onMounted(async () => {
   }
   if (!version && typeof __APP_VERSION__ !== 'undefined') version = __APP_VERSION__
   appVersion.value = version ? `v${version}${build ? ` (${build})` : ''}` : ''
+
+  try {
+    const [s, days] = await Promise.all([getLearningSummary(), getLearningCalendar(90)])
+    summary.value = s
+    calendar.value = days
+  } catch {
+    /* 统计加载失败时静默，页面其它功能不受影响 */
+  } finally {
+    statsLoading.value = false
+  }
 })
 
 const displayName = computed(() => auth.user?.nickname || auth.user?.email || '账户')
@@ -65,12 +83,33 @@ const themeOptions: { value: 'light' | 'dark' | 'system'; label: string; icon: s
   { value: 'system', label: '跟随系统', icon: 'sparkles' },
 ]
 
-const navLinks = [
-  { to: '/english/study', icon: 'book-open', label: '怎么学', desc: '学习方法与路线' },
-  { to: '/english/learning', icon: 'chart-bar', label: '学习统计', desc: '进度与打卡' },
-  { to: '/english/clips', icon: 'clipboard-list', label: '我的摘录', desc: '收藏的句子' },
-  { to: '/english/series', icon: 'text-lines', label: '全部系列', desc: '按系列浏览' },
-]
+function formatDuration(sec: number) {
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  if (h > 0) return `${h} 小时 ${m} 分`
+  return `${m} 分钟`
+}
+
+const PHONE_HIDDEN_STAT_LABELS = new Set(['连续天数', '本周学习', '查词次数', '生词本'])
+
+const statCards = computed(() => {
+  const s = summary.value
+  if (!s) return []
+  const cards = [
+    { label: '累计学习', value: formatDuration(s.total_watch_time_sec), icon: 'clock' as const, tone: 'amber' as const },
+    { label: '已学完', value: `${s.completed_episodes} 期`, icon: 'check-circle' as const, tone: 'emerald' as const },
+    { label: '学习中', value: `${s.in_progress_episodes} 期`, icon: 'play-circle' as const, tone: 'blue' as const },
+    { label: '连续天数', value: `${s.streak_days} 天`, icon: 'fire' as const, tone: 'orange' as const },
+    { label: '今日学习', value: formatDuration(s.today_watch_time_sec), icon: 'sun' as const, tone: 'sky' as const },
+    { label: '本周学习', value: formatDuration(s.week_watch_time_sec), icon: 'calendar' as const, tone: 'violet' as const },
+    { label: '查词次数', value: String(s.lookup_count), icon: 'search' as const, tone: 'rose' as const },
+    { label: '生词本', value: `${s.vocabulary_count} 词`, icon: 'bookmark' as const, tone: 'amber' as const },
+  ]
+  if (isPhone.value) {
+    return cards.filter((card) => !PHONE_HIDDEN_STAT_LABELS.has(card.label))
+  }
+  return cards
+})
 
 async function changeAvatar() {
   if (cycling.value) return
@@ -157,45 +196,50 @@ async function handleLogout() {
           </button>
         </div>
       </div>
-
-      <button
-        v-if="!auth.user?.wx_bound"
-        type="button"
-        class="relative mt-4 flex w-full items-center gap-3 rounded-2xl border border-warning bg-warning-soft px-4 py-3 text-left transition hover:opacity-90"
-        @click="bindWechatOpen = true"
-      >
-        <AppIcon name="chat-bubble" class="h-5 w-5 shrink-0 text-warning" />
-        <span class="flex-1 text-[13px] font-medium text-warning">关联小程序</span>
-        <span class="text-[11px] text-warning">扫一下即关联</span>
-        <AppIcon name="chevron-right" class="h-4 w-4 text-warning" />
-      </button>
-      <p v-else class="relative mt-4 flex items-center gap-2 text-[12px] text-ink-faint">
-        <AppIcon name="check" class="h-4 w-4 text-success" />
-        已关联微信，小程序与网页为同一账号
-      </p>
     </section>
 
-    <!-- 快捷入口 -->
-    <section class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-      <RouterLink
-        v-for="item in navLinks"
-        :key="item.to"
-        :to="item.to"
-        class="group flex items-center gap-3 rounded-2xl border border-line-soft bg-card px-3.5 py-3 transition hover:border-brand hover:bg-sunken active:scale-[0.98]"
+    <!-- 学习统计 -->
+    <section class="mt-4 space-y-3">
+      <div
+        v-if="statsLoading"
+        class="rounded-2xl border border-line-soft bg-card px-4 py-6 text-center text-sm text-ink-faint"
       >
-        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
-          <AppIcon :name="item.icon" class="h-5 w-5" />
-        </span>
-        <span class="min-w-0 flex-1">
-          <span class="block truncate text-[13.5px] font-medium text-ink">{{ item.label }}</span>
-          <span class="block truncate text-[11px] text-ink-faint">{{ item.desc }}</span>
-        </span>
-      </RouterLink>
+        统计加载中…
+      </div>
+      <template v-else-if="summary">
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <LearningStatCard
+            v-for="card in statCards"
+            :key="card.label"
+            :label="card.label"
+            :value="card.value"
+            :icon="card.icon"
+            :tone="card.tone"
+          />
+        </div>
+
+        <div class="rounded-2xl border border-line-soft bg-card p-4">
+          <h2 class="text-[14px] font-medium text-ink">近 90 天学习热力</h2>
+          <p class="mt-1 text-[11px] text-ink-faint">颜色越深表示当日学习时长越长</p>
+          <div class="mt-3 overflow-x-auto scrollbar-none">
+            <LearningHeatmapChart :days="calendar" :range-days="90" theme="amber" height="200px" />
+          </div>
+        </div>
+      </template>
     </section>
 
     <!-- 设置 -->
     <section class="mt-4 overflow-hidden rounded-2xl border border-line-soft bg-card">
-      <div class="flex items-center gap-3 px-4 py-3.5">
+      <RouterLink
+        to="/english/study"
+        class="flex items-center gap-3 px-4 py-3.5 text-ink-soft transition hover:bg-sunken"
+      >
+        <AppIcon name="book-open" class="h-5 w-5 shrink-0" />
+        <span class="flex-1 text-[14px] text-ink">怎么学</span>
+        <AppIcon name="chevron-right" class="h-4 w-4 text-ink-faint" />
+      </RouterLink>
+
+      <div class="flex items-center gap-3 border-t border-line-soft px-4 py-3.5">
         <AppIcon name="moon" class="h-5 w-5 shrink-0 text-ink-soft" />
         <span class="flex-1 text-[14px] text-ink">主题</span>
         <div class="flex items-center gap-1 rounded-full bg-sunken p-0.5">
@@ -250,7 +294,6 @@ async function handleLogout() {
       Vloglish {{ appVersion }}
     </p>
 
-    <BindWechatDialog v-model:open="bindWechatOpen" />
     <ContactAuthorDialog v-model:open="contactAuthorOpen" />
     <FeedbackModal v-model:open="feedbackOpen" />
   </div>

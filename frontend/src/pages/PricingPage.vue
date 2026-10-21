@@ -6,6 +6,7 @@ import { getErrorDetail } from '@/api/tokens'
 import { useAuthStore } from '@/stores/auth'
 import { useCatalogStore } from '@/stores/catalog'
 import { copyText } from '@/utils/clipboard'
+import AppIcon from '@/components/AppIcon.vue'
 import { isMobileAppBuild, isNativePlatform } from '@/utils/platform'
 
 const router = useRouter()
@@ -38,6 +39,11 @@ let copiedTimer: ReturnType<typeof setTimeout> | undefined
 
 function isAppClient() {
   return isMobileAppBuild() || isNativePlatform()
+}
+
+function goBack() {
+  if (window.history.length > 1) router.back()
+  else void router.push('/english')
 }
 
 async function copyWebPayUrl() {
@@ -167,8 +173,18 @@ async function startScanPay() {
 </script>
 
 <template>
-  <div class="pricing-page min-h-dvh flex items-center justify-center px-4 py-10 sm:py-14">
-    <div class="w-full max-w-5xl">
+  <div class="pricing-page min-h-dvh px-4 py-5 sm:py-10">
+    <div class="mx-auto w-full max-w-5xl">
+      <div class="mb-4 flex items-center">
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-xl border border-line-soft bg-white/90 px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:opacity-90 active:scale-[0.98] dark:bg-neutral-900/90 dark:text-neutral-200"
+          @click="goBack"
+        >
+          <AppIcon name="chevron-left" class="h-4 w-4" />
+          返回
+        </button>
+      </div>
       <header class="mb-7 sm:mb-9 text-center">
         <p
           class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-wide mb-3"
