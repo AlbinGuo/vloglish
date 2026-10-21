@@ -250,3 +250,83 @@ This app was built with the iOS 17.5 SDK.
 - **ad-hoc 装不上设备**：设备 UDID 未登记，或未重新生成描述文件。
 - **`method` 无效**：旧 Xcode 上 `app-store-connect` 应写 `app-store`。
 - **Git Bash 里 `-subj` 报路径错误**：加 `export MSYS_NO_PATHCONV=1`。
+
+---
+
+## 十一、Apple 内购（IAP）配置与测试
+
+App 内会员走 Apple 内购（StoreKit）。前端已接 `cordova-plugin-purchase`（见 `app/package.json`），
+云构建里的 `cap sync ios` + `pod install` 会自动把它接进原生工程，**无需手动改 Xcode**。
+
+### 1) 商品与代码里的 product id 必须一致
+
+| 套餐 | 类型 | product id |
+|------|------|-----------|
+| 季度会员 | 自动续期订阅（3 个月） | `cc.vloglish.app.member.quarter` |
+| 年度会员 | 自动续期订阅（12 个月） | `cc.vloglish.app.member.year` |
+| 永久会员 | 非消耗型 | `cc.vloglish.app.member.forever` |
+
+> 这些 id 定义在 `frontend/src/pages/PricingPage.vue` 的 `APPLE_PRODUCT_IDS`。
+> 后端默认按 id 里的关键字（quarter / year / forever）判断套餐；如需自定义，用环境变量
+> `APPLE_IAP_PRODUCTS` 覆盖（见第 4 步）。
+
+### 2) 在 App Store Connect 创建商品
+
+[App Store Connect](https://appstoreconnect.apple.com) → 我的 App → Vloglish → **App 内购买项目 / 功能**。
+
+**自动续期订阅（季度 / 年度）**
+
+1. 先建一个**订阅群组**（例如「Vloglish 会员」），所有订阅放同一群组，方便用户升降级。
+2. 群组内 **+ 创建订阅**：分别填 product id `cc.vloglish.app.member.quarter`、`cc.vloglish.app.member.year`，
+   选择时长（3 个月 / 12 个月），设定价格档位。
+3. 每个商品填「显示名称」「描述」，上传审核截图；状态可先留「准备提交」用于沙盒测试。
+
+**非消耗型（永久）**
+
+- 「App 内购买项目」→ **+** → 类型选 **非消耗型**，product id 填 `cc.vloglish.app.member.forever`，设价格。
+
+> 商品首次创建后，通常需要有一个**已上传到 TestFlight 的构建**、且商品可用于测试，沙盒里才能拉取到。
+> 若前端提示「商品未就绪」，先按第九节把构建传到 TestFlight 再试。
+
+### 3) 生成「App 专用共享密钥」
+
+App Store Connect → 我的 App → Vloglish → App 信息 → **App 专用共享密钥** → 生成并复制。
+后端用这串密钥调用 Apple `verifyReceipt` 校验收据（必填）。
+
+### 4) 后端配置环境变量
+
+在服务器（`.env.prod` / `docker-compose` 等）加上：
+
+```bash
+# App Store Connect 的「App 专用共享密钥」，用于 verifyReceipt 校验
+APPLE_IAP_SHARED_SECRET=你的共享密钥
+
+# 可选：覆盖「商品 id → 套餐」映射（默认按 id 关键字 quarter/year/forever 判断）
+# plan: quarter|year|forever|custom；days 省略或 0 表示永久
+# APPLE_IAP_PRODUCTS={"cc.vloglish.app.member.year":{"plan":"year","days":365}}
+```
+
+> 未配置 `APPLE_IAP_SHARED_SECRET` 时，`POST /api/membership/apple/verify/` 返回 503，
+> 前端提示「会员开通确认中」，**不会误开通**。
+
+### 5) In-App Purchase 能力
+
+`cordova-plugin-purchase` 的 pod 会自动链接 StoreKit，绝大多数情况**无需手动加 Capability**。
+若运行 / 审核提示缺少内购能力，再在 Xcode → Target → Signing & Capabilities → **+ Capability → In-App Purchase** 添加一次即可。
+
+### 6) 测试（无需 Mac、无需单独沙盒账号）
+
+- 按第九节把包传到 **TestFlight**，用 iPhone 的 TestFlight 装好。
+- 用**测试员 Apple ID** 点「开通会员」，走真实内购弹窗；TestFlight 环境自带**沙盒**，不会真实扣款。
+- 首次购买会弹「确认使用沙盒账户」，属正常。
+- 购买成功后前端把收据提交后端校验，通过即开通会员，可在「我的」页看会员状态。
+
+### 7) 常见问题
+
+- **点支付提示「商品未就绪 / Apple 内购暂不可用」** → 商品未在 App Store Connect 建好、product id 不一致，
+  或插件未随构建打进去（确认 CI 跑过 `cap sync ios` + `pod install`）。
+- **后端返回 503** → 没配 `APPLE_IAP_SHARED_SECRET`。
+- **后端返回 400「Apple 收据无效」** → 商品类型 / 收据不匹配；订阅需响应里带 `latest_receipt_info`。
+  若插件只给 StoreKit 2 的 JWS 而无旧版收据，需改用 **App Store Server API** 校验。
+- **后端返回 400「未找到对应的购买记录」** → 收据里没有该 product id 的交易，确认买的是对应商品。
+- **购买成功但会员没开通** → 看后端 verify 接口日志，确认 `APPLE_IAP_PRODUCTS` 映射与 product id 对得上。
