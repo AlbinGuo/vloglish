@@ -12,6 +12,11 @@ import { isNativePlatform } from '@/utils/platform'
  * partialResults 事件推送中间结果，直到调用 stop()（或系统自动停止）。
  */
 
+/** 识别到内容后，停顿多久自动结束并触发点评 */
+const SILENCE_MS = 2000
+/** 刚点麦克风后，给用户开口的初始时间 */
+const INITIAL_MS = 15000
+
 type PermissionState2 = 'prompt' | 'prompt-with-rationale' | 'granted' | 'denied'
 
 type SRPlugin = {
@@ -89,9 +94,17 @@ export async function startNativeListen(
 
   let finalText = ''
   let ended = false
+  let silenceTimer: ReturnType<typeof setTimeout> | null = null
   const handles: Array<{ remove: () => void }> = []
 
+  const clearSilence = () => {
+    if (silenceTimer) {
+      clearTimeout(silenceTimer)
+      silenceTimer = null
+    }
+  }
   const cleanup = () => {
+    clearSilence()
     for (const hd of handles) {
       try {
         hd.remove()
@@ -107,16 +120,38 @@ export async function startNativeListen(
     cleanup()
     h.onFinal?.(finalText)
   }
+  const stopAndFinish = async () => {
+    clearSilence()
+    if (ended) return
+    try {
+      await SR.stop()
+    } catch {
+      /* ignore */
+    }
+    finish()
+  }
+  // 说完停顿后自动结束：不依赖各平台是否派发 stopped 事件
+  const schedule = (ms: number) => {
+    clearSilence()
+    if (ended) return
+    silenceTimer = setTimeout(() => {
+      silenceTimer = null
+      void stopAndFinish()
+    }, ms)
+  }
 
   try {
     handles.push(
       await SR.addListener('partialResults', (data: any) => {
+        if (ended) return
         const arr = Array.isArray(data?.matches) ? data.matches : []
         const text = String(arr[0] ?? '').trim()
         if (text) {
           finalText = text
           h.onPartial?.(text)
         }
+        // 每次识别到内容都重置停顿计时
+        schedule(SILENCE_MS)
       }),
     )
     handles.push(
@@ -128,13 +163,15 @@ export async function startNativeListen(
     /* 监听注册失败不影响开始 */
   }
 
+  let startedMatches: string[] = []
   try {
-    await SR.start({
+    const started = await SR.start({
       language: h.language || 'en-US',
       maxResults: 1,
       partialResults: true,
       popup: false,
     })
+    startedMatches = Array.isArray(started?.matches) ? started.matches : []
   } catch (e: unknown) {
     cleanup()
     const msg = String((e as { message?: string })?.message || e || '')
@@ -146,15 +183,20 @@ export async function startNativeListen(
     return null
   }
 
+  // 少数平台 start 结束时才返回最终结果（未走 partialResults 的情况）
+  if (startedMatches.length && !finalText) {
+    const first = String(startedMatches[0] ?? '').trim()
+    if (first) {
+      finalText = first
+      h.onPartial?.(first)
+    }
+  }
+
+  if (!ended) schedule(INITIAL_MS)
+
   return {
     stop: async () => {
-      try {
-        await SR.stop()
-      } catch {
-        /* ignore */
-      }
-      // 兜底：即便没收到 stopped 事件也收尾
-      finish()
+      await stopAndFinish()
     },
   }
 }
