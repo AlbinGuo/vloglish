@@ -262,7 +262,7 @@ async function startScanPay() {
   <!-- iOS App：App 化会员页 + Apple 内购 -->
   <div v-if="isIosApp" class="min-h-dvh bg-canvas text-ink flex flex-col">
     <header
-      class="sticky top-0 z-20 flex items-center gap-3 border-b border-line-soft bg-canvas/90 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] backdrop-blur"
+      class="sticky top-0 z-20 flex items-center gap-3 border-b border-line-soft bg-canvas px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))]"
     >
       <button
         type="button"
