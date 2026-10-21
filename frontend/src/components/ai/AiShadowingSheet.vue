@@ -255,12 +255,12 @@ const playDemoLabel = computed(() => {
 const recordHint = computed(() => {
   if (loading.value) return '正在评分…'
   if (listening.value && useOral.value) return '正在录音… 说完点一下结束'
-  if (listening.value) return '正在听你说… 说完再点停止'
+  if (listening.value) return '正在听你说… 说完停顿一下即可自动点评'
   if (micUnsupported.value) return '可用下方输入框提交英文'
   if (useOral.value && practiceMode.value === 'word') return '点麦克风读出这个单词'
   if (useOral.value && practiceMode.value === 'passage') return '点麦克风朗读整段'
   if (useOral.value) return '点麦克风跟读，系统直接评发音'
-  return '点麦克风跟读，停止后自动点评'
+  return '点麦克风跟读，说完停顿一下自动点评'
 })
 
 const dimensionItems = computed(() => {

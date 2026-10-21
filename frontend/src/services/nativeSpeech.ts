@@ -6,16 +6,15 @@ import { isNativePlatform } from '@/utils/platform'
  * 背景：Web 端用阿里云 Web SDK + 浏览器 SpeechRecognition，但在 Capacitor 的
  * iOS/Android WebView 里都不可用。这里改用原生识别插件
  * (@capacitor-community/speech-recognition)：iOS 走 SFSpeechRecognizer，
- * Android 走系统 SpeechRecognizer，识别出文字后交给后端「识别点评」。
+ * Android 走系统 SpeechRecognizer。
  *
- * partialResults=true 时各平台行为一致：start() 立即返回，识别过程通过
- * partialResults 事件推送中间结果，直到调用 stop()（或系统自动停止）。
+ * 采用 partialResults:false —— 各平台在「说完/停止」时会通过 start() 的返回值
+ * 给出最终识别文本（iOS: 说话停顿后给最终结果；Android: onResults 给最终 matches）。
+ * 这比依赖 partialResults 事件更稳，避免事件没送达导致「没有任何反应」。
  */
 
-/** 识别到内容后，停顿多久自动结束并触发点评 */
-const SILENCE_MS = 2000
-/** 刚点麦克风后，给用户开口的初始时间 */
-const INITIAL_MS = 15000
+/** 说话后最多聆听这么久，超时强制结束（防止一直挂着不点评） */
+const MAX_LISTEN_MS = 15000
 
 type PermissionState2 = 'prompt' | 'prompt-with-rationale' | 'granted' | 'denied'
 
@@ -41,16 +40,16 @@ async function loadSR(): Promise<SRPlugin | null> {
   return pluginPromise
 }
 
-/** 当前是否在原生 App 且具备原生语音识别能力 */
+/** 当前是否在原生 App */
 export function nativeSpeechAvailable(): boolean {
   return isNativePlatform()
 }
 
 export interface NativeListenHandlers {
   language?: string
-  /** 识别到（可能不完整）的文字，实时回调 */
+  /** 识别到（可能不完整）的文字，实时回调（当前方案可能不触发） */
   onPartial?: (text: string) => void
-  /** 识别结束（系统自动停或调用 stop）后的最终文字 */
+  /** 识别结束后的最终文字 */
   onFinal?: (text: string) => void
   /** 失败/不可用提示 */
   onError?: (message: string) => void
@@ -69,12 +68,11 @@ export async function startNativeListen(
     return null
   }
 
-  // 某些机型首次 available() 可能瞬时返回 false，这里不再据此直接放弃，
-  // 交给真正的 start() 去判定（可用性异常会在 start 阶段报错）。
+  // 某些机型首次 available() 可能瞬时返回 false，不据此放弃，交给 start() 判定
   try {
     await SR.available()
   } catch {
-    /* 某些平台无 available 实现时继续尝试 */
+    /* 某些平台无 available 实现时继续 */
   }
 
   try {
@@ -90,111 +88,73 @@ export async function startNativeListen(
     /* 权限接口异常时仍尝试开始，失败会在 start 阶段报错 */
   }
 
-  let finalText = ''
   let ended = false
-  let silenceTimer: ReturnType<typeof setTimeout> | null = null
-  const handles: Array<{ remove: () => void }> = []
+  let safetyTimer: ReturnType<typeof setTimeout> | null = null
 
-  const clearSilence = () => {
-    if (silenceTimer) {
-      clearTimeout(silenceTimer)
-      silenceTimer = null
+  const clearSafety = () => {
+    if (safetyTimer) {
+      clearTimeout(safetyTimer)
+      safetyTimer = null
     }
   }
-  const cleanup = () => {
-    clearSilence()
-    for (const hd of handles) {
-      try {
-        hd.remove()
-      } catch {
-        /* ignore */
-      }
-    }
-    handles.length = 0
-  }
-  const finish = () => {
+  const finish = (text: string) => {
     if (ended) return
     ended = true
-    cleanup()
-    h.onFinal?.(finalText)
+    clearSafety()
+    h.onFinal?.(text.trim())
   }
-  const stopAndFinish = async () => {
-    clearSilence()
+  const fail = (message: string) => {
     if (ended) return
-    try {
-      await SR.stop()
-    } catch {
-      /* ignore */
-    }
-    finish()
-  }
-  // 说完停顿后自动结束：不依赖各平台是否派发 stopped 事件
-  const schedule = (ms: number) => {
-    clearSilence()
-    if (ended) return
-    silenceTimer = setTimeout(() => {
-      silenceTimer = null
-      void stopAndFinish()
-    }, ms)
+    ended = true
+    clearSafety()
+    h.onError?.(message)
   }
 
+  let startPromise: Promise<{ matches?: string[] }>
   try {
-    handles.push(
-      await SR.addListener('partialResults', (data: any) => {
-        if (ended) return
-        const arr = Array.isArray(data?.matches) ? data.matches : []
-        const text = String(arr[0] ?? '').trim()
-        if (text) {
-          finalText = text
-          h.onPartial?.(text)
-        }
-        // 每次识别到内容都重置停顿计时
-        schedule(SILENCE_MS)
-      }),
-    )
-    handles.push(
-      await SR.addListener('listeningState', (data: any) => {
-        if (data?.status === 'stopped') finish()
-      }),
-    )
-  } catch {
-    /* 监听注册失败不影响开始 */
-  }
-
-  let startedMatches: string[] = []
-  try {
-    const started = await SR.start({
+    startPromise = SR.start({
       language: h.language || 'en-US',
       maxResults: 1,
-      partialResults: true,
+      partialResults: false,
       popup: false,
     })
-    startedMatches = Array.isArray(started?.matches) ? started.matches : []
   } catch (e: unknown) {
-    cleanup()
     const msg = String((e as { message?: string })?.message || e || '')
-    if (/no match|not recognized|no speech|没有识别|无法识别/i.test(msg)) {
-      h.onError?.('没有识别到语音，请再说一次')
-    } else {
-      h.onError?.(msg ? msg.slice(0, 140) : '语音识别启动失败')
-    }
+    fail(msg ? msg.slice(0, 140) : '语音识别启动失败')
     return null
   }
 
-  // 少数平台 start 结束时才返回最终结果（未走 partialResults 的情况）
-  if (startedMatches.length && !finalText) {
-    const first = String(startedMatches[0] ?? '').trim()
-    if (first) {
-      finalText = first
-      h.onPartial?.(first)
-    }
-  }
+  startPromise
+    .then((res) => {
+      const arr = Array.isArray(res?.matches) ? res.matches : []
+      finish(String(arr[0] ?? ''))
+    })
+    .catch((e: unknown) => {
+      const msg = String((e as { message?: string })?.message || e || '')
+      if (/no match|not recognized|no speech|没有识别|无法识别|timeout/i.test(msg)) {
+        fail('没有识别到语音，请再说一次')
+      } else {
+        fail(msg ? msg.slice(0, 140) : '语音识别失败')
+      }
+    })
 
-  if (!ended) schedule(INITIAL_MS)
+  safetyTimer = setTimeout(() => {
+    if (ended) return
+    void SR.stop().catch(() => undefined)
+  }, MAX_LISTEN_MS)
 
   return {
     stop: async () => {
-      await stopAndFinish()
+      if (ended) return
+      try {
+        await SR.stop()
+      } catch {
+        /* ignore */
+      }
+      // stop() 后 start() 会返回最终文本并走 finish；这里做兜底，避免个别平台不返回
+      setTimeout(() => {
+        if (!ended) finish('')
+      }, 1500)
     },
   }
 }
