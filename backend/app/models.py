@@ -390,6 +390,21 @@ class ActivationCode(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class AppleIapTransaction(Base):
+    """Apple 内购交易流水：按 transaction_id 去重，防止重复发货 / 多账号共享同一笔购买。"""
+
+    __tablename__ = "apple_iap_transactions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    transaction_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    product_id: Mapped[str] = mapped_column(String(128), default="")
+    plan: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # 订阅到期时间（毫秒时间戳，字符串存储）；永久/一次性为 ""
+    expires_ms: Mapped[str] = mapped_column(String(32), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class DemoCode(Base):
     __tablename__ = "demo_codes"
 

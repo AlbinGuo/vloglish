@@ -15,7 +15,10 @@ import { getNativePlatform, isNativePlatform } from '@/utils/platform'
 export interface ApplePurchaseResult {
   productId: string
   transactionId: string
-  /** 应用级收据（base64），用于后端 verifyReceipt 校验 */
+  /**
+   * 后端校验凭证：StoreKit2 为 Apple 签名的交易 JWS（较长，形如 a.b.c）；
+   * 旧版 StoreKit1 为 base64 应用收据。后端两种都能识别。
+   */
   receipt: string
 }
 
@@ -81,7 +84,7 @@ function clearPending() {
   }
 }
 
-/** 从 v13 的 Transaction 中取出 base64 应用收据（parentReceipt 是对象，不是字符串） */
+/** 从 v13 的 Transaction 中取出用于后端校验的凭证（SK2 为交易 JWS，SK1 为 base64 应用收据） */
 function extractAppReceipt(tx: any): string {
   const parent: any = tx?.parentReceipt
   // 1) Receipt 对象的 nativeData.appStoreReceipt（标准路径）
