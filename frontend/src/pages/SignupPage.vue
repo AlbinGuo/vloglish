@@ -73,7 +73,7 @@ async function submit() {
     <h2 class="text-[1.75rem] font-semibold tracking-tight lg:text-[1.65rem]">创建账号</h2>
     <p class="mt-1.5 text-[13px] leading-relaxed text-neutral-500">
       <template v-if="hasInvite">检测到邀请激活码，注册后将直接开通会员。</template>
-      <template v-else>免费注册，开始用真实 vlog 练听力与口语。</template>
+      <template v-else>免费注册，马上开始练习。</template>
     </p>
 
     <form class="mt-6 space-y-5 lg:mt-8" @submit.prevent="submit">

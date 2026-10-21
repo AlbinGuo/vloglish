@@ -8,6 +8,7 @@ EPISODE_STATUS_PATTERN = "^(draft|published|archived|rejected)$"
 class UserOut(BaseModel):
     id: int
     email: str
+    user_no: str | None = None
     nickname: str | None = None
     phone: str | None = None
     is_member: bool

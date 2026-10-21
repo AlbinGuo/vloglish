@@ -424,6 +424,13 @@ def _migrate_schema():
         print("[vloglish] migrated users.member_plan")
         insp = inspect(engine)
         cols = {c["name"] for c in insp.get_columns("users")}
+    if "user_no" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN user_no VARCHAR(8)"))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_user_no ON users (user_no)"))
+        print("[vloglish] migrated users.user_no")
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("users")}
     _backfill_member_plans()
     if "wx_session_key" not in cols:
         with engine.begin() as conn:

@@ -251,6 +251,8 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    # 对外展示的 8 位数字用户 ID（Apple 新用户自动分配；邮箱用户可为空）
+    user_no: Mapped[str | None] = mapped_column(String(8), unique=True, nullable=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     nickname: Mapped[str | None] = mapped_column(String(64), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)

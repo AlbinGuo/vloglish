@@ -1,6 +1,7 @@
 export interface User {
   id: number
   email: string
+  user_no?: string | null
   nickname: string | null
   phone: string | null
   is_member: boolean

@@ -19,7 +19,6 @@ import { LANDING_MOCKS } from '@/data/landing'
           <BrandLogo :size="28" />
           <span class="text-[1.02rem] font-semibold tracking-[-0.02em]">Vloglish</span>
         </RouterLink>
-        <p class="text-[13px] text-neutral-400 lg:hidden">真实 vlog · 一句一练</p>
       </div>
 
       <div class="hidden min-h-0 flex-1 items-center justify-center px-6 py-6 lg:flex lg:px-10">

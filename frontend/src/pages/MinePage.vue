@@ -35,6 +35,34 @@ const contactAuthorOpen = ref(false)
 const feedbackOpen = ref(false)
 const cycling = ref(false)
 
+const idCopied = ref(false)
+let copyTimer: ReturnType<typeof setTimeout> | undefined
+async function copyUserId() {
+  const value = auth.user?.user_no
+  if (!value) return
+  try {
+    await navigator.clipboard.writeText(value)
+  } catch {
+    const el = document.createElement('textarea')
+    el.value = value
+    el.style.position = 'fixed'
+    el.style.opacity = '0'
+    document.body.appendChild(el)
+    el.select()
+    try {
+      document.execCommand('copy')
+    } catch {
+      /* ignore */
+    }
+    document.body.removeChild(el)
+  }
+  idCopied.value = true
+  if (copyTimer) clearTimeout(copyTimer)
+  copyTimer = setTimeout(() => {
+    idCopied.value = false
+  }, 1500)
+}
+
 const deleteOpen = ref(false)
 const deleteChecked = ref(false)
 const deleting = ref(false)
@@ -213,7 +241,20 @@ async function confirmDeleteAccount() {
               普通用户
             </span>
           </div>
-          <p v-if="showEmail" class="mt-0.5 truncate text-[12px] text-ink-faint">{{ auth.user?.email }}</p>
+          <div v-if="auth.user?.user_no" class="mt-1 flex items-center gap-1.5">
+            <span class="text-[12px] text-ink-faint">ID</span>
+            <span class="font-mono text-[13px] font-medium tracking-wide text-ink-soft">{{ auth.user.user_no }}</span>
+            <button
+              type="button"
+              class="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[11px] text-ink-faint transition hover:bg-sunken hover:text-ink"
+              :aria-label="idCopied ? '已复制' : '复制用户ID'"
+              @click="copyUserId"
+            >
+              <AppIcon :name="idCopied ? 'check-xs' : 'clipboard'" class="h-3.5 w-3.5" />
+              {{ idCopied ? '已复制' : '复制' }}
+            </button>
+          </div>
+          <p v-else-if="showEmail" class="mt-0.5 truncate text-[12px] text-ink-faint">{{ auth.user?.email }}</p>
           <p v-if="auth.isMember && memberUntilLabel" class="mt-1 text-[12px] text-ink-soft">
             会员有效期至 {{ memberUntilLabel }}
           </p>

@@ -62,6 +62,7 @@ def user_out(user: User) -> UserOut:
     return UserOut(
         id=user.id,
         email=user.email,
+        user_no=user.user_no,
         nickname=user.nickname,
         phone=user.phone,
         is_member=user_is_member(user),
@@ -70,6 +71,28 @@ def user_out(user: User) -> UserOut:
         wx_bound=bool((user.wx_openid or "").strip()),
         wechat_only=is_wechat_only(user),
     )
+
+
+USER_NO_EMAIL_DOMAIN = "vloglish.cc"
+
+
+def _new_user_no(db: Session) -> str:
+    """生成不与现有用户重复的 8 位数字用户 ID。"""
+    for _ in range(100):
+        n = str(10000000 + secrets.randbelow(90000000))
+        mail = f"{n}@{USER_NO_EMAIL_DOMAIN}"
+        clash = db.query(User.id).filter((User.user_no == n) | (User.email == mail)).first()
+        if not clash:
+            return n
+    raise HTTPException(status_code=500, detail="生成用户 ID 失败，请重试")
+
+
+def assign_user_no(db: Session, user: User, *, reset_email: bool = False) -> None:
+    """为 Apple 新用户分配 8 位用户 ID；默认邮箱设为「ID@vloglish.cc」。"""
+    if not user.user_no:
+        user.user_no = _new_user_no(db)
+    if reset_email:
+        user.email = f"{user.user_no}@{USER_NO_EMAIL_DOMAIN}"
 
 
 def issue_tokens(db: Session, user: User, device_id: str) -> AuthTokensOut:
@@ -311,12 +334,12 @@ def apple_login(
         user = db.query(User).filter(User.email == placeholder).first()
         if user is not None:
             user.apple_sub = sub
+            assign_user_no(db, user, reset_email=True)
         else:
-            mail = email if (email and verified) else placeholder
-            if mail != placeholder and db.query(User).filter(User.email == mail).first():
-                mail = placeholder
+            user_no = _new_user_no(db)
             user = User(
-                email=mail,
+                email=f"{user_no}@{USER_NO_EMAIL_DOMAIN}",
+                user_no=user_no,
                 password_hash=hash_password(secrets.token_urlsafe(32)),
                 nickname=full_name,
                 apple_sub=sub,
@@ -340,6 +363,9 @@ def apple_login(
             raise HTTPException(status_code=403, detail="账号已停用")
         if full_name and not user.nickname:
             user.nickname = full_name
+        # 历史 Apple 用户（占位邮箱、尚无 user_no）补分配 ID
+        if not user.user_no and apple_auth_svc.is_apple_placeholder_email(user.email):
+            assign_user_no(db, user, reset_email=True)
         backfill_signup_geo(user, get_client_ip(request))
         ensure_user_avatar(user)
 

@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { consumeRemoteLoginNotice } from '@/api/tokens'
 import AppDownloadEntry from '@/components/AppDownloadEntry.vue'
+import BrandLogo from '@/components/BrandLogo.vue'
 import AppleSignInButton from '@/components/auth/AppleSignInButton.vue'
 import AuthSplitShell from '@/components/auth/AuthSplitShell.vue'
 import { authButtonClass, authInputClass, authLabelClass, authLinkClass, authPasswordClass } from '@/components/auth/authField'
 import PasswordInput from '@/components/PasswordInput.vue'
+import { isAppleSignInAvailable } from '@/services/appleAuth'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -17,6 +19,8 @@ const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
+
+const appleAvailable = computed(() => isAppleSignInAvailable())
 
 onMounted(() => {
   consumeRemoteLoginNotice()
@@ -51,10 +55,26 @@ async function submit() {
 
 <template>
   <AuthSplitShell>
-    <h2 class="text-[1.75rem] font-semibold tracking-tight lg:text-[1.65rem]">欢迎回来</h2>
-    <p class="mt-1.5 text-[13px] leading-relaxed text-neutral-500">用注册邮箱接着练。</p>
+    <div class="flex flex-col items-center text-center">
+      <BrandLogo :size="48" />
+      <h2 class="mt-4 text-[1.6rem] font-semibold tracking-tight lg:text-[1.5rem]">欢迎回来</h2>
+      <p class="mt-1.5 text-[13px] leading-relaxed text-neutral-500">
+        {{ appleAvailable ? '用 Apple 一键登录，或使用邮箱账号。' : '使用注册邮箱登录。' }}
+      </p>
+    </div>
 
-    <form class="mt-6 space-y-5 lg:mt-8" @submit.prevent="submit">
+    <AppleSignInButton />
+
+    <div
+      v-if="appleAvailable"
+      class="my-6 flex items-center gap-3 text-[12px] text-neutral-400"
+    >
+      <span class="h-px flex-1 bg-black/10" />
+      <span class="shrink-0">或使用邮箱登录</span>
+      <span class="h-px flex-1 bg-black/10" />
+    </div>
+
+    <form class="space-y-5" :class="appleAvailable ? '' : 'mt-6'" @submit.prevent="submit">
       <div>
         <label for="login-email" :class="authLabelClass">邮箱</label>
         <input
@@ -91,8 +111,6 @@ async function submit() {
         {{ loading ? '登录中...' : '登录' }}
       </button>
     </form>
-
-    <AppleSignInButton />
 
     <p class="mt-7 text-center text-[13px] text-neutral-500">
       还没有账号？
