@@ -1,15 +1,20 @@
 # 把 Capacitor 工程构建成 iOS App，并自动上传到 App Store Connect（TestFlight 分发）。
 #
-# 签名方式：App Store Connect API Key + 自动签名
-# —— 不需要 p12 / .mobileprovision，适合没有 Mac 的 Windows 开发者。
+# 签名方式：手动签名（固定 Apple Distribution 证书 .p12 + App Store 描述文件，
+# 通过 Secrets 注入）+ App Store Connect API Key 仅用于上传。
+# —— 关键：不再用「自动签名」，否则每次全新的 runner 都会新建一张分发证书，
+#    几次后就会撞上 Apple 每账号 3 张分发证书的上限而报
+#    "Your account has reached the maximum number of certificates"。
 #
 # 触发：
 #   - 打 tag：git tag v1.2.0 && git push origin v1.2.0   （版本号自动取自 tag）
 #   - 手动：Actions → iOS TestFlight → Run workflow     （可填版本号）
 #
-# 前置：在 App Store Connect 存在 bundle id 为 cc.vloglish.app 的 App 记录，
-#       并已在仓库配置 ASC_API_KEY_ID / ASC_API_ISSUER_ID / ASC_API_KEY_BASE64 / APPLE_TEAM_ID。
-#       详见 app/IOS_BUILD.md。
+# 前置：在 App Store Connect 存在 bundle id 为 cc.vloglish.app 的 App 记录，并配置 Secrets：
+#   - 上传用：ASC_API_KEY_ID / ASC_API_ISSUER_ID / ASC_API_KEY_BASE64 / APPLE_TEAM_ID
+#   - 签名用：BUILD_CERTIFICATE_BASE64（Apple Distribution 的 .p12） / P12_PASSWORD /
+#             KEYCHAIN_PASSWORD / PROVISIONING_PROFILE_BASE64（App Store 类型的描述文件）
+#   详见 app/IOS_BUILD.md。
 
 name: iOS TestFlight
 
@@ -173,9 +178,73 @@ jobs:
           echo "build=${RUN_NUMBER}" >> "$GITHUB_OUTPUT"
           echo "版本号: ${VERSION} (build ${RUN_NUMBER})"
 
-      # ---- 写入项目级签名设置（自动签名 + 版本号）----
+      # ---- 校验手动签名材料是否齐备 ----
+      - name: 校验签名密钥是否齐备
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -z "$BUILD_CERTIFICATE_BASE64" ] && missing="$missing BUILD_CERTIFICATE_BASE64"
+          [ -z "$PROVISIONING_PROFILE_BASE64" ] && missing="$missing PROVISIONING_PROFILE_BASE64"
+          [ -z "$P12_PASSWORD" ] && missing="$missing P12_PASSWORD"
+          [ -z "$KEYCHAIN_PASSWORD" ] && missing="$missing KEYCHAIN_PASSWORD"
+          [ -z "$APPLE_TEAM_ID" ] && missing="$missing APPLE_TEAM_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::缺少签名 Secrets:${missing}，请按 app/IOS_BUILD.md 配置后重试。"
+            exit 1
+          fi
+
+      # ---- 导入固定分发证书 + App Store 描述文件（复用，避免每次构建新建证书撞上限）----
+      - name: 导入分发证书与描述文件
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERTIFICATE_PATH="$RUNNER_TEMP/build_certificate.p12"
+          PP_PATH="$RUNNER_TEMP/build_pp.mobileprovision"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          P12_PASS="$(printf '%s' "$P12_PASSWORD" | tr -d ' \t\r\n')"
+
+          printf '%s' "$BUILD_CERTIFICATE_BASE64" | tr -d ' \t\r\n' > "$RUNNER_TEMP/cert.b64"
+          printf '%s' "$PROVISIONING_PROFILE_BASE64" | tr -d ' \t\r\n' > "$RUNNER_TEMP/pp.b64"
+          openssl base64 -d -A -in "$RUNNER_TEMP/cert.b64" -out "$CERTIFICATE_PATH"
+          openssl base64 -d -A -in "$RUNNER_TEMP/pp.b64" -out "$PP_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$P12_PASS" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PP_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/"
+
+          security cms -D -i "$PP_PATH" -o "$RUNNER_TEMP/provisioning.plist"
+          PP_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/provisioning.plist")
+          PP_APPID=$(plutil -extract Entitlements.application-identifier raw "$RUNNER_TEMP/provisioning.plist")
+          echo "描述文件名称 : $PP_NAME"
+          echo "描述文件 AppID: $PP_APPID （应形如 TEAMID.cc.vloglish.app）"
+          echo "PP_NAME=$PP_NAME" >> "$GITHUB_ENV"
+
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -z "$IDENTITY" ]; then
+            IDENTITY="Apple Distribution"
+          fi
+          echo "签名身份: $IDENTITY"
+          echo "CODE_SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+      # ---- 写入项目级签名设置（手动签名 + 版本号）----
       # 用项目级而非命令行，避免污染 Pods target
-      - name: 写入 iOS 签名设置
+      - name: 写入 iOS 签名设置（手动）
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           VERSION: ${{ steps.ver.outputs.version }}
@@ -184,21 +253,18 @@ jobs:
           set -euo pipefail
           python3 app/scripts/patch-ios-project-settings.py \
             app/ios/App/App.xcodeproj/project.pbxproj \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_STYLE=Manual \
+            "CODE_SIGN_IDENTITY=$CODE_SIGN_IDENTITY" \
+            "PROVISIONING_PROFILE_SPECIFIER=$PP_NAME" \
             "DEVELOPMENT_TEAM=$APPLE_TEAM_ID" \
             "MARKETING_VERSION=$VERSION" \
-            "CURRENT_PROJECT_VERSION=$BUILD_NUMBER" \
-            PROVISIONING_PROFILE_SPECIFIER= \
-            CODE_SIGN_IDENTITY=
+            "CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
 
-      # ---- 归档（自动签名，Xcode 在云端管理证书与描述文件）----
+      # ---- 归档（手动签名，复用已导入的固定证书）----
       - name: xcodebuild archive
         working-directory: app/ios/App
         env:
-          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
-          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
-          VERSION: ${{ steps.ver.outputs.version }}
-          BUILD_NUMBER: ${{ steps.ver.outputs.build }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
           xcodebuild \
@@ -208,22 +274,17 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            MARKETING_VERSION="$VERSION" \
-            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$AUTH_KEY_PATH" \
-            -authenticationKeyID "$ASC_API_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_API_ISSUER_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             clean archive
 
-      # ---- 上传到 App Store Connect ----
-      - name: 上传到 App Store Connect
+      # ---- 导出并上传到 App Store Connect（API Key 仅用于上传鉴权）----
+      - name: 导出并上传到 App Store Connect
         env:
           ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          VERSION: ${{ steps.ver.outputs.version }}
-          BUILD_NUMBER: ${{ steps.ver.outputs.build }}
         run: |
           set -euo pipefail
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
@@ -234,9 +295,13 @@ jobs:
             <key>destination</key><string>upload</string>
             <key>method</key><string>app-store-connect</string>
             <key>teamID</key><string>${APPLE_TEAM_ID}</string>
-            <key>signingStyle</key><string>automatic</string>
+            <key>signingStyle</key><string>manual</string>
             <key>stripSwiftSymbols</key><true/>
             <key>compileBitcode</key><false/>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${APP_BUNDLE_ID}</key><string>${PP_NAME}</string>
+            </dict>
           </dict>
           </plist>
           PLIST
@@ -245,7 +310,6 @@ jobs:
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             -exportPath "$RUNNER_TEMP/export" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
-            -allowProvisioningUpdates \
             -authenticationKeyPath "$AUTH_KEY_PATH" \
             -authenticationKeyID "$ASC_API_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_API_ISSUER_ID"

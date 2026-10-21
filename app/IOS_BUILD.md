@@ -162,8 +162,9 @@ git commit -m "chore(app): 提交 Capacitor iOS 工程"
 
 | | iOS Build（ad-hoc） | iOS TestFlight |
 |---|---|---|
-| 签名 | 手动（p12 + 描述文件） | **自动**（API Key，Xcode 云端管理） |
-| 需要 Secrets | 5 个 | 4 个（见下） |
+| 签名 | 手动（p12 + 描述文件） | 手动（固定分发证书 p12 + **App Store** 描述文件） |
+| 上传鉴权 | 无（只导出 ipa） | App Store Connect API Key |
+| 需要 Secrets | 5 个 | 签名 4 个 + ASC 3 个（共用 `APPLE_TEAM_ID`） |
 | 产物 | 下载 `App.ipa` 自行安装 | **直接上传 App Store Connect** |
 | 安装方式 | 限已登记 UDID 的设备 | 任何人凭 TestFlight 链接安装，90 天有效 |
 | 版本号 | 固定 | tag 或手动指定，写入 `CFBundleShortVersionString` |
@@ -190,14 +191,23 @@ Users and Access → **Integrations** → App Store Connect API → **+**：
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("$PWD\AuthKey_你的KeyID.p8")) | Set-Clipboard
 ```
 
-**④ 配置 Repository Secrets**（与 ad-hoc 那套独立，共用 `APPLE_TEAM_ID`）
+**④ 配置 Repository Secrets**（签名 4 个 + 上传 3 个，共用 `APPLE_TEAM_ID`）
 
-| 名称 | 说明 |
-|------|------|
-| `ASC_API_KEY_ID` | API Key 的 Key ID |
-| `ASC_API_ISSUER_ID` | API Key 的 Issuer ID |
-| `ASC_API_KEY_BASE64` | `.p8` 的 base64 |
-| `APPLE_TEAM_ID` | 10 位 Team ID |
+| 名称 | 用途 | 说明 |
+|------|------|------|
+| `APPLE_TEAM_ID` | 共用 | 10 位 Team ID |
+| `BUILD_CERTIFICATE_BASE64` | 签名 | **Apple Distribution** 的 `distribution.p12` 的 base64（与 ad-hoc 那套用同一个即可） |
+| `P12_PASSWORD` | 签名 | 上面 p12 的密码 |
+| `KEYCHAIN_PASSWORD` | 签名 | CI 临时钥匙串密码，随便设 |
+| `PROVISIONING_PROFILE_BASE64` | 签名 | **App Store 类型**的 `.mobileprovision` 的 base64 |
+| `ASC_API_KEY_ID` | 上传 | API Key 的 Key ID |
+| `ASC_API_ISSUER_ID` | 上传 | API Key 的 Issuer ID |
+| `ASC_API_KEY_BASE64` | 上传 | `.p8` 的 base64 |
+
+> ⚠️ **关键**：TestFlight 上传要求描述文件是 **App Store 类型**（Distribution 证书 ↔ App Store 描述文件）。
+> 若你之前给 ad-hoc 生成的是 **Ad Hoc** 描述文件，需在 Apple 后台按**同一张 Distribution 证书**再生成一个 **App Store** 描述文件（Bundle ID = `cc.vloglish.app`），导出后更新 `PROVISIONING_PROFILE_BASE64`。
+>
+> 说明：CI 用**手动签名**复用固定的 p12，不再每次新建分发证书，避免撞上 Apple「每账号最多 3 张分发证书」的限制。
 
 ### 使用
 
@@ -241,7 +251,8 @@ This app was built with the iOS 17.5 SDK.
 ### TestFlight 相关
 
 - **`SDK version issue` / `built with the iOS 17.5 SDK`** → runner 镜像太旧，必须用 `macos-26`（Xcode 26+）。
-- **`Cloud signing permission error` / `You've been given access to cloud-managed distribution certificates`** → API Key 的 Access 角色权限不够，自动签名需要 **Admin** 角色；且你自己的账号也得是 Admin/Account Holder。
+- **`Choose a certificate to revoke. Your account has reached the maximum number of certificates`** → 旧版用「自动签名」时，每次全新 runner 都会新建一张分发证书，撞上 Apple **每账号最多 3 张分发证书**上限。现已改为**手动签名**（复用固定 p12，不再新建证书），一般不会再现。若仍出现：到 developer.apple.com → Certificates 撤销多余的 Apple Distribution 证书后重跑。
+- **`No profiles for 'cc.vloglish.app' were found`** → 描述文件**类型/ Bundle ID 不匹配**（TestFlight 必须是 **App Store** 类型），或未正确导入。按第九节重新生成 App Store 描述文件并更新 secret。
 - **`No app record found matching this bundle identifier`** → App Store Connect 里没有该 Bundle ID 的 App 记录，或选错了 Bundle ID。
 - **`Invalid base64-encoded string`** → `ASC_API_KEY_BASE64` Secret 内容不完整/不是那个 `.p8` 的编码。一个 `.p8`（约 257 字节）的 base64 应该是 **344** 个字符。
 
