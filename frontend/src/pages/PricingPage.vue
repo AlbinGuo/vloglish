@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { createPcPaySession, fetchPcPayQr, fetchPcPayStatus } from '@/api/wxpay'
 import { getErrorDetail } from '@/api/tokens'
@@ -7,7 +7,9 @@ import { useAuthStore } from '@/stores/auth'
 import { useCatalogStore } from '@/stores/catalog'
 import { copyText } from '@/utils/clipboard'
 import AppIcon from '@/components/AppIcon.vue'
-import { isMobileAppBuild, isNativePlatform } from '@/utils/platform'
+import { getNativePlatform, isMobileAppBuild, isNativePlatform } from '@/utils/platform'
+import { verifyApplePurchase } from '@/api/membership'
+import { applePurchase, isAppleIapAvailable, restoreApplePurchases } from '@/services/appleIap'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -39,6 +41,75 @@ let copiedTimer: ReturnType<typeof setTimeout> | undefined
 
 function isAppClient() {
   return isMobileAppBuild() || isNativePlatform()
+}
+
+/** iOS 原生 App：走 Apple 内购，展示 App 化会员页 */
+const isIosApp = isNativePlatform() && getNativePlatform() === 'ios'
+
+const APPLE_PRODUCT_IDS: Record<'quarter' | 'year' | 'forever', string> = {
+  quarter: 'cc.vloglish.app.member.quarter',
+  year: 'cc.vloglish.app.member.year',
+  forever: 'cc.vloglish.app.member.forever',
+}
+
+const appleBusy = ref(false)
+const appleError = ref('')
+const appleSuccess = ref('')
+const restoring = ref(false)
+
+const selectedPlan = computed(() => plans.find((p) => p.id === selected.value) ?? null)
+
+async function startApplePay() {
+  const plan = selected.value
+  if (plan !== 'quarter' && plan !== 'year' && plan !== 'forever') return
+  appleError.value = ''
+  appleSuccess.value = ''
+  if (!isAppleIapAvailable()) {
+    appleError.value = 'Apple 内购暂不可用，请更新到最新版本 App'
+    return
+  }
+  appleBusy.value = true
+  try {
+    const productId = APPLE_PRODUCT_IDS[plan]
+    const result = await applePurchase(productId)
+    const res = await verifyApplePurchase({
+      product_id: result.productId || productId,
+      transaction_id: result.transactionId,
+      receipt: result.receipt,
+    })
+    if (!res || (!res.is_member && !res.member_until)) {
+      appleError.value = '支付已完成，会员开通确认中，请稍后在「我的」查看'
+      return
+    }
+    appleSuccess.value = '支付成功，正在开通会员…'
+    await auth.fetchMe()
+    await catalog.loadEpisodes(true)
+    await router.replace('/english')
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : ''
+    appleError.value = /cancel|取消/i.test(msg) ? '已取消支付' : msg || '支付未完成，请稍后重试'
+  } finally {
+    appleBusy.value = false
+  }
+}
+
+async function restorePurchase() {
+  restoring.value = true
+  appleError.value = ''
+  appleSuccess.value = ''
+  try {
+    await restoreApplePurchases()
+    await auth.fetchMe()
+    if (auth.isMember) {
+      await router.replace('/english')
+      return
+    }
+    appleError.value = '未找到可恢复的购买记录'
+  } catch {
+    appleError.value = '恢复购买失败，请稍后重试'
+  } finally {
+    restoring.value = false
+  }
 }
 
 function goBack() {
@@ -91,6 +162,7 @@ function stopPay() {
 }
 
 onMounted(async () => {
+  if (isIosApp) selected.value = 'year'
   if (!auth.isLoggedIn) {
     await router.replace({ path: '/login', query: { next: '/pricing' } })
     return
@@ -99,7 +171,7 @@ onMounted(async () => {
     await router.replace('/english')
     return
   }
-  if (selected.value !== 'author') await startScanPay()
+  if (!isIosApp && selected.value !== 'author') await startScanPay()
 })
 
 onUnmounted(() => {
@@ -108,6 +180,7 @@ onUnmounted(() => {
 })
 
 watch(selected, (choice) => {
+  if (isIosApp) return
   if (choice === 'author') {
     stopPay()
     error.value = ''
@@ -119,6 +192,7 @@ watch(selected, (choice) => {
 })
 
 async function startScanPay() {
+  if (isIosApp) return
   if (selected.value === 'author') return
   const seq = ++paySeq
   const plan = selected.value
@@ -173,7 +247,136 @@ async function startScanPay() {
 </script>
 
 <template>
-  <div class="pricing-page min-h-dvh px-4 py-5 sm:py-10">
+  <!-- iOS App：App 化会员页 + Apple 内购 -->
+  <div v-if="isIosApp" class="min-h-dvh bg-canvas text-ink flex flex-col">
+    <header
+      class="sticky top-0 z-20 flex items-center gap-3 border-b border-line-soft bg-canvas/90 px-4 py-3 backdrop-blur"
+    >
+      <button
+        type="button"
+        class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sunken text-ink-soft transition active:scale-95"
+        aria-label="返回"
+        @click="goBack"
+      >
+        <AppIcon name="chevron-left" class="h-5 w-5" />
+      </button>
+      <h1 class="flex-1 text-[16px] font-semibold tracking-tight">开通会员</h1>
+    </header>
+
+    <div class="flex-1 space-y-4 overflow-y-auto px-4 pb-44 pt-5">
+      <!-- 权益横幅 -->
+      <div class="rounded-2xl bg-ink p-5 text-ink-inverse shadow-sm">
+        <div class="flex items-center gap-2">
+          <AppIcon name="crown" class="h-5 w-5" style="color: #edd577" />
+          <span class="text-[15px] font-semibold">Vloglish 会员</span>
+        </div>
+        <p class="mt-2 text-[13px] leading-relaxed text-white/75">
+          解锁全部视频与合集精听、AI 工具不限次、读报文章不限量。
+        </p>
+      </div>
+
+      <!-- 套餐选择 -->
+      <div class="space-y-2.5">
+        <button
+          v-for="p in plans"
+          :key="p.id"
+          type="button"
+          class="relative w-full rounded-2xl border p-4 text-left transition active:scale-[0.99]"
+          :class="selected === p.id ? 'border-brand bg-brand-soft' : 'border-line-soft bg-card'"
+          @click="selected = p.id"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-[15px] font-semibold text-ink">{{ p.name }}</span>
+                <span
+                  v-if="p.id === 'year'"
+                  class="rounded-full bg-warning-soft px-2 py-0.5 text-[10px] font-semibold text-warning"
+                >
+                  最受欢迎
+                </span>
+              </div>
+              <p class="mt-1 text-[12px] text-ink-faint">{{ p.period }} · {{ p.note }}</p>
+            </div>
+            <div class="shrink-0 text-right">
+              <span class="text-2xl font-bold tabular-nums text-ink">¥{{ p.price }}</span>
+            </div>
+          </div>
+          <span
+            v-if="selected === p.id"
+            class="absolute bottom-4 right-4 inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand text-ink-inverse"
+          >
+            <AppIcon name="check" class="h-3.5 w-3.5" />
+          </span>
+        </button>
+      </div>
+
+      <!-- 权益明细 -->
+      <ul class="space-y-2.5 rounded-2xl border border-line-soft bg-card p-4">
+        <li
+          v-for="b in benefits"
+          :key="b"
+          class="flex items-start gap-2.5 text-[13px] text-ink-soft"
+        >
+          <AppIcon name="check-circle" class="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+          <span>{{ b }}</span>
+        </li>
+      </ul>
+
+      <p
+        v-if="appleError"
+        class="rounded-xl bg-danger/10 px-3 py-2 text-[12.5px] text-danger"
+      >
+        {{ appleError }}
+      </p>
+      <p
+        v-if="appleSuccess"
+        class="rounded-xl bg-success/10 px-3 py-2 text-[12.5px] text-success"
+      >
+        {{ appleSuccess }}
+      </p>
+
+      <button
+        type="button"
+        class="w-full text-center text-[12px] text-ink-faint underline-offset-2 hover:underline disabled:opacity-50"
+        :disabled="restoring"
+        @click="restorePurchase"
+      >
+        {{ restoring ? '恢复中…' : '恢复购买' }}
+      </button>
+
+      <p class="pt-1 text-center text-[11px] leading-relaxed text-ink-faint">
+        通过 Apple ID 安全支付，可随时在 App Store 的「订阅」中管理或取消。
+      </p>
+    </div>
+
+    <!-- 底部固定支付栏 -->
+    <div
+      class="fixed inset-x-0 bottom-0 z-20 border-t border-line-soft bg-card-glass px-4 pt-3 backdrop-blur-md pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]"
+    >
+      <div class="mx-auto flex max-w-xl items-center gap-3">
+        <div class="shrink-0">
+          <p class="text-[11px] text-ink-faint">{{ selectedPlan?.name || '会员' }}</p>
+          <p class="text-xl font-bold tabular-nums text-ink">¥{{ selectedPlan?.price || '—' }}</p>
+        </div>
+        <button
+          type="button"
+          class="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-ink py-3 text-[15px] font-semibold text-ink-inverse transition active:scale-[0.99] disabled:opacity-60"
+          :disabled="appleBusy || restoring"
+          @click="startApplePay"
+        >
+          <span
+            v-if="appleBusy"
+            class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+          />
+          {{ appleBusy ? '支付中…' : '通过 Apple 支付' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 其它端（Web / Android）：保持原有微信扫码 / 电脑支付布局 -->
+  <div v-else class="pricing-page min-h-dvh px-4 py-5 sm:py-10">
     <div class="mx-auto w-full max-w-5xl">
       <div class="mb-4 flex items-center">
         <button

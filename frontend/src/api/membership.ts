@@ -49,3 +49,21 @@ export async function mockPayMembershipOrder(orderNo: string) {
   )
   return data
 }
+
+export interface ApplePurchaseVerifyIn {
+  product_id: string
+  transaction_id: string
+  receipt: string
+}
+
+export interface ApplePurchaseVerifyOut {
+  is_member: boolean
+  member_until: string | null
+  member_plan: string | null
+}
+
+/** 把 Apple 内购收据提交后端校验并开通会员 */
+export async function verifyApplePurchase(payload: ApplePurchaseVerifyIn) {
+  const { data } = await api.post<ApplePurchaseVerifyOut>('/api/membership/apple/verify/', payload)
+  return data
+}

@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -39,6 +40,62 @@ def _api_base(request: Request) -> str:
 
 def _can_manage(user: User, order) -> bool:
     return bool(user.is_staff or (order.user_id and order.user_id == user.id))
+
+
+class AppleVerifyIn(BaseModel):
+    product_id: str = ""
+    transaction_id: str = ""
+    receipt: str = ""
+
+
+@router.post("/apple/verify/")
+def verify_apple_purchase(
+    body: AppleVerifyIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """校验 Apple 内购收据并开通/续期会员。"""
+    from ..services.apple_iap import (
+        apple_iap_enabled,
+        days_until,
+        extract_transaction,
+        resolve_plan,
+        status_ok,
+        verify_receipt,
+    )
+    from ..services.membership import apply_membership
+
+    if not apple_iap_enabled():
+        raise HTTPException(status_code=503, detail="Apple 内购校验未配置")
+    if not (body.receipt or "").strip():
+        raise HTTPException(status_code=400, detail="缺少收据")
+    try:
+        res = verify_receipt(body.receipt.strip())
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail="无法校验 Apple 收据") from exc
+    if not status_ok(res.get("status")):
+        raise HTTPException(
+            status_code=400, detail=f"Apple 收据无效（status={res.get('status')}）"
+        )
+    info = extract_transaction(res, body.product_id, body.transaction_id)
+    if not info:
+        raise HTTPException(status_code=400, detail="未找到对应的购买记录")
+    plan = resolve_plan(info.get("product_id") or body.product_id)
+    if not plan:
+        raise HTTPException(status_code=400, detail="未知的会员商品")
+    plan_name, days = plan
+    if plan_name != "forever":
+        remaining = days_until(info.get("expires_ms"))
+        if remaining:
+            days = remaining
+    apply_membership(user, days, plan=plan_name)
+    db.commit()
+    db.refresh(user)
+    return {
+        "is_member": bool(user.is_member),
+        "member_until": user.member_until.isoformat() if user.member_until else None,
+        "member_plan": user.member_plan,
+    }
 
 
 @router.get("/pricing/", response_model=MembershipPricingOut)
