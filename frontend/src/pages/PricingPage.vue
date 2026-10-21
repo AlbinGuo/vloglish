@@ -74,10 +74,13 @@ async function startApplePay() {
   try {
     const productId = APPLE_PRODUCT_IDS[plan]
     const result = await applePurchase(productId)
+    if (!result.receipt) {
+      throw new Error('未能获取 Apple 收据，请重试（如持续失败请更新到最新版本 App）')
+    }
     const res = await verifyApplePurchase({
-      product_id: result.productId || productId,
-      transaction_id: result.transactionId,
-      receipt: result.receipt,
+      product_id: String(result.productId || productId),
+      transaction_id: String(result.transactionId || ''),
+      receipt: String(result.receipt),
     })
     if (!res || (!res.is_member && !res.member_until)) {
       appleError.value = '支付已完成，会员开通确认中，请稍后在「我的」查看'
@@ -88,8 +91,9 @@ async function startApplePay() {
     await catalog.loadEpisodes(true)
     await router.replace('/english')
   } catch (e) {
-    const msg = e instanceof Error ? e.message : ''
-    appleError.value = /cancel|取消/i.test(msg) ? '已取消支付' : msg || '支付未完成，请稍后重试'
+    const detail = getErrorDetail(e)
+    const raw = typeof detail === 'string' && detail ? detail : e instanceof Error ? e.message : ''
+    appleError.value = /cancel|取消/i.test(raw) ? '已取消支付' : raw || '支付未完成，请稍后重试'
   } finally {
     appleBusy.value = false
   }

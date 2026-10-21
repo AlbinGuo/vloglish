@@ -66,6 +66,24 @@ function clearPending() {
   }
 }
 
+/** 从 v13 的 Transaction 中取出 base64 应用收据（parentReceipt 是对象，不是字符串） */
+function extractAppReceipt(tx: any): string {
+  const parent: any = tx?.parentReceipt
+  // 1) Receipt 对象的 nativeData.appStoreReceipt（标准路径）
+  const fromNative = parent?.nativeData?.appStoreReceipt
+  if (typeof fromNative === 'string' && fromNative) return fromNative
+  // 2) 某些版本在 Receipt 上直接挂 appStoreReceipt
+  if (typeof parent?.appStoreReceipt === 'string' && parent.appStoreReceipt) return parent.appStoreReceipt
+  // 3) 若 parent 本身就是字符串（旧版本）
+  if (typeof parent === 'string' && parent) return parent
+  // 4) tx.receipt 字符串
+  if (typeof tx?.receipt === 'string' && tx.receipt) return tx.receipt
+  // 5) StoreKit2 JWS 兜底
+  const jws = tx?.nativePurchase?.jwsRepresentation ?? tx?.jwsRepresentation
+  if (typeof jws === 'string' && jws) return jws
+  return ''
+}
+
 async function ensureInitialized(productId: string): Promise<void> {
   const C = getCdv()
   if (!C) throw new Error('Apple 内购插件未安装，请更新到最新版本 App')
@@ -95,12 +113,11 @@ async function ensureInitialized(productId: string): Promise<void> {
     }
     const when = store.when?.()
     when?.approved?.((tx: any) => {
-      const pid: string = tx?.products?.[0]?.id ?? tx?.productId ?? ''
-      const receipt: string = tx?.parentReceipt ?? tx?.receipt ?? ''
+      const pid = String(tx?.products?.[0]?.id ?? tx?.productId ?? '')
       const result: ApplePurchaseResult = {
         productId: pid,
         transactionId: String(tx?.transactionId ?? ''),
-        receipt,
+        receipt: extractAppReceipt(tx),
       }
       try {
         tx?.finish?.()
