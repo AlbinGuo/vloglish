@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       launchAutoHide: true,
-      backgroundColor: '#0f172a',
+      backgroundColor: '#fafafa',
     },
     StatusBar: {
       // 与 frontend/src/native/shell.ts 一致：Android 不叠加，避免 header 被状态栏遮挡

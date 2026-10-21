@@ -164,22 +164,20 @@ def _install_ios_icons() -> None:
 
 
 def _install_ios_splash() -> None:
-    """把 assets/ios/start.jpg 作为 iOS 启动图写入 Splash.imageset。"""
-    if not IOS_SPLASH_SRC.is_file():
-        print("skip iOS splash: 未提供 assets/ios/start.jpg")
-        return
+    """生成纯色 iOS 启动图（无 logo），与应用内动画启动页首帧同色，实现无缝过渡。"""
     IOS_SPLASH.mkdir(parents=True, exist_ok=True)
     _clear_dir(IOS_SPLASH)
-    suffix = IOS_SPLASH_SRC.suffix.lower()
-    filename = f"splash{suffix}"
-    shutil.copy2(IOS_SPLASH_SRC, IOS_SPLASH / filename)
+    width, height = 1290, 2796
+    img = Image.new("RGB", (width, height), (250, 250, 250))  # #fafafa，与 AppSplash 背景一致
+    filename = "splash.png"
+    img.save(IOS_SPLASH / filename, format="PNG")
     (IOS_SPLASH / "Contents.json").write_text(
         '{\n  "images" : [\n    {\n      "idiom" : "universal",\n'
         f'      "filename" : "{filename}"\n    }}\n  ],\n'
         '  "info" : {\n    "version" : 1,\n    "author" : "xcode"\n  }\n}\n',
         encoding="utf-8",
     )
-    print(f"iOS 启动图已写入 Splash.imageset（{filename}）")
+    print(f"iOS 启动图已生成纯色背景 Splash.imageset（{filename}）")
 
 
 def main() -> None:
