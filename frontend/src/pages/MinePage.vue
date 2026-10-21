@@ -227,16 +227,16 @@ async function confirmDeleteAccount() {
 
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
-            <p class="truncate text-lg font-semibold text-ink">{{ displayName }}</p>
+            <p class="min-w-0 truncate text-lg font-semibold text-ink">{{ displayName }}</p>
             <span
               v-if="auth.isMember"
-              class="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning"
+              class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning"
             >
               <AppIcon name="crown" class="h-3 w-3" />会员
             </span>
             <span
               v-else
-              class="inline-flex items-center rounded-full bg-sunken px-2 py-0.5 text-[11px] font-medium text-ink-faint"
+              class="inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-sunken px-2 py-0.5 text-[11px] font-medium text-ink-faint"
             >
               普通用户
             </span>
