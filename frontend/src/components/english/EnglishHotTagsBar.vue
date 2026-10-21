@@ -105,7 +105,7 @@ watch(tags, async () => {
       :disabled="!canScrollLeft"
       @click="scrollByDir(-1)"
     >
-      <AppIcon name="chevron-right" class="w-4 h-4" />
+      <AppIcon name="chevron-left-xs" class="w-4 h-4" />
     </button>
 
     <div class="relative flex-1 min-w-0">
@@ -163,7 +163,7 @@ watch(tags, async () => {
       :disabled="!canScrollRight"
       @click="scrollByDir(1)"
     >
-      <AppIcon name="chevron-left-xs" class="w-4 h-4" />
+      <AppIcon name="chevron-right" class="w-4 h-4" />
     </button>
   </div>
 </template>
