@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import AppIcon from '@/components/AppIcon.vue'
 
 const router = useRouter()
 
@@ -10,18 +11,23 @@ function back() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-bg text-ink">
-    <div class="mx-auto max-w-2xl px-4 pb-16 pt-4">
+  <div class="flex min-h-dvh flex-col bg-canvas text-ink">
+    <header
+      class="sticky top-0 z-20 flex items-center gap-3 border-b border-line-soft bg-canvas px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))]"
+    >
       <button
         type="button"
-        class="mb-4 inline-flex items-center gap-1 text-[13px] text-ink-faint hover:text-ink"
+        class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sunken text-ink-soft transition active:scale-95"
+        aria-label="返回"
         @click="back"
       >
-        <span aria-hidden="true">‹</span> 返回
+        <AppIcon name="chevron-left" class="h-5 w-5" />
       </button>
+      <h1 class="flex-1 text-[16px] font-semibold tracking-tight">用户协议</h1>
+    </header>
 
-      <h1 class="text-xl font-bold">用户协议</h1>
-      <p class="mt-1 text-[12px] text-ink-faint">生效日期：2026-01-01 · 版本 v1.0</p>
+    <div class="mx-auto w-full max-w-2xl px-4 pb-16 pt-5">
+      <p class="text-[12px] text-ink-faint">生效日期：2026-01-01 · 版本 v1.0</p>
 
       <p class="mt-4 text-[13px] leading-relaxed text-ink-soft">
         欢迎使用 Vloglish（以下简称「本应用」）。本协议是你与我们之间就使用本应用所订立的约定。你开始使用即视为已阅读并同意本协议。
@@ -82,7 +88,7 @@ function back() {
       <section class="mt-6 space-y-2">
         <h2 class="text-[15px] font-semibold">八、联系我们</h2>
         <p class="text-[13px] leading-relaxed text-ink-soft">
-          如对本协议有疑问，请联系：<b>&lt;请填写你的联系邮箱&gt;</b>。
+          如对本协议有疑问，请联系：<b>838093891@qq.com</b>。
         </p>
       </section>
     </div>
