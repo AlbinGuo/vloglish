@@ -120,6 +120,11 @@ jobs:
         working-directory: app
         run: npx @capacitor/cli sync ios
 
+      # ---- 最低部署版本抬到 iOS 15.0（消除 2027 起强制 15+ 的警告）----
+      - name: 设置最低部署版本 iOS 15.0
+        working-directory: app
+        run: python3 scripts/set-ios-deployment-target.py ios/App/App.xcodeproj/project.pbxproj 15.0
+
       - name: pod install
         working-directory: app/ios/App
         run: pod install --repo-update
