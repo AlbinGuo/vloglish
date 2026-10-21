@@ -199,7 +199,8 @@ Users and Access → **Integrations** → App Store Connect API → **+**：
 | `BUILD_CERTIFICATE_BASE64` | 签名 | **Apple Distribution** 的 `distribution.p12` 的 base64（与 ad-hoc 那套用同一个即可） |
 | `P12_PASSWORD` | 签名 | 上面 p12 的密码 |
 | `KEYCHAIN_PASSWORD` | 签名 | CI 临时钥匙串密码，随便设 |
-| `PROVISIONING_PROFILE_BASE64` | 签名 | **App Store 类型**的 `.mobileprovision` 的 base64 |
+| `PROVISIONING_PROFILE_BASE64` | 签名 | **Ad Hoc** 描述文件的 base64（ad-hoc 构建用） |
+| `APPSTORE_PROVISIONING_PROFILE_BASE64` | 签名 | **App Store** 描述文件的 base64（TestFlight 用；不填则回退用上面那个） |
 | `ASC_API_KEY_ID` | 上传 | API Key 的 Key ID |
 | `ASC_API_ISSUER_ID` | 上传 | API Key 的 Issuer ID |
 | `ASC_API_KEY_BASE64` | 上传 | `.p8` 的 base64 |
