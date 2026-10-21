@@ -14,7 +14,6 @@ ASSETS = APP_ROOT / "assets"
 ANDROID_RES = APP_ROOT / "android" / "app" / "src" / "main" / "res"
 IOS_ASSETS = ASSETS / "ios"
 IOS_ICON_SRC = IOS_ASSETS / "AppIcon.appiconset"
-IOS_SPLASH_SRC = IOS_ASSETS / "start.jpg"
 IOS_ICON = (
     APP_ROOT / "ios" / "App" / "App" / "Assets.xcassets" / "AppIcon.appiconset"
 )
