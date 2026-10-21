@@ -303,12 +303,6 @@ async function startScanPay() {
               <span class="text-2xl font-bold tabular-nums text-ink">¥{{ p.price }}</span>
             </div>
           </div>
-          <span
-            v-if="selected === p.id"
-            class="absolute bottom-4 right-4 inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand text-ink-inverse"
-          >
-            <AppIcon name="check" class="h-3.5 w-3.5" />
-          </span>
         </button>
       </div>
 
