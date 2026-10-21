@@ -128,6 +128,9 @@ const showListenFloatCard = computed(
 )
 const { headerVisible: catalogHeaderVisible, catalogHeaderAutoHide } = useCatalogMobileHeaderHide()
 
+/** App 端隐藏移动端轻量 header 的品牌 logo / 通知 / 头像（底部 Tab 负责导航），仅保留状态栏安全区 */
+const hideAppMobileHeader = isMobileAppBuild()
+
 /** 移动端底部 Tab Bar：仅非沉浸式页面、已登录时显示 */
 const showBottomTabs = computed(() => !immersive.value && auth.isLoggedIn && !route.meta.landing)
 
@@ -488,9 +491,10 @@ watch(
     <!-- 移动端轻量 header：品牌 + 通知 + 我的头像（底部 Tab 负责主导航） -->
     <header
       v-if="!immersive"
-      class="sm:hidden sticky top-0 z-40 bg-card-glass backdrop-blur border-b border-line-soft pt-[env(safe-area-inset-top,0px)]"
+      class="sm:hidden sticky top-0 z-40 bg-card-glass backdrop-blur pt-[env(safe-area-inset-top,0px)]"
+      :class="hideAppMobileHeader ? '' : 'border-b border-line-soft'"
     >
-      <div class="px-4 py-2 flex items-center justify-between gap-3">
+      <div v-if="!hideAppMobileHeader" class="px-4 py-2 flex items-center justify-between gap-3">
         <RouterLink to="/english" class="flex items-center gap-2 min-w-0 shrink-0">
           <BrandLogo :size="26" />
           <span class="text-[1rem] font-semibold tracking-[-0.02em] leading-none">Vloglish</span>
