@@ -39,6 +39,8 @@ const catalog = new Set<string>()
 let pendingResolve: ((r: ApplePurchaseResult) => void) | null = null
 let pendingReject: ((e: Error) => void) | null = null
 let purchaseTimer: ReturnType<typeof setTimeout> | null = null
+/** 最近一次 StoreKit 原生错误（插件会把 transaction 失败的真实原因吞掉，这里尽量兜住 error 事件） */
+let lastStoreError = ''
 
 function isNonConsumable(productId: string): boolean {
   return /forever|permanent|lifetime/i.test(productId)
@@ -131,12 +133,18 @@ function attachHandlers(C: CdvPurchase) {
     reject?.(new Error('已取消支付'))
   })
   when?.error?.((err: any) => {
+    const msg = typeof err?.message === 'string' && err.message ? err.message : '支付失败'
+    lastStoreError = err?.code ? `${msg} (${err.code})` : msg
+    try {
+      console.warn('[AppleIAP] store error:', lastStoreError)
+    } catch {
+      /* ignore */
+    }
     // 仅在“有进行中的购买”时，把错误判定为购买失败；加载商品阶段忽略
     const reject = pendingReject
     if (!reject) return
     clearPending()
-    const msg = typeof err?.message === 'string' && err.message ? err.message : '支付失败'
-    reject(new Error(err?.code ? `${msg} (${err.code})` : msg))
+    reject(new Error(lastStoreError))
   })
 }
 
@@ -235,6 +243,7 @@ function describePurchaseError(err: any): string {
 export async function applePurchase(productId: string): Promise<ApplePurchaseResult> {
   const C = getCdv()
   if (!C) throw new Error('Apple 内购插件未安装，请更新到最新版本 App')
+  lastStoreError = ''
   const added = registerProducts(C, [productId])
   await ensureStoreReady()
   if (added) {
@@ -277,7 +286,11 @@ export async function applePurchase(productId: string): Promise<ApplePurchaseRes
         if (err) {
           const rej = pendingReject
           clearPending()
-          rej?.(new Error(describePurchaseError(err)))
+          let text = describePurchaseError(err)
+          if (lastStoreError && !text.includes(lastStoreError)) {
+            text += `（StoreKit：${lastStoreError}）`
+          }
+          rej?.(new Error(text))
         }
       })
       .catch((e: unknown) => {
