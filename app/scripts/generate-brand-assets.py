@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -11,8 +12,14 @@ from PIL import Image, ImageDraw
 APP_ROOT = Path(__file__).resolve().parents[1]
 ASSETS = APP_ROOT / "assets"
 ANDROID_RES = APP_ROOT / "android" / "app" / "src" / "main" / "res"
+IOS_ASSETS = ASSETS / "ios"
+IOS_ICON_SRC = IOS_ASSETS / "AppIcon.appiconset"
+IOS_SPLASH_SRC = IOS_ASSETS / "start.jpg"
 IOS_ICON = (
     APP_ROOT / "ios" / "App" / "App" / "Assets.xcassets" / "AppIcon.appiconset"
+)
+IOS_SPLASH = (
+    APP_ROOT / "ios" / "App" / "App" / "Assets.xcassets" / "Splash.imageset"
 )
 
 BG = (17, 17, 17, 255)  # #111111
@@ -87,6 +94,64 @@ def save(img: Image.Image, path: Path) -> None:
     print(f"wrote {path.relative_to(APP_ROOT)} ({img.size[0]}x{img.size[1]})")
 
 
+def _clear_dir(path: Path) -> None:
+    if not path.is_dir():
+        return
+    for child in path.iterdir():
+        if child.is_dir():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
+
+
+def _copy_tree_files(src: Path, dst: Path) -> None:
+    dst.mkdir(parents=True, exist_ok=True)
+    for child in src.iterdir():
+        target = dst / child.name
+        if child.is_dir():
+            shutil.copytree(child, target, dirs_exist_ok=True)
+        else:
+            shutil.copy2(child, target)
+
+
+def _install_ios_icons() -> None:
+    """优先使用 assets/ios/AppIcon.appiconset 的整套图标；否则用品牌标生成 1024 单图。"""
+    if IOS_ICON_SRC.is_dir():
+        _clear_dir(IOS_ICON)
+        _copy_tree_files(IOS_ICON_SRC, IOS_ICON)
+        print("iOS AppIcon 已替换为 assets/ios/AppIcon.appiconset 的自定义图标")
+        return
+    IOS_ICON.mkdir(parents=True, exist_ok=True)
+    save(draw_brand_circle(1024, canvas_fill=BG), IOS_ICON / "AppIcon-512@2x.png")
+    (IOS_ICON / "Contents.json").write_text(
+        '{\n  "images" : [\n    {\n      "filename" : "AppIcon-512@2x.png",\n'
+        '      "idiom" : "universal",\n      "platform" : "ios",\n'
+        '      "size" : "1024x1024"\n    }\n  ],\n'
+        '  "info" : {\n    "author" : "xcode",\n    "version" : 1\n  }\n}\n',
+        encoding="utf-8",
+    )
+    print("iOS AppIcon 由品牌标生成（未提供 assets/ios/AppIcon.appiconset）")
+
+
+def _install_ios_splash() -> None:
+    """把 assets/ios/start.jpg 作为 iOS 启动图写入 Splash.imageset。"""
+    if not IOS_SPLASH_SRC.is_file():
+        print("skip iOS splash: 未提供 assets/ios/start.jpg")
+        return
+    IOS_SPLASH.mkdir(parents=True, exist_ok=True)
+    _clear_dir(IOS_SPLASH)
+    suffix = IOS_SPLASH_SRC.suffix.lower()
+    filename = f"splash{suffix}"
+    shutil.copy2(IOS_SPLASH_SRC, IOS_SPLASH / filename)
+    (IOS_SPLASH / "Contents.json").write_text(
+        '{\n  "images" : [\n    {\n      "idiom" : "universal",\n'
+        f'      "filename" : "{filename}"\n    }}\n  ],\n'
+        '  "info" : {\n    "version" : 1,\n    "author" : "xcode"\n  }\n}\n',
+        encoding="utf-8",
+    )
+    print(f"iOS 启动图已写入 Splash.imageset（{filename}）")
+
+
 def main() -> None:
     ASSETS.mkdir(parents=True, exist_ok=True)
 
@@ -157,20 +222,8 @@ def main() -> None:
         print("skip Android: res dir not found")
 
     if IOS_ICON.is_dir():
-        ios_icons = [
-            ("AppIcon-20x20@2x.png", 40),
-            ("AppIcon-20x20@3x.png", 60),
-            ("AppIcon-29x29@2x.png", 58),
-            ("AppIcon-29x29@3x.png", 87),
-            ("AppIcon-40x40@2x.png", 80),
-            ("AppIcon-40x40@3x.png", 120),
-            ("AppIcon-60x60@2x.png", 120),
-            ("AppIcon-60x60@3x.png", 180),
-            ("AppIcon-1024x1024.png", 1024),
-        ]
-        for name, size in ios_icons:
-            save(draw_brand_circle(size, canvas_fill=BG), IOS_ICON / name)
-        print("iOS AppIcon updated")
+        _install_ios_icons()
+        _install_ios_splash()
     else:
         print("skip iOS: AppIcon.appiconset not found (ok if Android-only)")
 
