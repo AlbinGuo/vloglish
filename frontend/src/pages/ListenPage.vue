@@ -91,6 +91,7 @@ let touchStartX = 0
 let touchStartY = 0
 let tracking = false
 let captured = false
+let startedInList = false
 let lastWheelAt = 0
 
 function measurePage() {
@@ -129,6 +130,9 @@ function isBlockedTarget(target: EventTarget | null) {
 }
 
 function listConsumes(dy: number) {
+  // 只有手势从字幕列表内部开始时，才把竖向滑动交给列表滚动；
+  // 在视频区/header/底部控制区滑动也能正常切换上下集。
+  if (!startedInList) return false
   if (listen.viewMode !== 'subtitles') return false
   const el = listRoot.value
   if (!el) return false
@@ -185,6 +189,7 @@ function onTouchStart(e: TouchEvent) {
   tracking = true
   captured = false
   dragging.value = false
+  startedInList = Boolean(listRoot.value && e.target instanceof Node && listRoot.value.contains(e.target))
 }
 
 function onTouchMove(e: TouchEvent) {
@@ -231,7 +236,8 @@ function onTouchEnd() {
 function onWheel(e: WheelEvent) {
   if (overlayOpen() || switching.value || sheetAnimating.value || !canSwipeSwitch.value) return
   if (e.target instanceof Element && e.target.closest('input')) return
-  if (listConsumes(e.deltaY)) return
+  // 在字幕列表内滚动交给列表本身；其余区域滚动切换上下集
+  if (e.target instanceof Node && listRoot.value && listRoot.value.contains(e.target)) return
   if (Math.abs(e.deltaY) < 28) return
   const now = Date.now()
   if (now - lastWheelAt < WHEEL_COOLDOWN_MS) return
@@ -399,15 +405,10 @@ const showCoverPlaceholder = computed(
   () => Boolean(listen.coverUrl) && !listen.surfaceReady,
 )
 
+// 统一的深色底：不再按 id 取随机色相，避免切集时底色突变、
+// 与封面虚化色「混在一起」显得花。具体颜色交给封面虚化图。
 const backdropTint = computed(() => {
-  const seed = listen.currentVideoId || listen.coverUrl || 'listen'
-  let hash = 2166136261
-  for (let i = 0; i < seed.length; i += 1) {
-    hash ^= seed.charCodeAt(i)
-    hash = Math.imul(hash, 16777619)
-  }
-  const hue = Math.abs(hash) % 360
-  return `hsl(${hue} 46% 36%)`
+  return 'radial-gradient(120% 80% at 50% 0%, #15171d 0%, #0a0b0e 100%)'
 })
 </script>
 
@@ -517,7 +518,7 @@ const backdropTint = computed(() => {
             <div
               v-if="listen.viewMode === 'subtitles' && listen.episode"
               ref="listRoot"
-              class="relative z-10 flex-1 min-h-0 overflow-y-auto px-4 md:px-10 py-2"
+              class="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 md:px-10 py-2"
             >
               <div class="mx-auto w-full max-w-xl md:max-w-3xl space-y-2">
               <button
@@ -705,7 +706,7 @@ const backdropTint = computed(() => {
 <style scoped>
 .listen-page-sheet {
   will-change: transform;
-  touch-action: none;
+  touch-action: pan-y;
   overscroll-behavior: none;
 }
 .listen-side-arrow {
@@ -774,7 +775,7 @@ const backdropTint = computed(() => {
   width: 144%;
   height: 144%;
   object-fit: cover;
-  filter: blur(52px) saturate(1.75) brightness(0.78);
+  filter: blur(48px) saturate(1.2) brightness(0.72);
   transform: scale(1.08);
 }
 .listen-page__veil {

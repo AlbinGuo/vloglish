@@ -112,6 +112,10 @@ jobs:
         working-directory: app
         run: python3 scripts/add-speech-permissions.py ios/App
 
+      - name: 开启 iOS 后台播放（音频后台模式）
+        working-directory: app
+        run: python3 scripts/add-background-audio.py ios/App
+
       - name: pod install
         working-directory: app/ios/App
         run: pod install --repo-update
