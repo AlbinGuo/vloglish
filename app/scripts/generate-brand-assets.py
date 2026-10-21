@@ -114,23 +114,53 @@ def _copy_tree_files(src: Path, dst: Path) -> None:
             shutil.copy2(child, target)
 
 
+def _flatten_ios_icon(path: Path) -> None:
+    """去掉 alpha 通道：App Store 大图标不允许带 alpha/透明。
+
+    先用图标边缘的填充色铺满整块画布，再把图标叠上去，输出不带 alpha 的 RGB PNG。
+    iOS 运行时会自己套圆角遮罩，所以把透明圆角铺成同色后视觉无缝、且能通过校验。
+    """
+    im = Image.open(path).convert("RGBA")
+    w, h = im.size
+    probes = [(w // 2, 0), (w // 2, h - 1), (0, h // 2), (w - 1, h // 2)]
+    counts: dict[tuple[int, int, int], int] = {}
+    for x, y in probes:
+        for dx in range(-2, 3):
+            for dy in range(-2, 3):
+                px = im.getpixel((min(max(x + dx, 0), w - 1), min(max(y + dy, 0), h - 1)))
+                if px[3] > 200:
+                    key = (px[0], px[1], px[2])
+                    counts[key] = counts.get(key, 0) + 1
+    bg = max(counts, key=counts.get) if counts else (255, 255, 255)
+    base = Image.new("RGB", (w, h), bg)
+    base.paste(im, (0, 0), im)
+    base.save(path, format="PNG")
+
+
+def _flatten_ios_icons_dir() -> None:
+    for png in sorted(IOS_ICON.glob("*.png")):
+        _flatten_ios_icon(png)
+
+
 def _install_ios_icons() -> None:
     """优先使用 assets/ios/AppIcon.appiconset 的整套图标；否则用品牌标生成 1024 单图。"""
     if IOS_ICON_SRC.is_dir():
         _clear_dir(IOS_ICON)
         _copy_tree_files(IOS_ICON_SRC, IOS_ICON)
         print("iOS AppIcon 已替换为 assets/ios/AppIcon.appiconset 的自定义图标")
-        return
-    IOS_ICON.mkdir(parents=True, exist_ok=True)
-    save(draw_brand_circle(1024, canvas_fill=BG), IOS_ICON / "AppIcon-512@2x.png")
-    (IOS_ICON / "Contents.json").write_text(
-        '{\n  "images" : [\n    {\n      "filename" : "AppIcon-512@2x.png",\n'
-        '      "idiom" : "universal",\n      "platform" : "ios",\n'
-        '      "size" : "1024x1024"\n    }\n  ],\n'
-        '  "info" : {\n    "author" : "xcode",\n    "version" : 1\n  }\n}\n',
-        encoding="utf-8",
-    )
-    print("iOS AppIcon 由品牌标生成（未提供 assets/ios/AppIcon.appiconset）")
+    else:
+        IOS_ICON.mkdir(parents=True, exist_ok=True)
+        save(draw_brand_circle(1024, canvas_fill=BG), IOS_ICON / "AppIcon-512@2x.png")
+        (IOS_ICON / "Contents.json").write_text(
+            '{\n  "images" : [\n    {\n      "filename" : "AppIcon-512@2x.png",\n'
+            '      "idiom" : "universal",\n      "platform" : "ios",\n'
+            '      "size" : "1024x1024"\n    }\n  ],\n'
+            '  "info" : {\n    "author" : "xcode",\n    "version" : 1\n  }\n}\n',
+            encoding="utf-8",
+        )
+        print("iOS AppIcon 由品牌标生成（未提供 assets/ios/AppIcon.appiconset）")
+    # 统一去掉 alpha，满足 App Store「大图标不允许透明/带 alpha 通道」的要求
+    _flatten_ios_icons_dir()
 
 
 def _install_ios_splash() -> None:
