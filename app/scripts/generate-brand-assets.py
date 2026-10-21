@@ -168,7 +168,7 @@ def _install_ios_splash() -> None:
     IOS_SPLASH.mkdir(parents=True, exist_ok=True)
     _clear_dir(IOS_SPLASH)
     width, height = 1290, 2796
-    img = Image.new("RGB", (width, height), (250, 250, 250))  # #fafafa，与 AppSplash 背景一致
+    img = Image.new("RGB", (width, height), (17, 17, 17))  # #111111，与 AppSplash 背景一致
     filename = "splash.png"
     img.save(IOS_SPLASH / filename, format="PNG")
     (IOS_SPLASH / "Contents.json").write_text(

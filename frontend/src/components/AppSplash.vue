@@ -42,7 +42,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fafafa;
+  background: #111111;
   transition: opacity 0.45s ease;
 }
 .app-splash--leave {
@@ -58,11 +58,11 @@ onBeforeUnmount(() => {
   width: 78px;
   height: 78px;
   border-radius: 9999px;
-  background: #111111;
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 30px rgba(17, 17, 17, 0.18);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   opacity: 0;
   transform: translateY(8px);
   animation: appSplashIn 0.9s ease 0.15s forwards;
@@ -70,13 +70,13 @@ onBeforeUnmount(() => {
 .app-splash__v {
   width: 44px;
   height: 44px;
-  fill: #ffffff;
+  fill: #111111;
 }
 .app-splash__text {
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.14em;
-  color: #525252;
+  color: #d4d4d4;
   opacity: 0;
   transform: translateY(8px);
   animation: appSplashIn 0.9s ease 0.5s forwards;
