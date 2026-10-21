@@ -31,6 +31,7 @@ def apple_iap_enabled() -> bool:
 
 def _default_plan_map() -> dict[str, tuple[str, int | None]]:
     return {
+        "week": ("week", 7),
         "quarter": ("quarter", 90),
         "year": ("year", 365),
         "forever": ("forever", None),
@@ -77,6 +78,8 @@ def resolve_plan(product_id: str) -> tuple[str, int | None] | None:
         return ("year", 365)
     if "quarter" in low:
         return ("quarter", 90)
+    if "week" in low:
+        return ("week", 7)
     return None
 
 

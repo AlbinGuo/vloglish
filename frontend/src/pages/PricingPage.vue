@@ -15,15 +15,16 @@ const router = useRouter()
 const auth = useAuthStore()
 const catalog = useCatalogStore()
 
-type PlanId = 'quarter' | 'year' | 'forever' | 'test'
+type PlanId = 'week' | 'quarter' | 'year' | 'forever' | 'test'
 type PayChoice = PlanId | 'author'
 
 const AUTHOR_QR = '/author-wechat-qr.png'
 
 const plans: { id: PlanId; name: string; price: string; period: string; note: string; recommend: boolean }[] = [
-  { id: 'quarter', name: '季度会员', price: '29', period: '3 个月', note: '约 ¥9.7 / 月', recommend: false },
-  { id: 'year', name: '年度会员', price: '59', period: '12 个月', note: '约 ¥4.9 / 月', recommend: false },
-  { id: 'forever', name: '永久会员', price: '99', period: '一次买断', note: '不再续费', recommend: false },
+  { id: 'week', name: '周会员', price: '1', period: '7 天', note: '限时尝鲜', recommend: false },
+  { id: 'quarter', name: '季度会员', price: '38', period: '3 个月', note: '约 ¥12.7 / 月', recommend: false },
+  { id: 'year', name: '年度会员', price: '78', period: '12 个月', note: '约 ¥6.5 / 月', recommend: false },
+  { id: 'forever', name: '永久会员', price: '98', period: '一次买断', note: '不再续费', recommend: false },
   // { id: 'test', name: '测试会员', price: '1', period: '1 天', note: '联调付款', recommend: false },
 ]
 
@@ -46,7 +47,8 @@ function isAppClient() {
 /** iOS 原生 App：走 Apple 内购，展示 App 化会员页 */
 const isIosApp = isNativePlatform() && getNativePlatform() === 'ios'
 
-const APPLE_PRODUCT_IDS: Record<'quarter' | 'year' | 'forever', string> = {
+const APPLE_PRODUCT_IDS: Record<'week' | 'quarter' | 'year' | 'forever', string> = {
+  week: 'cc.vloglish.app.member.week',
   quarter: 'cc.vloglish.app.member.quarter',
   year: 'cc.vloglish.app.member.year',
   forever: 'cc.vloglish.app.member.forever',
@@ -61,7 +63,7 @@ const selectedPlan = computed(() => plans.find((p) => p.id === selected.value) ?
 
 async function startApplePay() {
   const plan = selected.value
-  if (plan !== 'quarter' && plan !== 'year' && plan !== 'forever') return
+  if (plan !== 'week' && plan !== 'quarter' && plan !== 'year' && plan !== 'forever') return
   appleError.value = ''
   appleSuccess.value = ''
   if (!isAppleIapAvailable()) {
@@ -253,7 +255,7 @@ async function startScanPay() {
   <!-- iOS App：App 化会员页 + Apple 内购 -->
   <div v-if="isIosApp" class="min-h-dvh bg-canvas text-ink flex flex-col">
     <header
-      class="sticky top-0 z-20 flex items-center gap-3 border-b border-line-soft bg-canvas/90 px-4 py-3 backdrop-blur"
+      class="sticky top-0 z-20 flex items-center gap-3 border-b border-line-soft bg-canvas/90 px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] backdrop-blur"
     >
       <button
         type="button"
@@ -267,17 +269,6 @@ async function startScanPay() {
     </header>
 
     <div class="flex-1 space-y-4 overflow-y-auto px-4 pb-44 pt-5">
-      <!-- 权益横幅 -->
-      <div class="rounded-2xl bg-ink p-5 text-ink-inverse shadow-sm">
-        <div class="flex items-center gap-2">
-          <AppIcon name="crown" class="h-5 w-5" style="color: #edd577" />
-          <span class="text-[15px] font-semibold">Vloglish 会员</span>
-        </div>
-        <p class="mt-2 text-[13px] leading-relaxed text-white/75">
-          解锁全部视频与合集精听、AI 工具不限次、读报文章不限量。
-        </p>
-      </div>
-
       <!-- 套餐选择 -->
       <div class="space-y-2.5">
         <button
@@ -463,7 +454,7 @@ async function startScanPay() {
                 </div>
                 <p class="shrink-0 flex items-start leading-none">
                   <span class="mt-1 mr-0.5 text-sm font-semibold">¥</span>
-                  <span class="text-[1.75rem] font-semibold tracking-tight">79</span>
+                  <span class="text-[1.75rem] font-semibold tracking-tight">98</span>
                 </p>
               </div>
               <p
@@ -540,7 +531,7 @@ async function startScanPay() {
             <p v-else class="text-sm text-neutral-400 text-center px-4">正在准备支付码…</p>
           </div>
           <p v-if="selected === 'author'" class="mt-2 text-center text-xs text-neutral-500 leading-relaxed">
-            微信扫码添加作者，¥79
+            微信扫码添加作者，¥98
             <span class="font-bold text-neutral-800 dark:text-neutral-200">开通永久会员</span>
             ，付款后请备注登录邮箱
           </p>

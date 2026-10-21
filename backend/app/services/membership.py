@@ -6,11 +6,12 @@ from datetime import datetime, timedelta
 
 from ..models import User
 
+PLAN_WEEK = "week"
 PLAN_QUARTER = "quarter"
 PLAN_YEAR = "year"
 PLAN_FOREVER = "forever"
 PLAN_CUSTOM = "custom"
-PLAN_FILTERS = frozenset({"none", PLAN_QUARTER, PLAN_YEAR, PLAN_FOREVER, PLAN_CUSTOM, "expired"})
+PLAN_FILTERS = frozenset({"none", PLAN_WEEK, PLAN_QUARTER, PLAN_YEAR, PLAN_FOREVER, PLAN_CUSTOM, "expired"})
 
 
 def apply_membership(user: User, days: int | None, *, plan: str | None = None) -> None:
@@ -30,7 +31,7 @@ def apply_membership(user: User, days: int | None, *, plan: str | None = None) -
     if user.member_until and user.member_until > now:
         base = user.member_until
     user.member_until = base + timedelta(days=n)
-    if plan in (PLAN_QUARTER, PLAN_YEAR, PLAN_CUSTOM):
+    if plan in (PLAN_WEEK, PLAN_QUARTER, PLAN_YEAR, PLAN_CUSTOM):
         user.member_plan = plan
     else:
         user.member_plan = PLAN_CUSTOM
