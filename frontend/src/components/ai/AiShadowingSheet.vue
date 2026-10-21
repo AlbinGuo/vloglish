@@ -14,6 +14,7 @@ import { fetchOralRemoteAudio } from '@/api/oralEvalAudio'
 import { getPracticeRecord, uploadPracticeAudio } from '@/api/practiceRecords'
 import { READING_TTS_KEY } from '@/composables/useReadingTts'
 import { useOralEvalEngine } from '@/composables/useOralEvalEngine'
+import { nativeSpeechAvailable, startNativeListen, type NativeListenController } from '@/services/nativeSpeech'
 import { playWordPronunciation, stopSpeaking } from '@/utils/speakWord'
 import { buildPracticeFeedbackSpeech } from '@/utils/practiceFeedbackSpeech'
 import { formatAudioClock, probeAudioDuration } from '@/utils/audioDuration'
@@ -126,6 +127,7 @@ const oral = useOralEvalEngine()
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let recognition: any = null
+let nativeController: NativeListenController | null = null
 let autoPlayTimer: ReturnType<typeof setTimeout> | null = null
 let demoPlayingTimer: ReturnType<typeof setTimeout> | null = null
 let demoAudio: HTMLAudioElement | null = null
@@ -896,6 +898,16 @@ function resetState() {
 }
 
 function stopListening(abort = false) {
+  if (nativeController) {
+    const c = nativeController
+    nativeController = null
+    void c.stop()
+    listening.value = false
+    if (abort) {
+      autoSubmitArmed.value = false
+    }
+    return
+  }
   try {
     if (abort) recognition?.abort?.()
     else recognition?.stop?.()
@@ -1158,6 +1170,11 @@ function goRecord() {
 }
 
 async function resolveEngine() {
+  // App(原生)里阿里云 Web SDK 不可用：直接用「识别点评」+ 原生语音识别
+  if (nativeSpeechAvailable()) {
+    engineMode.value = 'llm'
+    return
+  }
   engineMode.value = 'unknown'
   const ok = await oral.probe()
   engineMode.value = ok ? 'oral' : 'llm'
@@ -1296,6 +1313,11 @@ async function startListening() {
   silencePlaybackForMic()
   emit('recording', true)
 
+  if (nativeSpeechAvailable()) {
+    await startNativeListening()
+    return
+  }
+
   const Ctor = getRecognitionCtor()
   if (!Ctor) {
     micUnsupported.value = true
@@ -1365,6 +1387,49 @@ async function startListening() {
       error.value = '语音识别启动失败，请输入英文后点评'
     }
   }
+}
+
+async function startNativeListening() {
+  micUnsupported.value = false
+  listening.value = true
+  await syncNativeController()
+  if (!nativeController) {
+    // 启动失败时 startNativeListen 已通过 onError 提示
+    if (!error.value) {
+      micUnsupported.value = true
+      error.value = '当前设备语音识别不可用，请输入英文后点评'
+    }
+    listening.value = false
+    emit('recording', false)
+  }
+}
+
+async function syncNativeController() {
+  nativeController = await startNativeListen({
+    language: 'en-US',
+    onPartial: (t) => {
+      transcript.value = t
+      if (t) error.value = ''
+    },
+    onFinal: (t) => {
+      if (t) transcript.value = t
+      nativeController = null
+      listening.value = false
+      emit('recording', false)
+      const text = transcript.value.trim()
+      if (text && autoSubmitArmed.value && !loading.value && !result.value) {
+        autoSubmitArmed.value = false
+        void submitFeedback()
+      }
+    },
+    onError: (m) => {
+      nativeController = null
+      listening.value = false
+      emit('recording', false)
+      micUnsupported.value = true
+      error.value = m || '语音识别不可用，请输入英文后点评'
+    },
+  })
 }
 
 function toggleMic() {
@@ -1448,6 +1513,7 @@ watch(
       document.body.style.overflow = v ? 'hidden' : ''
     }
     if (!v) {
+      stopListening(true)
       resetState()
       return
     }

@@ -108,6 +108,10 @@ jobs:
         working-directory: app
         run: python3 scripts/add-signin-with-apple.py ios/App
 
+      - name: 注入语音识别权限（Info.plist）
+        working-directory: app
+        run: python3 scripts/add-speech-permissions.py ios/App
+
       - name: pod install
         working-directory: app/ios/App
         run: pod install --repo-update
