@@ -32,6 +32,7 @@ const { viewMode } = useCatalogViewMode()
 const { browseMode } = useCatalogBrowseMode()
 
 const isHomeActive = ref(false)
+const rootEl = ref<HTMLElement | null>(null)
 
 async function refreshCatalog() {
   if (browseMode.value === 'author') {
@@ -42,8 +43,11 @@ async function refreshCatalog() {
   setupLoadMoreObserver()
 }
 
-// 首页下拉刷新
-usePullToRefresh(refreshCatalog, { enabled: () => isHomeActive.value })
+// 首页下拉刷新（页面与 header 分离式）
+usePullToRefresh(refreshCatalog, {
+  enabled: () => isHomeActive.value,
+  getContentEl: () => rootEl.value,
+})
 
 // App 从后台回到前台时刷新首页（停在首页也能看到最新内容）
 let _homeResumeHandle: { remove: () => void } | null = null
@@ -291,7 +295,7 @@ watch(
 </script>
 
 <template>
-  <div>
+  <div ref="rootEl">
     <EnglishCatalogNavBar />
 
     <div class="page-container pb-6" :class="isMobile ? 'pt-3' : 'py-6'">
