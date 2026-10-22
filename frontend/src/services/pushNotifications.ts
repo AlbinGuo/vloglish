@@ -4,7 +4,7 @@
  */
 import api from '@/api/client'
 import router from '@/router'
-import { getNativePlatform, isNativePlatform } from '@/utils/platform'
+import { getNativePlatform, isMobileAppBuild, isNativePlatform } from '@/utils/platform'
 
 const TOKEN_KEY = 'push_token'
 let inited = false
@@ -58,8 +58,9 @@ export async function syncPushToken(): Promise<void> {
 }
 
 export async function initPushNotifications(): Promise<void> {
+  // App 构建无论原生检测结果如何都先上报一次，确认新代码确实在跑、并暴露 platform 识别情况
+  if (isMobileAppBuild()) await reportStage('init:platform=' + getNativePlatform())
   if (!isNativePlatform()) return
-  await reportStage('init')
   try {
     const { PushNotifications } = await import('@capacitor/push-notifications')
 
