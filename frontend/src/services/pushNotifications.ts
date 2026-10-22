@@ -73,6 +73,7 @@ export async function initPushNotifications(): Promise<void> {
       inited = true
       PushNotifications.addListener('registration', (t) => {
         saveToken(t.value)
+        void reportStage('registration', String(t.value).slice(0, 16))
         void reportToken(t.value)
       })
       PushNotifications.addListener('registrationError', (err) => {
@@ -84,8 +85,13 @@ export async function initPushNotifications(): Promise<void> {
         if (d.video_id) void router.push('/english/episode/' + d.video_id)
       })
     }
+    await reportStage('listeners-ready')
 
     await PushNotifications.register()
+    await reportStage('register-resolved')
+    setTimeout(() => {
+      if (!loadToken()) void reportStage('no-token-after-8s')
+    }, 8000)
     await syncPushToken()
   } catch (e) {
     console.warn('[push] initPushNotifications 失败', e)

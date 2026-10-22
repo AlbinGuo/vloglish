@@ -257,6 +257,19 @@ jobs:
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             clean archive
 
+      # ---- 校验构建产物是否真的带推送 entitlement ----
+      - name: 校验推送 entitlement（aps-environment）
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app"
+          /usr/bin/codesign -d --entitlements :- "$APP" 2>/dev/null || true
+          if /usr/bin/codesign -d --entitlements :- "$APP" 2>/dev/null | grep -q "aps-environment"; then
+            echo "✅ 已包含 aps-environment"
+          else
+            echo "::error::❌ 构建产物缺少 aps-environment entitlement，iOS 将无法注册推送"
+            exit 1
+          fi
+
       # ---- 导出 ipa ----
       - name: 导出 ipa
         env:
