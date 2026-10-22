@@ -2272,6 +2272,23 @@ async function toggleAuthorSubscribeFromMore() {
   }
 }
 
+const authorInitial = computed(() =>
+  (episode.value?.author?.name || '?').trim().charAt(0).toUpperCase(),
+)
+const authorMetaLine = computed(() => {
+  const a = episode.value?.author
+  if (!a) return ''
+  return [a.nationality, a.accent]
+    .map((s) => (s || '').trim())
+    .filter(Boolean)
+    .join(' · ')
+})
+
+function goAuthorHome() {
+  const id = episode.value?.author?.id
+  if (id) void router.push(`/english/authors/${id}`)
+}
+
 function toggleSidePanel() {
   showSidePanel.value = !showSidePanel.value
 }
@@ -2824,15 +2841,6 @@ function subtitleRowClass(index: number) {
               {{ episode.author.name }}
             </RouterLink>
             <span v-else class="truncate">{{ episode.author.name }}</span>
-            <AuthorSubscribeButton
-              v-if="!adminPreview && episode.author.id"
-              compact
-              :author-id="episode.author.id"
-              :is-subscribed="Boolean(episode.author.is_subscribed)"
-              :subscriber-count="episode.author.subscriber_count || 0"
-              @update:is-subscribed="(v) => episode && (episode.author.is_subscribed = v)"
-              @update:subscriber-count="(v) => episode && (episode.author.subscriber_count = v)"
-            />
             <span class="text-neutral-400">·</span>
           </template>
           <template v-if="episode.series">
@@ -2869,15 +2877,6 @@ function subtitleRowClass(index: number) {
         </button>
       </div>
       <div class="flex items-center gap-1 shrink-0">
-        <AuthorSubscribeButton
-          v-if="isPhone && !adminPreview && episode?.author?.id && !episode.series"
-          compact
-          :author-id="episode.author.id"
-          :is-subscribed="Boolean(episode.author.is_subscribed)"
-          :subscriber-count="episode.author.subscriber_count || 0"
-          @update:is-subscribed="(v) => episode && (episode.author.is_subscribed = v)"
-          @update:subscriber-count="(v) => episode && (episode.author.subscriber_count = v)"
-        />
         <button
           v-if="!adminPreview && episode"
           type="button"
@@ -2971,6 +2970,40 @@ function subtitleRowClass(index: number) {
         ]"
         :style="videoPanelSplitStyle"
       >
+        <!-- 作者信息条：点击进入作者主页（单集显示；系列集暂不显示） -->
+        <div
+          v-if="!adminPreview && episode.author.id && !episode.series && !mobileVideoImmersive && !isVideoPanelFullscreen"
+          class="shrink-0 flex items-center gap-3 rounded-2xl border border-line-soft bg-card px-3 py-2.5 cursor-pointer transition-colors hover:bg-sunken"
+          role="link"
+          tabindex="0"
+          :aria-label="`进入作者 ${episode.author.name} 的主页`"
+          @click="goAuthorHome"
+          @keydown.enter.prevent="goAuthorHome"
+          @keydown.space.prevent="goAuthorHome"
+        >
+          <span
+            class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200 text-sm font-semibold"
+            aria-hidden="true"
+          >
+            {{ authorInitial }}
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-semibold text-ink">{{ episode.author.name }}</p>
+            <p class="truncate text-[11px] text-ink-faint">
+              {{ authorMetaLine || '查看作者主页' }}
+            </p>
+          </div>
+          <AuthorSubscribeButton
+            compact
+            :author-id="episode.author.id"
+            :is-subscribed="Boolean(episode.author.is_subscribed)"
+            :subscriber-count="episode.author.subscriber_count || 0"
+            @update:is-subscribed="(v) => episode && (episode.author.is_subscribed = v)"
+            @update:subscriber-count="(v) => episode && (episode.author.subscriber_count = v)"
+          />
+          <AppIcon name="chevron-right" class="h-4 w-4 shrink-0 text-ink-faint" />
+        </div>
+
         <div
           class="video-panel__player shrink-0 w-full min-h-0"
           :class="videoHidden && !isVideoPanelFullscreen ? 'contents' : 'relative'"
