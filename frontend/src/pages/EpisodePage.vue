@@ -6,7 +6,6 @@ import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary
 import { generateSubtitleLiteral, getEpisodeList, setAuthorSubscribe, setEpisodeFavorite, warmEpisodeWordLookups } from '@/api/episodes'
 import { useFavoriteToastStore } from '@/stores/favoriteToast'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
-import AuthorSubscribeButton from '@/components/AuthorSubscribeButton.vue'
 import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
 import EpisodeWordCardList from '@/components/episode/EpisodeWordCardList.vue'
 import EpisodeVocabSummaryList from '@/components/episode/EpisodeVocabSummaryList.vue'
@@ -2272,23 +2271,6 @@ async function toggleAuthorSubscribeFromMore() {
   }
 }
 
-const authorInitial = computed(() =>
-  (episode.value?.author?.name || '?').trim().charAt(0).toUpperCase(),
-)
-const authorMetaLine = computed(() => {
-  const a = episode.value?.author
-  if (!a) return ''
-  return [a.nationality, a.accent]
-    .map((s) => (s || '').trim())
-    .filter(Boolean)
-    .join(' · ')
-})
-
-function goAuthorHome() {
-  const id = episode.value?.author?.id
-  if (id) void router.push(`/english/authors/${id}`)
-}
-
 function toggleSidePanel() {
   showSidePanel.value = !showSidePanel.value
 }
@@ -2878,15 +2860,6 @@ function subtitleRowClass(index: number) {
       </div>
       <div class="flex items-center gap-1 shrink-0">
         <button
-          v-if="!adminPreview && episode"
-          type="button"
-          class="inline-flex items-center justify-center h-8 px-2.5 rounded-lg text-xs font-medium text-neutral-600 hover:text-black hover:bg-sunken dark:text-neutral-300 dark:hover:text-white"
-          title="收听模式"
-          @click="goListenMode"
-        >
-          收听
-        </button>
-        <button
           v-if="auth.isMember && !adminPreview"
           type="button"
           class="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-sunken transition-colors disabled:opacity-50"
@@ -2903,6 +2876,11 @@ function subtitleRowClass(index: number) {
             inactive-class="text-neutral-400"
           />
         </button>
+        <IntensiveModeToggle />
+        <SettingsButton v-if="!isPhone" @click="showSettings = true" />
+        <button class="hidden sm:inline text-xs text-neutral-400 hover:text-black dark:hover:text-white px-2 py-1" @click="player.showHelp.value = true">
+          ? 快捷键
+        </button>
         <button
           v-if="isPhone && !adminPreview"
           type="button"
@@ -2910,12 +2888,7 @@ function subtitleRowClass(index: number) {
           aria-label="更多"
           @click="openMobileMore"
         >
-          <AppIcon name="more-horizontal" class="w-5 h-5" />
-        </button>
-        <IntensiveModeToggle />
-        <SettingsButton v-if="!isPhone" @click="showSettings = true" />
-        <button class="hidden sm:inline text-xs text-neutral-400 hover:text-black dark:hover:text-white px-2 py-1" @click="player.showHelp.value = true">
-          ? 快捷键
+          <AppIcon name="menu" class="w-5 h-5" />
         </button>
       </div>
     </header>
@@ -2928,7 +2901,7 @@ function subtitleRowClass(index: number) {
     />
 
     <div
-      v-if="resumePrompt && !adminPreview"
+      v-if="false && resumePrompt && !adminPreview"
       class="shrink-0 flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-100 dark:border-amber-900/50 text-sm"
     >
       <span class="text-amber-900 dark:text-amber-200 max-sm:text-xs">
@@ -2970,39 +2943,6 @@ function subtitleRowClass(index: number) {
         ]"
         :style="videoPanelSplitStyle"
       >
-        <!-- 作者信息条：点击进入作者主页（单集显示；系列集暂不显示） -->
-        <div
-          v-if="!adminPreview && episode.author.id && !episode.series && !mobileVideoImmersive && !isVideoPanelFullscreen"
-          class="shrink-0 flex items-center gap-3 rounded-2xl border border-line-soft bg-card px-3 py-2.5 cursor-pointer transition-colors hover:bg-sunken"
-          role="link"
-          tabindex="0"
-          :aria-label="`进入作者 ${episode.author.name} 的主页`"
-          @click="goAuthorHome"
-          @keydown.enter.prevent="goAuthorHome"
-          @keydown.space.prevent="goAuthorHome"
-        >
-          <span
-            class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200 text-sm font-semibold"
-            aria-hidden="true"
-          >
-            {{ authorInitial }}
-          </span>
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-semibold text-ink">{{ episode.author.name }}</p>
-            <p class="truncate text-[11px] text-ink-faint">
-              {{ authorMetaLine || '查看作者主页' }}
-            </p>
-          </div>
-          <AuthorSubscribeButton
-            compact
-            :author-id="episode.author.id"
-            :is-subscribed="Boolean(episode.author.is_subscribed)"
-            :subscriber-count="episode.author.subscriber_count || 0"
-            @update:is-subscribed="(v) => episode && (episode.author.is_subscribed = v)"
-            @update:subscriber-count="(v) => episode && (episode.author.subscriber_count = v)"
-          />
-          <AppIcon name="chevron-right" class="h-4 w-4 shrink-0 text-ink-faint" />
-        </div>
 
         <div
           class="video-panel__player shrink-0 w-full min-h-0"
