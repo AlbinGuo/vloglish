@@ -1,10 +1,14 @@
 /**
  * App 系统推送（Capacitor Push Notifications）。
- * 关键阶段回传后端日志，便于无 Mac 排查 iOS 拿不到 token 的原因。
+ *
+ * - iOS 拿 APNs device token，Android 拿 FCM token；
+ * - token 上报需要登录态：登录后调用 initPushNotifications() + syncPushToken()；
+ * - token 持久化到本地，登录/回前台会补报一次，避免"注册早于登录"漏报；
+ * - 仅权限未授予或非原生环境时静默返回，不影响 Web / 开发。
  */
 import api from '@/api/client'
 import router from '@/router'
-import { getNativePlatform, isMobileAppBuild, isNativePlatform } from '@/utils/platform'
+import { getNativePlatform, isNativePlatform } from '@/utils/platform'
 
 const TOKEN_KEY = 'push_token'
 let inited = false
@@ -25,20 +29,6 @@ function saveToken(token: string) {
   }
 }
 
-async function reportStage(stage: string, error = '') {
-  try {
-    await api.post('/api/push/register/', {
-      token: '',
-      platform: getNativePlatform(),
-      env: import.meta.env.PROD ? 'production' : 'sandbox',
-      stage,
-      error,
-    })
-  } catch {
-    /* ignore */
-  }
-}
-
 async function reportToken(token: string) {
   if (!token) return
   try {
@@ -47,59 +37,59 @@ async function reportToken(token: string) {
       platform: getNativePlatform(),
       env: import.meta.env.PROD ? 'production' : 'sandbox',
     })
-  } catch (e) {
-    console.warn('[push] 上报 token 失败（稍后重试）', e)
+  } catch {
+    /* 未登录 / 网络失败：下次登录或回前台再补报 */
   }
 }
 
+/** 把本地已保存的 token 补报一次（登录后 / 回到前台时调用，幂等） */
 export async function syncPushToken(): Promise<void> {
   const token = loadToken()
   if (token) await reportToken(token)
 }
 
 export async function initPushNotifications(): Promise<void> {
-  // App 构建无论原生检测结果如何都先上报一次，确认新代码确实在跑、并暴露 platform 识别情况
-  if (isMobileAppBuild()) await reportStage('init:platform=' + getNativePlatform())
   if (!isNativePlatform()) return
   try {
     const { PushNotifications } = await import('@capacitor/push-notifications')
 
     let perm = await PushNotifications.checkPermissions()
     if (perm.receive === 'prompt') perm = await PushNotifications.requestPermissions()
-    await reportStage('perm:' + perm.receive)
     if (perm.receive !== 'granted') return
 
     if (!inited) {
       inited = true
       PushNotifications.addListener('registration', (t) => {
         saveToken(t.value)
-        void reportStage('registration', String(t.value).slice(0, 16))
         void reportToken(t.value)
       })
       PushNotifications.addListener('registrationError', (err) => {
         console.warn('[push] registrationError', err)
-        void reportStage('registrationError', JSON.stringify(err))
+        // 失败时回传后端日志，便于后续排查（不影响正常流程）
+        void api
+          .post('/api/push/register/', {
+            token: '',
+            platform: getNativePlatform(),
+            env: import.meta.env.PROD ? 'production' : 'sandbox',
+            error: JSON.stringify(err),
+          })
+          .catch(() => {})
       })
       PushNotifications.addListener('pushNotificationActionPerformed', (e) => {
         const d = (e.notification?.data || {}) as Record<string, string>
         if (d.video_id) void router.push('/english/episode/' + d.video_id)
       })
     }
-    await reportStage('listeners-ready')
-    // 首次注册有时拿不到 token（尤其刚授予权限后），多试几次
-    for (let i = 0; i < 3; i++) {
+
+    // 注册；刚授予权限时首次可能拿不到 token，静默重试几次
+    await PushNotifications.register()
+    for (let i = 0; i < 3 && !loadToken(); i++) {
+      await new Promise((r) => setTimeout(r, 2500))
+      if (loadToken()) break
       await PushNotifications.register()
-      await reportStage('register-call#' + i)
-      await new Promise((r) => setTimeout(r, 3000))
-      if (loadToken()) {
-        await reportStage('token-ok#' + i)
-        break
-      }
     }
-    if (!loadToken()) await reportStage('still-no-token')
     await syncPushToken()
   } catch (e) {
     console.warn('[push] initPushNotifications 失败', e)
-    void reportStage('exception', String(e))
   }
 }
