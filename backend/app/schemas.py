@@ -1017,6 +1017,8 @@ class PushRegisterIn(BaseModel):
     token: str
     platform: str = ""
     env: str = ""
+    # 客户端注册失败时回传的诊断信息（iOS registrationError 等）
+    error: str = ""
 
 
 class AdminReleasePopupUserOut(BaseModel):

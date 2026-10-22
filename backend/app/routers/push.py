@@ -18,6 +18,10 @@ def register_push(
     db: Session = Depends(get_db),
 ):
     token = (body.token or "").strip()
+    if body.error:
+        # 客户端获取 token 失败时回传的原始错误，打到日志便于排查（常见于缺 aps-environment entitlement）
+        print(f"[push] ❌ 客户端注册失败 (platform={body.platform}, env={body.env}): {body.error}")
+        return {"success": False}
     if not token:
         return {"success": False}
     row = db.query(PushDevice).filter(PushDevice.token == token).first()

@@ -66,6 +66,15 @@ export async function initPushNotifications(): Promise<void> {
       })
       PushNotifications.addListener('registrationError', (err) => {
         console.warn('[push] registrationError', err)
+        // 把 iOS 的原始错误回传后端日志，便于在服务器侧排查（缺 entitlement 等）
+        void api
+          .post('/api/push/register/', {
+            token: '',
+            platform: getNativePlatform(),
+            env: import.meta.env.PROD ? 'production' : 'sandbox',
+            error: JSON.stringify(err),
+          })
+          .catch(() => {})
       })
       PushNotifications.addListener('pushNotificationActionPerformed', (e) => {
         const d = (e.notification?.data || {}) as Record<string, string>
