@@ -2,11 +2,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { consumeRemoteLoginNotice } from '@/api/tokens'
-import AppDownloadEntry from '@/components/AppDownloadEntry.vue'
-import BrandLogo from '@/components/BrandLogo.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import AppleSignInButton from '@/components/auth/AppleSignInButton.vue'
-import AuthSplitShell from '@/components/auth/AuthSplitShell.vue'
-import { authButtonClass, authInputClass, authLabelClass, authLinkClass, authPasswordClass } from '@/components/auth/authField'
+import AuthBrandMark from '@/components/auth/AuthBrandMark.vue'
+import AuthScreen from '@/components/auth/AuthScreen.vue'
 import PasswordInput from '@/components/PasswordInput.vue'
 import { isAppleSignInAvailable } from '@/services/appleAuth'
 import { useAuthStore } from '@/stores/auth'
@@ -54,76 +53,86 @@ async function submit() {
 </script>
 
 <template>
-  <AuthSplitShell>
-    <div class="flex flex-col items-center text-center">
-      <BrandLogo :size="48" />
-      <h2 class="mt-4 text-[1.6rem] font-semibold tracking-tight lg:text-[1.5rem]">欢迎回来</h2>
-      <p class="mt-1.5 text-[13px] leading-relaxed text-neutral-500">
-        {{ appleAvailable ? '用 Apple 一键登录，或使用邮箱账号。' : '使用注册邮箱登录。' }}
-      </p>
-    </div>
+  <AuthScreen>
+    <div class="flex flex-1 flex-col">
+      <!-- 品牌 -->
+      <header class="flex items-center gap-2.5">
+        <AuthBrandMark :size="40" />
+        <span class="text-[1.15rem] font-bold tracking-tight text-ink">Vloglish</span>
+      </header>
 
-    <AppleSignInButton />
-
-    <div
-      v-if="appleAvailable"
-      class="my-6 flex items-center gap-3 text-[12px] text-neutral-400"
-    >
-      <span class="h-px flex-1 bg-black/10" />
-      <span class="shrink-0">或使用邮箱登录</span>
-      <span class="h-px flex-1 bg-black/10" />
-    </div>
-
-    <form class="space-y-5" :class="appleAvailable ? '' : 'mt-6'" @submit.prevent="submit">
-      <div>
-        <label for="login-email" :class="authLabelClass">邮箱</label>
-        <input
-          id="login-email"
-          v-model="email"
-          type="email"
-          autocomplete="email"
-          required
-          :class="authInputClass"
-        />
+      <!-- 标题 -->
+      <div class="mt-10">
+        <h1 class="text-[1.85rem] font-extrabold leading-[1.18] tracking-tight text-ink">
+          Better Videos.<br />Better English.
+        </h1>
+        <p class="mt-3 text-[13px] leading-relaxed text-ink-faint">
+          用视频，轻松提升你的英语听说能力
+        </p>
       </div>
-      <div>
-        <div class="flex items-center justify-between mb-1.5">
-          <label for="login-password" class="text-[13px] text-neutral-500">密码</label>
+
+      <!-- Apple 一键登录（仅 iOS 原生壳内可用） -->
+      <AppleSignInButton class="mt-8" />
+
+      <div
+        v-if="appleAvailable"
+        class="my-5 flex items-center gap-3 text-[12px] text-ink-faint"
+      >
+        <span class="h-px flex-1 bg-line" />
+        <span class="shrink-0">或使用邮箱登录</span>
+        <span class="h-px flex-1 bg-line" />
+      </div>
+
+      <!-- 邮箱登录 -->
+      <form class="mt-7 space-y-3.5" @submit.prevent="submit">
+        <div class="relative">
+          <AppIcon name="envelope" class="auth-field-icon" />
+          <input
+            id="login-email"
+            v-model="email"
+            type="email"
+            autocomplete="email"
+            required
+            placeholder="邮箱地址"
+            class="auth-input"
+          />
+        </div>
+
+        <div class="relative">
+          <AppIcon name="lock" class="auth-field-icon" />
+          <PasswordInput
+            id="login-password"
+            v-model="password"
+            autocomplete="current-password"
+            required
+            placeholder="密码"
+            input-class="auth-input auth-input--pw"
+          />
+        </div>
+
+        <div class="flex justify-end">
           <RouterLink
             :to="{ path: '/forgot-password', query: route.query }"
-            class="cursor-pointer text-[13px] text-neutral-400 transition-colors duration-200 hover:text-neutral-900"
+            class="text-[12.5px] text-ink-faint transition-colors hover:text-ink"
           >
             忘记密码？
           </RouterLink>
         </div>
-        <PasswordInput
-          id="login-password"
-          v-model="password"
-          autocomplete="current-password"
-          required
-          :input-class="authPasswordClass"
-        />
-      </div>
 
-      <p v-if="error" class="text-sm text-red-600 dark:text-red-400">{{ error }}</p>
+        <p v-if="error" class="text-[13px] text-danger">{{ error }}</p>
 
-      <button type="submit" :class="authButtonClass" :disabled="loading">
-        {{ loading ? '登录中...' : '登录' }}
-      </button>
-    </form>
+        <button type="submit" class="auth-primary" :disabled="loading">
+          <span>{{ loading ? '登录中…' : '登录' }}</span>
+          <AppIcon name="chevron-right" class="h-4 w-4" />
+        </button>
+      </form>
 
-    <p class="mt-7 text-center text-[13px] text-neutral-500">
-      还没有账号？
-      <RouterLink
-        :to="{ path: '/signup', query: route.query }"
-        :class="authLinkClass"
-      >
-        免费注册
-      </RouterLink>
-    </p>
-
-    <div class="mt-8 flex justify-center">
-      <AppDownloadEntry variant="auth" />
+      <p class="mt-auto pt-10 text-center text-[13px] text-ink-faint">
+        还没有账号？
+        <RouterLink :to="{ path: '/signup', query: route.query }" class="auth-link">
+          免费注册
+        </RouterLink>
+      </p>
     </div>
-  </AuthSplitShell>
+  </AuthScreen>
 </template>
