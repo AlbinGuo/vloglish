@@ -27,6 +27,13 @@ try:  # httpx 仅在真正发送时才需要；缺失时退化为 no-op
 except Exception:  # pragma: no cover
     httpx = None  # type: ignore[assignment]
 
+try:  # APNs 走 HTTP/2，需要 httpx[http2] 提供的 h2 包
+    import h2  # noqa: F401
+
+    _H2_AVAILABLE = True
+except Exception:  # pragma: no cover
+    _H2_AVAILABLE = False
+
 _FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
 _FCM_TOKEN_URL = "https://oauth2.googleapis.com/token"
 _FCM_SEND_URL = "https://fcm.googleapis.com/v1/projects/{pid}/messages:send"
@@ -115,11 +122,19 @@ def _send_fcm(token: str, title: str, body: str, data: dict) -> str:
             json=message,
             timeout=10,
         )
-    except Exception:
+    except Exception as exc:
+        print("[push] FCM 请求异常:", repr(exc))
         return "error"
     if resp.status_code == 200:
         return "ok"
-    return "invalid" if resp.status_code in (400, 404, 410) else "error"
+    try:
+        err = resp.json().get("error", {})
+        status = err.get("status", "")
+        detail = err.get("message", "")
+    except Exception:
+        status, detail = "", resp.text[:200]
+    print(f"[push] FCM 失败 {resp.status_code} {status} {detail}")
+    return "invalid" if status in ("UNREGISTERED", "NOT_FOUND") else "error"
 
 
 def _apns_jwt() -> str | None:
@@ -144,6 +159,7 @@ def _send_apns(token: str, title: str, body: str, data: dict, env: str) -> str:
     jwtok = _apns_jwt()
     if not jwtok or httpx is None:
         return "error"
+    topic = (os.getenv("APNS_TOPIC") or "").strip()
     host = "api.sandbox.push.apple.com" if env == "sandbox" else "api.push.apple.com"
     payload = {
         "aps": {"alert": {"title": title, "body": body}, "sound": "default", "badge": 1},
@@ -155,19 +171,29 @@ def _send_apns(token: str, title: str, body: str, data: dict, env: str) -> str:
             http2=True,
             headers={
                 "authorization": f"bearer {jwtok}",
-                "apns-topic": (os.getenv("APNS_TOPIC") or "").strip(),
+                "apns-topic": topic,
                 "apns-push-type": "alert",
                 "apns-priority": "10",
             },
             json=payload,
             timeout=10,
         )
-    except Exception:
+    except Exception as exc:
+        # 常见：未安装 h2（httpx[http2]）导致 http2=True 报错；或网络不通
+        print("[push] APNs 请求异常:", repr(exc))
         return "error"
     if resp.status_code == 200:
         return "ok"
-    # 410 Unregistered / 400 BadDeviceToken 视为失效
-    return "invalid" if resp.status_code in (400, 410) else "error"
+    reason = ""
+    try:
+        reason = str(resp.json().get("reason", ""))
+    except Exception:
+        reason = resp.text[:200]
+    print(f"[push] APNs 失败 {resp.status_code} {reason} (env={env or 'production'} topic={topic})")
+    # 仅当明确是设备 token 失效时才停用，其余（BadTopic/鉴权等）视为 error 保留设备
+    if resp.status_code == 410 or reason in ("BadDeviceToken", "Unregistered", "DeviceTokenNotForTopic"):
+        return "invalid"
+    return "error"
 
 
 def is_configured() -> bool:
@@ -232,6 +258,7 @@ def _process_once() -> None:
         job.status = "done"
         job.processed_at = datetime.utcnow()
         db.commit()
+        print(f"[push] outbox#{job.id} 已发送 → 设备 {len(devices)}，成功 {job.recipient_count}")
     except Exception as exc:  # pragma: no cover
         db.rollback()
         print("[push] worker error", exc)
@@ -243,6 +270,10 @@ def start_push_worker(interval: int = 15) -> None:
     if not is_configured():
         print("[push] 未配置 FCM/APNs，跳过推送 worker")
         return
+    if _apns_jwt() and not _H2_AVAILABLE:
+        print("[push] ⚠️ 已配置 APNs 但缺少 h2：请 `pip install 'httpx[http2]'`，否则 iOS 推送会一直失败")
+    if _apns_jwt() and not (os.getenv("APNS_TOPIC") or "").strip():
+        print("[push] ⚠️ APNS_TOPIC 未设置（应填 bundle id，如 cc.vloglish.app），iOS 推送会返回 BadTopic")
 
     def _loop() -> None:
         while True:
