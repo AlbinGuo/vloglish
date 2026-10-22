@@ -163,12 +163,6 @@ const memberSubmitRoutes: RouteRecordRaw[] = [
     component: () => import('@/pages/SubmitArticlePage.vue'),
     meta: { requiresAuth: true, requiresMember: true },
   },
-  {
-    path: 'english/my-submissions',
-    name: 'MySubmissions',
-    component: () => import('@/pages/MySubmissionsPage.vue'),
-    meta: { requiresAuth: true, requiresMember: true },
-  },
 ]
 
 const userRoutes: RouteRecordRaw[] = [
@@ -301,6 +295,13 @@ const userRoutes: RouteRecordRaw[] = [
         redirect: '/english',
       },
       ...(isMobile ? [] : memberSubmitRoutes),
+      {
+        // 我的语料库：App 与 Web 都可用（收藏 + 投稿管理）
+        path: 'english/my-submissions',
+        name: 'MySubmissions',
+        component: () => import('@/pages/MySubmissionsPage.vue'),
+        meta: { requiresAuth: true, requiresMember: true },
+      },
       {
         path: 'english/notifications',
         name: 'Notifications',

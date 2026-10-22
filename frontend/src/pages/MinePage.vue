@@ -370,6 +370,25 @@ async function submitCredentials() {
       </template>
     </section>
 
+    <!-- 我的语料库 -->
+    <section class="mt-4 overflow-hidden rounded-2xl border border-line-soft bg-card">
+      <RouterLink
+        to="/english/my-submissions?tab=favorites"
+        class="flex items-center gap-3 px-4 py-3.5 text-ink-soft transition hover:bg-sunken"
+      >
+        <AppIcon name="sparkle" class="h-5 w-5 shrink-0 text-amber-500" />
+        <span class="flex-1 text-[14px] text-ink">我的语料库</span>
+        <span
+          v-if="corpusBadge.hasNew"
+          class="rounded-md bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white"
+        >新</span>
+        <span v-else-if="corpusBadge.count > 0" class="text-[12px] text-ink-faint">
+          {{ corpusBadge.count }}
+        </span>
+        <AppIcon name="chevron-right" class="h-4 w-4 text-ink-faint" />
+      </RouterLink>
+    </section>
+
     <!-- 设置 -->
     <section class="mt-4 overflow-hidden rounded-2xl border border-line-soft bg-card">
       <RouterLink

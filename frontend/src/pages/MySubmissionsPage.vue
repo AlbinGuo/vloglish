@@ -6,6 +6,7 @@ import { listMyArticleSubmissions, type UserArticleSubmissionItem } from '@/api/
 import { getEpisodeList, listMySubmissions, type UserSubmissionItem } from '@/api/episodes'
 import EpisodeCard from '@/components/EpisodeCard.vue'
 import { useAuthStore } from '@/stores/auth'
+import { isMobileAppBuild } from '@/utils/platform'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 import type { EpisodeSummary } from '@/types'
 
@@ -21,7 +22,11 @@ const articleRows = ref<UserArticleSubmissionItem[]>([])
 const favoriteEpisodes = ref<EpisodeSummary[]>([])
 const corpusBadge = useMyCorpusBadgeStore()
 
+const hideUploads = isMobileAppBuild()
+
 const tab = computed<CorpusTab>(() => {
+  // App MVP 不含投稿：仅保留「收藏」
+  if (hideUploads) return 'favorites'
   const raw = String(route.query.tab || '')
   if (raw === 'articles') return 'articles'
   if (raw === 'videos') return 'videos'
@@ -135,6 +140,7 @@ watch(
         <span v-if="favoriteEpisodes.length" class="text-xs text-neutral-400 ml-1">{{ favoriteEpisodes.length }}</span>
       </button>
       <button
+        v-if="!hideUploads"
         type="button"
         class="px-3.5 py-1.5 text-sm rounded-lg transition"
         :class="tab === 'videos'
@@ -146,6 +152,7 @@ watch(
         <span v-if="videoRows.length" class="text-xs text-neutral-400 ml-1">{{ videoRows.length }}</span>
       </button>
       <button
+        v-if="!hideUploads"
         type="button"
         class="px-3.5 py-1.5 text-sm rounded-lg transition"
         :class="tab === 'articles'
