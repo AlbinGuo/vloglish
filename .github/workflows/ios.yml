@@ -112,6 +112,10 @@ jobs:
         working-directory: app
         run: python3 scripts/add-push-notifications.py ios/App
 
+      - name: 注入 APNs 注册回调（AppDelegate）
+        working-directory: app
+        run: python3 scripts/add-push-appdelegate.py ios/App
+
       - name: 注入语音识别权限（Info.plist）
         working-directory: app
         run: python3 scripts/add-speech-permissions.py ios/App
