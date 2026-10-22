@@ -9,6 +9,7 @@ export interface User {
   member_until?: string | null
   wx_bound?: boolean
   wechat_only?: boolean
+  email_bound?: boolean
 }
 
 export interface Author {

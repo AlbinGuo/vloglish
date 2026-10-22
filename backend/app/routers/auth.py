@@ -39,6 +39,7 @@ from ..schemas import (
     ResetPasswordIn,
     ResetPasswordByEmailIn,
     SetAvatarIn,
+    SetCredentialsIn,
     UserOut,
 )
 from ..services.daily_visits import record_daily_visit
@@ -51,7 +52,7 @@ from ..services.user_avatar import (
     persist_user_avatar,
 )
 from ..services.user_geo import apply_signup_geo, backfill_signup_geo
-from ..services.account_merge import is_wechat_only, wechat_placeholder_email
+from ..services.account_merge import is_wechat_only, is_wechat_placeholder_email, wechat_placeholder_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -70,10 +71,24 @@ def user_out(user: User) -> UserOut:
         member_until=until,
         wx_bound=bool((user.wx_openid or "").strip()),
         wechat_only=is_wechat_only(user),
+        email_bound=not _is_internal_email(user.email),
     )
 
 
 USER_NO_EMAIL_DOMAIN = "vloglish.cc"
+
+
+def _is_internal_email(email: str | None) -> bool:
+    """内部占位邮箱（未绑定真实登录邮箱）：xxx@vloglish.cc、Apple 隐藏邮箱、微信影子号。"""
+    e = (email or "").strip().lower()
+    if not e:
+        return True
+    return (
+        e.endswith(f"@{USER_NO_EMAIL_DOMAIN}")
+        or apple_auth_svc.is_apple_placeholder_email(e)
+        or is_wechat_placeholder_email(e)
+    )
+
 
 
 def _new_user_no(db: Session) -> str:
@@ -295,6 +310,35 @@ def wechat_mini_login(
     db.refresh(user)
     merge_device_favorites(db, user.id, device_id)
     return issue_tokens(db, user, device_id)
+
+
+@router.post("/set-credentials/", response_model=UserOut)
+def set_credentials(
+    body: SetCredentialsIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """为当前账号设置/修改「登录邮箱 + 密码」（Apple 登录账号用于网页端邮箱登录）。
+
+    - 未绑定过真实邮箱（Apple 新用户为内部占位邮箱）时可直接设置；
+    - 已绑定后再次修改（换邮箱或改密码）需提供当前登录密码确认；
+    - 新邮箱不能与其他账号冲突。
+    """
+    email = body.email.strip().lower()
+
+    if not _is_internal_email(user.email):
+        if not body.current_password or not verify_password(body.current_password, user.password_hash):
+            raise HTTPException(status_code=400, detail="请输入当前登录密码以确认修改")
+
+    clash = db.query(User).filter(User.email == email, User.id != user.id).first()
+    if clash is not None:
+        raise HTTPException(status_code=409, detail="该邮箱已被其他账号使用，请更换邮箱")
+
+    user.email = email
+    user.password_hash = hash_password(body.password)
+    db.commit()
+    db.refresh(user)
+    return user_out(user)
 
 
 @router.post("/apple/", response_model=AuthTokensOut)

@@ -16,6 +16,8 @@ class UserOut(BaseModel):
     member_until: str | None = None
     wx_bound: bool = False
     wechat_only: bool = False
+    # 是否已绑定可用于邮箱密码登录的真实邮箱（Apple 新用户为内部占位邮箱时为 False）
+    email_bound: bool = False
 
 
 class SetAvatarIn(BaseModel):
@@ -43,6 +45,15 @@ class ActivateMembershipIn(BaseModel):
 class LoginIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=128)
+
+
+class SetCredentialsIn(BaseModel):
+    """为当前账号设置/修改登录邮箱与密码（Apple 登录账号绑定网页登录用）。"""
+
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    # 账号已绑定真实邮箱后，修改时需提供当前密码确认
+    current_password: str | None = Field(default=None, max_length=128)
 
 
 class WechatMiniLoginIn(BaseModel):

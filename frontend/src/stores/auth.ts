@@ -10,6 +10,7 @@ import {
   logout as logoutApi,
   refreshAuthToken,
   register as registerApi,
+  setAccountCredentials as setAccountCredentialsApi,
 } from '@/api/auth'
 import { clearTokens, getAccessToken, getRefreshToken, isRemoteLoginDetail, setRemoteLoginNotice, setTokens } from '@/api/tokens'
 import type { User } from '@/types'
@@ -89,6 +90,12 @@ export const useAuthStore = defineStore('auth', () => {
     return me
   }
 
+  async function setCredentials(email: string, password: string, currentPassword?: string) {
+    const me = await setAccountCredentialsApi({ email, password, current_password: currentPassword })
+    user.value = me
+    return me
+  }
+
   async function logout() {
     const token = refreshToken.value
     if (token) {
@@ -139,6 +146,7 @@ export const useAuthStore = defineStore('auth', () => {
     fetchMe,
     activateMembership,
     cycleAvatar,
+    setCredentials,
     logout,
     deleteAccount,
     hydrate,

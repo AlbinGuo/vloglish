@@ -23,6 +23,16 @@ export async function login(email: string, password: string) {
   return data
 }
 
+/** 为当前账号设置/修改登录邮箱与密码（Apple 登录用户绑定网页登录） */
+export async function setAccountCredentials(payload: {
+  email: string
+  password: string
+  current_password?: string
+}) {
+  const { data } = await api.post<User>('/api/auth/set-credentials/', payload)
+  return data
+}
+
 export async function appleLogin(payload: {
   identity_token: string
   authorization_code?: string

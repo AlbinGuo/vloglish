@@ -192,6 +192,75 @@ async function confirmDeleteAccount() {
     deleting.value = false
   }
 }
+
+// 登录邮箱与密码（Apple 登录用户绑定网页登录）
+const credOpen = ref(false)
+const credEmail = ref('')
+const credPassword = ref('')
+const credPassword2 = ref('')
+const credCurrent = ref('')
+const credError = ref('')
+const credBusy = ref(false)
+const credDone = ref(false)
+
+const emailBound = computed(() => Boolean(auth.user?.email_bound))
+
+function maskEmail(email?: string | null) {
+  if (!email) return ''
+  const at = email.indexOf('@')
+  if (at <= 1) return email
+  const name = email.slice(0, at)
+  const keep = name.slice(0, Math.min(2, at))
+  return `${keep}${'*'.repeat(Math.max(1, name.length - keep.length))}${email.slice(at)}`
+}
+
+function openCredentials() {
+  credEmail.value = emailBound.value ? (auth.user?.email || '') : ''
+  credPassword.value = ''
+  credPassword2.value = ''
+  credCurrent.value = ''
+  credError.value = ''
+  credDone.value = false
+  credOpen.value = true
+}
+
+async function submitCredentials() {
+  if (credBusy.value || credDone.value) return
+  credError.value = ''
+  const email = credEmail.value.trim()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    credError.value = '请输入正确的邮箱地址'
+    return
+  }
+  if (credPassword.value.length < 8) {
+    credError.value = '密码至少 8 位'
+    return
+  }
+  if (credPassword.value !== credPassword2.value) {
+    credError.value = '两次输入的密码不一致'
+    return
+  }
+  if (emailBound.value && !credCurrent.value) {
+    credError.value = '请输入当前登录密码以确认修改'
+    return
+  }
+  credBusy.value = true
+  try {
+    await auth.setCredentials(
+      email,
+      credPassword.value,
+      emailBound.value ? credCurrent.value : undefined,
+    )
+    credDone.value = true
+    setTimeout(() => {
+      credOpen.value = false
+    }, 800)
+  } catch (e) {
+    credError.value = getErrorDetail(e) || '保存失败，请稍后重试'
+  } finally {
+    credBusy.value = false
+  }
+}
 </script>
 
 <template>
@@ -382,6 +451,21 @@ async function confirmDeleteAccount() {
 
       <button
         type="button"
+        class="flex w-full items-center gap-3 border-t border-line-soft px-4 py-3.5 text-left text-ink-soft transition hover:bg-sunken"
+        @click="openCredentials"
+      >
+        <AppIcon name="user" class="h-5 w-5 shrink-0" />
+        <span class="flex-1 text-[14px] text-ink">
+          登录邮箱与密码
+          <span class="ml-1 text-[12px] text-ink-faint">
+            {{ emailBound ? maskEmail(auth.user?.email) : '未绑定' }}
+          </span>
+        </span>
+        <AppIcon name="chevron-right" class="h-4 w-4 text-ink-faint" />
+      </button>
+
+      <button
+        type="button"
         class="flex w-full items-center gap-3 border-t border-line-soft px-4 py-3.5 text-left text-danger transition hover:bg-sunken"
         @click="openDeleteDialog"
       >
@@ -397,6 +481,91 @@ async function confirmDeleteAccount() {
 
     <ContactAuthorDialog v-model:open="contactAuthorOpen" />
     <FeedbackModal v-model:open="feedbackOpen" />
+
+    <!-- 登录邮箱与密码弹窗 -->
+    <div
+      v-if="credOpen"
+      class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-8 sm:items-center"
+      @click.self="credOpen = false"
+    >
+      <div class="w-full max-w-md rounded-2xl bg-card p-5 shadow-xl">
+        <div class="flex items-center gap-2 text-ink">
+          <AppIcon name="user" class="h-5 w-5" />
+          <h3 class="text-[16px] font-semibold">
+            {{ emailBound ? '修改登录邮箱与密码' : '绑定登录邮箱与密码' }}
+          </h3>
+        </div>
+        <p class="mt-2 text-[12px] leading-relaxed text-ink-soft">
+          绑定后即可在电脑浏览器用该邮箱 + 密码登录，与 App 内 Apple 登录是同一个账号、数据实时同步。
+        </p>
+
+        <label class="mt-4 block text-[12px] text-ink-soft">登录邮箱</label>
+        <input
+          v-model="credEmail"
+          type="email"
+          inputmode="email"
+          autocomplete="email"
+          class="mt-1 w-full rounded-xl border border-line-soft bg-sunken px-3 py-2.5 text-[14px] text-ink outline-none focus:border-brand"
+          placeholder="you@example.com"
+        />
+
+        <label class="mt-3 block text-[12px] text-ink-soft">
+          {{ emailBound ? '新密码' : '设置密码' }}
+        </label>
+        <input
+          v-model="credPassword"
+          type="password"
+          autocomplete="new-password"
+          class="mt-1 w-full rounded-xl border border-line-soft bg-sunken px-3 py-2.5 text-[14px] text-ink outline-none focus:border-brand"
+          placeholder="至少 8 位"
+        />
+
+        <label class="mt-3 block text-[12px] text-ink-soft">确认密码</label>
+        <input
+          v-model="credPassword2"
+          type="password"
+          autocomplete="new-password"
+          class="mt-1 w-full rounded-xl border border-line-soft bg-sunken px-3 py-2.5 text-[14px] text-ink outline-none focus:border-brand"
+          placeholder="再次输入密码"
+        />
+
+        <template v-if="emailBound">
+          <label class="mt-3 block text-[12px] text-ink-soft">当前登录密码（确认修改）</label>
+          <input
+            v-model="credCurrent"
+            type="password"
+            autocomplete="current-password"
+            class="mt-1 w-full rounded-xl border border-line-soft bg-sunken px-3 py-2.5 text-[14px] text-ink outline-none focus:border-brand"
+            placeholder="当前密码"
+          />
+        </template>
+
+        <p v-if="credError" class="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-[12px] text-danger">
+          {{ credError }}
+        </p>
+        <p v-if="credDone" class="mt-3 rounded-lg bg-brand/10 px-3 py-2 text-[12px] text-brand">
+          已保存，现在可用新邮箱 + 密码在网页登录了
+        </p>
+
+        <div class="mt-5 flex gap-3">
+          <button
+            type="button"
+            class="flex-1 rounded-xl border border-line-soft py-2.5 text-[14px] text-ink transition active:scale-[0.99]"
+            @click="credOpen = false"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            class="flex-1 rounded-xl bg-brand py-2.5 text-[14px] font-medium text-white transition active:scale-[0.99] disabled:opacity-50"
+            :disabled="credBusy || credDone"
+            @click="submitCredentials"
+          >
+            {{ credBusy ? '保存中…' : '保存' }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- 注销账号确认弹窗 -->
     <div
