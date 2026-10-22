@@ -41,6 +41,7 @@ _ANDROID_CHANNEL_ID = "vloglish_default"
 
 _fcm_sa: dict | None = None
 _fcm_tok = {"value": "", "exp": 0.0}
+_apns_http_client = None
 
 
 def _read_secret(env_json: str, env_file: str) -> str:
@@ -154,6 +155,14 @@ def _apns_jwt() -> str | None:
         return None
 
 
+def _get_apns_client():
+    """APNs 走 HTTP/2，必须用带 http2=True 的 Client（顶层 httpx.post 不支持 http2 参数）。"""
+    global _apns_http_client
+    if _apns_http_client is None:
+        _apns_http_client = httpx.Client(http2=True, timeout=10)
+    return _apns_http_client
+
+
 def _send_apns(token: str, title: str, body: str, data: dict, env: str) -> str:
     """返回 ok / invalid / error。"""
     jwtok = _apns_jwt()
@@ -166,9 +175,9 @@ def _send_apns(token: str, title: str, body: str, data: dict, env: str) -> str:
         **{k: str(v) for k, v in data.items()},
     }
     try:
-        resp = httpx.post(
+        client = _get_apns_client()
+        resp = client.post(
             f"https://{host}/3/device/{token}",
-            http2=True,
             headers={
                 "authorization": f"bearer {jwtok}",
                 "apns-topic": topic,
@@ -176,10 +185,9 @@ def _send_apns(token: str, title: str, body: str, data: dict, env: str) -> str:
                 "apns-priority": "10",
             },
             json=payload,
-            timeout=10,
         )
     except Exception as exc:
-        # 常见：未安装 h2（httpx[http2]）导致 http2=True 报错；或网络不通
+        # 常见：未安装 h2（httpx[http2]）或网络不通
         print("[push] APNs 请求异常:", repr(exc))
         return "error"
     if resp.status_code == 200:
