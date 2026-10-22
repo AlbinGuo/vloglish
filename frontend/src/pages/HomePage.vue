@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onActivated, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getAuthorsCatalog } from '@/api/episodes'
 import { useCatalogBrowseMode } from '@/composables/useCatalogBrowseMode'
 import { useCatalogScrollMemory } from '@/composables/useCatalogScrollMemory'
 import { useCatalogViewMode } from '@/composables/useCatalogViewMode'
 import { useIsMobile } from '@/composables/useBreakpoint'
+import { usePullToRefresh } from '@/composables/usePullToRefresh'
+import { isNativePlatform } from '@/utils/platform'
 import { useAuthStore } from '@/stores/auth'
 import { CARD_INITIAL_SIZE, LIST_INITIAL_SIZE, useCatalogStore } from '@/stores/catalog'
 import { useSiteConfigStore } from '@/stores/siteConfig'
@@ -28,6 +30,38 @@ const auth = useAuthStore()
 const siteConfig = useSiteConfigStore()
 const { viewMode } = useCatalogViewMode()
 const { browseMode } = useCatalogBrowseMode()
+
+const isHomeActive = ref(false)
+
+async function refreshCatalog() {
+  if (browseMode.value === 'author') {
+    await loadAuthors()
+  } else {
+    await store.loadEpisodes(true)
+  }
+  setupLoadMoreObserver()
+}
+
+// 首页下拉刷新
+usePullToRefresh(refreshCatalog, { enabled: () => isHomeActive.value })
+
+// App 从后台回到前台时刷新首页（停在首页也能看到最新内容）
+let _homeResumeHandle: { remove: () => void } | null = null
+onMounted(async () => {
+  if (!isNativePlatform()) return
+  try {
+    const { App } = await import('@capacitor/app')
+    _homeResumeHandle = await App.addListener('resume', () => {
+      if (isHomeActive.value) void refreshCatalog()
+    })
+  } catch {
+    /* ignore */
+  }
+})
+onUnmounted(() => {
+  void _homeResumeHandle?.remove()
+  _homeResumeHandle = null
+})
 const isMobile = useIsMobile()
 
 /** 未登录与手机端固定卡片视图 */
@@ -169,21 +203,21 @@ onUnmounted(() => {
 // 这里在“再次激活”时刷新列表，确保管理端新发布的视频能出现在首页。
 let _homeActivatedBefore = false
 onActivated(async () => {
+  isHomeActive.value = true
   // 首次激活紧跟在 onMounted 之后（onMounted 已加载过），跳过避免重复请求
   if (!_homeActivatedBefore) {
     _homeActivatedBefore = true
     return
   }
   try {
-    if (browseMode.value === 'author') {
-      await loadAuthors()
-    } else {
-      await store.loadEpisodes(true)
-    }
-    setupLoadMoreObserver()
+    await refreshCatalog()
   } catch {
     /* ignore */
   }
+})
+
+onDeactivated(() => {
+  isHomeActive.value = false
 })
 
 watch(loadMoreSentinel, () => {
