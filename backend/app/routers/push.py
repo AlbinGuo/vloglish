@@ -18,9 +18,9 @@ def register_push(
     db: Session = Depends(get_db),
 ):
     token = (body.token or "").strip()
-    if body.error:
-        # 客户端获取 token 失败时回传的原始错误，打到日志便于排查（常见于缺 aps-environment entitlement）
-        print(f"[push] ❌ 客户端注册失败 (platform={body.platform}, env={body.env}): {body.error}")
+    if body.stage or body.error:
+        # 客户端在各阶段回传的诊断，打到日志便于排查（无 Mac 也能定位）
+        print(f"[push] probe stage={body.stage or '-'} err={body.error or '-'} (platform={body.platform}, env={body.env})")
         return {"success": False}
     if not token:
         return {"success": False}

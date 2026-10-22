@@ -1014,10 +1014,11 @@ class AckPopupsIn(BaseModel):
 
 
 class PushRegisterIn(BaseModel):
-    token: str
+    token: str = ""
     platform: str = ""
     env: str = ""
-    # 客户端注册失败时回传的诊断信息（iOS registrationError 等）
+    # 客户端上报阶段（init/perm/registered 等）与错误信息，仅用于后端日志排查
+    stage: str = ""
     error: str = ""
 
 
