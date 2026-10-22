@@ -1167,6 +1167,8 @@ function goRecord() {
   error.value = ''
   result.value = null
   step.value = 'record'
+  // 「开始跟读」直接进入录音，省得用户以为没反应
+  void startListening()
 }
 
 async function resolveEngine() {
