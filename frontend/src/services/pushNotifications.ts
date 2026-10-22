@@ -86,12 +86,17 @@ export async function initPushNotifications(): Promise<void> {
       })
     }
     await reportStage('listeners-ready')
-
-    await PushNotifications.register()
-    await reportStage('register-resolved')
-    setTimeout(() => {
-      if (!loadToken()) void reportStage('no-token-after-8s')
-    }, 8000)
+    // 首次注册有时拿不到 token（尤其刚授予权限后），多试几次
+    for (let i = 0; i < 3; i++) {
+      await PushNotifications.register()
+      await reportStage('register-call#' + i)
+      await new Promise((r) => setTimeout(r, 3000))
+      if (loadToken()) {
+        await reportStage('token-ok#' + i)
+        break
+      }
+    }
+    if (!loadToken()) await reportStage('still-no-token')
     await syncPushToken()
   } catch (e) {
     console.warn('[push] initPushNotifications 失败', e)
