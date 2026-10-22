@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onActivated, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getAuthorsCatalog } from '@/api/episodes'
 import { useCatalogBrowseMode } from '@/composables/useCatalogBrowseMode'
@@ -163,6 +163,27 @@ onMounted(async () => {
 
 onUnmounted(() => {
   loadMoreObserver?.disconnect()
+})
+
+// 首页被 KeepAlive 缓存：从详情页/通知等返回时不会重新 mount，
+// 这里在“再次激活”时刷新列表，确保管理端新发布的视频能出现在首页。
+let _homeActivatedBefore = false
+onActivated(async () => {
+  // 首次激活紧跟在 onMounted 之后（onMounted 已加载过），跳过避免重复请求
+  if (!_homeActivatedBefore) {
+    _homeActivatedBefore = true
+    return
+  }
+  try {
+    if (browseMode.value === 'author') {
+      await loadAuthors()
+    } else {
+      await store.loadEpisodes(true)
+    }
+    setupLoadMoreObserver()
+  } catch {
+    /* ignore */
+  }
 })
 
 watch(loadMoreSentinel, () => {
