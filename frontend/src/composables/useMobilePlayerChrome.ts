@@ -39,10 +39,6 @@ export function useMobilePlayerChrome(options: {
   }
 
   function toggle() {
-    if (!autoHide) {
-      visible.value = true
-      return
-    }
     if (visible.value) {
       visible.value = false
       clearHideTimer()
