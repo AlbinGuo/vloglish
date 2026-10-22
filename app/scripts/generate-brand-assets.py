@@ -20,6 +20,9 @@ IOS_ICON = (
 IOS_SPLASH = (
     APP_ROOT / "ios" / "App" / "App" / "Assets.xcassets" / "Splash.imageset"
 )
+IOS_LAUNCH = (
+    APP_ROOT / "ios" / "App" / "App" / "Base.lproj" / "LaunchScreen.storyboard"
+)
 
 BG = (17, 17, 17, 255)  # #111111
 WHITE = (255, 255, 255, 255)
@@ -179,6 +182,43 @@ def _install_ios_splash() -> None:
     print(f"iOS 启动图已生成纯色背景 Splash.imageset（{filename}）")
 
 
+def _patch_ios_launch_screen() -> None:
+    """把 iOS 启动 storyboard 的背景改成深色、启动图改为铺满。
+
+    Capacitor 默认 LaunchScreen 的背景是 systemBackground（浅色下为白），
+    启动图若用 aspect-fit，在宽高比不一致的机型上顶部会露出白边 —— 表现为
+    「打开 App 时顶部闪一下」。这里统一成 #111111 并把图改为 aspect-fill。
+    未匹配到对应节点时自动跳过（不破坏原文件）。
+    """
+    import re
+
+    path = IOS_LAUNCH
+    if not path.is_file():
+        return
+    try:
+        xml = path.read_text(encoding="utf-8")
+    except OSError:
+        return
+
+    dark_color = (
+        '<color key="backgroundColor" red="0.06666666666666667" '
+        'green="0.06666666666666667" blue="0.06666666666666667" alpha="1" '
+        'colorSpace="custom" customColorSpace="sRGB"/>'
+    )
+    updated = re.sub(
+        r'<color key="backgroundColor"[^>]*?/>',
+        dark_color,
+        xml,
+    )
+    updated = updated.replace('contentMode="scaleAspectFit"', 'contentMode="scaleAspectFill"')
+
+    if updated != xml:
+        path.write_text(updated, encoding="utf-8")
+        print("iOS LaunchScreen.storyboard 已调整（深色背景 + 启动图铺满）")
+    else:
+        print("iOS LaunchScreen.storyboard 无需调整（跳过）")
+
+
 def main() -> None:
     ASSETS.mkdir(parents=True, exist_ok=True)
 
@@ -251,6 +291,7 @@ def main() -> None:
     if IOS_ICON.is_dir():
         _install_ios_icons()
         _install_ios_splash()
+        _patch_ios_launch_screen()
     else:
         print("skip iOS: AppIcon.appiconset not found (ok if Android-only)")
 
