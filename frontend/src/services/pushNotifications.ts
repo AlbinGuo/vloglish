@@ -54,6 +54,8 @@ function routeForPushData(data: Record<string, string>): string | null {
   if (videoId) return '/english/episode/' + videoId
   const articleId = data.article_id || data.articleId
   if (articleId) return '/english/reading/' + articleId
+  // 系统广播等无具体内容：跳到通知中心
+  if (data.type === 'admin_broadcast' || data.jump === 'notifications') return '/english/notifications'
   return null
 }
 

@@ -103,6 +103,12 @@ def notify_catalog_article_released(db: Session, article: Article) -> int:
                 for user in users
             ]
         )
+    enqueue_push(
+        db,
+        title="新文章上线",
+        body=f"「{_article_title(article)}」已上线，快来阅读吧。",
+        data={"type": "article_new_release", "article_id": article.id},
+    )
     article.release_notified_at = datetime.utcnow()
     return len(users)
 
