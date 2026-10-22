@@ -2,9 +2,9 @@
  * App 系统推送（Capacitor Push Notifications）。
  *
  * - iOS 拿 APNs device token，Android 拿 FCM token；
+ * - 点击通知跳转由 setupPushNotificationRouting() 在 App 启动时挂载（不等登录、支持冷启动）；
  * - token 上报需要登录态：登录后调用 initPushNotifications() + syncPushToken()；
- * - token 持久化到本地，登录/回前台会补报一次，避免"注册早于登录"漏报；
- * - 仅权限未授予或非原生环境时静默返回，不影响 Web / 开发。
+ * - token 持久化到本地，登录/回前台会补报一次，避免"注册早于登录"漏报。
  */
 import api from '@/api/client'
 import router from '@/router'
@@ -48,6 +48,47 @@ export async function syncPushToken(): Promise<void> {
   if (token) await reportToken(token)
 }
 
+/** 根据推送附带数据算出要跳转的路由（发布视频 -> 视频详情页） */
+function routeForPushData(data: Record<string, string>): string | null {
+  const videoId = data.video_id || data.videoId
+  if (videoId) return '/english/episode/' + videoId
+  const articleId = data.article_id || data.articleId
+  if (articleId) return '/english/reading/' + articleId
+  return null
+}
+
+async function navigateTo(path: string, attempt = 0) {
+  try {
+    await router.push(path)
+  } catch {
+    // 冷启动时 router 可能尚未就绪，稍后重试
+    if (attempt < 8) {
+      setTimeout(() => void navigateTo(path, attempt + 1), 120)
+    }
+  }
+}
+
+let routingInited = false
+
+/**
+ * 挂载"点击通知"跳转监听。应在 App 启动时调用（native 才会生效，幂等）。
+ * 这样即使 App 被杀死后点通知冷启动，也能在页面就绪后跳到对应详情页。
+ */
+export async function setupPushNotificationRouting(): Promise<void> {
+  if (!isNativePlatform() || routingInited) return
+  routingInited = true
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications')
+    PushNotifications.addListener('pushNotificationActionPerformed', (e) => {
+      const data = (e.notification?.data || {}) as Record<string, string>
+      const target = routeForPushData(data)
+      if (target) void navigateTo(target)
+    })
+  } catch {
+    /* 插件不可用时忽略 */
+  }
+}
+
 export async function initPushNotifications(): Promise<void> {
   if (!isNativePlatform()) return
   try {
@@ -65,7 +106,6 @@ export async function initPushNotifications(): Promise<void> {
       })
       PushNotifications.addListener('registrationError', (err) => {
         console.warn('[push] registrationError', err)
-        // 失败时回传后端日志，便于后续排查（不影响正常流程）
         void api
           .post('/api/push/register/', {
             token: '',
@@ -74,10 +114,6 @@ export async function initPushNotifications(): Promise<void> {
             error: JSON.stringify(err),
           })
           .catch(() => {})
-      })
-      PushNotifications.addListener('pushNotificationActionPerformed', (e) => {
-        const d = (e.notification?.data || {}) as Record<string, string>
-        if (d.video_id) void router.push('/english/episode/' + d.video_id)
       })
     }
 

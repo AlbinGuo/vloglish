@@ -6,12 +6,15 @@ import AppUpdateDialog from '@/components/app/AppUpdateDialog.vue'
 import { useAppUpdateCheck } from '@/composables/useAppUpdateCheck'
 import { isMobileAppBuild, isNativePlatform } from '@/utils/platform'
 import { useAuthStore } from '@/stores/auth'
-import { initPushNotifications, syncPushToken } from '@/services/pushNotifications'
+import { initPushNotifications, setupPushNotificationRouting, syncPushToken } from '@/services/pushNotifications'
 
 const { open, info, later, onUpdateClicked } = useAppUpdateCheck()
 
 // 仅在 App（含原生壳）里展示动画启动页，网页不展示
 const showSplash = isMobileAppBuild() || isNativePlatform()
+
+// App 启动即挂载"点击通知跳转"监听（支持冷启动点通知进入详情页）
+void setupPushNotificationRouting()
 
 // 登录后注册系统推送（token 上报需要登录态）
 const auth = useAuthStore()
