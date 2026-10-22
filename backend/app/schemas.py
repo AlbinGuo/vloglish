@@ -1013,6 +1013,12 @@ class AckPopupsIn(BaseModel):
     ids: list[int]
 
 
+class PushRegisterIn(BaseModel):
+    token: str
+    platform: str = ""
+    env: str = ""
+
+
 class AdminReleasePopupUserOut(BaseModel):
     user_id: int
     email: str

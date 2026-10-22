@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from ..models import AdminBroadcast, User, UserNotification
+from .push import enqueue_push
 
 
 def broadcast_notification_to_all_users(
@@ -40,6 +41,7 @@ def broadcast_notification_to_all_users(
             ]
         )
     broadcast.recipient_count = len(users)
+    enqueue_push(db, title=title, body=body, data={"type": "admin_broadcast"})
     db.commit()
     db.refresh(broadcast)
     return broadcast

@@ -11,3 +11,4 @@ python-jose[cryptography]>=3.3.0
 py-ip2region>=3.0.0
 redis>=5.0.0
 alipay-sdk-python>=3.7.0
+httpx[http2]>=0.27.0

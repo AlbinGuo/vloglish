@@ -447,6 +447,39 @@ class UserNotification(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class PushDevice(Base):
+    """App 推送设备 token（iOS=APNs token，Android=FCM token）。"""
+
+    __tablename__ = "push_devices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    token: Mapped[str] = mapped_column(String(512), unique=True, index=True)
+    # ios / android
+    platform: Mapped[str] = mapped_column(String(16), default="")
+    # iOS 环境：sandbox / production
+    env: Mapped[str] = mapped_column(String(16), default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PushOutbox(Base):
+    """待发送的推送任务（发布剧集/群发时写入，后台 worker 异步发送）。"""
+
+    __tablename__ = "push_outbox"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(256), default="")
+    body: Mapped[str] = mapped_column(Text, default="")
+    data_json: Mapped[str] = mapped_column(Text, default="{}")
+    # pending / processing / done
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    recipient_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class UserFeedback(Base):
     """用户意见反馈。"""
 

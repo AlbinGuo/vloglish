@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..models import Article, Author, Episode, User, UserNotification
 from .author_subscribe import subscriber_user_ids
+from .push import enqueue_push
 
 
 def _episode_title(ep: Episode) -> str:
@@ -55,6 +56,12 @@ def notify_catalog_episode_released(db: Session, ep: Episode) -> int:
                 for user in users
             ]
         )
+    enqueue_push(
+        db,
+        title="新视频上线",
+        body=f"「{_episode_title(ep)}」已上线，快来学习吧。",
+        data={"type": "episode_new_release", "video_id": ep.video_id},
+    )
     ep.release_notified_at = datetime.utcnow()
     return len(users)
 

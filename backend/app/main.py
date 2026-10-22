@@ -32,7 +32,7 @@ from .models import (
     EpisodeAudienceNote,
 )
 from .schemas import AuthTokensOut
-from .routers import ai_coach, app_download, article_submit, auth, account_bind, clips, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, public_voice_enroll, site_config, wish_wall, word_practice, wxpay
+from .routers import ai_coach, app_download, article_submit, auth, account_bind, clips, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, public_voice_enroll, site_config, wish_wall, word_practice, wxpay, push
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import ai_usage as admin_ai_usage
@@ -75,6 +75,7 @@ app.include_router(demo.router)
 app.include_router(episodes.router)
 app.include_router(episode_submit.router)
 app.include_router(notifications.router)
+app.include_router(push.router)
 app.include_router(feedback.router)
 app.include_router(wish_wall.router)
 app.include_router(learning.router)
@@ -159,6 +160,12 @@ def startup():
         ensure_admin_user(db)
     finally:
         db.close()
+    try:
+        from .services.push import start_push_worker
+
+        start_push_worker()
+    except Exception as exc:  # pragma: no cover
+        print("[push] start worker failed", exc)
 
 
 def _backfill_member_plans() -> None:
