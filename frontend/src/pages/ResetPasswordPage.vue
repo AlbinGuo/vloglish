@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import AppIcon from '@/components/AppIcon.vue'
+import AuthBrandMark from '@/components/auth/AuthBrandMark.vue'
+import AuthScreen from '@/components/auth/AuthScreen.vue'
+import PasswordInput from '@/components/PasswordInput.vue'
 import { resetPassword } from '@/api/password'
 
 const route = useRoute()
@@ -47,57 +51,73 @@ async function submit() {
 </script>
 
 <template>
-  <div class="min-h-dvh flex items-center justify-center px-4 py-12 bg-canvas">
-    <div class="w-full max-w-md rounded-2xl border border-line-soft bg-card p-6 sm:p-8 shadow-sm">
-      <h1 class="text-xl font-semibold mb-1">重置密码</h1>
-      <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-6">请设置新的登录密码</p>
-
-      <div v-if="!token && !success" class="space-y-4">
-        <p class="text-sm text-red-600 dark:text-red-400">重置链接无效或缺少 token。</p>
-        <RouterLink to="/forgot-password" class="text-sm text-neutral-900 dark:text-neutral-100 font-medium hover:underline">
-          重新申请重置
+  <AuthScreen>
+    <div class="flex flex-1 flex-col">
+      <header class="flex items-center gap-2.5">
+        <RouterLink
+          to="/login"
+          class="-ml-2 grid h-9 w-9 place-items-center rounded-full text-ink-soft transition hover:bg-black/5 dark:hover:bg-white/10"
+          aria-label="返回登录"
+        >
+          <AppIcon name="chevron-left" class="h-5 w-5" />
         </RouterLink>
+        <AuthBrandMark :size="36" />
+        <span class="text-[1.08rem] font-bold tracking-tight text-ink">Vloglish</span>
+      </header>
+
+      <div class="mt-7">
+        <h1 class="text-[1.75rem] font-extrabold tracking-tight text-ink">重置密码</h1>
+        <p class="mt-2 text-[13px] leading-relaxed text-ink-faint">请设置新的登录密码</p>
       </div>
 
-      <form v-else-if="!success" class="space-y-4" @submit.prevent="submit">
-        <div>
-          <label class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1.5">新密码</label>
-          <input
+      <div v-if="!token && !success" class="mt-7 space-y-4">
+        <div class="rounded-2xl bg-danger-soft px-4 py-3 text-[13px] text-danger">
+          重置链接无效或缺少 token。
+        </div>
+        <RouterLink to="/forgot-password" class="auth-link text-[13px]">重新申请重置</RouterLink>
+      </div>
+
+      <form v-else-if="!success" class="mt-7 space-y-3.5" @submit.prevent="submit">
+        <div class="relative">
+          <AppIcon name="lock" class="auth-field-icon" />
+          <PasswordInput
+            id="reset-new-password"
             v-model="password"
-            type="password"
             autocomplete="new-password"
             required
-            minlength="8"
-            class="w-full rounded-lg border border-line dark:bg-neutral-800 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
+            :minlength="8"
+            placeholder="新密码（至少 8 位）"
+            input-class="auth-input auth-input--pw"
           />
         </div>
-        <div>
-          <label class="block text-sm text-neutral-600 dark:text-neutral-400 mb-1.5">确认新密码</label>
-          <input
+
+        <div class="relative">
+          <AppIcon name="lock" class="auth-field-icon" />
+          <PasswordInput
+            id="reset-new-confirm"
             v-model="confirmPassword"
-            type="password"
             autocomplete="new-password"
             required
-            minlength="8"
-            class="w-full rounded-lg border border-line dark:bg-neutral-800 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
+            :minlength="8"
+            placeholder="确认新密码"
+            input-class="auth-input auth-input--pw"
           />
         </div>
 
-        <p v-if="error" class="text-sm text-red-600 dark:text-red-400">{{ error }}</p>
+        <p v-if="error" class="text-[13px] text-danger">{{ error }}</p>
 
-        <button
-          type="submit"
-          class="w-full rounded-lg bg-ink text-white py-2.5 text-sm font-medium hover:bg-neutral-800 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-60"
-          :disabled="loading"
-        >
-          {{ loading ? '保存中...' : '保存新密码' }}
+        <button type="submit" class="auth-primary" :disabled="loading">
+          <span>{{ loading ? '保存中…' : '保存新密码' }}</span>
+          <AppIcon name="chevron-right" class="h-4 w-4" />
         </button>
       </form>
 
-      <div v-else class="space-y-3">
-        <p class="text-sm text-green-600 dark:text-green-400">密码已重置，正在跳转登录页...</p>
-        <RouterLink to="/login" class="text-sm text-neutral-900 dark:text-neutral-100 font-medium hover:underline">立即登录</RouterLink>
-      </div>
+      <template v-else>
+        <div class="mt-7 rounded-2xl bg-brand-soft px-4 py-3 text-[13px] text-brand-on-soft">
+          密码已重置，正在跳转登录页…
+        </div>
+        <RouterLink to="/login" class="auth-primary mt-4">立即登录</RouterLink>
+      </template>
     </div>
-  </div>
+  </AuthScreen>
 </template>
