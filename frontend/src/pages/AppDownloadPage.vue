@@ -226,18 +226,27 @@ onMounted(async () => {
 
           <div class="mt-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 px-3 py-3">
             <p class="text-[12px] font-medium text-neutral-600 dark:text-neutral-300">iOS 内测安装步骤（TestFlight）</p>
-            <ol class="mt-3 space-y-3">
-              <li v-for="s in iosSteps" :key="s.n" class="flex flex-col items-center gap-1.5">
-                <span class="inline-flex items-center rounded-full bg-neutral-800 px-2 py-0.5 text-[11px] font-bold text-white dark:bg-neutral-200 dark:text-neutral-900">
-                  第 {{ s.n }} 步 · {{ s.label }}
-                </span>
-                <img
-                  :src="s.src"
-                  :alt="s.label"
-                  class="w-full max-w-[200px] rounded-xl border border-line bg-white"
-                  loading="lazy"
-                />
-              </li>
+            <ol class="mt-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-2">
+              <template v-for="(s, i) in iosSteps" :key="s.n">
+                <li class="flex flex-col items-center gap-1.5 lg:min-w-0 lg:flex-1">
+                  <img
+                    :src="s.src"
+                    :alt="`第 ${s.n} 步：${s.label}`"
+                    class="w-full max-w-[200px] rounded-xl border border-line bg-white object-contain lg:max-w-none"
+                    loading="lazy"
+                  />
+                  <span class="inline-flex items-center rounded-full bg-neutral-800 px-2 py-0.5 text-[11px] font-bold text-white dark:bg-neutral-200 dark:text-neutral-900">
+                    第 {{ s.n }} 步
+                  </span>
+                </li>
+                <li
+                  v-if="i < iosSteps.length - 1"
+                  aria-hidden="true"
+                  class="hidden select-none items-center justify-center text-2xl leading-none text-neutral-400 dark:text-neutral-500 lg:flex lg:self-center"
+                >
+                  →
+                </li>
+              </template>
             </ol>
           </div>
 
