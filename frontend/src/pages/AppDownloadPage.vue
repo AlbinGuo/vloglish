@@ -12,7 +12,19 @@ const loading = ref(true)
 const error = ref('')
 const data = ref<PublicAppDownload | null>(null)
 const qrDataUrl = ref('')
-const iosQrDataUrl = ref('')
+
+/** public 资源路径（兼容 web 的 `/` 与 App 的 `./` 两种 base） */
+const asset = (p: string) => `${import.meta.env.BASE_URL}${p}`
+
+/** iOS 内测（TestFlight）安装步骤图 */
+const iosSteps = [
+  { n: 1, label: '安装 TestFlight', src: asset('app/1.jpeg') },
+  { n: 2, label: '打开 TestFlight', src: asset('app/2.jpeg') },
+  { n: 3, label: '扫描二维码 / 接受邀请', src: asset('app/3.jpeg') },
+  { n: 4, label: '安装 Vloglish 内测版', src: asset('app/4.jpg') },
+] as const
+
+const iosQrSrc = asset('app/qrcode.png')
 
 type Client = 'ios' | 'android' | 'other'
 const client = ref<Client>('other')
@@ -72,26 +84,6 @@ async function refreshAndroidQr() {
 
 watch(androidQrTarget, () => {
   void refreshAndroidQr()
-  void refreshIosQr()
-})
-
-const iosQrTarget = computed(() => iosLink.value)
-
-async function refreshIosQr() {
-  const target = iosQrTarget.value
-  if (!target) {
-    iosQrDataUrl.value = ''
-    return
-  }
-  try {
-    iosQrDataUrl.value = await makeQrDataUrl(target, 200)
-  } catch {
-    iosQrDataUrl.value = ''
-  }
-}
-
-watch(iosQrTarget, () => {
-  void refreshIosQr()
 })
 
 onMounted(async () => {
@@ -217,22 +209,15 @@ onMounted(async () => {
             {{ iosNote }}
           </p>
 
-          <div v-if="iosQrTarget" class="mt-4 flex flex-col items-center">
+          <div class="mt-4 flex flex-col items-center">
             <div class="rounded-2xl border border-line bg-white p-2.5">
               <img
-                v-if="iosQrDataUrl"
-                :src="iosQrDataUrl"
-                alt="iOS 内测下载二维码"
-                class="w-[160px] h-[160px]"
+                :src="iosQrSrc"
+                alt="iOS 内测扫码二维码"
+                class="w-[160px] h-[160px] object-contain"
                 width="160"
                 height="160"
               />
-              <div
-                v-else
-                class="w-[160px] h-[160px] flex items-center justify-center text-xs text-neutral-400"
-              >
-                二维码生成中…
-              </div>
             </div>
             <p class="mt-2 text-[11px] text-neutral-500 dark:text-neutral-400 text-center">
               使用相机扫码
@@ -241,14 +226,17 @@ onMounted(async () => {
 
           <div class="mt-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 px-3 py-3">
             <p class="text-[12px] font-medium text-neutral-600 dark:text-neutral-300">iOS 内测安装步骤（TestFlight）</p>
-            <ol class="mt-2 space-y-2">
-              <li class="flex gap-2">
-                <span class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neutral-800 text-[11px] font-bold text-white dark:bg-neutral-200 dark:text-neutral-900">1</span>
-                <span class="text-[12px] leading-relaxed text-neutral-600 dark:text-neutral-300">在 App Store 搜索并下载「TestFlight」应用。</span>
-              </li>
-              <li class="flex gap-2">
-                <span class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neutral-800 text-[11px] font-bold text-white dark:bg-neutral-200 dark:text-neutral-900">2</span>
-                <span class="text-[12px] leading-relaxed text-neutral-600 dark:text-neutral-300">打开 TestFlight，用相机扫描上方二维码（或点击邀请链接），即可领取并安装 Vloglish 内测版。</span>
+            <ol class="mt-3 space-y-3">
+              <li v-for="s in iosSteps" :key="s.n" class="flex flex-col items-center gap-1.5">
+                <span class="inline-flex items-center rounded-full bg-neutral-800 px-2 py-0.5 text-[11px] font-bold text-white dark:bg-neutral-200 dark:text-neutral-900">
+                  第 {{ s.n }} 步 · {{ s.label }}
+                </span>
+                <img
+                  :src="s.src"
+                  :alt="s.label"
+                  class="w-full max-w-[200px] rounded-xl border border-line bg-white"
+                  loading="lazy"
+                />
               </li>
             </ol>
           </div>
