@@ -462,7 +462,7 @@ watch(
       v-show="showBackToTop"
       type="button"
       class="fixed right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-line-soft bg-card text-ink-soft shadow-lg transition active:scale-95"
-      :style="{ bottom: 'calc(var(--tabbar-offset, 0px) + 4.75rem)' }"
+      :style="{ bottom: 'calc(var(--tabbar-offset, 0px) + var(--home-fab-bottom, 4.75rem))' }"
       aria-label="回到顶部"
       @click="scrollToTop"
     >

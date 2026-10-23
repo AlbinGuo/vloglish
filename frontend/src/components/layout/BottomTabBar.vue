@@ -61,6 +61,14 @@ const mineActive = computed(() =>
     '/english/wish-wall',
   ].some((p) => route.path.startsWith(p)),
 )
+
+/** 已在首页时再点"首页"Tab：回到顶部（否则正常跳转） */
+function onTabClick(e: MouseEvent, tab: Tab) {
+  if (tab.key === 'home' && route.path === '/english') {
+    e.preventDefault()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
 </script>
 
 <template>
@@ -76,6 +84,7 @@ const mineActive = computed(() =>
         class="relative flex flex-col items-center justify-center gap-0.5 transition-colors duration-150 active:scale-95"
         :class="tab.match(route.path) ? 'text-brand' : 'text-ink-faint'"
         :style="{ height: 'var(--tabbar-height)' }"
+        @click="onTabClick($event, tab)"
       >
         <span class="relative">
           <AppIcon :name="tab.icon" class="w-[1.375rem] h-[1.375rem]" />
