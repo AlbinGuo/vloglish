@@ -509,7 +509,7 @@ watch(
     <!-- 移动端轻量 header：品牌 + 通知 + 我的头像（底部 Tab 负责主导航） -->
     <header
       v-if="!immersive"
-      class="sm:hidden sticky top-0 z-40 bg-card-glass backdrop-blur pt-[env(safe-area-inset-top,0px)]"
+      class="sm:hidden sticky top-0 z-40 bg-canvas pt-[env(safe-area-inset-top,0px)]"
       :class="hideAppMobileHeader ? '' : 'border-b border-line-soft'"
     >
       <div v-if="!hideAppMobileHeader" class="px-4 py-2 flex items-center justify-between gap-3">
