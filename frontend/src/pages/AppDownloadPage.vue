@@ -12,6 +12,7 @@ const loading = ref(true)
 const error = ref('')
 const data = ref<PublicAppDownload | null>(null)
 const qrDataUrl = ref('')
+const iosQrDataUrl = ref('')
 
 type Client = 'ios' | 'android' | 'other'
 const client = ref<Client>('other')
@@ -38,6 +39,9 @@ const showAndroid = computed(() => {
 
 /** 下载开放时始终展示 iOS 区；无外链时显示即将上架提示 */
 const showIos = computed(() => Boolean(data.value?.enabled))
+
+/** 两个区块同时展示时，PC 端横向两列排版 */
+const bothSections = computed(() => showAndroid.value && showIos.value)
 
 const emptyHint = computed(() => {
   if (!data.value) return ''
@@ -68,6 +72,26 @@ async function refreshAndroidQr() {
 
 watch(androidQrTarget, () => {
   void refreshAndroidQr()
+  void refreshIosQr()
+})
+
+const iosQrTarget = computed(() => iosLink.value)
+
+async function refreshIosQr() {
+  const target = iosQrTarget.value
+  if (!target) {
+    iosQrDataUrl.value = ''
+    return
+  }
+  try {
+    iosQrDataUrl.value = await makeQrDataUrl(target, 200)
+  } catch {
+    iosQrDataUrl.value = ''
+  }
+}
+
+watch(iosQrTarget, () => {
+  void refreshIosQr()
 })
 
 onMounted(async () => {
@@ -91,7 +115,7 @@ onMounted(async () => {
 
 <template>
   <div class="min-h-dvh bg-gradient-to-b from-teal-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900 text-ink">
-    <div class="mx-auto max-w-lg px-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
+    <div class="mx-auto max-w-lg lg:max-w-4xl px-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
       <header class="pt-6 pb-8 text-center">
         <p class="text-sm font-semibold tracking-wide text-teal-700 dark:text-teal-300">Vloglish</p>
         <h1 class="mt-2 text-2xl font-bold tracking-tight">下载 App</h1>
@@ -111,6 +135,7 @@ onMounted(async () => {
           {{ emptyHint }}
         </p>
 
+        <div :class="bothSections ? 'lg:grid lg:grid-cols-2 lg:gap-5 lg:items-start' : ''">
         <section
           v-if="showAndroid"
           class="rounded-2xl border border-teal-200/70 dark:border-teal-800/50 bg-white/90 dark:bg-neutral-900/80 p-5 shadow-sm"
@@ -178,20 +203,56 @@ onMounted(async () => {
         <section
           v-if="showIos"
           class="rounded-2xl border border-line bg-white/80 dark:bg-neutral-900/70 p-5"
-          :class="showAndroid ? 'mt-4' : ''"
+          :class="showAndroid ? 'mt-4 lg:mt-0' : ''"
         >
           <div class="flex items-center gap-2">
             <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-800 text-white text-xs font-bold dark:bg-neutral-200 dark:text-neutral-900">iOS</span>
             <div>
               <h2 class="text-base font-semibold">iPhone / iPad</h2>
-              <p class="text-xs text-neutral-500">
-                {{ iosLink ? '前往 App Store 安装' : '即将上架 App Store' }}
-              </p>
+              <p class="text-xs text-neutral-500">内测中，即将上架 Apple Store</p>
             </div>
           </div>
+
           <p class="mt-3 text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
             {{ iosNote }}
           </p>
+
+          <div v-if="iosQrTarget" class="mt-4 flex flex-col items-center">
+            <div class="rounded-2xl border border-line bg-white p-2.5">
+              <img
+                v-if="iosQrDataUrl"
+                :src="iosQrDataUrl"
+                alt="iOS 内测下载二维码"
+                class="w-[160px] h-[160px]"
+                width="160"
+                height="160"
+              />
+              <div
+                v-else
+                class="w-[160px] h-[160px] flex items-center justify-center text-xs text-neutral-400"
+              >
+                二维码生成中…
+              </div>
+            </div>
+            <p class="mt-2 text-[11px] text-neutral-500 dark:text-neutral-400 text-center">
+              使用相机扫码
+            </p>
+          </div>
+
+          <div class="mt-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 px-3 py-3">
+            <p class="text-[12px] font-medium text-neutral-600 dark:text-neutral-300">iOS 内测安装步骤（TestFlight）</p>
+            <ol class="mt-2 space-y-2">
+              <li class="flex gap-2">
+                <span class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neutral-800 text-[11px] font-bold text-white dark:bg-neutral-200 dark:text-neutral-900">1</span>
+                <span class="text-[12px] leading-relaxed text-neutral-600 dark:text-neutral-300">在 App Store 搜索并下载「TestFlight」应用。</span>
+              </li>
+              <li class="flex gap-2">
+                <span class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neutral-800 text-[11px] font-bold text-white dark:bg-neutral-200 dark:text-neutral-900">2</span>
+                <span class="text-[12px] leading-relaxed text-neutral-600 dark:text-neutral-300">打开 TestFlight，用相机扫描上方二维码（或点击邀请链接），即可领取并安装 Vloglish 内测版。</span>
+              </li>
+            </ol>
+          </div>
+
           <a
             v-if="iosLink"
             :href="iosLink"
@@ -199,22 +260,17 @@ onMounted(async () => {
             rel="noopener"
             class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl bg-ink text-white text-[15px] font-semibold dark:text-neutral-900 active:scale-[0.99]"
           >
-            {{ client === 'ios' ? '前往下载' : '打开 iOS 下载页' }}
+            {{ client === 'ios' ? '打开 TestFlight 邀请' : '打开 iOS 内测链接' }}
           </a>
           <div
             v-else
             class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-800/60 text-[15px] font-semibold text-neutral-500 dark:text-neutral-400"
             aria-disabled="true"
           >
-            即将上架 App Store
+            内测中，即将上架 Apple Store
           </div>
-          <p
-            v-if="!iosLink"
-            class="mt-2 text-[11px] text-neutral-400 text-center leading-relaxed"
-          >
-            上架后可在此页直接跳转下载；也可先使用网页版学习。
-          </p>
         </section>
+        </div>
 
         <p class="mt-8 text-center text-xs text-neutral-400">
           <RouterLink to="/english" class="underline-offset-2 hover:underline">进入网页版</RouterLink>
