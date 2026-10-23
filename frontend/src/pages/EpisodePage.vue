@@ -2733,6 +2733,7 @@ const backFrom = computed(() => {
 const fromVocabulary = computed(() => backFrom.value === 'vocab')
 const fromLearning = computed(() => backFrom.value === 'learning')
 const fromClips = computed(() => backFrom.value === 'clips')
+const fromHistory = computed(() => backFrom.value === 'history')
 
 function goBack() {
   if (fromVocabulary.value) {
@@ -2745,6 +2746,10 @@ function goBack() {
   }
   if (fromLearning.value) {
     router.push('/english/learning')
+    return
+  }
+  if (fromHistory.value) {
+    router.push('/english/history')
     return
   }
   router.push(props.backTo ?? '/english')
@@ -2802,7 +2807,7 @@ function subtitleRowClass(index: number) {
       "
     >
       <button class="text-sm text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white" @click="goBack">
-        {{ fromVocabulary ? '← 生词本' : fromClips ? '← 我的摘录' : fromLearning ? '← 学习统计' : '← 返回' }}
+        {{ fromVocabulary ? '← 生词本' : fromClips ? '← 我的摘录' : fromLearning ? '← 学习统计' : fromHistory ? '← 浏览记录' : '← 返回' }}
       </button>
       <div v-if="episode" class="flex-1 min-w-0">
         <p class="font-semibold truncate flex items-center gap-2">
