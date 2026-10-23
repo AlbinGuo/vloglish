@@ -92,7 +92,7 @@ watch(tags, async () => {
   >
     <div class="relative flex-1 min-w-0">
       <div
-        class="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 sm:w-12 bg-gradient-to-r from-neutral-50 via-neutral-50/85 to-transparent dark:from-neutral-950 dark:via-neutral-950/85 transition-opacity duration-200"
+        class="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 sm:w-12 bg-gradient-to-r from-neutral-50/80 via-neutral-50/35 to-transparent dark:from-neutral-950/80 dark:via-neutral-950/35 transition-opacity duration-200"
         :class="canScrollLeft ? 'opacity-100' : 'opacity-0'"
         aria-hidden="true"
       />

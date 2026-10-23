@@ -90,7 +90,7 @@ function onTabClick(e: MouseEvent, tab: Tab) {
           <AppIcon :name="tab.icon" class="w-[1.375rem] h-[1.375rem]" />
           <span
             v-if="tab.badge && tab.badge > 0"
-            class="absolute -top-1 -right-2 min-w-[1rem] h-4 px-1 rounded-full bg-warning text-ink-inverse text-[10px] font-semibold flex items-center justify-center leading-none"
+            class="absolute -top-1 -right-2 min-w-[1rem] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none"
           >
             {{ tab.badge > 99 ? '99+' : tab.badge }}
           </span>
