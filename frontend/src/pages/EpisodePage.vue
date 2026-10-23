@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
-import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, completeDailySentence, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
+import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, completeDailySentence, recordEpisodeView, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
 import { generateSubtitleLiteral, getEpisodeList, setAuthorSubscribe, setEpisodeFavorite, warmEpisodeWordLookups } from '@/api/episodes'
 import { useFavoriteToastStore } from '@/stores/favoriteToast'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
@@ -1859,6 +1859,7 @@ onMounted(() => {
   syncSubtitlesHiddenForVideo(props.videoId)
   load()
   if (auth.isLoggedIn) void vocabularyStore.load()
+  if (auth.isLoggedIn && !props.adminPreview && props.videoId) void recordEpisodeView(props.videoId)
   window.addEventListener('keydown', onEntryKeydown)
   window.addEventListener('afterprint', onAfterPrint)
   unsubscribeVideoPanelFullscreen = subscribeFullscreenChange(onVideoPanelFullscreenChange)

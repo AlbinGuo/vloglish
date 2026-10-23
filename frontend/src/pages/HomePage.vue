@@ -33,6 +33,7 @@ const { browseMode } = useCatalogBrowseMode()
 
 const isHomeActive = ref(false)
 const rootEl = ref<HTMLElement | null>(null)
+const listEl = ref<HTMLElement | null>(null)
 
 async function refreshCatalog() {
   if (browseMode.value === 'author') {
@@ -46,7 +47,7 @@ async function refreshCatalog() {
 // 首页下拉刷新（页面与 header 分离式）
 usePullToRefresh(refreshCatalog, {
   enabled: () => isHomeActive.value,
-  getContentEl: () => rootEl.value,
+  getContentEl: () => listEl.value,
 })
 
 // App 从后台回到前台时刷新首页（停在首页也能看到最新内容）
@@ -65,6 +66,16 @@ onMounted(async () => {
 onUnmounted(() => {
   void _homeResumeHandle?.remove()
   _homeResumeHandle = null
+})
+
+// 计算移动端顶部 header 高度，让粘性工具条吸附在其下方
+onMounted(() => {
+  const hdr = Array.from(document.querySelectorAll('header')).find((h) =>
+    (h.className || '').includes('sm:hidden'),
+  ) as HTMLElement | undefined
+  if (hdr && rootEl.value) {
+    rootEl.value.style.setProperty('--catalog-sticky-top', hdr.offsetHeight + 'px')
+  }
 })
 const isMobile = useIsMobile()
 
@@ -298,45 +309,47 @@ watch(
   <div ref="rootEl">
     <EnglishCatalogNavBar />
 
-    <div class="page-container pb-6" :class="isMobile ? 'pt-3' : 'py-6'">
-      <!-- 手机端：搜索+筛选 / 标签（Tab 在顶栏条） -->
+    <div class="page-container pb-6" :class="isMobile ? 'pt-0' : 'py-6'">
+      <!-- 手机端：粘性工具条（紧凑搜索 + 标签），固定在 header 下方 -->
       <template v-if="isMobile">
-        <div class="mb-3 flex items-center gap-2 min-w-0">
-          <div class="flex-1 min-w-0">
-            <label class="sr-only" for="mobile-catalog-search">搜索</label>
-            <input
-              id="mobile-catalog-search"
-              v-model="mobileSearchQuery"
-              type="search"
-              :placeholder="mobileSearchPlaceholder"
-              class="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 dark:text-white px-3 py-2.5 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
-            />
-          </div>
-          <button
-            type="button"
-            class="relative shrink-0 inline-flex items-center gap-1 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-2.5 text-sm font-medium text-neutral-700 dark:text-neutral-200"
-            :class="mobileSheetFilterCount > 0 ? 'border-amber-400 text-amber-800 dark:border-amber-500 dark:text-amber-200' : ''"
-            aria-label="筛选"
-            @click="filterSheetOpen = true"
-          >
-            <AppIcon name="sliders" class="w-[1.125rem] h-[1.125rem]" />
-            筛选
-            <span
-              v-if="mobileSheetFilterCount > 0"
-              class="absolute -top-1.5 -right-1.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none"
+        <div
+          class="sticky z-30 -mx-4 border-b border-line-soft/70 bg-canvas px-4 pb-2 pt-2 backdrop-blur"
+          :style="{ top: 'var(--catalog-sticky-top, 0px)' }"
+        >
+          <div class="mb-2 flex items-center gap-2 min-w-0">
+            <div class="relative min-w-0 flex-1">
+              <AppIcon
+                name="search"
+                class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"
+              />
+              <label class="sr-only" for="mobile-catalog-search">搜索</label>
+              <input
+                id="mobile-catalog-search"
+                v-model="mobileSearchQuery"
+                type="search"
+                :placeholder="mobileSearchPlaceholder"
+                class="h-9 w-full rounded-full border border-black/10 bg-white pl-9 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:border-white/10 dark:bg-neutral-900 dark:text-white"
+              />
+            </div>
+            <button
+              type="button"
+              class="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/10 bg-white text-neutral-600 dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-300"
+              :class="mobileSheetFilterCount > 0 ? 'border-amber-400 text-amber-600 dark:border-amber-500 dark:text-amber-300' : ''"
+              aria-label="筛选"
+              @click="filterSheetOpen = true"
             >
-              {{ mobileSheetFilterCount }}
-            </span>
-          </button>
+              <AppIcon name="sliders" class="h-[1.05rem] w-[1.05rem]" />
+              <span
+                v-if="mobileSheetFilterCount > 0"
+                class="absolute -right-1 -top-1 flex h-[1rem] min-w-[1rem] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold leading-none text-white"
+              >
+                {{ mobileSheetFilterCount }}
+              </span>
+            </button>
+          </div>
+
+          <EnglishHotTagsBar class="!flex-none" />
         </div>
-
-        <EnglishHotTagsBar class="mb-4 w-full !flex-none" />
-
-        <CatalogFilterSheet
-          :open="filterSheetOpen"
-          :show-submit-entry="showSubmitEpisodeEntry"
-          @close="filterSheetOpen = false"
-        />
       </template>
 
       <!-- 桌面端：保持原样（Tab + 标签同行） -->
@@ -359,6 +372,8 @@ watch(
         <CatalogContentToolbar class="mb-4" :show-submit-entry="showSubmitEpisodeEntry" />
       </template>
 
+      <!-- 可下拉刷新的内容区 -->
+      <div ref="listEl">
       <div
         v-if="previewBanner"
         class="mb-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-900 dark:text-amber-200 flex flex-wrap items-center gap-x-2 gap-y-1"
@@ -424,6 +439,15 @@ watch(
           </div>
         </template>
       </template>
+      </div><!-- /listEl -->
     </div>
+
+    <!-- 过滤面板（置于内容区外，避免 transform 影响 fixed 定位） -->
+    <CatalogFilterSheet
+      v-if="isMobile"
+      :open="filterSheetOpen"
+      :show-submit-entry="showSubmitEpisodeEntry"
+      @close="filterSheetOpen = false"
+    />
   </div>
 </template>
