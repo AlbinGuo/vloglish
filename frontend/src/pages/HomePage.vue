@@ -6,7 +6,7 @@ import { useCatalogBrowseMode } from '@/composables/useCatalogBrowseMode'
 import { useCatalogScrollMemory } from '@/composables/useCatalogScrollMemory'
 import { useCatalogViewMode } from '@/composables/useCatalogViewMode'
 import { useIsMobile } from '@/composables/useBreakpoint'
-import { usePullToRefresh } from '@/composables/usePullToRefresh'
+
 import { isNativePlatform } from '@/utils/platform'
 import { useAuthStore } from '@/stores/auth'
 import { CARD_INITIAL_SIZE, LIST_INITIAL_SIZE, useCatalogStore } from '@/stores/catalog'
@@ -52,12 +52,6 @@ async function refreshCatalog() {
   }
   setupLoadMoreObserver()
 }
-
-// 首页下拉刷新（页面与 header 分离式）
-usePullToRefresh(refreshCatalog, {
-  enabled: () => isHomeActive.value,
-  getContentEl: () => listEl.value,
-})
 
 // App 从后台回到前台时刷新首页（停在首页也能看到最新内容）
 let _homeResumeHandle: { remove: () => void } | null = null
