@@ -51,8 +51,35 @@ npm run build:apk
 
 1. 用 `frontend` 的 App 模式构建静态资源 → `app/www`
 2. `npx cap sync` 同步到 Android 工程
-3. `gradlew assembleDebug` 打 debug APK
-4. 复制到 `app/dist/vloglish-debug.apk`
+3. `gradlew assembleRelease` 打 **release APK**
+4. 复制到 `app/dist/vloglish-release.apk`（已签名优先；未配置签名时复制未签名包并告警）
+
+> 为什么默认出 release：debug 包用调试证书签名、`debuggable=true`，安装时会被系统/Play 保护机制提示“存在风险”。正式发布请务必用 release 签名。
+
+## 正式签名（Release）
+
+只需配置一次：
+
+```bash
+# 1) 生成发布密钥库（妥善备份 .jks，丢失将无法给老用户升级）
+cd app/android
+keytool -genkeypair -v -keystore vloglish-release.jks ^
+  -keyalg RSA -keysize 2048 -validity 10000 -alias vloglish
+
+# 2) 复制签名配置样例并填写
+copy keystore.properties.example keystore.properties
+```
+
+`keystore.properties`（已 gitignore，不入库）：
+```properties
+storeFile=vloglish-release.jks
+keyAlias=vloglish
+# 密码推荐用环境变量注入，避免明文入库：
+#   set VLOG_ANDROID_STORE_PASSWORD=你的密钥库密码
+#   set VLOG_ANDROID_KEY_PASSWORD=你的密钥密码
+```
+
+配置好后 `npm run build:apk` 会自动产出已签名的 `app-release.apk`。
 
 ## 分步打包
 
@@ -61,26 +88,30 @@ npm run build:apk
 cd app
 npm run sync
 
-# 2) 打 debug APK
+# 2) 打 release APK
 cd android
-gradlew.bat assembleDebug
+gradlew.bat assembleRelease
 ```
+
+> 自测若想临时出 debug 包：`gradlew.bat assembleDebug`（仅内部使用，勿对外分发）。
 
 ## APK 输出位置
 
 | 路径 | 说明 |
 |------|------|
-| `app/android/app/build/outputs/apk/debug/app-debug.apk` | Gradle 原始输出 |
-| `app/dist/vloglish-debug.apk` | `npm run build:apk` 复制后的便捷路径 |
+| `app/android/app/build/outputs/apk/release/app-release.apk` | 已签名 release 产物 |
+| `app/android/app/build/outputs/apk/release/app-release-unsigned.apk` | 未配置签名时的产物（不可直接分发） |
+| `app/dist/vloglish-release.apk` | `npm run build:apk` 复制后的便捷路径 |
 
 ## 真机安装
 
-1. 把 `vloglish-debug.apk`（或 `app-debug.apk`）拷到手机（微信 / QQ / 数据线均可）
+1. 把 `vloglish-release.apk`（或 `app-release.apk`）拷到手机（微信 / QQ / 数据线均可）
 2. 手机开启「允许安装未知应用」（或针对该文件管理器/浏览器开启）
 3. 点击 APK 安装
 4. 打开 **Vloglish** 登录测试
 
-> 这是 **debug 签名包**，只适合自测，不能直接上架应用商店。
+> 即使 release 签名，从网页/聊天工具侧载安装，Android 仍会提示“未知来源/可能有害”（系统安全机制，无法完全去除）。点「仍要安装/继续」即可；要彻底消除提示需上架应用商店（Google Play / 国内商店）。
+> 注意：从旧的 debug 包换成 release 包时 **签名不同无法覆盖安装，需先卸载旧包**。
 
 ## 用 Android Studio 运行（可选）
 

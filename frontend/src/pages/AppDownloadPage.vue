@@ -164,9 +164,15 @@ onMounted(async () => {
             {{ client === 'android' ? '下载并安装' : '下载 Android APK' }}
             <template v-if="apkSizeLabel">（{{ apkSizeLabel }}）</template>
           </a>
-          <p class="mt-2 text-[11px] text-neutral-400 text-center leading-relaxed">
-            若无法安装，请在系统设置中允许「未知来源」应用。
-          </p>
+          <div class="mt-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2.5 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+            <p class="font-medium text-neutral-600 dark:text-neutral-300">安装提示</p>
+            <ol class="mt-1 list-decimal space-y-0.5 pl-4">
+              <li>点击下载后，若浏览器提示“此类型文件可能损害设备”，选择「仍要下载 / 继续」。</li>
+              <li>打开安装包时若提示“未知来源 / 未经安全检测”，选择「允许此来源」或「仍要安装」。</li>
+              <li>小米需关闭“纯净模式”；华为 / 荣耀需允许“外部来源应用”安装。</li>
+            </ol>
+            <p class="mt-1.5 text-neutral-400">为保障安全，请务必从官网等官方渠道下载，谨防仿冒安装包。</p>
+          </div>
         </section>
 
         <section
