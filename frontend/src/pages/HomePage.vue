@@ -35,6 +35,15 @@ const isHomeActive = ref(false)
 const rootEl = ref<HTMLElement | null>(null)
 const listEl = ref<HTMLElement | null>(null)
 
+// 回到顶部
+const showBackToTop = ref(false)
+function updateBackToTop() {
+  showBackToTop.value = (window.scrollY || 0) > 640
+}
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
 async function refreshCatalog() {
   if (browseMode.value === 'author') {
     await loadAuthors()
@@ -68,7 +77,7 @@ onUnmounted(() => {
   _homeResumeHandle = null
 })
 
-// 计算移动端顶部 header 高度，让粘性工具条吸附在其下方
+// 计算移动端顶部 header 高度，让粘性工具条吸附在其下方；并监听滚动以显示"回到顶部"
 onMounted(() => {
   const hdr = Array.from(document.querySelectorAll('header')).find((h) =>
     (h.className || '').includes('sm:hidden'),
@@ -76,6 +85,11 @@ onMounted(() => {
   if (hdr && rootEl.value) {
     rootEl.value.style.setProperty('--catalog-sticky-top', hdr.offsetHeight + 'px')
   }
+  window.addEventListener('scroll', updateBackToTop, { passive: true })
+  updateBackToTop()
+})
+onUnmounted(() => {
+  window.removeEventListener('scroll', updateBackToTop)
 })
 const isMobile = useIsMobile()
 
@@ -219,6 +233,7 @@ onUnmounted(() => {
 let _homeActivatedBefore = false
 onActivated(async () => {
   isHomeActive.value = true
+  requestAnimationFrame(updateBackToTop)
   // 首次激活紧跟在 onMounted 之后（onMounted 已加载过），跳过避免重复请求
   if (!_homeActivatedBefore) {
     _homeActivatedBefore = true
@@ -441,6 +456,18 @@ watch(
       </template>
       </div><!-- /listEl -->
     </div>
+
+    <!-- 回到顶部 -->
+    <button
+      v-show="showBackToTop"
+      type="button"
+      class="fixed right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-line-soft bg-card text-ink-soft shadow-lg transition active:scale-95"
+      :style="{ bottom: 'calc(var(--tabbar-offset, 0px) + 4.75rem)' }"
+      aria-label="回到顶部"
+      @click="scrollToTop"
+    >
+      <AppIcon name="chevron-down" class="h-5 w-5 rotate-180" />
+    </button>
 
     <!-- 过滤面板（置于内容区外，避免 transform 影响 fixed 定位） -->
     <CatalogFilterSheet
