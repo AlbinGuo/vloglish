@@ -79,9 +79,12 @@ onUnmounted(() => {
 
 // 计算移动端顶部 header 高度，让粘性工具条吸附在其下方；并监听滚动以显示"回到顶部"
 onMounted(() => {
-  const hdr = Array.from(document.querySelectorAll('header')).find((h) =>
-    (h.className || '').includes('sm:hidden'),
-  ) as HTMLElement | undefined
+  // 注意：桌面 header 的类名含 "max-sm:hidden"，其中也包含子串 "sm:hidden"，
+  // 必须排除，否则会误取到移动端隐藏的桌面 header（高度 0）导致工具条钻到状态栏下面。
+  const hdr = Array.from(document.querySelectorAll('header')).find((h) => {
+    const cls = h.className || ''
+    return cls.includes('sm:hidden') && !cls.includes('max-sm:hidden')
+  }) as HTMLElement | undefined
   if (hdr && rootEl.value) {
     rootEl.value.style.setProperty('--catalog-sticky-top', hdr.offsetHeight + 'px')
   }
@@ -328,7 +331,7 @@ watch(
       <!-- 手机端：粘性工具条（紧凑搜索 + 标签），固定在 header 下方 -->
       <template v-if="isMobile">
         <div
-          class="sticky z-30 -mx-4 border-b border-line-soft/70 bg-canvas px-4 pb-2 pt-2 backdrop-blur"
+          class="sticky z-30 -mx-4 bg-canvas px-4 pb-2 pt-2"
           :style="{ top: 'var(--catalog-sticky-top, 0px)' }"
         >
           <div class="mb-2 flex items-center gap-2 min-w-0">
