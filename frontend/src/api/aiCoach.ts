@@ -1,6 +1,9 @@
-import api, { getDeviceId } from './client'
+import api, { getDeviceId, API_BASE_URL } from './client'
 import { getAccessToken } from './tokens'
 import { randomUUID } from '@/utils/randomId'
+
+/** App 构建使用绝对 API 地址；Web 生产同域反代时为空字符串 */
+const useAbsoluteApi = Boolean(API_BASE_URL)
 
 export interface AiQuota {
   is_member: boolean
@@ -171,13 +174,18 @@ export async function aiExplainSubtitleStream(
     'X-Timestamp': String(Math.floor(Date.now() / 1000)),
     'X-Nonce': randomUUID(),
   }
+  if (useAbsoluteApi) {
+    headers['X-Client'] = import.meta.env.VITE_APP_TARGET === 'mobile' ? 'app' : 'web'
+  }
   const token = getAccessToken()
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const res = await fetch('/api/ai/explain-subtitle/stream/', {
+  // 说明：流式接口用原生 fetch，必须自己拼上 API 基址——App(WebView) 下相对路径
+  // 会落到 capacitor:// 自身源而请求不到后端；Web 生产 API_BASE_URL 为空时仍走同域相对路径。
+  const res = await fetch(`${API_BASE_URL}/api/ai/explain-subtitle/stream/`, {
     method: 'POST',
     headers,
-    credentials: 'include',
+    credentials: useAbsoluteApi ? 'omit' : 'include',
     signal: options.signal,
     body: JSON.stringify({
       video_id: videoId,
