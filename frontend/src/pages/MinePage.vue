@@ -389,6 +389,18 @@ async function submitCredentials() {
       </RouterLink>
     </section>
 
+    <!-- 浏览记录 -->
+    <section class="mt-4 overflow-hidden rounded-2xl border border-line-soft bg-card">
+      <RouterLink
+        to="/english/history"
+        class="flex items-center gap-3 px-4 py-3.5 text-ink-soft transition hover:bg-sunken"
+      >
+        <AppIcon name="history" class="h-5 w-5 shrink-0 text-sky-500" />
+        <span class="flex-1 text-[14px] text-ink">浏览记录</span>
+        <AppIcon name="chevron-right" class="h-4 w-4 text-ink-faint" />
+      </RouterLink>
+    </section>
+
     <!-- 设置 -->
     <section class="mt-4 overflow-hidden rounded-2xl border border-line-soft bg-card">
       <RouterLink
