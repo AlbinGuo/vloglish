@@ -3,7 +3,6 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getPopularEpisodeTags } from '@/api/episodes'
 import { useCatalogStore } from '@/stores/catalog'
 import type { Tag } from '@/types'
-import AppIcon from '@/components/AppIcon.vue'
 
 const store = useCatalogStore()
 
@@ -33,13 +32,6 @@ function updateScrollState() {
   const maxScroll = el.scrollWidth - el.clientWidth
   canScrollLeft.value = el.scrollLeft > 2
   canScrollRight.value = maxScroll > 2 && el.scrollLeft < maxScroll - 2
-}
-
-function scrollByDir(dir: -1 | 1) {
-  const el = scrollerRef.value
-  if (!el) return
-  const delta = Math.max(160, Math.floor(el.clientWidth * 0.7)) * dir
-  el.scrollBy({ left: delta, behavior: 'smooth' })
 }
 
 /** 将标签滚到可视区域水平居中 */
@@ -98,16 +90,6 @@ watch(tags, async () => {
     class="flex items-center gap-1 min-w-0 w-full sm:flex-1 sm:w-auto"
     aria-label="主题标签"
   >
-    <button
-      type="button"
-      class="hidden sm:inline-flex shrink-0 h-8 w-8 items-center justify-center rounded-full border border-line bg-card text-neutral-500 hover:text-ink-soft disabled:opacity-30 disabled:pointer-events-none transition"
-      aria-label="向左滑动标签"
-      :disabled="!canScrollLeft"
-      @click="scrollByDir(-1)"
-    >
-      <AppIcon name="chevron-left-xs" class="w-4 h-4" />
-    </button>
-
     <div class="relative flex-1 min-w-0">
       <div
         class="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 sm:w-12 bg-gradient-to-r from-neutral-50 via-neutral-50/85 to-transparent dark:from-neutral-950 dark:via-neutral-950/85 transition-opacity duration-200"
@@ -155,15 +137,5 @@ watch(tags, async () => {
         </div>
       </div>
     </div>
-
-    <button
-      type="button"
-      class="shrink-0 h-8 w-8 inline-flex items-center justify-center rounded-full border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 disabled:opacity-30 disabled:pointer-events-none transition"
-      aria-label="向右滑动标签"
-      :disabled="!canScrollRight"
-      @click="scrollByDir(1)"
-    >
-      <AppIcon name="chevron-right" class="w-4 h-4" />
-    </button>
   </div>
 </template>

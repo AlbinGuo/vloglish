@@ -14,11 +14,13 @@ const props = withDefaults(
   defineProps<{
     open: boolean
     showSubmitEntry?: boolean
+    search?: string
+    searchPlaceholder?: string
   }>(),
-  { showSubmitEntry: true },
+  { showSubmitEntry: true, search: '', searchPlaceholder: '搜索视频名称或作者' },
 )
 
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; 'update:search': [value: string] }>()
 
 const auth = useAuthStore()
 const siteConfig = useSiteConfigStore()
@@ -85,6 +87,10 @@ async function onReset() {
   if (browseMode.value !== 'all') setBrowseMode('all')
   await store.clearFilters()
 }
+
+function onSearchInput(e: Event) {
+  emit('update:search', (e.target as HTMLInputElement).value)
+}
 </script>
 
 <template>
@@ -126,6 +132,23 @@ async function onReset() {
         </div>
 
         <div class="px-4 py-4 space-y-5">
+          <section>
+            <p class="text-xs font-medium text-neutral-500 mb-2">搜索</p>
+            <div class="relative">
+              <AppIcon
+                name="search"
+                class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"
+              />
+              <input
+                type="search"
+                :value="props.search"
+                :placeholder="props.searchPlaceholder"
+                class="h-10 w-full rounded-full border border-black/10 bg-white pl-9 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:border-white/10 dark:bg-neutral-900 dark:text-white"
+                @input="onSearchInput"
+              />
+            </div>
+          </section>
+
           <section>
             <p class="text-xs font-medium text-neutral-500 mb-2">浏览方式</p>
             <div

@@ -328,29 +328,18 @@ watch(
           class="sticky z-30 -mx-4 bg-canvas px-4 pb-2 pt-2"
           :style="{ top: 'var(--catalog-sticky-top, 0px)' }"
         >
-          <div class="mb-2 flex items-center gap-2 min-w-0">
-            <div class="relative min-w-0 flex-1">
-              <AppIcon
-                name="search"
-                class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"
-              />
-              <label class="sr-only" for="mobile-catalog-search">搜索</label>
-              <input
-                id="mobile-catalog-search"
-                v-model="mobileSearchQuery"
-                type="search"
-                :placeholder="mobileSearchPlaceholder"
-                class="h-9 w-full rounded-full border border-black/10 bg-white pl-9 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:border-white/10 dark:bg-neutral-900 dark:text-white"
-              />
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="min-w-0 flex-1">
+              <EnglishHotTagsBar />
             </div>
             <button
               type="button"
-              class="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/10 bg-white text-neutral-600 dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-300"
+              class="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/10 bg-white text-neutral-600 dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-300"
               :class="mobileSheetFilterCount > 0 ? 'border-amber-400 text-amber-600 dark:border-amber-500 dark:text-amber-300' : ''"
               aria-label="筛选"
               @click="filterSheetOpen = true"
             >
-              <AppIcon name="sliders" class="h-[1.05rem] w-[1.05rem]" />
+              <AppIcon name="funnel" class="h-[1.05rem] w-[1.05rem]" />
               <span
                 v-if="mobileSheetFilterCount > 0"
                 class="absolute -right-1 -top-1 flex h-[1rem] min-w-[1rem] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold leading-none text-white"
@@ -359,8 +348,6 @@ watch(
               </span>
             </button>
           </div>
-
-          <EnglishHotTagsBar class="!flex-none" />
         </div>
       </template>
 
@@ -470,6 +457,8 @@ watch(
     <CatalogFilterSheet
       v-if="isMobile"
       :open="filterSheetOpen"
+      v-model:search="mobileSearchQuery"
+      :search-placeholder="mobileSearchPlaceholder"
       :show-submit-entry="showSubmitEpisodeEntry"
       @close="filterSheetOpen = false"
     />
