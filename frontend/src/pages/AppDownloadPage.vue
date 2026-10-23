@@ -18,11 +18,11 @@ const asset = (p: string) => `${import.meta.env.BASE_URL}${p}`
 
 /** iOS 内测（TestFlight）安装步骤图 */
 const iosSteps = [
-  { n: 1, label: '安装 TestFlight', src: asset('app/1.jpeg') },
-  { n: 2, label: '打开 TestFlight', src: asset('app/2.jpeg') },
-  { n: 3, label: '扫描二维码 / 接受邀请', src: asset('app/3.jpeg') },
-  { n: 4, label: '安装 Vloglish 内测版', src: asset('app/4.jpeg') },
-  { n: 5, label: '开始使用 Vloglish', src: asset('app/5.jpg') },
+  { n: 1, label: '安装 TestFlight', src: asset('app/01.jpeg') },
+  { n: 2, label: '打开 TestFlight', src: asset('app/02.jpeg') },
+  { n: 3, label: '扫描二维码 / 接受邀请', src: asset('app/03.jpeg') },
+  { n: 4, label: '安装 Vloglish 内测版', src: asset('app/04.jpeg') },
+  { n: 5, label: '开始使用 Vloglish', src: asset('app/05.jpg') },
 ] as const
 
 const iosQrSrc = asset('app/qrcode.png')
