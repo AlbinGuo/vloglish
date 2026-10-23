@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import {
   ackNotificationPopup,
@@ -127,6 +127,24 @@ const showListenFloatCard = computed(
     route.name !== 'AdminEpisodePreview',
 )
 const { headerVisible: catalogHeaderVisible, catalogHeaderAutoHide } = useCatalogMobileHeaderHide()
+
+// 首页"回到顶部"按钮的底部偏移：若右下角有播放浮卡，则堆叠到浮卡之上，避免重叠
+const listenFloatWrap = ref<HTMLElement | null>(null)
+function recomputeHomeFabBottom() {
+  let rem = 4.75
+  if (showListenFloatCard.value && listenFloatWrap.value) {
+    const hRem = listenFloatWrap.value.offsetHeight / 16
+    rem = Math.max(rem, 0.85 + hRem + 0.75)
+  }
+  document.documentElement.style.setProperty('--home-fab-bottom', rem.toFixed(2) + 'rem')
+}
+watch(showListenFloatCard, async () => {
+  await nextTick()
+  recomputeHomeFabBottom()
+})
+onMounted(() => {
+  void nextTick(recomputeHomeFabBottom)
+})
 
 /** App 端隐藏移动端轻量 header 的品牌 logo / 通知 / 头像（底部 Tab 负责导航），仅保留状态栏安全区 */
 const hideAppMobileHeader = isMobileAppBuild()
@@ -573,6 +591,7 @@ watch(
     </div>
     <div
       v-if="showListenFloatCard"
+      ref="listenFloatWrap"
       class="fixed z-40 right-3"
       :class="
         showBottomTabs

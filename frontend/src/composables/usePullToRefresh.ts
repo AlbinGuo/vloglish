@@ -1,15 +1,19 @@
 /**
  * 移动端"分离式"下拉刷新（基于 window 滚动）。
  *
- * 效果：在页面顶部下拉时，页面内容相对顶部 header 下移、露出两者之间的间隙，
- * 刷新图标出现在这条间隙里；下拉带橡皮筋阻尼 + 图标随下拉旋转/缩放，松手带弹性回弹。
- * 自绘指示器，无需改页面模板，仅需传入"要下移的内容元素"。
+ * 效果：页面内容相对顶部（header/标签）下移、露出两者之间的间隙，
+ * 间隙带渐变底色，中间显示一个自定义"星芒"图标；下拉带橡皮筋阻尼 +
+ * 图标随下拉旋转/放大，松手弹性回弹；刷新时星芒持续旋转。
  *
- * - 仅在页面滚动到顶部时触发；
- * - 下拉超过阈值松手即触发 onRefresh()；
+ * - 仅在页面滚动到顶部时触发；下拉超过阈值松手触发 onRefresh()；
  * - enabled() 返回 false 时忽略手势（KeepAlive 页面非激活时禁用）。
  */
 import { onMounted, onUnmounted } from 'vue'
+
+const SPARKLE_SVG =
+  '<svg viewBox="0 0 24 20" width="22" height="22" fill="none">' +
+  '<path d="M12 2C12.8 7.2 14.8 9.2 20 10C14.8 10.8 12.8 12.8 12 18C11.2 12.8 9.2 10.8 4 10C9.2 9.2 11.2 7.2 12 2Z" fill="#c9a24a"/>' +
+  '</svg>'
 
 export function usePullToRefresh(
   onRefresh: () => Promise<void> | void,
@@ -40,7 +44,7 @@ export function usePullToRefresh(
     const s = document.createElement('style')
     s.textContent =
       '@keyframes ptr-spin{to{transform:rotate(360deg)}}' +
-      '.ptr-icon.ptr-spinning{animation:ptr-spin .72s linear infinite}'
+      '.ptr-icon.ptr-spinning{animation:ptr-spin .8s linear infinite}'
     document.head.appendChild(s)
   }
 
@@ -60,20 +64,22 @@ export function usePullToRefresh(
       'display:flex',
       'align-items:center',
       'justify-content:center',
+      'background:linear-gradient(180deg, rgba(201,162,74,0.20) 0%, rgba(201,162,74,0.06) 55%, rgba(201,162,74,0) 100%)',
       'transition:height .3s cubic-bezier(.22,1,.36,1)',
     ].join(';')
     iconEl = document.createElement('div')
     iconEl.className = 'ptr-icon'
     iconEl.style.cssText = [
-      'width:26px',
-      'height:26px',
-      'border-radius:50%',
-      'border:2.5px solid rgba(130,130,130,.25)',
-      'border-top-color:#888',
-      'box-sizing:border-box',
+      'display:flex',
+      'align-items:center',
+      'justify-content:center',
+      'width:24px',
+      'height:24px',
       'will-change:transform,opacity',
       'opacity:0',
+      'filter:drop-shadow(0 1px 2px rgba(201,162,74,.35))',
     ].join(';')
+    iconEl.innerHTML = SPARKLE_SVG
     gapEl.appendChild(iconEl)
     document.body.appendChild(gapEl)
   }
@@ -99,7 +105,7 @@ export function usePullToRefresh(
     if (!el) return
     ensureEl()
     startY = e.touches[0].clientY
-    gapTop = el.getBoundingClientRect().top // header 底部（页面原始起始位置）
+    gapTop = el.getBoundingClientRect().top
     pulling = true
     distance = 0
     el.style.transition = 'none'
@@ -120,15 +126,16 @@ export function usePullToRefresh(
     }
     distance = damp(dy)
     el.style.transform = 'translateY(' + distance + 'px)'
-    el.style.boxShadow = distance > 4 ? '0 12px 28px -10px rgba(0,0,0,.22)' : ''
+    el.style.boxShadow = distance > 4 ? '0 14px 30px -12px rgba(0,0,0,.22)' : ''
     if (gapEl) {
       gapEl.style.top = gapTop + 'px'
       gapEl.style.height = distance + 'px'
     }
     if (iconEl) {
-      iconEl.style.opacity = String(Math.min(1, distance / 42))
-      iconEl.style.transform =
-        'rotate(' + distance * 3.4 + 'deg) scale(' + (0.7 + Math.min(0.4, distance / maxPull)) + ')'
+      iconEl.style.opacity = String(Math.min(1, distance / 36))
+      const deg = distance * 2.2
+      const scale = 0.6 + Math.min(0.6, distance / maxPull)
+      iconEl.style.transform = 'rotate(' + deg + 'deg) scale(' + scale + ')'
       iconEl.classList.toggle('ptr-spinning', distance >= threshold)
     }
   }
@@ -142,7 +149,7 @@ export function usePullToRefresh(
       if (gapEl) gapEl.style.height = threshold + 'px'
       if (iconEl) {
         iconEl.style.opacity = '1'
-        iconEl.style.transform = 'scale(0.92)'
+        iconEl.style.transform = 'scale(1)'
         iconEl.classList.add('ptr-spinning')
       }
       el.style.transition = 'transform .3s cubic-bezier(.22,1,.36,1)'

@@ -191,6 +191,37 @@ def put_progress(
     return EpisodeProgressOut(**progress_to_dict(row, episode))
 
 
+@router.post("/view/{video_id}/")
+def record_view(
+    video_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """记录一次"打开/浏览"，用于"浏览记录"。只更新打开时间，不改动学习进度指标。"""
+    episode = _get_episode(db, video_id, user)
+    now = datetime.utcnow()
+    row = (
+        db.query(UserEpisodeProgress)
+        .filter(UserEpisodeProgress.user_id == user.id, UserEpisodeProgress.episode_id == episode.id)
+        .first()
+    )
+    if row:
+        row.last_watched_at = now
+        if not getattr(row, "first_opened_at", None):
+            row.first_opened_at = now
+    else:
+        db.add(
+            UserEpisodeProgress(
+                user_id=user.id,
+                episode_id=episode.id,
+                first_opened_at=now,
+                last_watched_at=now,
+            )
+        )
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/summary/", response_model=LearningSummaryOut)
 def get_summary(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return LearningSummaryOut(**learning_summary(db, user.id))
@@ -216,7 +247,7 @@ def complete_daily_sentence(
 def get_recent(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    limit: int = Query(8, ge=1, le=50),
+    limit: int = Query(8, ge=1, le=200),
     include_completed: bool = Query(False),
 ):
     return [

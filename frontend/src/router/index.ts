@@ -309,6 +309,12 @@ const userRoutes: RouteRecordRaw[] = [
         meta: { requiresAuth: true },
       },
       {
+        path: 'english/history',
+        name: 'BrowsingHistory',
+        component: () => import('@/pages/BrowsingHistoryPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
         path: 'english/learning',
         name: 'Learning',
         component: () => import('@/pages/LearningPage.vue'),
