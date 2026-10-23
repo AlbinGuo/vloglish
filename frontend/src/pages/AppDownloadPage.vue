@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   fetchAppDownload,
   getAndroidApkTrackUrl,
@@ -21,10 +21,33 @@ const iosSteps = [
   { n: 1, label: '安装 TestFlight', src: asset('app/1.jpeg') },
   { n: 2, label: '打开 TestFlight', src: asset('app/2.jpeg') },
   { n: 3, label: '扫描二维码 / 接受邀请', src: asset('app/3.jpeg') },
-  { n: 4, label: '安装 Vloglish 内测版', src: asset('app/4.jpg') },
+  { n: 4, label: '安装 Vloglish 内测版', src: asset('app/4.jpeg') },
+  { n: 5, label: '开始使用 Vloglish', src: asset('app/5.jpg') },
 ] as const
 
 const iosQrSrc = asset('app/qrcode.png')
+
+/** PC 端「我要内测」全屏步骤弹窗 */
+const showStepsModal = ref(false)
+
+watch(showStepsModal, (open) => {
+  if (typeof document !== 'undefined') {
+    document.body.style.overflow = open ? 'hidden' : ''
+  }
+})
+
+function onModalKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') showStepsModal.value = false
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onModalKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onModalKeydown)
+  if (typeof document !== 'undefined') document.body.style.overflow = ''
+})
 
 type Client = 'ios' | 'android' | 'other'
 const client = ref<Client>('other')
@@ -224,7 +247,7 @@ onMounted(async () => {
             </p>
           </div>
 
-          <div class="mt-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 px-3 py-3">
+          <div class="mt-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 px-3 py-3 lg:hidden">
             <p class="text-[12px] font-medium text-neutral-600 dark:text-neutral-300">iOS 内测安装步骤（TestFlight）</p>
             <ol class="mt-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-2">
               <template v-for="(s, i) in iosSteps" :key="s.n">
@@ -255,17 +278,25 @@ onMounted(async () => {
             :href="iosLink"
             target="_blank"
             rel="noopener"
-            class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl bg-ink text-white text-[15px] font-semibold dark:text-neutral-900 active:scale-[0.99]"
+            class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl bg-ink text-white text-[15px] font-semibold dark:text-neutral-900 active:scale-[0.99] lg:hidden"
           >
             {{ client === 'ios' ? '打开 TestFlight 邀请' : '打开 iOS 内测链接' }}
           </a>
           <div
             v-else
-            class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-800/60 text-[15px] font-semibold text-neutral-500 dark:text-neutral-400"
+            class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-800/60 text-[15px] font-semibold text-neutral-500 dark:text-neutral-400 lg:hidden"
             aria-disabled="true"
           >
             内测中，即将上架 Apple Store
           </div>
+
+          <button
+            type="button"
+            class="mt-4 hidden w-full min-h-12 items-center justify-center rounded-2xl bg-teal-600 text-white text-[15px] font-semibold shadow-[0_8px_20px_rgba(13,148,136,0.28)] active:scale-[0.99] lg:flex"
+            @click="showStepsModal = true"
+          >
+            我要内测
+          </button>
         </section>
         </div>
 
@@ -274,5 +305,46 @@ onMounted(async () => {
         </p>
       </template>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="showStepsModal"
+        class="fixed inset-0 z-[9999] flex flex-col bg-black/85 backdrop-blur-sm"
+        @click.self="showStepsModal = false"
+      >
+        <div class="flex items-center justify-between px-4 py-3 text-white sm:px-6">
+          <span class="text-sm font-semibold sm:text-base">iOS 内测安装步骤（TestFlight）</span>
+          <button
+            type="button"
+            class="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-lg leading-none text-white transition hover:bg-white/25"
+            aria-label="关闭"
+            @click="showStepsModal = false"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="flex-1 overflow-auto">
+          <div class="flex min-h-full items-center gap-3 px-4 py-4 sm:gap-4 sm:px-6 lg:justify-center">
+            <template v-for="(s, i) in iosSteps" :key="s.n">
+              <div class="flex shrink-0 flex-col items-center gap-2">
+                <img
+                  :src="s.src"
+                  :alt="`第 ${s.n} 步：${s.label}`"
+                  class="h-[62vh] max-h-[640px] w-auto rounded-xl border border-white/20 bg-white object-contain sm:h-[68vh]"
+                />
+                <span class="text-xs font-bold text-white">第 {{ s.n }} 步</span>
+              </div>
+              <div
+                v-if="i < iosSteps.length - 1"
+                class="shrink-0 select-none text-2xl text-white/70"
+                aria-hidden="true"
+              >
+                →
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
