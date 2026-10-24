@@ -173,6 +173,7 @@ def _video_format(max_height: int | None) -> str:
         return H264_FORMAT_BEST
     h = max_height
     return (
+        f"bestvideo[height<={h}][vcodec^=avc1]+bestaudio[ext=m4a]/"
         f"bestvideo[height<={h}][vcodec^=avc1]+bestaudio/"
         f"bestvideo[height<={h}][vcodec^=h264]+bestaudio/"
         f"bestvideo[height<={h}][ext=mp4]+bestaudio/"
@@ -231,6 +232,11 @@ def _looks_like_format_unavailable(detail: str) -> bool:
     return "requested format is not available" in lower or "unable to download format" in lower
 
 
+def _looks_like_video_unavailable(detail: str) -> bool:
+    lower = (detail or "").lower()
+    return "video unavailable" in lower
+
+
 def _looks_like_ssl_reset(detail: str) -> bool:
     lower = (detail or "").lower()
     return (
@@ -249,6 +255,7 @@ def _should_retry_youtube(detail: str) -> bool:
         _looks_like_http_403(detail)
         or _looks_like_format_unavailable(detail)
         or _looks_like_ssl_reset(detail)
+        or _looks_like_video_unavailable(detail)
     )
 
 
@@ -264,11 +271,12 @@ def _detect_js_runtime() -> str:
 
 
 def _video_format_403_fallback(max_height: int | None) -> str:
-    """403 / 格式 18 失效时改下 DASH 分离流，不再钉死 itag 18。"""
+    """403 / 格式 18 失效时改下 DASH 分离流，优先 avc1+m4a 方便合成 mp4。"""
     if max_height is None:
-        return "bv[vcodec^=avc1]+ba/bv*+ba/b"
+        return "bv[vcodec^=avc1]+ba[ext=m4a]/bv[vcodec^=avc1]+ba/bv*+ba/b"
     h = max_height
     return (
+        f"bv[height<={h}][vcodec^=avc1]+ba[ext=m4a]/"
         f"bv[height<={h}][vcodec^=avc1]+ba/"
         f"bv[height<={h}]+ba/"
         "bv[vcodec^=avc1]+ba/bv*+ba/b"
@@ -285,10 +293,10 @@ def _video_format_hls(max_height: int | None) -> str:
     )
 
 
-# web_embedded 不需要 GVS PO Token，且实测 googlevideo 不 403。
-# android_vr 能列出 DASH，但 CDN 常 403；web/tv/mweb 易 SABR-only。
-_YOUTUBE_CLIENTS = "web_embedded,-android_sdkless,-web,-tv,-mweb"
-_YOUTUBE_CLIENTS_IOS = "ios,-android_sdkless,-web,-tv,-mweb"
+# web_embedded 不需要 GVS PO Token，且可嵌入的片子 googlevideo 不 403。
+# 禁止嵌入的片子 web_embedded 会 Video unavailable / 无格式，必须紧接着试 android_vr。
+_YOUTUBE_CLIENTS = "web_embedded,android_vr,-android_sdkless,-web,-tv,-mweb"
+_YOUTUBE_CLIENTS_IOS = "ios,android_vr,-android_sdkless,-web,-tv,-mweb"
 
 
 def _cookies_from_browser() -> str:
@@ -442,7 +450,7 @@ def _yt_dlp_cli_extras(
     check_formats: bool = True,
     disable_impersonate: bool = False,
 ) -> list[str]:
-    args: list[str] = []
+    args: list[str] = ["--no-update"]
     proxy = _effective_yt_dlp_proxy()
     if proxy:
         args.extend(["--proxy", proxy])
@@ -570,9 +578,18 @@ def _format_ytdlp_error(detail: str, url: str) -> str:
         )
     if _looks_like_format_unavailable(detail) and platform == "YouTube":
         return (
-            "YouTube 没有可用的下载格式（常见于 360p 合并流 itag 18 被跳过）。"
-            "请重启后端后再抓一次——已改为优先下载 720p DASH 分离流。"
-            "若仍失败请换代理节点。\n\n"
+            "YouTube 没有可用的下载格式。"
+            "禁止嵌入的片子不能只用 web_embedded 客户端；请再抓一次（已自动改试 android_vr）。"
+            "若仍失败请换代理节点，或在浏览器确认原链能打开。\n\n"
+            f"原始错误：{detail[-800:]}"
+        )
+    if _looks_like_video_unavailable(detail) and platform == "YouTube":
+        return (
+            "YouTube 返回 Video unavailable。"
+            "常见原因：① 视频禁止嵌入，默认 web_embedded 客户端下不了；"
+            "② 视频已删除或设为私密；③ 当前地区不可用。"
+            "请再抓一次——禁止嵌入的片子会自动改试 android_vr / ios。"
+            "若仍失败，请在浏览器确认原链能打开，或换一个代理节点。\n\n"
             f"原始错误：{detail[-800:]}"
         )
     return detail[-2000:] if detail else "yt-dlp 执行失败"
@@ -756,10 +773,17 @@ def download_source_media(
             except Exception as exc:
                 video_err = exc
         if video_err and _is_youtube_url(url) and _should_retry_youtube(str(video_err)):
-            retries = (
+            retries: list[dict[str, object]] = [
                 {
-                    "player_client": "web_embedded",
+                    "player_client": "android_vr",
                     "fmt": _video_format_403_fallback(max_height),
+                    "extractor_extra": "",
+                    "use_cookies": False,
+                    "check_formats": False,
+                },
+                {
+                    "player_client": "web_embedded,android_vr",
+                    "fmt": _video_format(max_height),
                     "extractor_extra": "",
                     "use_cookies": False,
                     "check_formats": False,
@@ -771,14 +795,7 @@ def download_source_media(
                     "use_cookies": False,
                     "check_formats": False,
                 },
-                {
-                    "player_client": "android_vr",
-                    "fmt": _video_format_403_fallback(max_height),
-                    "extractor_extra": "",
-                    "use_cookies": False,
-                    "check_formats": False,
-                },
-            )
+            ]
             for attempt in retries:
                 try:
                     _run_yt_dlp(
