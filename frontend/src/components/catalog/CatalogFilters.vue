@@ -16,9 +16,9 @@ const durationOptions: { value: Exclude<CatalogDurationFilter, ''>; label: strin
 ]
 
 const pillIdle =
-  'border-black/10 bg-neutral-50 text-neutral-700 hover:border-neutral-300 dark:border-white/10 dark:bg-neutral-800/80 dark:text-neutral-300 dark:hover:border-neutral-600'
+  'border-line bg-neutral-50 text-ink-soft hover:border-neutral-300 dark:bg-neutral-800/80 dark:hover:border-neutral-600'
 const pillActive =
-  'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-100 dark:text-neutral-900'
+  'border-neutral-900 bg-ink text-ink-inverse dark:border-neutral-200'
 
 watch(
   () => auth.isMember,
@@ -32,14 +32,14 @@ watch(
 </script>
 
 <template>
-  <div class="rounded-2xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-4 space-y-5">
+  <div class="rounded-2xl border border-line-soft bg-card p-4 space-y-5">
     <div class="flex items-center justify-between gap-2">
       <div class="flex items-center gap-2 min-w-0">
         <span class="text-sm font-medium text-neutral-800 dark:text-neutral-100">筛选</span>
         <button
           v-if="store.hasActiveFilters"
           type="button"
-          class="text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 underline-offset-2 hover:underline"
+          class="text-xs text-neutral-500 hover:text-ink-soft underline-offset-2 hover:underline"
           @click="store.clearFilters()"
         >
           清除

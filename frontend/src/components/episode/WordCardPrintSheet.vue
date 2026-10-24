@@ -98,7 +98,7 @@ function confirm() {
                   :class="
                     mode === 'full'
                       ? 'border-neutral-900 dark:border-neutral-100 bg-neutral-50 dark:bg-neutral-800/80'
-                      : 'border-black/10 dark:border-white/10'
+                      : 'border-line'
                   "
                 >
                   <input v-model="mode" type="radio" value="full" class="mt-1" />
@@ -114,7 +114,7 @@ function confirm() {
                   :class="
                     mode === 'quiz'
                       ? 'border-neutral-900 dark:border-neutral-100 bg-neutral-50 dark:bg-neutral-800/80'
-                      : 'border-black/10 dark:border-white/10'
+                      : 'border-line'
                   "
                 >
                   <input v-model="mode" type="radio" value="quiz" class="mt-1" />

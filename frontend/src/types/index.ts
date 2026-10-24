@@ -1,6 +1,7 @@
 export interface User {
   id: number
   email: string
+  user_no?: string | null
   nickname: string | null
   phone: string | null
   is_member: boolean
@@ -8,6 +9,7 @@ export interface User {
   member_until?: string | null
   wx_bound?: boolean
   wechat_only?: boolean
+  email_bound?: boolean
 }
 
 export interface Author {
@@ -86,6 +88,7 @@ export interface Subtitle {
   end: number
   english: string
   chinese: string
+  chinese_literal?: string
   ipa: string
   english_html: string
 }
@@ -116,6 +119,7 @@ export interface EpisodeDetail {
   vocab_summary_text?: string
   /** 视频语境原文（HTML / Markdown） */
   video_context?: string
+  glossary?: { en: string; zh: string }[]
   is_favorite?: boolean
   audience_notes?: AudienceNote[]
 }

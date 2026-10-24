@@ -478,6 +478,65 @@ def get_episode_detail(
     return payload
 
 
+@router.post("/episode/{video_id}/subtitles/{subtitle_id}/literal/")
+def generate_subtitle_literal(
+    video_id: str,
+    subtitle_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """为当前句生成对照直译，并合并本集专名。结果写入字幕，后续用户共用。"""
+    episode = (
+        db.query(Episode)
+        .options(selectinload(Episode.subtitles))
+        .filter(Episode.video_id == video_id, Episode.status == "published")
+        .first()
+    )
+    if not episode:
+        raise HTTPException(status_code=404, detail="Episode not found")
+    if not can_access_episode(db, episode, user):
+        raise HTTPException(status_code=403, detail="无权访问该内容")
+
+    sub = next((s for s in episode.subtitles if s.id == subtitle_id), None)
+    if not sub:
+        raise HTTPException(status_code=404, detail="字幕不存在")
+
+    existing = (getattr(sub, "chinese_literal", None) or "").strip()
+    from ..services.episode_glossary import glossary_hits, merge_episode_glossary, parse_glossary
+
+    glossary = parse_glossary(getattr(episode, "glossary_json", None))
+    if existing:
+        return {
+            "chinese_literal": existing,
+            "glossary": glossary,
+            "hits": glossary_hits(sub.english or "", glossary),
+        }
+
+    from ..dict.deepseek import translate_literal_chinese_with_deepseek
+
+    try:
+        result = translate_literal_chinese_with_deepseek(
+            sub.english or "",
+            sense_chinese=sub.chinese or "",
+            glossary=glossary,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="直译生成失败，请稍后重试") from exc
+
+    literal = str(result.get("chinese_literal") or "").strip()
+    if not literal:
+        raise HTTPException(status_code=502, detail="直译生成为空")
+    sub.chinese_literal = literal
+    glossary = merge_episode_glossary(episode, result.get("glossary_hits") or [])
+    db.commit()
+    db.refresh(sub)
+    return {
+        "chinese_literal": literal,
+        "glossary": glossary,
+        "hits": glossary_hits(sub.english or "", glossary),
+    }
+
+
 @router.get("/episode/{video_id}/word-cards/")
 def get_episode_word_cards(
     video_id: str,

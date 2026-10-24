@@ -1,0 +1,367 @@
+# 把 Capacitor 工程构建成 iOS App，并自动上传到 App Store Connect（TestFlight 分发）。
+#
+# 签名方式：手动签名（固定 Apple Distribution 证书 .p12 + App Store 描述文件，
+# 通过 Secrets 注入）+ App Store Connect API Key 仅用于上传。
+# —— 关键：不再用「自动签名」，否则每次全新的 runner 都会新建一张分发证书，
+#    几次后就会撞上 Apple 每账号 3 张分发证书的上限而报
+#    "Your account has reached the maximum number of certificates"。
+#
+# 触发：
+#   - 打 tag：git tag v1.2.0 && git push origin v1.2.0   （版本号自动取自 tag）
+#   - 手动：Actions → iOS TestFlight → Run workflow     （可填版本号）
+#
+# 前置：在 App Store Connect 存在 bundle id 为 cc.vloglish.app 的 App 记录，并配置 Secrets：
+#   - 上传用：ASC_API_KEY_ID / ASC_API_ISSUER_ID / ASC_API_KEY_BASE64 / APPLE_TEAM_ID
+#   - 签名用：BUILD_CERTIFICATE_BASE64（Apple Distribution 的 .p12） / P12_PASSWORD /
+#             KEYCHAIN_PASSWORD / 描述文件（优先 APPSTORE_PROVISIONING_PROFILE_BASE64，
+#             回退 PROVISIONING_PROFILE_BASE64；TestFlight 必须是 App Store 类型）
+#   详见 app/IOS_BUILD.md。
+
+name: iOS TestFlight
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号，例如 1.2.0（tag 触发时自动取 tag 名，此处仅手动触发用）'
+        required: false
+        type: string
+
+concurrency:
+  group: ios-testflight-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  APP_BUNDLE_ID: cc.vloglish.app
+  APP_SCHEME: App
+  NODE_VERSION: '20'
+  LANG: en_US.UTF-8
+  LC_ALL: en_US.UTF-8
+
+jobs:
+  upload-testflight:
+    # App Store Connect 要求使用 iOS 26 SDK（Xcode 26+）构建，
+    # macos-14 镜像只有 Xcode 15.4 / iOS 17.5 SDK，会被上传校验拒绝。
+    runs-on: macos-26
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 提前校验 Xcode 版本，避免白等十几分钟
+      - name: 检查 Xcode 版本
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          MAJOR=$(xcodebuild -version | head -1 | awk '{print $2}' | cut -d. -f1)
+          echo "Xcode major version = ${MAJOR}"
+          if [ "${MAJOR}" -lt 26 ]; then
+            echo "::error::App Store Connect 要求 Xcode 26 及以上，当前 runner 只有 ${MAJOR}。"
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            app/package-lock.json
+
+      - name: Setup Python (打包图标脚本用)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安装 Pillow
+        run: python3 -m pip install --upgrade pillow
+
+      - name: 安装前端依赖
+        working-directory: frontend
+        run: npm ci
+
+      - name: 安装 app 依赖
+        working-directory: app
+        run: npm ci
+
+      # ---- 构建 Web 产物（frontend -> app/www）----
+      - name: 构建 Web 资源
+        working-directory: app
+        run: npm run build:web
+
+      # ---- 设计 token 守卫：token 层被破坏时立刻失败，而不是静默掉样式 ----
+      - name: 校验设计 token
+        working-directory: frontend
+        run: npm run verify:tokens -- ../app/www
+
+      # ---- 生成 iOS 原生工程（仓库未提交 ios/ 时首次生成）----
+      - name: 生成 iOS 工程
+        working-directory: app
+        run: |
+          if [ ! -d ios ]; then
+            echo "::group::npx cap add ios"
+            npx @capacitor/cli add ios
+            echo "::endgroup::"
+          else
+            echo "已存在 app/ios，跳过 cap add ios"
+          fi
+
+      # ---- 生成图标 / 启动图（含 iOS AppIcon）----
+      - name: 生成品牌资源（图标 / 启动图）
+        working-directory: app
+        run: python3 scripts/generate-brand-assets.py
+
+      # ---- 同步 Web 产物到原生工程并安装 Pods ----
+      - name: Cap sync ios
+        working-directory: app
+        run: npx @capacitor/cli sync ios
+
+      # ---- 最低部署版本抬到 iOS 15.0（消除 2027 起强制 15+ 的警告）----
+      - name: 设置最低部署版本 iOS 15.0
+        working-directory: app
+        run: python3 scripts/set-ios-deployment-target.py ios/App/App.xcodeproj/project.pbxproj 15.0
+
+      - name: 注入 Sign in with Apple 能力
+        working-directory: app
+        run: python3 scripts/add-signin-with-apple.py ios/App
+
+      - name: 注入推送能力（APNs entitlements）
+        working-directory: app
+        run: python3 scripts/add-push-notifications.py ios/App
+
+      - name: 注入 APNs 注册回调（AppDelegate）
+        working-directory: app
+        run: python3 scripts/add-push-appdelegate.py ios/App
+
+      - name: 注入语音识别权限（Info.plist）
+        working-directory: app
+        run: python3 scripts/add-speech-permissions.py ios/App
+
+      - name: 开启 iOS 后台播放（音频后台模式）
+        working-directory: app
+        run: python3 scripts/add-background-audio.py ios/App
+
+      - name: pod install
+        working-directory: app/ios/App
+        run: pod install --repo-update
+
+      # ---- 前置检查 ----
+      - name: 校验 ASC API Key 是否齐备
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY_BASE64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=""
+          [ -z "$ASC_API_KEY_ID" ] && missing="$missing ASC_API_KEY_ID"
+          [ -z "$ASC_API_ISSUER_ID" ] && missing="$missing ASC_API_ISSUER_ID"
+          [ -z "$ASC_API_KEY_BASE64" ] && missing="$missing ASC_API_KEY_BASE64"
+          [ -z "$APPLE_TEAM_ID" ] && missing="$missing APPLE_TEAM_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::缺少 Secrets:${missing}，请按 app/IOS_BUILD.md 配置后重试。"
+            exit 1
+          fi
+
+      # ---- 写入 API Key ----
+      - name: 写入 ASC API Key
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          KEY_PATH="$RUNNER_TEMP/AuthKey_${ASC_API_KEY_ID}.p8"
+          export ASC_API_KEY_BASE64 KEY_PATH
+          python3 - <<'PY'
+          import base64, os
+          with open(os.environ["KEY_PATH"], "wb") as f:
+              f.write(base64.b64decode(os.environ["ASC_API_KEY_BASE64"]))
+          PY
+          echo "AUTH_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+      # ---- 版本号：tag 触发时取 tag 名；手动触发时取输入或默认 1.0.0 ----
+      - name: 解析版本号
+        id: ver
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "push" ]; then
+            VERSION="${REF_NAME#v}"
+          elif [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
+          else
+            VERSION="1.0.0"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "build=${RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "版本号: ${VERSION} (build ${RUN_NUMBER})"
+
+      # ---- 校验手动签名材料是否齐备 ----
+      - name: 校验签名密钥是否齐备
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.APPSTORE_PROVISIONING_PROFILE_BASE64 || secrets.PROVISIONING_PROFILE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -z "$BUILD_CERTIFICATE_BASE64" ] && missing="$missing BUILD_CERTIFICATE_BASE64"
+          [ -z "$PROVISIONING_PROFILE_BASE64" ] && missing="$missing PROVISIONING_PROFILE_BASE64"
+          [ -z "$P12_PASSWORD" ] && missing="$missing P12_PASSWORD"
+          [ -z "$KEYCHAIN_PASSWORD" ] && missing="$missing KEYCHAIN_PASSWORD"
+          [ -z "$APPLE_TEAM_ID" ] && missing="$missing APPLE_TEAM_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::缺少签名 Secrets:${missing}，请按 app/IOS_BUILD.md 配置后重试。"
+            exit 1
+          fi
+
+      # ---- 导入固定分发证书 + App Store 描述文件（复用，避免每次构建新建证书撞上限）----
+      - name: 导入分发证书与描述文件
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          PROVISIONING_PROFILE_BASE64: ${{ secrets.APPSTORE_PROVISIONING_PROFILE_BASE64 || secrets.PROVISIONING_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERTIFICATE_PATH="$RUNNER_TEMP/build_certificate.p12"
+          PP_PATH="$RUNNER_TEMP/build_pp.mobileprovision"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          P12_PASS="$(printf '%s' "$P12_PASSWORD" | tr -d ' \t\r\n')"
+
+          printf '%s' "$BUILD_CERTIFICATE_BASE64" | tr -d ' \t\r\n' > "$RUNNER_TEMP/cert.b64"
+          printf '%s' "$PROVISIONING_PROFILE_BASE64" | tr -d ' \t\r\n' > "$RUNNER_TEMP/pp.b64"
+          openssl base64 -d -A -in "$RUNNER_TEMP/cert.b64" -out "$CERTIFICATE_PATH"
+          openssl base64 -d -A -in "$RUNNER_TEMP/pp.b64" -out "$PP_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$P12_PASS" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PP_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/"
+
+          security cms -D -i "$PP_PATH" -o "$RUNNER_TEMP/provisioning.plist"
+          PP_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/provisioning.plist")
+          PP_APPID=$(plutil -extract Entitlements.application-identifier raw "$RUNNER_TEMP/provisioning.plist")
+          echo "描述文件名称 : $PP_NAME"
+          echo "描述文件 AppID: $PP_APPID （应形如 TEAMID.cc.vloglish.app）"
+          echo "PP_NAME=$PP_NAME" >> "$GITHUB_ENV"
+
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -z "$IDENTITY" ]; then
+            IDENTITY="Apple Distribution"
+          fi
+          echo "签名身份: $IDENTITY"
+          echo "CODE_SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+      # ---- 写入项目级签名设置（手动签名 + 版本号）----
+      # 用项目级而非命令行，避免污染 Pods target
+      - name: 写入 iOS 签名设置（手动）
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          BUILD_NUMBER: ${{ steps.ver.outputs.build }}
+        run: |
+          set -euo pipefail
+          python3 app/scripts/patch-ios-project-settings.py \
+            app/ios/App/App.xcodeproj/project.pbxproj \
+            CODE_SIGN_STYLE=Manual \
+            "CODE_SIGN_IDENTITY=$CODE_SIGN_IDENTITY" \
+            "PROVISIONING_PROFILE_SPECIFIER=$PP_NAME" \
+            "DEVELOPMENT_TEAM=$APPLE_TEAM_ID" \
+            "CODE_SIGN_ENTITLEMENTS=App/App.entitlements" \
+            "MARKETING_VERSION=$VERSION" \
+            "CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
+
+      # ---- 归档（手动签名，复用已导入的固定证书）----
+      - name: xcodebuild archive
+        working-directory: app/ios/App
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme "$APP_SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            clean archive
+
+      # ---- 校验构建产物是否真的带推送 entitlement（否则 iOS 拿不到 APNs token）----
+      - name: 校验推送 entitlement（aps-environment）
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/App.xcarchive/Products/Applications/App.app"
+          echo "== 签名 entitlement =="
+          /usr/bin/codesign -d --entitlements :- "$APP" 2>/dev/null || true
+          echo "== 检查 aps-environment =="
+          if /usr/bin/codesign -d --entitlements :- "$APP" 2>/dev/null | grep -q "aps-environment"; then
+            echo "✅ 已包含 aps-environment"
+          else
+            echo "::error::❌ 构建产物缺少 aps-environment entitlement，iOS 将无法注册推送"
+            exit 1
+          fi
+
+      # ---- 导出并上传到 App Store Connect（API Key 仅用于上传鉴权）----
+      - name: 导出并上传到 App Store Connect
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>destination</key><string>upload</string>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>stripSwiftSymbols</key><true/>
+            <key>compileBitcode</key><false/>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${APP_BUNDLE_ID}</key><string>${PP_NAME}</string>
+            </dict>
+          </dict>
+          </plist>
+          PLIST
+
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -authenticationKeyPath "$AUTH_KEY_PATH" \
+            -authenticationKeyID "$ASC_API_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_API_ISSUER_ID"
+
+      - name: 输出结果
+        run: |
+          echo "### 上传完成 ✅" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 版本号: \`${{ steps.ver.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 构建号: \`${{ steps.ver.outputs.build }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "接下来到 App Store Connect → 我的 App → Vloglish → TestFlight，" >> "$GITHUB_STEP_SUMMARY"
+          echo "等 Apple 处理完（通常几分钟到半小时）即可分发给测试人员。" >> "$GITHUB_STEP_SUMMARY"

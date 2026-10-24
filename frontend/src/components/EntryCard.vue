@@ -6,6 +6,7 @@ import { READING_TTS_KEY } from '@/composables/useReadingTts'
 import { posLabel } from '@/utils/posLabel'
 import { examTagClass, formatExamTags } from '@/utils/examTags'
 import { playWordPronunciation } from '@/utils/speakWord'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{
   entry: EntryDetail | null
@@ -92,9 +93,7 @@ function onToggleVocabulary() {
         aria-label="关闭"
         @click="emit('close')"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
+        <AppIcon name="close" :size="18" />
       </button>
 
       <!-- Loading -->
@@ -136,16 +135,7 @@ function onToggleVocabulary() {
                 :aria-label="entry.favorite ? '移出生词本' : '加入生词本'"
                 @click="onToggleVocabulary"
               >
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  :fill="entry.favorite ? 'currentColor' : 'none'"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                >
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                </svg>
+                <AppIcon name="star" :size="22" :fill="entry.favorite ? 'currentColor' : 'none'" />
               </button>
               <h2 class="text-[1.75rem] leading-tight font-serif font-bold text-neutral-900 dark:text-neutral-100 truncate">
                 {{ entry.headword }}
@@ -167,7 +157,7 @@ function onToggleVocabulary() {
           <p
             v-if="vocabNotice"
             class="mt-2 text-xs leading-none flex items-center gap-2 transition-opacity"
-            :class="vocabNoticeType === 'err' ? 'text-red-600 dark:text-red-400' : 'text-amber-700 dark:text-amber-300'"
+            :class="vocabNoticeType === 'err' ? 'text-danger' : 'text-amber-700 dark:text-amber-300'"
             role="status"
           >
             <span>{{ vocabNotice }}</span>
@@ -199,9 +189,7 @@ function onToggleVocabulary() {
               @click="playPronunciation"
             >
               <span v-if="primaryPron" class="font-medium">{{ primaryPron.accent_type }}</span>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="text-neutral-500">
-                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
-              </svg>
+              <AppIcon name="volume-up" class="text-neutral-500" :size="16" />
               <span v-if="primaryPron?.ipa" class="font-serif text-neutral-700 dark:text-neutral-300">{{ primaryPron.ipa }}</span>
               <span v-else class="text-neutral-500">朗读</span>
             </button>
@@ -214,21 +202,12 @@ function onToggleVocabulary() {
             class="hidden sm:inline-flex mt-4 items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
             :class="
               entry.favorite
-                ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
-                : 'bg-neutral-900 text-white dark:bg-amber-500 dark:text-neutral-900'
+                ? 'bg-amber-100 text-warning dark:bg-amber-900/40'
+                : 'bg-neutral-900 text-ink-inverse dark:bg-amber-500'
             "
             @click="onToggleVocabulary"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              :fill="entry.favorite ? 'currentColor' : 'none'"
-              stroke="currentColor"
-              stroke-width="1.8"
-            >
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            </svg>
+            <AppIcon name="star" :size="16" :fill="entry.favorite ? 'currentColor' : 'none'" />
             {{ vocabActionLabel }}
           </button>
         </header>
@@ -287,21 +266,12 @@ function onToggleVocabulary() {
             class="w-full inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl text-sm font-semibold transition-colors"
             :class="
               entry.favorite
-                ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
-                : 'bg-neutral-900 text-white dark:bg-amber-500 dark:text-neutral-900'
+                ? 'bg-amber-100 text-warning dark:bg-amber-900/40'
+                : 'bg-neutral-900 text-ink-inverse dark:bg-amber-500'
             "
             @click="onToggleVocabulary"
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              :fill="entry.favorite ? 'currentColor' : 'none'"
-              stroke="currentColor"
-              stroke-width="1.8"
-            >
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            </svg>
+            <AppIcon name="star" :size="18" :fill="entry.favorite ? 'currentColor' : 'none'" />
             {{ vocabActionLabel }}
           </button>
         </div>

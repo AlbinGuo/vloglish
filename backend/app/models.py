@@ -67,6 +67,7 @@ class Episode(Base):
     remark: Mapped[str] = mapped_column(Text, default="")
     vocab_summary: Mapped[str] = mapped_column(Text, default="")
     video_context: Mapped[str] = mapped_column(Text, default="")
+    glossary_json: Mapped[str] = mapped_column(Text, default="[]")
     stars: Mapped[int] = mapped_column(Integer, default=3)
     voca_size: Mapped[int] = mapped_column(Integer, default=0)
     subtitle_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -113,6 +114,7 @@ class Subtitle(Base):
     end: Mapped[float] = mapped_column(Float)
     english: Mapped[str] = mapped_column(Text)
     chinese: Mapped[str] = mapped_column(Text, default="")
+    chinese_literal: Mapped[str] = mapped_column(Text, default="")
     ipa: Mapped[str] = mapped_column(Text, default="")
     english_html: Mapped[str] = mapped_column(Text, default="")
 
@@ -249,6 +251,8 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    # 对外展示的 8 位数字用户 ID（Apple 新用户自动分配；邮箱用户可为空）
+    user_no: Mapped[str | None] = mapped_column(String(8), unique=True, nullable=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     nickname: Mapped[str | None] = mapped_column(String(64), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
@@ -266,6 +270,8 @@ class User(Base):
     member_plan: Mapped[str | None] = mapped_column(String(16), nullable=True)
     # 微信 jscode2session 的 session_key，虚拟支付用户态签名用
     wx_session_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # Sign in with Apple 的用户唯一标识（Apple 账号 sub），未绑定时为空
+    apple_sub: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
     session_version: Mapped[int] = mapped_column(Integer, default=1)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # 最近一次心跳客户端：web | android | ios | weixin
@@ -386,6 +392,21 @@ class ActivationCode(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class AppleIapTransaction(Base):
+    """Apple 内购交易流水：按 transaction_id 去重，防止重复发货 / 多账号共享同一笔购买。"""
+
+    __tablename__ = "apple_iap_transactions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    transaction_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    product_id: Mapped[str] = mapped_column(String(128), default="")
+    plan: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # 订阅到期时间（毫秒时间戳，字符串存储）；永久/一次性为 ""
+    expires_ms: Mapped[str] = mapped_column(String(32), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class DemoCode(Base):
     __tablename__ = "demo_codes"
 
@@ -424,6 +445,39 @@ class UserNotification(Base):
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     popup_acked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class PushDevice(Base):
+    """App 推送设备 token（iOS=APNs token，Android=FCM token）。"""
+
+    __tablename__ = "push_devices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    token: Mapped[str] = mapped_column(String(512), unique=True, index=True)
+    # ios / android
+    platform: Mapped[str] = mapped_column(String(16), default="")
+    # iOS 环境：sandbox / production
+    env: Mapped[str] = mapped_column(String(16), default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PushOutbox(Base):
+    """待发送的推送任务（发布剧集/群发时写入，后台 worker 异步发送）。"""
+
+    __tablename__ = "push_outbox"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(256), default="")
+    body: Mapped[str] = mapped_column(Text, default="")
+    data_json: Mapped[str] = mapped_column(Text, default="{}")
+    # pending / processing / done
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    recipient_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class UserFeedback(Base):

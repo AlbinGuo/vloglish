@@ -4,6 +4,7 @@ import { ARTICLE_VOCABULARY_KEY } from '@/composables/useArticleVocabulary'
 import { formatExamTags, asExamTagList, examTagClass } from '@/utils/examTags'
 import { playWordPronunciation } from '@/utils/speakWord'
 import type { ArticleVocabularyItem } from '@/api/learning'
+import AppIcon from '@/components/AppIcon.vue'
 
 const VOCAB_SIDEBAR_KEY = 'reading-vocab-sidebar-visible'
 
@@ -56,7 +57,7 @@ function speakItem(item: ArticleVocabularyItem) {
   <div class="hidden lg:block relative shrink-0 min-h-0 self-stretch">
     <button
       type="button"
-      class="absolute top-1/2 z-20 left-0 -translate-x-full -translate-y-1/2 flex h-10 w-5 items-center justify-center rounded-l-md border border-r-0 border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 shadow-sm transition-colors"
+      class="absolute top-1/2 z-20 left-0 -translate-x-full -translate-y-1/2 flex h-10 w-5 items-center justify-center rounded-l-md border border-r-0 border-black/10 dark:border-white/10 bg-card text-neutral-400 hover:text-ink-soft shadow-sm transition-colors"
       :aria-label="expanded ? '隐藏生词本' : '显示生词本'"
       :aria-expanded="expanded"
       @click="toggleExpanded"
@@ -133,9 +134,7 @@ function speakItem(item: ArticleVocabularyItem) {
                   aria-label="朗读"
                   @click="speakItem(item)"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
-                  </svg>
+                  <AppIcon name="volume-up" :size="14" />
                 </button>
                 <button
                   type="button"
@@ -143,9 +142,7 @@ function speakItem(item: ArticleVocabularyItem) {
                   aria-label="移出生词本"
                   @click="vocab?.remove(item.entry_id)"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
+                  <AppIcon name="close" :size="14" />
                 </button>
               </div>
             </div>

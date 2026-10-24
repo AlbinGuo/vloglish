@@ -2,12 +2,15 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import {
   activateMembership as activateMembershipApi,
+  appleLogin as appleLoginApi,
+  deleteAccount as deleteAccountApi,
   fetchCurrentUser,
   setUserAvatar,
   login as loginApi,
   logout as logoutApi,
   refreshAuthToken,
   register as registerApi,
+  setAccountCredentials as setAccountCredentialsApi,
 } from '@/api/auth'
 import { clearTokens, getAccessToken, getRefreshToken, isRemoteLoginDetail, setRemoteLoginNotice, setTokens } from '@/api/tokens'
 import type { User } from '@/types'
@@ -47,6 +50,16 @@ export const useAuthStore = defineStore('auth', () => {
     return data.user
   }
 
+  async function loginWithApple(payload: {
+    identity_token: string
+    authorization_code?: string
+    full_name?: string
+  }) {
+    const data = await appleLoginApi(payload)
+    setSession(data.access, data.refresh, data.user)
+    return data.user
+  }
+
   async function refreshAccess() {
     const token = refreshToken.value
     if (!token) throw new Error('No refresh token')
@@ -77,6 +90,12 @@ export const useAuthStore = defineStore('auth', () => {
     return me
   }
 
+  async function setCredentials(email: string, password: string, currentPassword?: string) {
+    const me = await setAccountCredentialsApi({ email, password, current_password: currentPassword })
+    user.value = me
+    return me
+  }
+
   async function logout() {
     const token = refreshToken.value
     if (token) {
@@ -86,6 +105,11 @@ export const useAuthStore = defineStore('auth', () => {
         /* ignore */
       }
     }
+    clearSession()
+  }
+
+  async function deleteAccount(password = '') {
+    await deleteAccountApi({ password, confirmation: '注销' })
     clearSession()
   }
 
@@ -117,11 +141,14 @@ export const useAuthStore = defineStore('auth', () => {
     isMember,
     register,
     login,
+    loginWithApple,
     refreshAccess,
     fetchMe,
     activateMembership,
     cycleAvatar,
+    setCredentials,
     logout,
+    deleteAccount,
     hydrate,
     clearSession,
   }

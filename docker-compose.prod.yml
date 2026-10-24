@@ -41,6 +41,8 @@ services:
       - .env.prod
     volumes:
       - backend-data:/app/backend/data
+      # APNs 推送密钥目录（把 AuthKey_xxx.p8 放到服务器 ./certs/ 下，只读挂载）
+      - ./certs:/app/backend/certs:ro
     depends_on:
       db:
         condition: service_healthy

@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getAuthorsCatalog } from '@/api/episodes'
 import { useCatalogBrowseMode } from '@/composables/useCatalogBrowseMode'
 import { useCatalogScrollMemory } from '@/composables/useCatalogScrollMemory'
 import { useCatalogViewMode } from '@/composables/useCatalogViewMode'
 import { useIsMobile } from '@/composables/useBreakpoint'
+
+import { isNativePlatform } from '@/utils/platform'
 import { useAuthStore } from '@/stores/auth'
 import { CARD_INITIAL_SIZE, LIST_INITIAL_SIZE, useCatalogStore } from '@/stores/catalog'
 import { useSiteConfigStore } from '@/stores/siteConfig'
@@ -18,8 +20,8 @@ import CatalogFilterSheet from '@/components/catalog/CatalogFilterSheet.vue'
 import CatalogEpisodeSkeletons from '@/components/skeleton/CatalogEpisodeSkeletons.vue'
 import EpisodeCard from '@/components/EpisodeCard.vue'
 import EpisodeListRow from '@/components/EpisodeListRow.vue'
-import DailyPathCard from '@/components/ai/DailyPathCard.vue'
 import type { AuthorCatalogItem } from '@/types'
+import AppIcon from '@/components/AppIcon.vue'
 
 defineOptions({ name: 'HomePage' })
 
@@ -28,6 +30,64 @@ const auth = useAuthStore()
 const siteConfig = useSiteConfigStore()
 const { viewMode } = useCatalogViewMode()
 const { browseMode } = useCatalogBrowseMode()
+
+const isHomeActive = ref(false)
+const rootEl = ref<HTMLElement | null>(null)
+const listEl = ref<HTMLElement | null>(null)
+
+// 回到顶部
+const showBackToTop = ref(false)
+function updateBackToTop() {
+  showBackToTop.value = (window.scrollY || 0) > 640
+}
+function scrollToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+async function refreshCatalog() {
+  if (browseMode.value === 'author') {
+    await loadAuthors()
+  } else {
+    await store.loadEpisodes(true)
+  }
+  setupLoadMoreObserver()
+}
+
+// App 从后台回到前台时刷新首页（停在首页也能看到最新内容）
+let _homeResumeHandle: { remove: () => void } | null = null
+onMounted(async () => {
+  if (!isNativePlatform()) return
+  try {
+    const { App } = await import('@capacitor/app')
+    _homeResumeHandle = await App.addListener('resume', () => {
+      if (isHomeActive.value) void refreshCatalog()
+    })
+  } catch {
+    /* ignore */
+  }
+})
+onUnmounted(() => {
+  void _homeResumeHandle?.remove()
+  _homeResumeHandle = null
+})
+
+// 计算移动端顶部 header 高度，让粘性工具条吸附在其下方；并监听滚动以显示"回到顶部"
+onMounted(() => {
+  // 注意：桌面 header 的类名含 "max-sm:hidden"，其中也包含子串 "sm:hidden"，
+  // 必须排除，否则会误取到移动端隐藏的桌面 header（高度 0）导致工具条钻到状态栏下面。
+  const hdr = Array.from(document.querySelectorAll('header')).find((h) => {
+    const cls = h.className || ''
+    return cls.includes('sm:hidden') && !cls.includes('max-sm:hidden')
+  }) as HTMLElement | undefined
+  if (hdr && rootEl.value) {
+    rootEl.value.style.setProperty('--catalog-sticky-top', hdr.offsetHeight + 'px')
+  }
+  window.addEventListener('scroll', updateBackToTop, { passive: true })
+  updateBackToTop()
+})
+onUnmounted(() => {
+  window.removeEventListener('scroll', updateBackToTop)
+})
 const isMobile = useIsMobile()
 
 /** 未登录与手机端固定卡片视图 */
@@ -165,6 +225,28 @@ onUnmounted(() => {
   loadMoreObserver?.disconnect()
 })
 
+// 首页被 KeepAlive 缓存：从详情页/通知等返回时不会重新 mount，
+// 这里在“再次激活”时刷新列表，确保管理端新发布的视频能出现在首页。
+let _homeActivatedBefore = false
+onActivated(async () => {
+  isHomeActive.value = true
+  requestAnimationFrame(updateBackToTop)
+  // 首次激活紧跟在 onMounted 之后（onMounted 已加载过），跳过避免重复请求
+  if (!_homeActivatedBefore) {
+    _homeActivatedBefore = true
+    return
+  }
+  try {
+    await refreshCatalog()
+  } catch {
+    /* ignore */
+  }
+})
+
+onDeactivated(() => {
+  isHomeActive.value = false
+})
+
 watch(loadMoreSentinel, () => {
   setupLoadMoreObserver()
 })
@@ -236,62 +318,37 @@ watch(
 </script>
 
 <template>
-  <div>
+  <div ref="rootEl">
     <EnglishCatalogNavBar />
 
-    <div class="page-container pb-6" :class="isMobile ? 'pt-3' : 'py-6'">
-      <!-- 手机端：搜索+筛选 / 标签（Tab 在顶栏条） -->
+    <div class="page-container pb-6" :class="isMobile ? 'pt-0' : 'py-6'">
+      <!-- 手机端：粘性工具条（紧凑搜索 + 标签），固定在 header 下方 -->
       <template v-if="isMobile">
-        <div class="mb-3 flex items-center gap-2 min-w-0">
-          <div class="flex-1 min-w-0">
-            <label class="sr-only" for="mobile-catalog-search">搜索</label>
-            <input
-              id="mobile-catalog-search"
-              v-model="mobileSearchQuery"
-              type="search"
-              :placeholder="mobileSearchPlaceholder"
-              class="w-full rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 dark:text-white px-3 py-2.5 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
-            />
+        <div
+          class="sticky z-30 -mx-4 bg-canvas px-4 pb-2 pt-2"
+          :style="{ top: 'var(--catalog-sticky-top, 0px)' }"
+        >
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="min-w-0 flex-1">
+              <EnglishHotTagsBar />
+            </div>
+            <button
+              type="button"
+              class="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/10 bg-white text-neutral-600 dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-300"
+              :class="mobileSheetFilterCount > 0 ? 'border-amber-400 text-amber-600 dark:border-amber-500 dark:text-amber-300' : ''"
+              aria-label="筛选"
+              @click="filterSheetOpen = true"
+            >
+              <AppIcon name="funnel" class="h-[1.05rem] w-[1.05rem]" />
+              <span
+                v-if="mobileSheetFilterCount > 0"
+                class="absolute -right-1 -top-1 flex h-[1rem] min-w-[1rem] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold leading-none text-white"
+              >
+                {{ mobileSheetFilterCount }}
+              </span>
+            </button>
           </div>
-          <button
-            type="button"
-            class="relative shrink-0 inline-flex items-center gap-1 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-2.5 text-sm font-medium text-neutral-700 dark:text-neutral-200"
-            :class="mobileSheetFilterCount > 0 ? 'border-amber-400 text-amber-800 dark:border-amber-500 dark:text-amber-200' : ''"
-            aria-label="筛选"
-            @click="filterSheetOpen = true"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.75"
-              class="w-[1.125rem] h-[1.125rem]"
-              aria-hidden="true"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"
-              />
-            </svg>
-            筛选
-            <span
-              v-if="mobileSheetFilterCount > 0"
-              class="absolute -top-1.5 -right-1.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none"
-            >
-              {{ mobileSheetFilterCount }}
-            </span>
-          </button>
         </div>
-
-        <EnglishHotTagsBar class="mb-4 w-full !flex-none" />
-
-        <CatalogFilterSheet
-          :open="filterSheetOpen"
-          :show-submit-entry="showSubmitEpisodeEntry"
-          @close="filterSheetOpen = false"
-        />
       </template>
 
       <!-- 桌面端：保持原样（Tab + 标签同行） -->
@@ -314,6 +371,8 @@ watch(
         <CatalogContentToolbar class="mb-4" :show-submit-entry="showSubmitEpisodeEntry" />
       </template>
 
+      <!-- 可下拉刷新的内容区 -->
+      <div ref="listEl">
       <div
         v-if="previewBanner"
         class="mb-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-900 dark:text-amber-200 flex flex-wrap items-center gap-x-2 gap-y-1"
@@ -328,12 +387,6 @@ watch(
           </span>
         </template>
       </div>
-
-      <DailyPathCard
-        v-if="auth.isLoggedIn"
-        class="mb-2 sm:mb-3"
-        variant="compact"
-      />
 
       <!-- 按作者分类 -->
       <template v-if="browseMode === 'author'">
@@ -385,6 +438,29 @@ watch(
           </div>
         </template>
       </template>
+      </div><!-- /listEl -->
     </div>
+
+    <!-- 回到顶部 -->
+    <button
+      v-show="showBackToTop"
+      type="button"
+      class="fixed right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-line-soft bg-card text-ink-soft shadow-lg transition active:scale-95"
+      :style="{ bottom: 'calc(var(--tabbar-offset, 0px) + var(--home-fab-bottom, 4.75rem))' }"
+      aria-label="回到顶部"
+      @click="scrollToTop"
+    >
+      <AppIcon name="chevron-down" class="h-5 w-5 rotate-180" />
+    </button>
+
+    <!-- 过滤面板（置于内容区外，避免 transform 影响 fixed 定位） -->
+    <CatalogFilterSheet
+      v-if="isMobile"
+      :open="filterSheetOpen"
+      v-model:search="mobileSearchQuery"
+      :search-placeholder="mobileSearchPlaceholder"
+      :show-submit-entry="showSubmitEpisodeEntry"
+      @close="filterSheetOpen = false"
+    />
   </div>
 </template>

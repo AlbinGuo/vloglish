@@ -70,6 +70,7 @@ def _subtitle_out(s) -> AdminSubtitleIn:
         end=s.end,
         english=s.english,
         chinese=s.chinese or "",
+        chinese_literal=getattr(s, "chinese_literal", None) or "",
         ipa=s.ipa or "",
         english_html=s.english_html or "",
     )

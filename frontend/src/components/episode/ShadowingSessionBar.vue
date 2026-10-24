@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { ShadowRecorderPhase } from '@/composables/useShadowingRecorder'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -127,8 +128,8 @@ function toggleSettings() {
           class="shrink-0 min-h-10 px-3.5 rounded-lg text-[13px] font-semibold border touch-manipulation active:scale-[0.98] transition disabled:opacity-50"
           :class="
             isRecording
-              ? 'border-rose-400 text-rose-700 bg-white dark:border-rose-600 dark:text-rose-100 dark:bg-neutral-900'
-              : 'border-amber-400 text-amber-800 bg-white dark:border-amber-700 dark:text-amber-100 dark:bg-neutral-900'
+              ? 'border-rose-400 text-rose-700 bg-card dark:border-rose-600 dark:text-rose-100'
+              : 'border-amber-400 text-amber-800 bg-card dark:border-amber-700 dark:text-amber-100'
           "
           :disabled="busy || phase === 'stopping'"
           @click="emit('stop')"
@@ -183,9 +184,7 @@ function toggleSettings() {
           :disabled="busy"
           @click="emit('close')"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round" />
-          </svg>
+          <AppIcon name="close" :size="16" />
         </button>
       </div>
 
@@ -204,7 +203,7 @@ function toggleSettings() {
               class="min-h-9 rounded-md px-1 transition touch-manipulation active:scale-[0.98]"
               :class="
                 delaySec === opt.value
-                  ? 'bg-white text-teal-900 shadow-sm dark:bg-neutral-800 dark:text-teal-50'
+                  ? 'bg-card text-teal-900 shadow-sm dark:text-teal-50'
                   : 'text-teal-800/75 dark:text-teal-200/70'
               "
               :disabled="busy"
@@ -226,7 +225,7 @@ function toggleSettings() {
               class="min-h-9 rounded-md px-1 transition touch-manipulation active:scale-[0.98]"
               :class="
                 rate === opt.value
-                  ? 'bg-white text-teal-900 shadow-sm dark:bg-neutral-800 dark:text-teal-50'
+                  ? 'bg-card text-teal-900 shadow-sm dark:text-teal-50'
                   : 'text-teal-800/75 dark:text-teal-200/70'
               "
               :disabled="busy"
@@ -244,7 +243,7 @@ function toggleSettings() {
           :class="
             micEnabled
               ? 'border-teal-300/70 bg-white dark:border-teal-700 dark:bg-neutral-900/60'
-              : 'border-black/8 bg-neutral-50 dark:border-white/10 dark:bg-neutral-900/40'
+              : 'border-line bg-neutral-50 dark:bg-neutral-900/40'
           "
           :disabled="busy"
           @click="emit('update:micEnabled', !micEnabled)"
@@ -254,18 +253,8 @@ function toggleSettings() {
             :class="micEnabled ? 'bg-teal-600 text-white' : 'bg-neutral-200 text-neutral-500 dark:bg-neutral-700 dark:text-neutral-300'"
             aria-hidden="true"
           >
-            <svg v-if="micEnabled" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3Z" />
-              <path d="M5 11a7 7 0 0 0 14 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              <path d="M12 18v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-            </svg>
-            <svg v-else width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 9v2a3 3 0 0 0 5.1 2.1" stroke-linecap="round" />
-              <path d="M15 9.5V6a3 3 0 0 0-5.2-2" stroke-linecap="round" />
-              <path d="M5 11a7 7 0 0 0 11.2 5.5" stroke-linecap="round" />
-              <path d="M19 11a6.9 6.9 0 0 0-.3-2" stroke-linecap="round" />
-              <path d="M12 18v3M4 4l16 16" stroke-linecap="round" />
-            </svg>
+            <AppIcon name="mic" v-if="micEnabled" :size="13" />
+            <AppIcon v-else name="mic-off" :size="13" />
           </span>
           <span class="min-w-0 flex-1 text-left">
             <span class="block text-[12px] font-semibold text-neutral-900 dark:text-neutral-100">

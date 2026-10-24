@@ -203,7 +203,7 @@ function boxClass(index: number) {
   }
   return wordMarks.value[index]?.ok
     ? 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
-    : 'border-red-400 bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
+    : 'border-red-400 bg-red-50 text-danger dark:bg-red-950/40'
 }
 </script>
 
@@ -218,7 +218,7 @@ function boxClass(index: number) {
       @click.self="onClose"
     >
       <div
-        class="w-full max-w-xl rounded-t-2xl sm:rounded-2xl bg-white dark:bg-neutral-900 shadow-2xl border border-black/5 dark:border-white/10 pb-[env(safe-area-inset-bottom)]"
+        class="w-full max-w-xl rounded-t-2xl sm:rounded-2xl bg-card shadow-2xl border border-line-soft pb-[env(safe-area-inset-bottom)]"
         @click.stop
       >
         <div class="flex justify-center pt-3 pb-1 sm:hidden">
@@ -232,7 +232,7 @@ function boxClass(index: number) {
           </div>
           <button
             type="button"
-            class="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 text-xl leading-none px-1"
+            class="text-neutral-400 hover:text-ink-soft text-xl leading-none px-1"
             aria-label="关闭"
             @click="onClose"
           >
@@ -245,7 +245,7 @@ function boxClass(index: number) {
             <label class="inline-flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300">
               <span class="shrink-0">循环次数</span>
               <select
-                class="rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-800 px-2 py-1 text-xs"
+                class="rounded-lg border border-line bg-card px-2 py-1 text-xs"
                 :value="normalizedLoopCount"
                 @change="onLoopCountChange"
               >

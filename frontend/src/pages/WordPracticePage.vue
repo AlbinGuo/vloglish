@@ -18,6 +18,7 @@ import {
   playSessionDone,
   playWordCorrect,
 } from '@/utils/wordPracticeSounds'
+import AppIcon from '@/components/AppIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -826,7 +827,7 @@ onUnmounted(() => {
             class="px-5 py-2.5 rounded-xl text-sm font-semibold transition"
             :class="
               summary.wrong_count > 0
-                ? 'border border-black/10 dark:border-white/15 text-neutral-800 dark:text-neutral-100 hover:bg-black/[0.03] dark:hover:bg-white/[0.05]'
+                ? 'border border-line-strong text-ink-soft hover:bg-black/[0.03] dark:hover:bg-white/[0.05]'
                 : 'bg-teal-600 text-white hover:bg-teal-500 shadow-sm shadow-teal-600/20'
             "
             @click="retrySame"
@@ -868,19 +869,7 @@ onUnmounted(() => {
               class="shrink-0 inline-flex items-center gap-1 text-xs text-neutral-400"
             >
               {{ previewOpen ? '收起' : '展开' }}
-              <svg
-                class="h-3.5 w-3.5 transition-transform duration-200"
-                :class="previewOpen ? 'rotate-180' : ''"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
-                  clip-rule="evenodd"
-                />
-              </svg>
+              <AppIcon name="chevron-down-xs" class="h-3.5 w-3.5 transition-transform duration-200" />
             </span>
           </button>
           <div
@@ -913,11 +902,7 @@ onUnmounted(() => {
                   :title="`朗读 ${item.word}`"
                   @click.stop="playWordPronunciation(item.word)"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path
-                      d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"
-                    />
-                  </svg>
+                  <AppIcon name="volume-up" :size="14" />
                 </button>
               </li>
             </ol>
@@ -983,7 +968,7 @@ onUnmounted(() => {
               :class="
                 isRecall
                   ? 'bg-amber-500/15 text-amber-800 dark:bg-amber-400/15 dark:text-amber-200'
-                  : 'bg-teal-500/10 text-teal-800 dark:bg-teal-400/10 dark:text-teal-200'
+                  : 'bg-brand-soft text-brand-on-soft'
               "
             >
               {{ phaseLabel }}
@@ -1027,16 +1012,12 @@ onUnmounted(() => {
               </p>
               <button
                 type="button"
-                class="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-full text-teal-700 bg-teal-500/10 hover:bg-teal-500/20 dark:text-teal-300 dark:bg-teal-400/10 dark:hover:bg-teal-400/20 transition"
+                class="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-full text-brand bg-brand-soft hover:bg-teal-500/20 dark:hover:bg-teal-400/20 transition"
                 :aria-label="`朗读 ${current.word}`"
                 :title="`朗读 ${current.word}`"
                 @click.stop="playWordPronunciation(current.word)"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path
-                    d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"
-                  />
-                </svg>
+                <AppIcon name="volume-up" :size="16" />
               </button>
             </div>
             <p v-if="current.ipa" class="text-sm text-neutral-400 dark:text-neutral-500 tracking-wide">
@@ -1049,7 +1030,7 @@ onUnmounted(() => {
                 :class="
                   clipOpen
                     ? 'text-teal-900 bg-teal-500/25 dark:text-teal-100 dark:bg-teal-400/25'
-                    : 'text-teal-700 bg-teal-500/10 hover:bg-teal-500/15 dark:text-teal-300 dark:bg-teal-400/10 dark:hover:bg-teal-400/15'
+                    : 'text-brand bg-brand-soft hover:bg-teal-500/15 dark:hover:bg-teal-400/15'
                 "
                 @click.stop="openClipOverlay"
               >
@@ -1081,7 +1062,7 @@ onUnmounted(() => {
                     :class="
                       clipOpen
                         ? 'text-teal-900 bg-teal-500/25 dark:text-teal-100 dark:bg-teal-400/25'
-                        : 'text-teal-700 bg-teal-500/10 hover:bg-teal-500/15 dark:text-teal-300 dark:bg-teal-400/10 dark:hover:bg-teal-400/15'
+                        : 'text-brand bg-brand-soft hover:bg-teal-500/15 dark:hover:bg-teal-400/15'
                     "
                     @click.stop="openClipOverlay"
                   >
@@ -1089,7 +1070,7 @@ onUnmounted(() => {
                   </button>
                   <button
                     type="button"
-                    class="text-[11px] px-2 py-0.5 rounded-md text-teal-700 bg-teal-500/10 hover:bg-teal-500/15 dark:text-teal-300 dark:bg-teal-400/10 dark:hover:bg-teal-400/15 transition"
+                    class="text-[11px] px-2 py-0.5 rounded-md text-teal-700 bg-brand-soft hover:bg-teal-500/15 dark:text-teal-300 dark:hover:bg-teal-400/15 transition"
                     @click.stop="toggleContextFlip"
                   >
                     {{ contextFlipped ? '看英文' : '看中文' }}
@@ -1305,17 +1286,17 @@ onUnmounted(() => {
         >
           <span>
             时间
-            <span class="ml-1.5 tabular-nums text-neutral-600 dark:text-neutral-300">{{ formatTime(elapsedMs) }}</span>
+            <span class="ml-1.5 tabular-nums text-ink-soft">{{ formatTime(elapsedMs) }}</span>
           </span>
           <span class="text-neutral-300 dark:text-neutral-700">·</span>
           <span>
             WPM
-            <span class="ml-1.5 tabular-nums text-neutral-600 dark:text-neutral-300">{{ started ? wpm : 0 }}</span>
+            <span class="ml-1.5 tabular-nums text-ink-soft">{{ started ? wpm : 0 }}</span>
           </span>
           <span class="text-neutral-300 dark:text-neutral-700">·</span>
           <span>
             正确率
-            <span class="ml-1.5 tabular-nums text-neutral-600 dark:text-neutral-300">{{ accuracyLive }}%</span>
+            <span class="ml-1.5 tabular-nums text-ink-soft">{{ accuracyLive }}%</span>
           </span>
         </div>
       </template>

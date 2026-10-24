@@ -14,7 +14,8 @@ export async function syncNativeStatusBarStyle(resolved: 'light' | 'dark') {
   if (!isNativePlatform()) return
   try {
     const { StatusBar, Style } = await import('@capacitor/status-bar')
-    await StatusBar.setStyle({ style: resolved === 'dark' ? Style.Light : Style.Dark })
+    // Capacitor 枚举语义：Style.Dark = 深色底用浅色文字；Style.Light = 浅色底用深色文字
+    await StatusBar.setStyle({ style: resolved === 'dark' ? Style.Dark : Style.Light })
     // Android 非 overlay 时需显式设状态栏背景，否则可能发灰/发黑与 header 不一致
     if (getNativePlatform() === 'android') {
       await StatusBar.setBackgroundColor({ color: STATUS_BAR_BG[resolved] })

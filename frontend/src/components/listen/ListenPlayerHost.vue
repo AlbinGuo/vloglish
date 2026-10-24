@@ -3,9 +3,19 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useListenPlayerStore } from '@/stores/listenPlayer'
 import { useRoute } from 'vue-router'
 import { silenceMedia } from '@/utils/playMedia'
+import { getNativePlatform } from '@/utils/platform'
 
 const listen = useListenPlayerStore()
 const route = useRoute()
+
+// iOS 收听模式优先用独立的音频文件播放：WKWebView 对 <video> 后台续播不可靠，
+// 对 <audio> 才稳定。仅当存在独立音频文件、且不是视频视图时才切换，避免影响画面。
+const useAudioEngine = computed(
+  () =>
+    getNativePlatform() === 'ios' &&
+    listen.viewMode !== 'video' &&
+    Boolean(listen.episode?.media?.audio_url),
+)
 
 const expandedVideo = computed(
   () => route.name === 'ListenEpisode' && Boolean(listen.episode),
@@ -255,7 +265,18 @@ const videoListeners = {
     进听页时在槽里新建播放器，折叠时另建停车实例。
   -->
   <Teleport v-if="canTeleport" to="#listen-video-slot">
+    <audio
+      v-if="useAudioEngine"
+      :key="(listen.currentVideoId || 'parked') + '-a'"
+      :ref="bindEl"
+      class="listen-engine-video listen-engine-video--docked"
+      :src="listen.audioSrc"
+      referrerpolicy="no-referrer"
+      preload="auto"
+      v-on="videoListeners"
+    />
     <video
+      v-else
       :key="listen.currentVideoId || 'parked'"
       :ref="bindEl"
       class="listen-engine-video listen-engine-video--docked"
@@ -268,6 +289,16 @@ const videoListeners = {
       v-on="videoListeners"
     />
   </Teleport>
+  <audio
+    v-else-if="useAudioEngine"
+    :key="(listen.currentVideoId || 'parked') + '-a'"
+    :ref="bindEl"
+    class="listen-engine-video listen-engine-video--parked"
+    :src="listen.audioSrc"
+    referrerpolicy="no-referrer"
+    preload="auto"
+    v-on="videoListeners"
+  />
   <video
     v-else
     :key="listen.currentVideoId || 'parked'"

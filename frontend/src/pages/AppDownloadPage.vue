@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import {
   fetchAppDownload,
   getAndroidApkTrackUrl,
@@ -12,6 +12,42 @@ const loading = ref(true)
 const error = ref('')
 const data = ref<PublicAppDownload | null>(null)
 const qrDataUrl = ref('')
+
+/** public 资源路径（兼容 web 的 `/` 与 App 的 `./` 两种 base） */
+const asset = (p: string) => `${import.meta.env.BASE_URL}${p}`
+
+/** iOS 内测（TestFlight）安装步骤图 */
+const iosSteps = [
+  { n: 1, label: '安装 TestFlight', src: asset('app/01.jpeg') },
+  { n: 2, label: '打开 TestFlight', src: asset('app/02.jpeg') },
+  { n: 3, label: '扫描二维码 / 接受邀请', src: asset('app/03.jpeg') },
+  { n: 4, label: '安装 Vloglish 内测版', src: asset('app/04.jpeg') },
+  { n: 5, label: '开始使用 Vloglish', src: asset('app/05.jpg') },
+] as const
+
+const iosQrSrc = asset('app/qrcode.png')
+
+/** PC 端「我要内测」全屏步骤弹窗 */
+const showStepsModal = ref(false)
+
+watch(showStepsModal, (open) => {
+  if (typeof document !== 'undefined') {
+    document.body.style.overflow = open ? 'hidden' : ''
+  }
+})
+
+function onModalKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') showStepsModal.value = false
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onModalKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onModalKeydown)
+  if (typeof document !== 'undefined') document.body.style.overflow = ''
+})
 
 type Client = 'ios' | 'android' | 'other'
 const client = ref<Client>('other')
@@ -38,6 +74,9 @@ const showAndroid = computed(() => {
 
 /** 下载开放时始终展示 iOS 区；无外链时显示即将上架提示 */
 const showIos = computed(() => Boolean(data.value?.enabled))
+
+/** 两个区块同时展示时，PC 端横向两列排版 */
+const bothSections = computed(() => showAndroid.value && showIos.value)
 
 const emptyHint = computed(() => {
   if (!data.value) return ''
@@ -90,8 +129,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-dvh bg-gradient-to-b from-teal-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900 text-neutral-900 dark:text-neutral-50">
-    <div class="mx-auto max-w-lg px-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
+  <div class="min-h-dvh bg-gradient-to-b from-teal-50 via-white to-neutral-50 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900 text-ink">
+    <div class="mx-auto max-w-lg lg:max-w-4xl px-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))]">
       <header class="pt-6 pb-8 text-center">
         <p class="text-sm font-semibold tracking-wide text-teal-700 dark:text-teal-300">Vloglish</p>
         <h1 class="mt-2 text-2xl font-bold tracking-tight">下载 App</h1>
@@ -106,11 +145,12 @@ onMounted(async () => {
       <template v-else-if="data">
         <p
           v-if="emptyHint"
-          class="mb-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-sm text-amber-900 dark:text-amber-100 text-center leading-relaxed"
+          class="mb-4 rounded-xl bg-warning-soft px-3 py-2 text-sm text-amber-900 dark:text-amber-100 text-center leading-relaxed"
         >
           {{ emptyHint }}
         </p>
 
+        <div :class="bothSections ? 'lg:grid lg:grid-cols-2 lg:gap-5 lg:items-start' : ''">
         <section
           v-if="showAndroid"
           class="rounded-2xl border border-teal-200/70 dark:border-teal-800/50 bg-white/90 dark:bg-neutral-900/80 p-5 shadow-sm"
@@ -164,56 +204,147 @@ onMounted(async () => {
             {{ client === 'android' ? '下载并安装' : '下载 Android APK' }}
             <template v-if="apkSizeLabel">（{{ apkSizeLabel }}）</template>
           </a>
-          <p class="mt-2 text-[11px] text-neutral-400 text-center leading-relaxed">
-            若无法安装，请在系统设置中允许「未知来源」应用。
-          </p>
+          <div class="mt-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 px-3 py-2.5 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+            <p class="font-medium text-neutral-600 dark:text-neutral-300">安装提示</p>
+            <ol class="mt-1 list-decimal space-y-0.5 pl-4">
+              <li>点击下载后，若浏览器提示“此类型文件可能损害设备”，选择「仍要下载 / 继续」。</li>
+              <li>打开安装包时若提示“未知来源 / 未经安全检测”，选择「允许此来源」或「仍要安装」。</li>
+              <li>小米需关闭“纯净模式”；华为 / 荣耀需允许“外部来源应用”安装。</li>
+            </ol>
+            <p class="mt-1.5 text-neutral-400">为保障安全，请务必从官网等官方渠道下载，谨防仿冒安装包。</p>
+          </div>
         </section>
 
         <section
           v-if="showIos"
-          class="rounded-2xl border border-black/8 dark:border-white/10 bg-white/80 dark:bg-neutral-900/70 p-5"
-          :class="showAndroid ? 'mt-4' : ''"
+          class="rounded-2xl border border-line bg-white/80 dark:bg-neutral-900/70 p-5"
+          :class="showAndroid ? 'mt-4 lg:mt-0' : ''"
         >
           <div class="flex items-center gap-2">
             <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-neutral-800 text-white text-xs font-bold dark:bg-neutral-200 dark:text-neutral-900">iOS</span>
             <div>
               <h2 class="text-base font-semibold">iPhone / iPad</h2>
-              <p class="text-xs text-neutral-500">
-                {{ iosLink ? '前往 App Store 安装' : '即将上架 App Store' }}
-              </p>
+              <p class="text-xs text-neutral-500">内测中，即将上架 Apple Store</p>
             </div>
           </div>
+
           <p class="mt-3 text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
             {{ iosNote }}
           </p>
+
+          <div class="mt-4 flex flex-col items-center">
+            <div class="rounded-2xl border border-line bg-white p-2.5">
+              <img
+                :src="iosQrSrc"
+                alt="iOS 内测扫码二维码"
+                class="w-[160px] h-[160px] object-contain"
+                width="160"
+                height="160"
+              />
+            </div>
+            <p class="mt-2 text-[11px] text-neutral-500 dark:text-neutral-400 text-center">
+              使用相机扫码
+            </p>
+          </div>
+
+          <div class="mt-4 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 px-3 py-3 lg:hidden">
+            <p class="text-[12px] font-medium text-neutral-600 dark:text-neutral-300">iOS 内测安装步骤（TestFlight）</p>
+            <ol class="mt-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-2">
+              <template v-for="(s, i) in iosSteps" :key="s.n">
+                <li class="flex flex-col items-center gap-1.5 lg:min-w-0 lg:flex-1">
+                  <img
+                    :src="s.src"
+                    :alt="`第 ${s.n} 步：${s.label}`"
+                    class="w-full max-w-[200px] rounded-xl border border-line bg-white object-contain lg:max-w-none"
+                    loading="lazy"
+                  />
+                  <span class="inline-flex items-center rounded-full bg-neutral-800 px-2 py-0.5 text-[11px] font-bold text-white dark:bg-neutral-200 dark:text-neutral-900">
+                    第 {{ s.n }} 步
+                  </span>
+                </li>
+                <li
+                  v-if="i < iosSteps.length - 1"
+                  aria-hidden="true"
+                  class="hidden select-none items-center justify-center text-2xl leading-none text-neutral-400 dark:text-neutral-500 lg:flex lg:self-center"
+                >
+                  →
+                </li>
+              </template>
+            </ol>
+          </div>
+
           <a
             v-if="iosLink"
             :href="iosLink"
             target="_blank"
             rel="noopener"
-            class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl bg-neutral-900 text-white text-[15px] font-semibold dark:bg-neutral-100 dark:text-neutral-900 active:scale-[0.99]"
+            class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl bg-ink text-white text-[15px] font-semibold dark:text-neutral-900 active:scale-[0.99] lg:hidden"
           >
-            {{ client === 'ios' ? '前往下载' : '打开 iOS 下载页' }}
+            {{ client === 'ios' ? '打开 TestFlight 邀请' : '打开 iOS 内测链接' }}
           </a>
           <div
             v-else
-            class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-800/60 text-[15px] font-semibold text-neutral-500 dark:text-neutral-400"
+            class="mt-4 flex w-full min-h-12 items-center justify-center rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-800/60 text-[15px] font-semibold text-neutral-500 dark:text-neutral-400 lg:hidden"
             aria-disabled="true"
           >
-            即将上架 App Store
+            内测中，即将上架 Apple Store
           </div>
-          <p
-            v-if="!iosLink"
-            class="mt-2 text-[11px] text-neutral-400 text-center leading-relaxed"
+
+          <button
+            type="button"
+            class="mt-4 hidden w-full min-h-12 items-center justify-center rounded-2xl bg-teal-600 text-white text-[15px] font-semibold shadow-[0_8px_20px_rgba(13,148,136,0.28)] active:scale-[0.99] lg:flex"
+            @click="showStepsModal = true"
           >
-            上架后可在此页直接跳转下载；也可先使用网页版学习。
-          </p>
+            我要内测
+          </button>
         </section>
+        </div>
 
         <p class="mt-8 text-center text-xs text-neutral-400">
           <RouterLink to="/english" class="underline-offset-2 hover:underline">进入网页版</RouterLink>
         </p>
       </template>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="showStepsModal"
+        class="fixed inset-0 z-[9999] flex flex-col bg-black/85 backdrop-blur-sm"
+        @click.self="showStepsModal = false"
+      >
+        <div class="flex items-center justify-between px-4 py-3 text-white sm:px-6">
+          <span class="text-sm font-semibold sm:text-base">iOS 内测安装步骤（TestFlight）</span>
+          <button
+            type="button"
+            class="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-lg leading-none text-white transition hover:bg-white/25"
+            aria-label="关闭"
+            @click="showStepsModal = false"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="flex-1 overflow-auto">
+          <div class="flex min-h-full items-center gap-3 px-4 py-4 sm:gap-4 sm:px-6 lg:justify-center">
+            <template v-for="(s, i) in iosSteps" :key="s.n">
+              <div class="flex shrink-0 flex-col items-center gap-2">
+                <img
+                  :src="s.src"
+                  :alt="`第 ${s.n} 步：${s.label}`"
+                  class="h-[62vh] max-h-[640px] w-auto rounded-xl border border-white/20 bg-white object-contain sm:h-[68vh]"
+                />
+                <span class="text-xs font-bold text-white">第 {{ s.n }} 步</span>
+              </div>
+              <div
+                v-if="i < iosSteps.length - 1"
+                class="shrink-0 select-none text-2xl text-white/70"
+                aria-hidden="true"
+              >
+                →
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

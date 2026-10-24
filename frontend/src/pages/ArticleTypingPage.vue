@@ -14,6 +14,32 @@ import {
   playSessionDone,
   playWordCorrect,
 } from '@/utils/wordPracticeSounds'
+import AppIcon from '@/components/AppIcon.vue'
+
+type TypingMode = 'compare' | 'zh-prompt'
+
+const TYPING_MODE_KEY = 'teco-article-typing-mode'
+const PEEK_MS = 2500
+
+function loadTypingMode(): TypingMode {
+  try {
+    return localStorage.getItem(TYPING_MODE_KEY) === 'zh-prompt' ? 'zh-prompt' : 'compare'
+  } catch {
+    return 'compare'
+  }
+}
+
+function persistTypingMode(mode: TypingMode) {
+  try {
+    localStorage.setItem(TYPING_MODE_KEY, mode)
+  } catch {
+    /* ignore */
+  }
+}
+
+function segmentHasChinese(seg: ArticleSegment | null | undefined) {
+  return Boolean((seg?.chinese || '').trim())
+}
 
 type SentenceResult = {
   segment_id: number
@@ -46,11 +72,14 @@ const charsTyped = ref(0)
 const elapsedMs = ref(0)
 const results = ref<SentenceResult[]>([])
 const summary = ref<Summary | null>(null)
+const typingMode = ref<TypingMode>(loadTypingMode())
+const peeking = ref(false)
 
 let tickTimer: ReturnType<typeof setInterval> | null = null
 let sessionStartedAt = 0
 let revealTimer: ReturnType<typeof setTimeout> | null = null
 let wrongHintTimer: ReturnType<typeof setTimeout> | null = null
+let peekTimer: ReturnType<typeof setTimeout> | null = null
 let sentenceAudio: HTMLAudioElement | null = null
 
 const articleId = computed(() => String(route.params.articleId || ''))
@@ -89,6 +118,47 @@ const summaryMessage = computed(() => {
   if (acc >= 50) return '继续练，正确比速度更重要'
   return '慢一点也没关系，打对再前进就会越来越顺'
 })
+const isZhPrompt = computed(() => typingMode.value === 'zh-prompt')
+const currentHasChinese = computed(() => segmentHasChinese(current.value))
+/** 看中打英且本段有中文：藏未打出的英文；看一眼 / 打完揭示时放开 */
+const maskEnglish = computed(
+  () => isZhPrompt.value && currentHasChinese.value && !peeking.value && !showReveal.value,
+)
+const startHint = computed(() =>
+  isZhPrompt.value
+    ? '看中文，打出对应英文 · 卡住可点「看一眼」'
+    : '打对才前进 · 完成本段自动下一段',
+)
+
+function setTypingMode(mode: TypingMode) {
+  if (typingMode.value === mode) return
+  typingMode.value = mode
+  persistTypingMode(mode)
+  clearPeek()
+}
+
+function hideUpcomingEnglish(seg: ArticleSegment) {
+  return isZhPrompt.value && segmentHasChinese(seg)
+}
+
+function clearPeek() {
+  peeking.value = false
+  if (peekTimer) {
+    clearTimeout(peekTimer)
+    peekTimer = null
+  }
+}
+
+function peekEnglish() {
+  if (!isZhPrompt.value || !currentHasChinese.value) return
+  if (summary.value || showReveal.value) return
+  peeking.value = true
+  if (peekTimer) clearTimeout(peekTimer)
+  peekTimer = setTimeout(() => {
+    peeking.value = false
+    peekTimer = null
+  }, PEEK_MS)
+}
 
 function formatTime(ms: number) {
   const s = Math.floor(ms / 1000)
@@ -105,9 +175,13 @@ function letterState(i: number): 'idle' | 'ok' | 'cursor' | 'bad' | 'reveal' {
   return 'idle'
 }
 
-function displayChar(ch: string) {
+function displayChar(ch: string, i: number) {
   // 空格用窄空白占位，避免中间点把词距拉得过开
-  return ch === ' ' ? '\u00A0' : ch
+  if (ch === ' ') return '\u00A0'
+  if (!maskEnglish.value) return ch
+  const state = letterState(i)
+  if (state === 'ok' || state === 'reveal') return ch
+  return ''
 }
 
 function charsMatch(typed: string, expected: string) {
@@ -191,6 +265,7 @@ async function boot() {
   elapsedMs.value = 0
   showReveal.value = false
   hadWrongThisSentence.value = false
+  clearPeek()
   index.value = 0
   if (tickTimer) {
     clearInterval(tickTimer)
@@ -252,6 +327,7 @@ function advanceAfterSentence(result: SentenceResult) {
   if (current.value) void syncReadingProgress(current.value)
 
   if (revealTimer) clearTimeout(revealTimer)
+  clearPeek()
   showReveal.value = true
   playWordCorrect()
 
@@ -282,36 +358,29 @@ function skipSentence() {
   })
 }
 
-function onKeydown(e: KeyboardEvent) {
-  if (summary.value || loading.value || !current.value || showReveal.value) return
-  if (e.ctrlKey || e.metaKey || e.altKey) return
+function guardActive() {
+  return !(summary.value || loading.value || !current.value || showReveal.value)
+}
 
-  if (!started.value) {
-    if (e.key.length === 1 || e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      started.value = true
-      beginTimer()
-      playCurrentSentence()
-    }
-    return
-  }
+function startSession() {
+  if (started.value) return
+  started.value = true
+  beginTimer()
+  playCurrentSentence()
+}
 
+function handleBackspace() {
+  if (input.value) input.value = input.value.slice(0, -1)
+}
+
+function handleChar(key: string) {
   const word = targetText.value
   if (!word) return
-
-  if (e.key === 'Backspace') {
-    e.preventDefault()
-    if (input.value) input.value = input.value.slice(0, -1)
-    return
-  }
-  if (e.key.length !== 1) return
-  e.preventDefault()
-
   const expected = word[input.value.length]
   if (expected == null) return
 
   charsTyped.value += 1
-  if (!charsMatch(e.key, expected)) {
+  if (!charsMatch(key, expected)) {
     playKeyError()
     wrongFlash.value = true
     hadWrongThisSentence.value = true
@@ -333,6 +402,65 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
+/** 手机端软键盘输入载体（隐藏），点正文区调起键盘 */
+const hiddenInputEl = ref<HTMLInputElement | null>(null)
+
+function focusTypingInput() {
+  hiddenInputEl.value?.focus()
+}
+
+function onKeydown(e: KeyboardEvent) {
+  // 软键盘输入走 hidden input 的 beforeinput，避免 Android 同时触发 keydown 导致重复计数
+  if (hiddenInputEl.value && e.target === hiddenInputEl.value) return
+  if (!guardActive()) return
+  if (e.ctrlKey || e.metaKey || e.altKey) return
+
+  if (!started.value) {
+    if (e.key.length === 1 || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      startSession()
+    }
+    return
+  }
+
+  if (e.key === 'Backspace') {
+    e.preventDefault()
+    handleBackspace()
+    return
+  }
+  if (e.key.length !== 1) return
+  e.preventDefault()
+  handleChar(e.key)
+}
+
+function onHiddenBeforeInput(e: InputEvent) {
+  if (!guardActive()) return
+  const type = e.inputType || ''
+  if (type === 'insertText' || type === 'insertCompositionText') {
+    e.preventDefault()
+    const data = e.data ?? ''
+    if (!data) return
+    if (!started.value) startSession()
+    for (const ch of data) handleChar(ch)
+    return
+  }
+  if (type === 'insertLineBreak' || type === 'insertParagraph') {
+    e.preventDefault()
+    if (!started.value) startSession()
+    return
+  }
+  if (
+    type === 'deleteContentBackward' ||
+    type === 'deleteWordBackward' ||
+    type === 'deleteContentForward'
+  ) {
+    e.preventDefault()
+    if (started.value) handleBackspace()
+    return
+  }
+  e.preventDefault()
+}
+
 function retryFromStart() {
   summary.value = null
   void boot()
@@ -345,6 +473,10 @@ watch(
   },
 )
 
+watch(index, () => {
+  clearPeek()
+})
+
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   void boot()
@@ -355,6 +487,7 @@ onUnmounted(() => {
   if (tickTimer) clearInterval(tickTimer)
   if (revealTimer) clearTimeout(revealTimer)
   if (wrongHintTimer) clearTimeout(wrongHintTimer)
+  if (peekTimer) clearTimeout(peekTimer)
   stopSentenceAudio()
   stopSpeaking()
 })
@@ -365,7 +498,7 @@ onUnmounted(() => {
     class="relative h-full min-h-0 overflow-hidden flex flex-col text-neutral-900 dark:text-neutral-50 bg-[radial-gradient(ellipse_80%_55%_at_50%_-10%,rgba(20,184,166,0.16),transparent_55%),radial-gradient(ellipse_50%_40%_at_100%_80%,rgba(245,158,11,0.08),transparent_50%),linear-gradient(180deg,#f8fafb_0%,#f1f5f4_100%)] dark:bg-[radial-gradient(ellipse_80%_55%_at_50%_-10%,rgba(45,212,191,0.12),transparent_55%),radial-gradient(ellipse_50%_40%_at_0%_90%,rgba(15,118,110,0.18),transparent_50%),linear-gradient(180deg,#0a0f0e_0%,#0c1211_100%)]"
   >
     <div
-      class="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10 pt-5 sm:pt-7 pb-3 sm:pb-4 flex-1 min-h-0 flex flex-col"
+      class="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-10 pt-[max(1.25rem,env(safe-area-inset-top,0px))] sm:pt-7 pb-3 sm:pb-4 flex-1 min-h-0 flex flex-col"
     >
       <header class="shrink-0 mb-4 sm:mb-5">
         <div class="flex items-center justify-between gap-3 text-sm min-w-0">
@@ -380,7 +513,7 @@ onUnmounted(() => {
             <span class="font-medium truncate tracking-tight">打字练习</span>
             <span
               v-if="title"
-              class="hidden sm:inline shrink-0 max-w-[12rem] truncate text-[11px] px-2 py-0.5 rounded-md bg-teal-500/10 text-teal-800 dark:text-teal-200 dark:bg-teal-400/10"
+              class="hidden sm:inline shrink-0 max-w-[12rem] truncate text-[11px] px-2 py-0.5 rounded-md bg-brand-soft text-teal-800 dark:text-teal-200"
               :title="title"
             >
               {{ title }}
@@ -390,7 +523,7 @@ onUnmounted(() => {
             <button
               v-if="started && current"
               type="button"
-              class="text-xs text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition"
+              class="text-xs text-neutral-400 hover:text-ink-soft transition"
               @click="skipSentence"
             >
               跳过
@@ -400,7 +533,44 @@ onUnmounted(() => {
         </div>
         <div
           v-if="!summary && segments.length"
-          class="mt-3 h-1 rounded-full bg-black/5 dark:bg-white/8 overflow-hidden"
+          class="mt-2.5 flex items-center gap-3"
+        >
+          <div
+            class="inline-flex rounded-full border border-line bg-white/70 dark:bg-white/[0.04] p-0.5"
+            role="group"
+            aria-label="练习模式"
+          >
+            <button
+              type="button"
+              class="px-2.5 py-1 rounded-full text-[11px] font-medium transition"
+              :class="
+                typingMode === 'compare'
+                  ? 'bg-teal-600 text-white'
+                  : 'text-neutral-500 hover:text-ink-soft'
+              "
+              :aria-pressed="typingMode === 'compare'"
+              @click="setTypingMode('compare')"
+            >
+              对照
+            </button>
+            <button
+              type="button"
+              class="px-2.5 py-1 rounded-full text-[11px] font-medium transition"
+              :class="
+                typingMode === 'zh-prompt'
+                  ? 'bg-teal-600 text-white'
+                  : 'text-neutral-500 hover:text-ink-soft'
+              "
+              :aria-pressed="typingMode === 'zh-prompt'"
+              @click="setTypingMode('zh-prompt')"
+            >
+              看中打英
+            </button>
+          </div>
+        </div>
+        <div
+          v-if="!summary && segments.length"
+          class="mt-2.5 h-1 rounded-full bg-black/5 dark:bg-white/8 overflow-hidden"
         >
           <div
             class="h-full rounded-full bg-teal-500/80 dark:bg-teal-400/70 transition-[width] duration-300 ease-out"
@@ -483,9 +653,10 @@ onUnmounted(() => {
           class="shrink-0 mb-3 text-center px-4 animate-[atPulseSoft_2.2s_ease-in-out_infinite]"
         >
           <p class="text-base sm:text-lg font-medium text-neutral-700 dark:text-neutral-200 tracking-tight">
-            按任意键开始 · 从第 1 段练起
+            <span class="hidden sm:inline">按任意键开始 · 从第 1 段练起</span>
+            <span class="sm:hidden">点一下正文，调起键盘开始输入</span>
           </p>
-          <p class="mt-1 text-xs text-neutral-400">建议使用实体键盘 · 打对才前进 · 完成本段自动下一段</p>
+          <p class="mt-1 text-xs text-neutral-400">{{ startHint }}</p>
         </div>
 
         <div
@@ -495,7 +666,19 @@ onUnmounted(() => {
             'shadow-[0_18px_50px_-24px_rgba(20,184,166,0.45)]': showReveal,
           }"
         >
-          <ol class="px-5 py-6 sm:px-8 sm:py-8 lg:px-10 space-y-5 sm:space-y-6">
+          <input
+            ref="hiddenInputEl"
+            type="text"
+            inputmode="text"
+            autocapitalize="off"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            aria-hidden="true"
+            class="pointer-events-none fixed left-0 top-0 h-px w-px opacity-0"
+            @beforeinput="onHiddenBeforeInput"
+          />
+          <ol class="px-5 py-6 sm:px-8 sm:py-8 lg:px-10 space-y-5 sm:space-y-6" @click="focusTypingInput">
             <li
               v-for="(seg, i) in segments"
               :key="seg.id"
@@ -510,8 +693,8 @@ onUnmounted(() => {
                     segmentStatus(i) === 'current'
                       ? 'bg-teal-500 text-white'
                       : segmentStatus(i) === 'done'
-                        ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300'
-                        : 'bg-neutral-100 text-neutral-400 dark:bg-neutral-800 dark:text-neutral-500'
+                        ? 'bg-teal-500/15 text-brand'
+                        : 'bg-sunken text-ink-disabled'
                   "
                 >
                   {{ i + 1 }}
@@ -527,6 +710,12 @@ onUnmounted(() => {
 
                   <!-- 当前段：逐字练习 -->
                   <div v-else-if="segmentStatus(i) === 'current'" class="select-none">
+                    <p
+                      v-if="seg.chinese && isZhPrompt"
+                      class="mb-3 text-base sm:text-lg text-neutral-800 dark:text-neutral-100 leading-relaxed font-medium"
+                    >
+                      {{ seg.chinese }}
+                    </p>
                     <div
                       class="at-typing-line flex flex-wrap gap-x-0 gap-y-1 text-[1.25rem] sm:text-[1.45rem] md:text-[1.6rem] font-medium leading-[1.6] w-full"
                       :class="[!started ? 'opacity-50' : '', showReveal ? 'scale-[1.005]' : '']"
@@ -536,20 +725,33 @@ onUnmounted(() => {
                         v-for="(ch, ci) in letters"
                         :key="`${seg.id}-${ci}`"
                         class="at-letter inline-flex justify-center transition-colors duration-75"
-                        :class="[`is-${letterState(ci)}`, ch === ' ' ? 'is-space' : '']"
+                        :class="[
+                          `is-${letterState(ci)}`,
+                          ch === ' ' ? 'is-space' : '',
+                          maskEnglish && letterState(ci) !== 'ok' && ch !== ' ' ? 'is-mask' : '',
+                        ]"
                       >
-                        <span :class="letterState(ci) === 'idle' && started ? 'opacity-35' : ''">{{
-                          displayChar(ch)
-                        }}</span>
+                        <span
+                          :class="
+                            letterState(ci) === 'idle' && started && !maskEnglish ? 'opacity-35' : ''
+                          "
+                          >{{ displayChar(ch, ci) }}</span
+                        >
                       </span>
                     </div>
                     <p
-                      v-if="seg.chinese"
+                      v-if="seg.chinese && !isZhPrompt"
                       class="mt-2.5 text-sm sm:text-base text-neutral-600 dark:text-neutral-300 leading-relaxed"
                     >
                       {{ seg.chinese }}
                     </p>
-                    <div class="mt-3 flex items-center gap-3">
+                    <p
+                      v-else-if="isZhPrompt && !currentHasChinese"
+                      class="mt-2.5 text-xs text-neutral-400"
+                    >
+                      本段暂无中文，已按对照显示英文
+                    </p>
+                    <div class="mt-3 flex items-center gap-3 flex-wrap">
                       <button
                         v-if="started"
                         type="button"
@@ -558,31 +760,47 @@ onUnmounted(() => {
                         title="朗读本段"
                         @click="playCurrentSentence"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                          <path
-                            d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"
-                          />
-                        </svg>
+                        <AppIcon name="volume-up" :size="16" />
+                      </button>
+                      <button
+                        v-if="started && isZhPrompt && currentHasChinese"
+                        type="button"
+                        class="text-xs font-medium rounded-full px-2.5 py-1 transition"
+                        :class="
+                          peeking
+                            ? 'text-brand-on-soft bg-teal-500/15'
+                            : 'text-neutral-500 hover:text-teal-700 dark:hover:text-teal-300'
+                        "
+                        :aria-pressed="peeking"
+                        @click="peekEnglish"
+                      >
+                        {{ peeking ? '收起中' : '看一眼' }}
                       </button>
                       <p
                         v-if="wrongHint"
                         class="text-xs font-medium text-rose-500 dark:text-rose-300 animate-[atFadeUp_0.2s_ease]"
                       >
-                        打错了，请输入正确字符
+                        {{
+                          isZhPrompt && currentHasChinese
+                            ? '打错了，或点「看一眼」'
+                            : '打错了，请输入正确字符'
+                        }}
                       </p>
                     </div>
                   </div>
 
-                  <!-- 未练：淡显全文 -->
+                  <!-- 未练：对照淡显英文；看中打英只留中文 -->
                   <template v-else>
                     <p
+                      v-if="!hideUpcomingEnglish(seg)"
                       class="at-typing-line text-[1.15rem] sm:text-[1.3rem] md:text-[1.4rem] font-medium leading-[1.65] text-neutral-400 dark:text-neutral-500"
                     >
                       {{ plainEnglish(seg) }}
                     </p>
                     <p
                       v-if="seg.chinese"
-                      class="mt-1.5 text-xs sm:text-sm text-neutral-400/80 dark:text-neutral-600 leading-relaxed"
+                      class="text-xs sm:text-sm text-neutral-400/80 dark:text-neutral-600 leading-relaxed"
+                      :class="hideUpcomingEnglish(seg) ? '' : 'mt-1.5'"
                     >
                       {{ seg.chinese }}
                     </p>
@@ -645,6 +863,12 @@ onUnmounted(() => {
 .at-letter.is-idle {
   color: inherit;
   border-color: transparent;
+}
+.at-letter.is-mask {
+  border-color: rgba(13, 148, 136, 0.22);
+}
+:global(html.dark) .at-letter.is-mask {
+  border-color: rgba(94, 234, 212, 0.28);
 }
 .at-letter.is-ok {
   color: #0d9488;

@@ -23,6 +23,25 @@ export async function login(email: string, password: string) {
   return data
 }
 
+/** 为当前账号设置/修改登录邮箱与密码（Apple 登录用户绑定网页登录） */
+export async function setAccountCredentials(payload: {
+  email: string
+  password: string
+  current_password?: string
+}) {
+  const { data } = await api.post<User>('/api/auth/set-credentials/', payload)
+  return data
+}
+
+export async function appleLogin(payload: {
+  identity_token: string
+  authorization_code?: string
+  full_name?: string
+}) {
+  const { data } = await api.post<AuthTokensResponse>('/api/auth/apple/', payload)
+  return data
+}
+
 export async function refreshAuthToken(refresh: string) {
   const { data } = await api.post<AuthTokensResponse>('/api/token/refresh/', { refresh })
   return data
@@ -47,6 +66,10 @@ export async function activateMembership(activationCode: string) {
 
 export async function logout(refresh: string) {
   await api.post('/api/auth/logout/', { refresh })
+}
+
+export async function deleteAccount(payload: { password?: string; confirmation: string }) {
+  await api.post('/api/auth/delete-account/', payload)
 }
 
 export async function prepareBindWechat() {

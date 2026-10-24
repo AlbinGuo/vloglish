@@ -100,12 +100,12 @@ function typeLabel(type: string) {
 
 function typeTagClass(type: string) {
   if (type === 'episode_published') return 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
-  if (type === 'episode_new_release') return 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-  if (type === 'author_new_episode') return 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+  if (type === 'episode_new_release') return 'bg-amber-100 text-warning dark:bg-amber-900/40'
+  if (type === 'author_new_episode') return 'bg-amber-100 text-warning dark:bg-amber-900/40'
   if (type === 'article_new_release') return 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300'
   if (type === 'episode_rejected') return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'
   if (type === 'admin_broadcast') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
-  return 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
+  return 'bg-sunken text-ink-soft'
 }
 
 onMounted(load)
@@ -115,7 +115,7 @@ onMounted(load)
   <div class="page-container py-6 max-w-2xl">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
       <div class="flex items-center gap-3 text-sm min-w-0">
-        <RouterLink to="/english" class="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white shrink-0">← 返回目录</RouterLink>
+        <RouterLink to="/english" class="text-ink-faint hover:text-ink shrink-0">← 返回目录</RouterLink>
         <span class="text-neutral-300 dark:text-neutral-600 shrink-0">|</span>
         <span class="font-medium">通知</span>
         <span v-if="unreadCount" class="text-xs px-2 py-0.5 rounded-full bg-red-500 text-white">
@@ -125,7 +125,7 @@ onMounted(load)
       <button
         v-if="unreadCount"
         type="button"
-        class="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white shrink-0"
+        class="text-sm text-neutral-600 hover:text-ink dark:text-neutral-400 shrink-0"
         @click="readAll"
       >
         全部标为已读
@@ -136,7 +136,7 @@ onMounted(load)
 
     <div v-if="loading" class="text-neutral-500 text-sm">加载中...</div>
 
-    <div v-else-if="!notifications.length" class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-12 text-center">
+    <div v-else-if="!notifications.length" class="rounded-xl border border-line-soft bg-card p-12 text-center">
       <p class="text-neutral-500 text-sm">暂无通知</p>
     </div>
 
@@ -144,8 +144,8 @@ onMounted(load)
       <li
         v-for="item in notifications"
         :key="item.id"
-        class="rounded-xl border bg-white dark:bg-neutral-900 p-4 transition cursor-pointer"
-        :class="item.is_read ? 'border-black/5 dark:border-white/10' : 'border-amber-200 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/30'"
+        class="rounded-xl border bg-card p-4 transition cursor-pointer"
+        :class="item.is_read ? 'border-line-soft' : 'border-amber-200 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/30'"
         @click="readOne(item)"
       >
         <div class="flex flex-wrap items-start justify-between gap-2 mb-2">

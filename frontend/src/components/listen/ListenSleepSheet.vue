@@ -49,7 +49,7 @@ function pickAfterCurrent() {
         <div class="px-3 pb-2">
           <button
             type="button"
-            class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+            class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-sunken"
             @click="pickAfterCurrent"
           >
             播完这一集
@@ -58,14 +58,14 @@ function pickAfterCurrent() {
             v-for="opt in options"
             :key="opt.minutes"
             type="button"
-            class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+            class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-sunken"
             @click="pick(opt.minutes)"
           >
             {{ opt.label }}
           </button>
           <button
             type="button"
-            class="w-full text-left px-4 py-3.5 text-sm rounded-xl text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+            class="w-full text-left px-4 py-3.5 text-sm rounded-xl text-neutral-500 hover:bg-sunken"
             @click="pick(null)"
           >
             关闭定时

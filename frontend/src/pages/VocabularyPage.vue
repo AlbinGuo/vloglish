@@ -7,6 +7,7 @@ import { aiVocabReview, type VocabReviewCard } from '@/api/aiCoach'
 import AiShadowingSheet from '@/components/ai/AiShadowingSheet.vue'
 import { useVocabularyStore } from '@/stores/vocabulary'
 import { playWordPronunciation, stopSpeaking, warmSpeechVoices } from '@/utils/speakWord'
+import AppIcon from '@/components/AppIcon.vue'
 
 interface VocabSourceGroup {
   key: string
@@ -272,7 +273,7 @@ onUnmounted(() => {
       <div class="flex items-center gap-3 text-sm min-w-0">
         <RouterLink
           to="/english/learning"
-          class="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white shrink-0"
+          class="text-ink-faint hover:text-ink shrink-0"
         >
           ← 学习统计
         </RouterLink>
@@ -282,42 +283,41 @@ onUnmounted(() => {
         <span v-if="refreshing" class="text-[11px] text-neutral-400">更新中…</span>
       </div>
 
-      <div v-if="items.length" class="flex flex-col gap-1.5">
-      <div class="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3">
-        <div class="flex flex-wrap items-center gap-2">
+      <div v-if="items.length" class="hidden rounded-2xl border border-line-soft bg-card p-3 shadow-sm sm:p-4">
+        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
           <RouterLink
             to="/english/word-practice?source=vocab&limit=15"
-            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-teal-600 text-white hover:bg-teal-500 shadow-sm shadow-teal-600/20 transition"
+            class="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-ink-inverse shadow-sm transition hover:opacity-90 active:scale-[0.98]"
             title="优先抽取错词与未练习的单词"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <path d="M4 7h16M7 12h10M9 17h6" stroke-linecap="round" />
-            </svg>
+            <AppIcon name="align-left" :size="16" />
             拼写练习
           </RouterLink>
           <RouterLink
             to="/english/word-practice?source=vocab_wrong&limit=15"
-            class="inline-flex items-center px-3.5 py-2 rounded-xl text-sm font-medium border border-amber-300/70 text-amber-800 dark:border-amber-700/80 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition"
+            class="inline-flex items-center justify-center gap-2 rounded-xl border border-warning bg-warning-soft px-4 py-3 text-sm font-medium text-warning transition hover:opacity-90 active:scale-[0.98]"
           >
+            <AppIcon name="repeat" :size="16" />
             错词复习
           </RouterLink>
-        </div>
-        <div class="hidden sm:block w-px h-6 bg-black/8 dark:bg-white/10 shrink-0" aria-hidden="true" />
-        <div class="flex flex-wrap items-center gap-2">
           <button
             ref="reviewBtnRef"
             type="button"
-            class="px-3.5 py-2 rounded-xl text-sm font-medium bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-60 transition ring-offset-2 dark:ring-offset-neutral-950"
-            :class="highlightReview ? 'ring-2 ring-amber-400' : ''"
+            class="inline-flex items-center justify-center gap-2 rounded-xl bg-warning px-4 py-3 text-sm font-semibold text-ink-inverse transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+            :class="highlightReview ? 'ring-2 ring-brand ring-offset-2 ring-offset-card' : ''"
             :disabled="reviewLoading"
             @click="startReview(false)"
           >
+            <AppIcon name="sparkles" :size="16" />
             {{ primaryReviewLabel }}
           </button>
+        </div>
+        <div class="mt-2.5 flex items-center justify-between gap-2">
+          <p class="text-[11px] text-ink-faint">拼写练习优先错词与未练习，已掌握会后排</p>
           <button
             v-if="hasCachedReview || reviewCards.length"
             type="button"
-            class="px-3 py-2 rounded-xl text-sm font-medium border border-black/10 dark:border-white/15 text-neutral-600 dark:text-neutral-300 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-60"
+            class="shrink-0 rounded-lg border border-line-soft px-3 py-1.5 text-[12px] font-medium text-ink-soft transition hover:bg-sunken disabled:opacity-60"
             :disabled="reviewLoading"
             title="重新调用 AI 生成，会消耗额度"
             @click="startReview(true)"
@@ -325,10 +325,6 @@ onUnmounted(() => {
             重新生成
           </button>
         </div>
-      </div>
-      <p class="text-[11px] text-neutral-400 dark:text-neutral-500">
-        拼写练习优先错词与未练习，已掌握会后排
-      </p>
       </div>
     </div>
 
@@ -361,9 +357,7 @@ onUnmounted(() => {
           aria-label="朗读答案"
           @click="speakWord(reviewCards[reviewIndex]?.answer)"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
-          </svg>
+          <AppIcon name="volume-up" :size="18" />
         </button>
         <button
           type="button"
@@ -428,8 +422,8 @@ onUnmounted(() => {
                 group.sourceType === 'article'
                   ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300'
                   : group.sourceType === 'video'
-                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
-                    : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
+                    ? 'bg-amber-100 text-warning dark:bg-amber-950/40'
+                    : 'bg-sunken text-ink-soft'
               "
             >
               {{ sourceTypeLabel(group.sourceType) }}
@@ -469,14 +463,12 @@ onUnmounted(() => {
                 :class="
                   isSpeaking(item.word)
                     ? 'bg-teal-500 text-white shadow-sm scale-105'
-                    : 'bg-teal-500/10 text-teal-700 ring-1 ring-teal-500/15 hover:bg-teal-500/15 dark:text-teal-300 dark:bg-teal-400/10 dark:ring-teal-400/20'
+                    : 'bg-brand-soft text-brand ring-1 ring-teal-500/15 hover:bg-teal-500/15 dark:ring-teal-400/20'
                 "
                 aria-label="朗读"
                 @click.stop="speakWord(item.word)"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
-                </svg>
+                <AppIcon name="volume-up" :size="14" />
               </button>
             </div>
             <p v-if="item.ipa" class="mt-1 text-[11px] text-neutral-400 dark:text-neutral-500 truncate tracking-wide">
@@ -496,10 +488,7 @@ onUnmounted(() => {
                 class="inline-flex items-center gap-1 h-8 px-2 rounded-lg text-[11px] font-medium text-sky-700 bg-sky-50/80 hover:bg-sky-100 dark:text-sky-300 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 transition"
                 @click="startWordScore(item.word, { ipa: item.ipa, chinese: item.definition_cn })"
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3z" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M19 11a7 7 0 0 1-14 0M12 18v3" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
+                <AppIcon name="mic" :size="13" />
                 打分
               </button>
               <RouterLink
@@ -507,9 +496,7 @@ onUnmounted(() => {
                 :to="sourcePath(item)"
                 class="inline-flex items-center gap-1 h-8 px-2 rounded-lg text-[11px] font-medium text-amber-800 bg-amber-50/80 hover:bg-amber-100 dark:text-amber-300 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 transition"
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
+                <AppIcon name="external-link" :size="13" />
                 回看
               </RouterLink>
               <button
@@ -519,9 +506,7 @@ onUnmounted(() => {
                 aria-label="从生词本移除"
                 @click="remove(item)"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
+                <AppIcon name="trash-2" :size="14" />
               </button>
             </div>
           </li>

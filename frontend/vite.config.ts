@@ -2,6 +2,11 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
+import { readFileSync } from 'node:fs'
+
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8')) as {
+  version: string
+}
 
 export default defineConfig(({ mode }) => {
   const isApp = mode === 'app'
@@ -9,6 +14,9 @@ export default defineConfig(({ mode }) => {
   return {
     // Capacitor 本地加载需要相对资源路径
     base: isApp ? './' : '/',
+    define: {
+      __APP_VERSION__: JSON.stringify(pkg.version),
+    },
     plugins: [vue(), tailwindcss()],
     resolve: {
       alias: {

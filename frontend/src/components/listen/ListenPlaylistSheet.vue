@@ -106,7 +106,7 @@ function playHistory(row: RecentEpisode) {
           <button
             type="button"
             class="flex-1 py-2.5 text-sm font-medium"
-            :class="listen.playlistTab === 'queue' ? 'text-neutral-900 dark:text-white' : 'text-neutral-400'"
+            :class="listen.playlistTab === 'queue' ? 'text-ink' : 'text-neutral-400'"
             @click="listen.playlistTab = 'queue'"
           >
             当前播放
@@ -114,7 +114,7 @@ function playHistory(row: RecentEpisode) {
           <button
             type="button"
             class="flex-1 py-2.5 text-sm font-medium"
-            :class="listen.playlistTab === 'favorites' ? 'text-neutral-900 dark:text-white' : 'text-neutral-400'"
+            :class="listen.playlistTab === 'favorites' ? 'text-ink' : 'text-neutral-400'"
             @click="listen.playlistTab = 'favorites'"
           >
             我的收藏
@@ -122,7 +122,7 @@ function playHistory(row: RecentEpisode) {
           <button
             type="button"
             class="flex-1 py-2.5 text-sm font-medium"
-            :class="listen.playlistTab === 'history' ? 'text-neutral-900 dark:text-white' : 'text-neutral-400'"
+            :class="listen.playlistTab === 'history' ? 'text-ink' : 'text-neutral-400'"
             @click="listen.playlistTab = 'history'"
           >
             收听历史

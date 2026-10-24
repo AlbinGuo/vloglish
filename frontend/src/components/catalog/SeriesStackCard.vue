@@ -47,7 +47,7 @@ const stackActive = ref(false)
       </h3>
       <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
         已更新至第 {{ series.episode_count }} 集，持续更新中
-        <span v-if="series.requires_membership" class="text-amber-700 dark:text-amber-400"> · 会员</span>
+        <span v-if="series.requires_membership" class="text-warning"> · 会员</span>
       </p>
       <p
         v-if="series.summary"

@@ -1,26 +1,29 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { createPcPaySession, fetchPcPayQr, fetchPcPayStatus } from '@/api/wxpay'
 import { getErrorDetail } from '@/api/tokens'
 import { useAuthStore } from '@/stores/auth'
 import { useCatalogStore } from '@/stores/catalog'
 import { copyText } from '@/utils/clipboard'
-import { isMobileAppBuild, isNativePlatform } from '@/utils/platform'
+import AppIcon from '@/components/AppIcon.vue'
+import { getNativePlatform, isMobileAppBuild, isNativePlatform } from '@/utils/platform'
+import { verifyApplePurchase } from '@/api/membership'
+import { applePurchase, appleIapWarmup, isAppleIapAvailable, restoreApplePurchases, manageAppleSubscriptions } from '@/services/appleIap'
 
 const router = useRouter()
 const auth = useAuthStore()
 const catalog = useCatalogStore()
 
-type PlanId = 'quarter' | 'year' | 'forever' | 'test'
+type PlanId = 'week' | 'quarter' | 'year' | 'forever' | 'test'
 type PayChoice = PlanId | 'author'
 
 const AUTHOR_QR = '/author-wechat-qr.png'
 
 const plans: { id: PlanId; name: string; price: string; period: string; note: string; recommend: boolean }[] = [
-  { id: 'quarter', name: '季度会员', price: '29', period: '3 个月', note: '约 ¥9.7 / 月', recommend: false },
-  { id: 'year', name: '年度会员', price: '59', period: '12 个月', note: '约 ¥4.9 / 月', recommend: false },
-  { id: 'forever', name: '永久会员', price: '99', period: '一次买断', note: '不再续费', recommend: false },
+  { id: 'quarter', name: '季度会员', price: '38', period: '3 个月', note: '约 ¥12.7 / 月', recommend: false },
+  { id: 'year', name: '年度会员', price: '78', period: '12 个月', note: '约 ¥6.5 / 月', recommend: false },
+  { id: 'forever', name: '永久会员', price: '98', period: '一次买断', note: '不再续费', recommend: false },
   // { id: 'test', name: '测试会员', price: '1', period: '1 天', note: '联调付款', recommend: false },
 ]
 
@@ -31,8 +34,6 @@ const payQr = ref('')
 const payHint = ref('')
 const paidOk = ref(false)
 const payOnComputer = ref(false)
-const activationCode = ref('')
-const activating = ref(false)
 
 const WEB_PAY_URL = 'https://en.yunankexun.com/'
 const copiedUrl = ref(false)
@@ -40,6 +41,109 @@ let copiedTimer: ReturnType<typeof setTimeout> | undefined
 
 function isAppClient() {
   return isMobileAppBuild() || isNativePlatform()
+}
+
+/** iOS 原生 App：走 Apple 内购，展示 App 化会员页 */
+const isIosApp = isNativePlatform() && getNativePlatform() === 'ios'
+
+const APPLE_PRODUCT_IDS: Record<'week' | 'quarter' | 'year' | 'forever', string> = {
+  week: 'cc.vloglish.app.member.week',
+  quarter: 'cc.vloglish.app.member.quarter',
+  year: 'cc.vloglish.app.member.year',
+  forever: 'cc.vloglish.app.member.forever',
+}
+
+const appleBusy = ref(false)
+const appleError = ref('')
+const appleSuccess = ref('')
+const restoring = ref(false)
+
+const selectedPlan = computed(() => plans.find((p) => p.id === selected.value) ?? null)
+
+async function startApplePay() {
+  const plan = selected.value
+  if (plan !== 'week' && plan !== 'quarter' && plan !== 'year' && plan !== 'forever') return
+  appleError.value = ''
+  appleSuccess.value = ''
+  if (!isAppleIapAvailable()) {
+    appleError.value = 'Apple 内购暂不可用，请更新到最新版本 App'
+    return
+  }
+  appleBusy.value = true
+  try {
+    const productId = APPLE_PRODUCT_IDS[plan]
+    const result = await applePurchase(productId)
+    if (!result.receipt) {
+      throw new Error('未能获取 Apple 收据，请重试（如持续失败请更新到最新版本 App）')
+    }
+    const res = await verifyApplePurchase({
+      product_id: String(result.productId || productId),
+      transaction_id: String(result.transactionId || ''),
+      receipt: String(result.receipt),
+    })
+    if (!res || (!res.is_member && !res.member_until)) {
+      appleError.value = '支付已完成，会员开通确认中，请稍后在「我的」查看'
+      return
+    }
+    appleSuccess.value = '支付成功，正在开通会员…'
+    await auth.fetchMe()
+    await catalog.loadEpisodes(true)
+    await router.replace('/english')
+  } catch (e) {
+    const detail = getErrorDetail(e)
+    const raw = typeof detail === 'string' && detail ? detail : e instanceof Error ? e.message : ''
+    appleError.value = /cancel|取消/i.test(raw) ? '已取消支付' : raw || '支付未完成，请稍后重试'
+  } finally {
+    appleBusy.value = false
+  }
+}
+
+async function restorePurchase() {
+  restoring.value = true
+  appleError.value = ''
+  appleSuccess.value = ''
+  try {
+    const receipt = await restoreApplePurchases()
+    // 先看服务端是否已是会员（可能已在别处开通）
+    await auth.fetchMe()
+    if (auth.isMember) {
+      await router.replace('/english')
+      return
+    }
+    // 用刷新后的收据再向服务端核验一次（修复“已扣款但未开通”）
+    if (receipt) {
+      appleSuccess.value = '正在核验已购记录…'
+      const res = await verifyApplePurchase({
+        product_id: '',
+        transaction_id: '',
+        receipt,
+      })
+      if (res && (res.is_member || res.member_until)) {
+        appleSuccess.value = '已恢复购买，正在开通会员…'
+        await auth.fetchMe()
+        await catalog.loadEpisodes(true)
+        await router.replace('/english')
+        return
+      }
+    }
+    appleError.value = '未找到可恢复的购买记录'
+  } catch (e) {
+    const detail = getErrorDetail(e)
+    const raw = typeof detail === 'string' && detail ? detail : e instanceof Error ? e.message : ''
+    appleError.value = raw || '恢复购买失败，请稍后重试'
+  } finally {
+    restoring.value = false
+    appleSuccess.value = ''
+  }
+}
+
+function goBack() {
+  if (window.history.length > 1) router.back()
+  else void router.push('/english')
+}
+
+async function manageSubscription() {
+  await manageAppleSubscriptions()
 }
 
 async function copyWebPayUrl() {
@@ -87,6 +191,10 @@ function stopPay() {
 }
 
 onMounted(async () => {
+  if (isIosApp) {
+    selected.value = 'year'
+    void appleIapWarmup(Object.values(APPLE_PRODUCT_IDS))
+  }
   if (!auth.isLoggedIn) {
     await router.replace({ path: '/login', query: { next: '/pricing' } })
     return
@@ -95,7 +203,7 @@ onMounted(async () => {
     await router.replace('/english')
     return
   }
-  if (selected.value !== 'author') await startScanPay()
+  if (!isIosApp && selected.value !== 'author') await startScanPay()
 })
 
 onUnmounted(() => {
@@ -104,6 +212,7 @@ onUnmounted(() => {
 })
 
 watch(selected, (choice) => {
+  if (isIosApp) return
   if (choice === 'author') {
     stopPay()
     error.value = ''
@@ -115,6 +224,7 @@ watch(selected, (choice) => {
 })
 
 async function startScanPay() {
+  if (isIosApp) return
   if (selected.value === 'author') return
   const seq = ++paySeq
   const plan = selected.value
@@ -166,29 +276,143 @@ async function startScanPay() {
   }
 }
 
-async function submitCode() {
-  error.value = ''
-  const code = activationCode.value.trim()
-  if (!code) {
-    error.value = '请输入激活码'
-    return
-  }
-  activating.value = true
-  try {
-    await auth.activateMembership(code)
-    await catalog.loadEpisodes(true)
-    await router.replace('/english')
-  } catch (e) {
-    error.value = getErrorDetail(e) || '激活失败，请检查激活码后重试'
-  } finally {
-    activating.value = false
-  }
-}
 </script>
 
 <template>
-  <div class="pricing-page min-h-dvh flex items-center justify-center px-4 py-10 sm:py-14">
-    <div class="w-full max-w-5xl">
+  <!-- iOS App：App 化会员页 + Apple 内购 -->
+  <div v-if="isIosApp" class="min-h-dvh bg-canvas text-ink flex flex-col">
+    <header
+      class="sticky top-0 z-20 flex items-center gap-3 border-b border-line-soft bg-canvas px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top,0px))]"
+    >
+      <button
+        type="button"
+        class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sunken text-ink-soft transition active:scale-95"
+        aria-label="返回"
+        @click="goBack"
+      >
+        <AppIcon name="chevron-left" class="h-5 w-5" />
+      </button>
+      <h1 class="flex-1 text-[16px] font-semibold tracking-tight">开通会员</h1>
+    </header>
+
+    <div class="flex-1 space-y-4 overflow-y-auto px-4 pb-44 pt-5">
+      <!-- 套餐选择 -->
+      <div class="space-y-2.5">
+        <button
+          v-for="p in plans"
+          :key="p.id"
+          type="button"
+          class="relative w-full rounded-2xl border p-4 text-left transition active:scale-[0.99]"
+          :class="selected === p.id ? 'border-brand bg-brand-soft' : 'border-line-soft bg-card'"
+          @click="selected = p.id"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-[15px] font-semibold text-ink">{{ p.name }}</span>
+                <span
+                  v-if="p.id === 'year'"
+                  class="rounded-full bg-warning-soft px-2 py-0.5 text-[10px] font-semibold text-warning"
+                >
+                  最受欢迎
+                </span>
+              </div>
+              <p class="mt-1 text-[12px] text-ink-faint">{{ p.period }} · {{ p.note }}</p>
+            </div>
+            <div class="shrink-0 text-right">
+              <span class="text-2xl font-bold tabular-nums text-ink">¥{{ p.price }}</span>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <!-- 权益明细 -->
+      <ul class="space-y-2.5 rounded-2xl border border-line-soft bg-card p-4">
+        <li
+          v-for="b in benefits"
+          :key="b"
+          class="flex items-start gap-2.5 text-[13px] text-ink-soft"
+        >
+          <AppIcon name="check-circle" class="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+          <span>{{ b }}</span>
+        </li>
+      </ul>
+
+      <p
+        v-if="appleError"
+        class="rounded-xl bg-danger/10 px-3 py-2 text-[12.5px] text-danger"
+      >
+        {{ appleError }}
+      </p>
+      <p
+        v-if="appleSuccess"
+        class="rounded-xl bg-success/10 px-3 py-2 text-[12.5px] text-success"
+      >
+        {{ appleSuccess }}
+      </p>
+
+      <div class="flex items-center justify-center gap-4">
+        <button
+          type="button"
+          class="text-center text-[12px] text-ink-faint underline-offset-2 hover:underline disabled:opacity-50"
+          :disabled="restoring"
+          @click="restorePurchase"
+        >
+          {{ restoring ? '恢复中…' : '恢复购买' }}
+        </button>
+        <span class="text-[12px] text-line">|</span>
+        <button
+          type="button"
+          class="text-center text-[12px] text-ink-faint underline-offset-2 hover:underline"
+          @click="manageSubscription"
+        >
+          管理订阅
+        </button>
+      </div>
+
+      <p class="pt-1 text-center text-[11px] leading-relaxed text-ink-faint">
+        通过 Apple ID 安全支付，可随时在 App Store 的「订阅」中管理或取消。
+      </p>
+    </div>
+
+    <!-- 底部固定支付栏 -->
+    <div
+      class="fixed inset-x-0 bottom-0 z-20 border-t border-line-soft bg-card-glass px-4 pt-3 backdrop-blur-md pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]"
+    >
+      <div class="mx-auto flex max-w-xl items-center gap-3">
+        <div class="shrink-0">
+          <p class="text-[11px] text-ink-faint">{{ selectedPlan?.name || '会员' }}</p>
+          <p class="text-xl font-bold tabular-nums text-ink">¥{{ selectedPlan?.price || '—' }}</p>
+        </div>
+        <button
+          type="button"
+          class="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-ink py-3 text-[15px] font-semibold text-ink-inverse transition active:scale-[0.99] disabled:opacity-60"
+          :disabled="appleBusy || restoring"
+          @click="startApplePay"
+        >
+          <span
+            v-if="appleBusy"
+            class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+          />
+          {{ appleBusy ? '支付中…' : '通过 Apple 支付' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 其它端（Web / Android）：保持原有微信扫码 / 电脑支付布局 -->
+  <div v-else class="pricing-page min-h-dvh px-4 py-5 sm:py-10">
+    <div class="mx-auto w-full max-w-5xl">
+      <div class="mb-4 flex items-center">
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-xl border border-line-soft bg-white/90 px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm transition hover:opacity-90 active:scale-[0.98] dark:bg-neutral-900/90 dark:text-neutral-200"
+          @click="goBack"
+        >
+          <AppIcon name="chevron-left" class="h-4 w-4" />
+          返回
+        </button>
+      </div>
       <header class="mb-7 sm:mb-9 text-center">
         <p
           class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-wide mb-3"
@@ -206,7 +430,7 @@ async function submitCode() {
 
       <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-5 items-stretch">
         <section
-          class="lg:col-span-3 rounded-2xl border border-black/8 dark:border-white/10 bg-white/95 dark:bg-neutral-900/95 overflow-hidden flex flex-col"
+          class="lg:col-span-3 rounded-2xl border border-line bg-white/95 dark:bg-neutral-900/95 overflow-hidden flex flex-col"
         >
           <div class="px-5 sm:px-7 pt-6 sm:pt-7 pb-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
@@ -217,7 +441,7 @@ async function submitCode() {
               :class="
                 selected === p.id
                   ? 'border-[#edd577] bg-[#111] text-white'
-                  : 'border-black/10 dark:border-white/10 bg-white dark:bg-neutral-950'
+                  : 'border-line bg-white dark:bg-neutral-950'
               "
               @click="selected = p.id"
             >
@@ -248,7 +472,7 @@ async function submitCode() {
                 <div class="min-w-0">
                   <p
                     class="text-[11px] font-medium tracking-wide"
-                    :class="selected === 'author' ? 'text-white/70' : 'text-neutral-500 dark:text-neutral-400'"
+                    :class="selected === 'author' ? 'text-white/70' : 'text-ink-faint'"
                   >
                     加作者微信
                   </p>
@@ -261,12 +485,12 @@ async function submitCode() {
                 </div>
                 <p class="shrink-0 flex items-start leading-none">
                   <span class="mt-1 mr-0.5 text-sm font-semibold">¥</span>
-                  <span class="text-[1.75rem] font-semibold tracking-tight">79</span>
+                  <span class="text-[1.75rem] font-semibold tracking-tight">98</span>
                 </p>
               </div>
               <p
                 class="mt-3 text-xs leading-relaxed"
-                :class="selected === 'author' ? 'text-white/55' : 'text-neutral-500 dark:text-neutral-400'"
+                :class="selected === 'author' ? 'text-white/55' : 'text-ink-faint'"
               >
                 付款后请备注登录邮箱
               </p>
@@ -304,7 +528,7 @@ async function submitCode() {
 <!--            用微信扫描下方小程序码完成支付。若尚未关联，扫码时会自动绑定到当前网页账号。-->
 <!--          </p>-->
 
-          <div class="flex justify-center min-h-[12rem] items-center rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-black/5 dark:border-white/10 p-4">
+          <div class="flex justify-center min-h-[12rem] items-center rounded-xl bg-canvas border border-line-soft p-4">
             <img
               v-if="selected === 'author'"
               :src="AUTHOR_QR"
@@ -338,7 +562,7 @@ async function submitCode() {
             <p v-else class="text-sm text-neutral-400 text-center px-4">正在准备支付码…</p>
           </div>
           <p v-if="selected === 'author'" class="mt-2 text-center text-xs text-neutral-500 leading-relaxed">
-            微信扫码添加作者，¥79
+            微信扫码添加作者，¥98
             <span class="font-bold text-neutral-800 dark:text-neutral-200">开通永久会员</span>
             ，付款后请备注登录邮箱
           </p>
@@ -368,7 +592,7 @@ async function submitCode() {
       </div>
 
       <p class="text-sm text-neutral-500 dark:text-neutral-400 text-center mt-7">
-        <RouterLink style="color: #333;" to="/english" class="text-neutral-800 dark:text-neutral-200 font-medium hover:underline underline-offset-2">
+        <RouterLink style="color: #333;" to="/english" class="text-ink-soft font-medium hover:underline underline-offset-2">
           返回学习
         </RouterLink>
       </p>

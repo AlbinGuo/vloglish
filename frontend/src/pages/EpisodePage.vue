@@ -2,11 +2,10 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
-import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, completeDailySentence, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
-import { getEpisodeList, setAuthorSubscribe, setEpisodeFavorite, warmEpisodeWordLookups } from '@/api/episodes'
+import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, completeDailySentence, recordEpisodeView, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
+import { generateSubtitleLiteral, getEpisodeList, setAuthorSubscribe, setEpisodeFavorite, warmEpisodeWordLookups } from '@/api/episodes'
 import { useFavoriteToastStore } from '@/stores/favoriteToast'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
-import AuthorSubscribeButton from '@/components/AuthorSubscribeButton.vue'
 import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
 import EpisodeWordCardList from '@/components/episode/EpisodeWordCardList.vue'
 import EpisodeVocabSummaryList from '@/components/episode/EpisodeVocabSummaryList.vue'
@@ -103,6 +102,7 @@ import {
 } from '@/utils/subtitleHtml'
 import { applyUserClipMarks, clipMarkSnippet } from '@/utils/clipMarks'
 import { exitAppFullscreen, getFullscreenElement, subscribeFullscreenChange } from '@/utils/fullscreen'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{ videoId: string; backTo?: string; adminPreview?: boolean }>()
 const route = useRoute()
@@ -484,6 +484,24 @@ const {
 } = useSourceFocusPulse(5000)
 
 const episode = ref<EpisodeDetail | null>(null)
+const literalLoadingId = ref<number | null>(null)
+const episodeGlossary = computed(() => episode.value?.glossary || [])
+
+async function requestLiteral(sub: Subtitle) {
+  if (!sub?.id || (sub.chinese_literal || '').trim() || literalLoadingId.value) return
+  literalLoadingId.value = sub.id
+  try {
+    const data = await generateSubtitleLiteral(props.videoId, sub.id)
+    if (!episode.value) return
+    episode.value.glossary = data.glossary
+    const row = episode.value.subtitles.find((item) => item.id === sub.id)
+    if (row) row.chinese_literal = data.chinese_literal
+  } catch {
+    // keep 意译
+  } finally {
+    literalLoadingId.value = null
+  }
+}
 const loading = ref(true)
 const error = ref('')
 const subtitleMode = ref<SubtitleDisplayMode>('both')
@@ -1793,6 +1811,7 @@ const {
   enabled: mobileChromeEnabled,
   isPlaying: player.isPlaying,
   isBlocked: mobileChromeBlocked,
+  autoHide: false,
 })
 
 const mobileListBottomPad = computed(() => {
@@ -1840,6 +1859,7 @@ onMounted(() => {
   syncSubtitlesHiddenForVideo(props.videoId)
   load()
   if (auth.isLoggedIn) void vocabularyStore.load()
+  if (auth.isLoggedIn && !props.adminPreview && props.videoId) void recordEpisodeView(props.videoId)
   window.addEventListener('keydown', onEntryKeydown)
   window.addEventListener('afterprint', onAfterPrint)
   unsubscribeVideoPanelFullscreen = subscribeFullscreenChange(onVideoPanelFullscreenChange)
@@ -2061,7 +2081,7 @@ async function load() {
         learnedSubtitleIds.value = new Set()
       }
     }
-    const jumped = await applyVocabDeepLink()
+    const jumped = (await applyVocabDeepLink()) || (await applyLineDeepLink())
     if (!jumped) nextTick(scrollCurrentIntoView)
   } catch (e: unknown) {
     const status = (e as { response?: { status?: number; data?: { detail?: string } } })?.response?.status
@@ -2119,6 +2139,28 @@ function resolveDeepLinkSubtitle(subtitleId: number, word: string): Subtitle | n
     if (hit) return hit
   }
   return base
+}
+
+/** 首页「接着这一句」：按句序号定位 */
+async function applyLineDeepLink(): Promise<boolean> {
+  const raw = route.query.line
+  const line = Number(Array.isArray(raw) ? raw[0] : raw)
+  if (!Number.isFinite(line) || line < 0) return false
+  const sub = sortedSubs.value[Math.min(line, sortedSubs.value.length - 1)]
+  if (!sub) return false
+  clearResumePrompt()
+  player.seekTo(sub)
+  await nextTick()
+  scrollCurrentIntoView()
+  for (const delay of [120, 320, 700]) {
+    window.setTimeout(() => {
+      if (sortedSubs.value.some((row) => row.id === sub.id)) {
+        player.seekTo(sub)
+        scrollCurrentIntoView()
+      }
+    }, delay)
+  }
+  return true
 }
 
 /** 生词本「回看」：按 subtitle id（并可按 word 校正）定位到对应字幕句 */
@@ -2691,6 +2733,7 @@ const backFrom = computed(() => {
 const fromVocabulary = computed(() => backFrom.value === 'vocab')
 const fromLearning = computed(() => backFrom.value === 'learning')
 const fromClips = computed(() => backFrom.value === 'clips')
+const fromHistory = computed(() => backFrom.value === 'history')
 
 function goBack() {
   if (fromVocabulary.value) {
@@ -2703,6 +2746,10 @@ function goBack() {
   }
   if (fromLearning.value) {
     router.push('/english/learning')
+    return
+  }
+  if (fromHistory.value) {
+    router.push('/english/history')
     return
   }
   router.push(props.backTo ?? '/english')
@@ -2760,7 +2807,7 @@ function subtitleRowClass(index: number) {
       "
     >
       <button class="text-sm text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white" @click="goBack">
-        {{ fromVocabulary ? '← 生词本' : fromClips ? '← 我的摘录' : fromLearning ? '← 学习统计' : '← 返回' }}
+        {{ fromVocabulary ? '← 生词本' : fromClips ? '← 我的摘录' : fromLearning ? '← 学习统计' : fromHistory ? '← 浏览记录' : '← 返回' }}
       </button>
       <div v-if="episode" class="flex-1 min-w-0">
         <p class="font-semibold truncate flex items-center gap-2">
@@ -2782,15 +2829,6 @@ function subtitleRowClass(index: number) {
               {{ episode.author.name }}
             </RouterLink>
             <span v-else class="truncate">{{ episode.author.name }}</span>
-            <AuthorSubscribeButton
-              v-if="!adminPreview && episode.author.id"
-              compact
-              :author-id="episode.author.id"
-              :is-subscribed="Boolean(episode.author.is_subscribed)"
-              :subscriber-count="episode.author.subscriber_count || 0"
-              @update:is-subscribed="(v) => episode && (episode.author.is_subscribed = v)"
-              @update:subscriber-count="(v) => episode && (episode.author.subscriber_count = v)"
-            />
             <span class="text-neutral-400">·</span>
           </template>
           <template v-if="episode.series">
@@ -2811,7 +2849,7 @@ function subtitleRowClass(index: number) {
       >
         <button
           type="button"
-          class="text-xs px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40 disabled:pointer-events-none"
+          class="text-xs px-2.5 py-1.5 rounded-lg border border-line text-neutral-600 dark:text-neutral-300 hover:bg-sunken disabled:opacity-40 disabled:pointer-events-none"
           :disabled="!episode.series.prev_video_id"
           @click="goSeriesEpisode(episode.series.prev_video_id)"
         >
@@ -2819,7 +2857,7 @@ function subtitleRowClass(index: number) {
         </button>
         <button
           type="button"
-          class="text-xs px-2.5 py-1.5 rounded-lg border border-black/10 dark:border-white/10 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40 disabled:pointer-events-none"
+          class="text-xs px-2.5 py-1.5 rounded-lg border border-line text-neutral-600 dark:text-neutral-300 hover:bg-sunken disabled:opacity-40 disabled:pointer-events-none"
           :disabled="!episode.series.next_video_id"
           @click="goSeriesEpisode(episode.series.next_video_id)"
         >
@@ -2827,28 +2865,10 @@ function subtitleRowClass(index: number) {
         </button>
       </div>
       <div class="flex items-center gap-1 shrink-0">
-        <AuthorSubscribeButton
-          v-if="isPhone && !adminPreview && episode?.author?.id && !episode.series"
-          compact
-          :author-id="episode.author.id"
-          :is-subscribed="Boolean(episode.author.is_subscribed)"
-          :subscriber-count="episode.author.subscriber_count || 0"
-          @update:is-subscribed="(v) => episode && (episode.author.is_subscribed = v)"
-          @update:subscriber-count="(v) => episode && (episode.author.subscriber_count = v)"
-        />
-        <button
-          v-if="!adminPreview && episode"
-          type="button"
-          class="inline-flex items-center justify-center h-8 px-2.5 rounded-lg text-xs font-medium text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-300 dark:hover:text-white dark:hover:bg-neutral-800"
-          title="收听模式"
-          @click="goListenMode"
-        >
-          收听
-        </button>
         <button
           v-if="auth.isMember && !adminPreview"
           type="button"
-          class="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
+          class="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-sunken transition-colors disabled:opacity-50"
           :disabled="favoriteLoading"
           :aria-label="isFavorite ? '取消收藏' : '添加收藏'"
           :title="isFavorite ? '取消收藏' : '添加收藏'"
@@ -2862,6 +2882,11 @@ function subtitleRowClass(index: number) {
             inactive-class="text-neutral-400"
           />
         </button>
+        <IntensiveModeToggle />
+        <SettingsButton v-if="!isPhone" @click="showSettings = true" />
+        <button class="hidden sm:inline text-xs text-neutral-400 hover:text-black dark:hover:text-white px-2 py-1" @click="player.showHelp.value = true">
+          ? 快捷键
+        </button>
         <button
           v-if="isPhone && !adminPreview"
           type="button"
@@ -2869,16 +2894,7 @@ function subtitleRowClass(index: number) {
           aria-label="更多"
           @click="openMobileMore"
         >
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <circle cx="5" cy="12" r="1.75" />
-            <circle cx="12" cy="12" r="1.75" />
-            <circle cx="19" cy="12" r="1.75" />
-          </svg>
-        </button>
-        <IntensiveModeToggle />
-        <SettingsButton v-if="!isPhone" @click="showSettings = true" />
-        <button class="hidden sm:inline text-xs text-neutral-400 hover:text-black dark:hover:text-white px-2 py-1" @click="player.showHelp.value = true">
-          ? 快捷键
+          <AppIcon name="menu" class="w-5 h-5" />
         </button>
       </div>
     </header>
@@ -2891,7 +2907,7 @@ function subtitleRowClass(index: number) {
     />
 
     <div
-      v-if="resumePrompt && !adminPreview"
+      v-if="false && resumePrompt && !adminPreview"
       class="shrink-0 flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-100 dark:border-amber-900/50 text-sm"
     >
       <span class="text-amber-900 dark:text-amber-200 max-sm:text-xs">
@@ -2929,10 +2945,11 @@ function subtitleRowClass(index: number) {
           mobileVideoImmersive ? 'max-lg:!p-0 max-lg:!gap-0 max-lg:!rounded-none' : '',
           isVideoPanelFullscreen ? 'video-panel--fullscreen' : '',
           videoPanelLayoutClass,
-          canResizeSplit ? '' : 'lg:border-r border-black/5 dark:border-white/10',
+          canResizeSplit ? '' : 'lg:border-r border-line-soft',
         ]"
         :style="videoPanelSplitStyle"
       >
+
         <div
           class="video-panel__player shrink-0 w-full min-h-0"
           :class="videoHidden && !isVideoPanelFullscreen ? 'contents' : 'relative'"
@@ -3060,7 +3077,10 @@ function subtitleRowClass(index: number) {
                 :show-ipa="false"
                 :english-html="renderHtml(displaySub.english_html, displaySub.id)"
                 :dictation-frost="isDictationFrost(displaySub.id)"
+                :glossary="episodeGlossary"
+                :literal-loading="literalLoadingId === displaySub.id"
                 :data-subtitle-context="displaySub.english"
+                @need-literal="requestLiteral(displaySub)"
                 @seek="player.seekTo(displaySub)"
                 v-on="wordLongPressHandlers"
                 @click="onSubtitleClick"
@@ -3127,7 +3147,10 @@ function subtitleRowClass(index: number) {
               :show-ipa="showIpa"
               :english-html="renderHtml(displaySub.english_html, displaySub.id)"
               :dictation-frost="isDictationFrost(displaySub.id)"
+              :glossary="episodeGlossary"
+              :literal-loading="literalLoadingId === displaySub.id"
               :data-subtitle-context="displaySub.english"
+              @need-literal="requestLiteral(displaySub)"
               @seek="player.seekTo(displaySub)"
               v-on="wordLongPressHandlers"
               @click="onSubtitleClick"
@@ -3179,8 +3202,8 @@ function subtitleRowClass(index: number) {
             class="px-3 py-1 rounded-full whitespace-nowrap"
             :class="
               contentView === 'subtitles' && subtitleMode === m.key
-                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
-                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+                ? 'bg-black text-ink-inverse dark:bg-neutral-100'
+                : 'bg-sunken dark:text-neutral-300'
             "
             @click="selectSubtitleMode(m.key)"
           >
@@ -3191,8 +3214,8 @@ function subtitleRowClass(index: number) {
             class="px-3 py-1 rounded-full whitespace-nowrap"
             :class="
               contentView === 'wordcards'
-                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
-                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+                ? 'bg-black text-ink-inverse dark:bg-neutral-100'
+                : 'bg-sunken dark:text-neutral-300'
             "
             @click="openWordCardsView"
           >
@@ -3203,8 +3226,8 @@ function subtitleRowClass(index: number) {
             class="px-3 py-1 rounded-full whitespace-nowrap"
             :class="
               contentView === 'summary'
-                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
-                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+                ? 'bg-black text-ink-inverse dark:bg-neutral-100'
+                : 'bg-sunken dark:text-neutral-300'
             "
             @click="openVocabSummaryView"
           >
@@ -3215,8 +3238,8 @@ function subtitleRowClass(index: number) {
             class="relative inline-flex items-center gap-1.5 px-3 py-1 pr-4 rounded-full whitespace-nowrap"
             :class="
               contentView === 'context'
-                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
-                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+                ? 'bg-black text-ink-inverse dark:bg-neutral-100'
+                : 'bg-sunken dark:text-neutral-300'
             "
             @click="openVideoContextView"
             title="结合视频背景，帮助理解内容"
@@ -3226,7 +3249,7 @@ function subtitleRowClass(index: number) {
               class="text-[10px] font-medium leading-none px-1.5 py-0.5 rounded-full"
               :class="
                 contentView === 'context'
-                  ? 'bg-white/20 text-white dark:bg-neutral-900/15 dark:text-neutral-900'
+                  ? 'bg-white/20 text-ink-inverse dark:bg-neutral-900/15'
                   : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
               "
             >
@@ -3244,8 +3267,8 @@ function subtitleRowClass(index: number) {
             class="relative inline-flex items-center gap-1.5 px-3 py-1 pr-4 rounded-full whitespace-nowrap"
             :class="
               contentView === 'audience'
-                ? 'bg-black text-white dark:bg-neutral-100 dark:text-neutral-900'
-                : 'bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-300'
+                ? 'bg-black text-ink-inverse dark:bg-neutral-100'
+                : 'bg-sunken dark:text-neutral-300'
             "
             @click="openAudienceNotesView"
             title="精选观众反应，当片后短阅读"
@@ -3289,7 +3312,7 @@ function subtitleRowClass(index: number) {
             <button
               v-if="!adminPreview && !showSidePanel"
               type="button"
-              class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-black/10 dark:border-white/10 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+              class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap border border-line text-neutral-500 dark:text-neutral-400 hover:bg-sunken transition-colors"
               @click="toggleSidePanel"
             >
               显示侧栏
@@ -3437,7 +3460,7 @@ function subtitleRowClass(index: number) {
                 :class="
                   learnedSubtitleIds.has(row.sub.id)
                     ? 'bg-emerald-500 border-emerald-500 text-white'
-                    : 'bg-white/80 border-black/10 text-neutral-400 hover:border-emerald-400 dark:bg-neutral-800/80 dark:border-white/10 dark:text-neutral-500 dark:hover:border-emerald-500'
+                    : 'bg-white/80 border-line text-ink-disabled hover:border-emerald-400 dark:bg-neutral-800/80 dark:hover:border-emerald-500'
                 "
                 :title="learnedSubtitleIds.has(row.sub.id) ? '取消已掌握' : '标记已掌握'"
                 @click="toggleSubtitleLearned(row.sub, $event)"
@@ -3577,17 +3600,15 @@ function subtitleRowClass(index: number) {
         :aria-expanded="false"
         @click.stop="toggleMobileChrome"
       >
-        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
+        <AppIcon name="menu" class="h-4 w-4" />
       </button>
 
       <div
-        class="pointer-events-auto transition-transform duration-300 ease-out pb-[env(safe-area-inset-bottom)]"
+        class="pointer-events-auto transition-transform duration-300 ease-out"
         :class="mobileChromeVisible || adminPreview ? 'translate-y-0' : 'translate-y-full'"
         @pointerdown="onMobileChromeInteraction"
       >
-        <div class="border-t border-black/10 bg-white/95 backdrop-blur-md dark:border-white/10 dark:bg-neutral-900/95">
+        <div class="border-t border-black/10 bg-white/95 backdrop-blur-md dark:border-white/10 dark:bg-neutral-900/95 pb-[env(safe-area-inset-bottom)]">
           <VideoProgressBar :video="videoRef" variant="dock" />
           <PlayerControls
             v-if="!adminPreview"
@@ -3648,14 +3669,14 @@ function subtitleRowClass(index: number) {
             <RouterLink
               v-if="episode?.author.id && !episode.series"
               :to="`/english/authors/${episode.author.id}`"
-              class="block w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              class="block w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-sunken"
               @click="closeMobileMore"
             >
               查看作者主页
             </RouterLink>
             <button
               type="button"
-              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-sunken"
               @click="openSubtitleModeFromMore"
             >
               字幕 / 词卡 / 汇总 / 语境 / 热议
@@ -3665,7 +3686,7 @@ function subtitleRowClass(index: number) {
             <button
               v-if="auth.isLoggedIn"
               type="button"
-              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-sunken"
               @click="closeMobileMore(); toggleClipSelectMode()"
             >
               {{ clipSelectMode ? '关闭划选' : '划选加入摘录' }}
@@ -3673,7 +3694,7 @@ function subtitleRowClass(index: number) {
             </button>
             <button
               type="button"
-              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-sunken"
               @click="closeMobileMore(); subtitlesHidden = !subtitlesHidden"
             >
               {{ subtitlesHidden ? '显示字幕' : '隐藏字幕' }}

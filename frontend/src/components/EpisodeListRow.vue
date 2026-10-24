@@ -36,13 +36,13 @@ function learnerLabel() {
 </script>
 
 <template>
-  <div class="flex items-stretch gap-3 border-b border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 hover:bg-neutral-50/80 dark:hover:bg-neutral-800/80 transition">
+  <div class="flex items-stretch gap-3 border-b border-black/5 dark:border-white/10 bg-card hover:bg-neutral-50/80 dark:hover:bg-neutral-800/80 transition">
     <div class="w-10 shrink-0 flex items-center justify-center text-sm text-neutral-400 tabular-nums">
       {{ rowIndex }}
     </div>
 
     <RouterLink :to="to" class="flex flex-1 min-w-0 items-center gap-3 py-3 pr-2 cursor-pointer" @click="requestEpisodeAutoplay">
-      <div class="relative w-28 sm:w-32 shrink-0 aspect-video rounded-lg overflow-hidden bg-neutral-200 dark:bg-neutral-800">
+      <div class="relative w-28 sm:w-32 shrink-0 aspect-video rounded-lg overflow-hidden bg-sunken">
         <img
           :src="resolveMediaUrl(episode.cover)"
           :alt="episode.short_title"
@@ -82,7 +82,7 @@ function learnerLabel() {
           </span>
           <span
             v-else-if="auth.isLoggedIn && episode.progress_percent && episode.progress_percent > 0"
-            class="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
+            class="text-[10px] px-1.5 py-0.5 rounded-full bg-sunken text-neutral-600 dark:text-neutral-400"
           >
             {{ Math.round(episode.progress_percent) }}%
           </span>
@@ -92,7 +92,7 @@ function learnerLabel() {
           <span
             v-for="t in episode.tags.slice(0, 2)"
             :key="t.id"
-            class="text-[10px] bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 px-1.5 py-0.5 rounded"
+            class="text-[10px] bg-sunken text-neutral-600 dark:text-neutral-400 px-1.5 py-0.5 rounded"
           >
             {{ t.name }}
           </span>
@@ -107,7 +107,7 @@ function learnerLabel() {
             :alt="episode.author.accent"
             class="w-4 h-4 object-contain shrink-0"
           />
-          <span class="font-semibold text-amber-700 dark:text-amber-400 tabular-nums">
+          <span class="font-semibold text-warning tabular-nums">
             {{ learnerLabel() }}
           </span>
         </div>
@@ -117,7 +117,7 @@ function learnerLabel() {
     <div v-if="auth.isMember" class="shrink-0 flex items-center pr-3">
       <button
         type="button"
-        class="w-8 h-8 rounded-full border border-black/10 dark:border-white/10 flex items-center justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 transition disabled:opacity-60"
+        class="w-8 h-8 rounded-full border border-line flex items-center justify-center hover:bg-sunken transition disabled:opacity-60"
         :disabled="loading"
         :title="favorited ? '取消收藏' : '添加收藏'"
         @click="toggle"

@@ -135,13 +135,13 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         @click="close"
       />
       <div
-        class="relative w-full sm:max-w-lg max-h-[92dvh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-neutral-900 shadow-xl border border-black/5 dark:border-white/10"
+        class="relative w-full sm:max-w-lg max-h-[92dvh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-card shadow-xl border border-line-soft"
       >
         <div class="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 border-b border-black/5 dark:border-white/10 bg-white/95 dark:bg-neutral-900/95 backdrop-blur">
           <h2 id="feedback-dialog-title" class="text-base font-semibold">意见反馈</h2>
           <button
             type="button"
-            class="w-8 h-8 rounded-full text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            class="w-8 h-8 rounded-full text-neutral-500 hover:bg-sunken"
             aria-label="关闭"
             @click="close"
           >
@@ -161,7 +161,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
               type="text"
               maxlength="120"
               placeholder="一句话概括，例如：词卡加载较慢"
-              class="w-full rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-950 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+              class="w-full rounded-lg border border-line bg-white dark:bg-neutral-950 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30"
             />
           </div>
 
@@ -172,7 +172,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
               rows="5"
               maxlength="4000"
               placeholder="请尽量说明出现场景、期望效果，便于我们复现与改进"
-              class="w-full rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-950 px-3 py-2 text-sm resize-y min-h-[7rem] focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+              class="w-full rounded-lg border border-line bg-white dark:bg-neutral-950 px-3 py-2 text-sm resize-y min-h-[7rem] focus:outline-none focus:ring-2 focus:ring-amber-500/30"
             />
           </div>
 
@@ -181,7 +181,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
               <label class="text-sm text-neutral-600 dark:text-neutral-300">截图（可选，最多 {{ MAX_IMAGES }} 张）</label>
               <button
                 type="button"
-                class="text-xs px-2.5 py-1 rounded-lg border border-black/10 dark:border-white/10 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50"
+                class="text-xs px-2.5 py-1 rounded-lg border border-line hover:bg-sunken disabled:opacity-50"
                 :disabled="uploading || imageUrls.length >= MAX_IMAGES"
                 @click="fileInput?.click()"
               >
@@ -199,7 +199,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
               <div
                 v-for="(url, i) in imageUrls"
                 :key="url"
-                class="relative w-20 h-20 rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800"
+                class="relative w-20 h-20 rounded-lg overflow-hidden border border-line bg-sunken"
               >
                 <img :src="resolveMediaUrl(url)" alt="" class="w-full h-full object-cover" />
                 <button
@@ -220,14 +220,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           <div class="flex justify-end gap-2 pt-1">
             <button
               type="button"
-              class="px-3 py-2 rounded-lg text-sm text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              class="px-3 py-2 rounded-lg text-sm text-neutral-600 hover:bg-sunken dark:text-neutral-300"
               @click="close"
             >
               取消
             </button>
             <button
               type="submit"
-              class="px-4 py-2 rounded-lg text-sm font-medium bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
+              class="px-4 py-2 rounded-lg text-sm font-medium bg-ink text-white hover:bg-neutral-800 dark:text-neutral-900 dark:hover:bg-white disabled:opacity-50"
               :disabled="submitting || uploading"
             >
               {{ submitting ? '提交中…' : '提交反馈' }}

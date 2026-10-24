@@ -11,6 +11,7 @@ import type { EpisodeSummary } from '@/types'
 import { formatListenTime } from '@/utils/formatListenTime'
 import { isOpenToFreeUsers } from '@/utils/episodeAccess'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
+import AppIcon from '@/components/AppIcon.vue'
 
 defineOptions({ name: 'ListenHomePage' })
 
@@ -74,7 +75,7 @@ function playRow(ep: EpisodeSummary) {
     void router.push({ path: '/pricing', query: { next: `/english/listen/${ep.video_id}` } })
     return
   }
-  void listen.enqueueAndPlay(ep, true)
+  void listen.playPlaylist(episodes.value, ep.video_id)
 }
 
 onMounted(async () => {
@@ -114,7 +115,7 @@ watch(
         v-model="search"
         type="search"
         placeholder="搜索要听的节目"
-        class="w-full mb-4 rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 dark:text-white px-3 py-2.5 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
+        class="w-full mb-4 rounded-xl border border-line bg-card dark:text-white px-3 py-2.5 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:focus:ring-white/10"
       />
 
       <p v-if="loading && !episodes.length" class="py-24 text-center text-neutral-500">加载中...</p>
@@ -125,7 +126,7 @@ watch(
           v-for="ep in episodes"
           :key="ep.video_id"
           type="button"
-          class="w-full flex items-center gap-3 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 p-3 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800 transition"
+          class="w-full flex items-center gap-3 rounded-xl border border-line-soft bg-card p-3 text-left hover:bg-sunken transition"
           :class="ep.video_id === listen.currentVideoId ? 'ring-1 ring-amber-400/80' : ''"
           @click="playRow(ep)"
         >
@@ -140,7 +141,7 @@ watch(
             <p class="mt-1 text-xs text-neutral-500 truncate">{{ ep.author.name }}</p>
           </div>
           <span class="shrink-0 w-9 h-9 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 flex items-center justify-center">
-            <svg viewBox="0 0 24 24" class="w-4 h-4 ml-0.5" fill="currentColor"><path d="M8 5.5v13l11-6.5L8 5.5Z" /></svg>
+            <AppIcon name="play" class="w-4 h-4 ml-0.5" />
           </span>
         </button>
       </div>

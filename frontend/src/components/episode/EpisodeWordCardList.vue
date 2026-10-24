@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import type { WordCardExamGroup, WordCardItem } from '@/composables/useEpisodeWordCards'
 import { examTagClass } from '@/utils/examTags'
 import { playWordPronunciation } from '@/utils/speakWord'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{
   items: WordCardItem[]
@@ -68,23 +69,23 @@ function tagClass(tag: { key: string; kind: string; label: string }) {
     const examKey = tag.key.replace(/^exam-/i, '')
     return examTagClass(examKey || tag.label)
   }
-  return typeTagClass[tag.label] || 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'
+  return typeTagClass[tag.label] || 'bg-sunken text-ink-soft'
 }
 
 const hlGroupClass: Record<string, string> = {
   'HL-a': 'bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-300',
   'HL-d': 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300',
-  'HL-i': 'bg-sky-50 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300',
+  'HL-i': 'bg-sky-50 text-info dark:bg-sky-950/50',
   'HL-c': 'bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300',
   'HL-l': 'bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-300',
   'HL-p': 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
-  'HL-f': 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
+  'HL-f': 'bg-emerald-50 text-success dark:bg-emerald-950/50',
 }
 
 function tabClass(group: WordCardExamGroup, active: boolean) {
   const color = hlGroupClass[group.key] || examTagClass(group.key)
   if (active) return `${color} ring-1 ring-black/10 dark:ring-white/20`
-  return 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400 hover:bg-neutral-200/80 dark:hover:bg-neutral-700'
+  return 'bg-sunken text-ink-faint hover:bg-neutral-200/80 dark:hover:bg-neutral-700'
 }
 
 function speakItem(item: WordCardItem, event: Event) {
@@ -131,7 +132,7 @@ function speakItem(item: WordCardItem, event: Event) {
       </div>
 
       <ul
-        class="rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900 overflow-hidden divide-y divide-black/5 dark:divide-white/10"
+        class="rounded-xl border border-line-soft bg-card overflow-hidden divide-y divide-black/5 dark:divide-white/10"
       >
         <li v-for="(item, index) in listItems" :key="`${activeGroup?.key}-${item.word}`">
           <div
@@ -156,11 +157,7 @@ function speakItem(item: WordCardItem, event: Event) {
                   aria-label="朗读"
                   @click="speakItem(item, $event)"
                 >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path
-                      d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"
-                    />
-                  </svg>
+                  <AppIcon name="volume-up" :size="15" />
                 </button>
                 <span v-if="item.loading" class="text-[11px] text-neutral-400 shrink-0">…</span>
                 <span
@@ -188,16 +185,7 @@ function speakItem(item: WordCardItem, event: Event) {
                 </span>
               </div>
             </div>
-            <svg
-              class="w-4 h-4 shrink-0 mt-1 text-neutral-300 dark:text-neutral-600"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              aria-hidden="true"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6" />
-            </svg>
+            <AppIcon name="chevron-left" class="w-4 h-4 shrink-0 mt-1 text-neutral-300 dark:text-neutral-600" />
           </div>
         </li>
       </ul>

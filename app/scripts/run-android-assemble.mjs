@@ -1,6 +1,9 @@
 /**
- * 为 Android 打包定位可用的 JDK（≥21，且必须带 jlink），并执行 gradlew assembleDebug。
+ * 为 Android 打包定位可用的 JDK（≥21，且必须带 jlink），并执行 gradlew assembleRelease。
  * Capacitor 7 / AGP 的 JdkImageTransform 需要 jlink；部分 IDE 精简 JBR 没有该工具。
+ *
+ * 产物：优先取「已签名」的 app-release.apk；未配置签名时为 app-release-unsigned.apk。
+ * 两者都会复制到 app/dist/vloglish-release.apk（未签名会额外告警）。
  */
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -127,6 +130,17 @@ function main() {
     process.exit(1)
   }
 
+  const keystoreProps = path.join(androidRoot, 'keystore.properties')
+  if (!fs.existsSync(keystoreProps)) {
+    console.warn(
+      [
+        '[run-android-assemble] ⚠️ 未找到 app/android/keystore.properties，将以「未签名」方式出包。',
+        '  未签名/调试签名包安装时仍会被提示“存在风险”。',
+        '  请参考 app/android/keystore.properties.example 配置正式签名（密码可用环境变量 VLOG_ANDROID_STORE_PASSWORD / VLOG_ANDROID_KEY_PASSWORD）。',
+      ].join('\n'),
+    )
+  }
+
   const jdk = resolveJdk()
   if (!jdk) {
     console.error(
@@ -165,13 +179,47 @@ function main() {
     ANDROID_SDK_ROOT: sdk,
   }
 
-  const r = spawnSync(gradlew, ['assembleDebug'], {
+  const r = spawnSync(gradlew, ['assembleRelease'], {
     cwd: androidRoot,
     env,
     stdio: 'inherit',
     shell: isWin,
   })
+  if (r.status === 0) {
+    publishApk()
+  }
   process.exit(r.status ?? 1)
+}
+
+/** 把 release 产物复制到 app/dist/vloglish-release.apk（优先已签名） */
+function publishApk() {
+  const outDir = path.join(androidRoot, 'app', 'build', 'outputs', 'apk', 'release')
+  if (!fs.existsSync(outDir)) {
+    console.warn(`[run-android-assemble] 未找到 release 产物目录: ${outDir}`)
+    return
+  }
+  const apks = fs.readdirSync(outDir).filter((f) => f.endsWith('.apk'))
+  if (apks.length === 0) {
+    console.warn('[run-android-assemble] release 目录下没有 .apk 产物')
+    return
+  }
+  const signed = apks.find((f) => !/unsigned/i.test(f))
+  const chosen = signed || apks[0]
+  const isUnsigned = /unsigned/i.test(chosen)
+
+  const distDir = path.join(appRoot, 'dist')
+  fs.mkdirSync(distDir, { recursive: true })
+  const dest = path.join(distDir, 'vloglish-release.apk')
+  fs.copyFileSync(path.join(outDir, chosen), dest)
+
+  if (isUnsigned) {
+    console.warn(
+      `[run-android-assemble] ⚠️ 产物为未签名包 → ${dest}\n` +
+        '  未签名包无法直接安装且会提示风险，请配置 app/android/keystore.properties 后重新打包。',
+    )
+  } else {
+    console.log(`[run-android-assemble] ✅ 已签名 APK -> ${dest}`)
+  }
 }
 
 main()

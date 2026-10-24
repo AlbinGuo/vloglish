@@ -2,7 +2,6 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
-  getArticleFilters,
   getArticleList,
   type ArticleSummary,
 } from '@/api/articles'
@@ -11,6 +10,7 @@ import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSiteConfigStore } from '@/stores/siteConfig'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
+import AppIcon from '@/components/AppIcon.vue'
 
 const auth = useAuthStore()
 const siteConfig = useSiteConfigStore()
@@ -29,8 +29,6 @@ const topic = ref('')
 const stars = ref<number | ''>('')
 const status = ref<'all' | 'in_progress' | 'completed'>('all')
 const search = ref('')
-
-const filterOptions = ref<{ sources: string[]; topics: string[] }>({ sources: [], topics: [] })
 
 const previewBanner = computed(() => {
   if (auth.isMember) return null
@@ -99,11 +97,6 @@ function loadMore() {
 }
 
 onMounted(async () => {
-  try {
-    filterOptions.value = await getArticleFilters()
-  } catch {
-    filterOptions.value = { sources: [], topics: [] }
-  }
   await load(true)
 })
 
@@ -124,73 +117,36 @@ watch(
 
     <div
       v-if="previewBanner"
-      class="mb-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-900 dark:text-amber-200"
+      class="mb-4 flex items-start gap-2 rounded-2xl border border-warning bg-warning-soft px-4 py-3 text-sm text-warning"
     >
-      {{ previewBanner }}
+      <AppIcon name="sparkles" class="mt-0.5 h-4 w-4 shrink-0" />
+      <span>{{ previewBanner }}</span>
     </div>
 
-    <div class="mb-4 flex flex-wrap items-center justify-end gap-2">
-      <RouterLink
-        :to="auth.isMember || siteConfig.memberToolsOpen ? '/english/submit-article' : '/pricing'"
-        class="inline-flex items-center gap-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium px-2.5 py-1.5 transition"
-      >
-        上传文章
-      </RouterLink>
-      <RouterLink
-        :to="
-          auth.isMember || siteConfig.memberToolsOpen
-            ? '/english/my-submissions?tab=articles'
-            : '/pricing'
-        "
-        class="text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
-      >
-        我的语料库
-      </RouterLink>
-    </div>
-
-    <div class="mb-4 flex flex-wrap items-end gap-3">
-      <label class="text-sm">
-        <span class="block text-neutral-500 mb-1">来源</span>
-        <select v-model="source" class="rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-2 text-sm" @change="applyFilters">
-          <option value="">全部</option>
-          <option v-for="s in filterOptions.sources" :key="s" :value="s">{{ s }}</option>
-        </select>
-      </label>
-      <label class="text-sm">
-        <span class="block text-neutral-500 mb-1">主题</span>
-        <select v-model="topic" class="rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-2 text-sm" @change="applyFilters">
-          <option value="">全部</option>
-          <option v-for="t in filterOptions.topics" :key="t" :value="t">{{ t }}</option>
-        </select>
-      </label>
-      <label class="text-sm">
-        <span class="block text-neutral-500 mb-1">难度</span>
-        <select v-model="stars" class="rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-2 text-sm" @change="applyFilters">
-          <option value="">全部</option>
-          <option v-for="n in 5" :key="n" :value="n">{{ n }} 星</option>
-        </select>
-      </label>
-      <label v-if="auth.isLoggedIn" class="text-sm">
-        <span class="block text-neutral-500 mb-1">状态</span>
-        <select v-model="status" class="rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-2 text-sm" @change="applyFilters">
-          <option value="all">全部</option>
-          <option value="in_progress">进行中</option>
-          <option value="completed">已读完</option>
-        </select>
-      </label>
-      <label class="text-sm flex-1 min-w-[12rem]">
-        <span class="block text-neutral-500 mb-1">搜索</span>
-        <input
-          v-model="search"
-          type="search"
-          placeholder="标题关键词"
-          class="w-full rounded-lg border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 px-3 py-2 text-sm"
-          @keydown.enter="applyFilters"
-        />
-      </label>
-      <button type="button" class="rounded-lg bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 px-4 py-2 text-sm" @click="applyFilters">
-        筛选
-      </button>
+    <div class="mb-4 rounded-2xl border border-line-soft bg-card p-3 shadow-sm sm:p-4">
+      <!-- 搜索 + 筛选 -->
+      <div class="flex items-center gap-2">
+        <div class="relative min-w-0 flex-1">
+          <AppIcon
+            name="search"
+            class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint"
+          />
+          <input
+            v-model="search"
+            type="search"
+            placeholder="搜索标题关键词"
+            class="w-full rounded-xl border border-line-soft bg-canvas py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint focus:border-brand focus:outline-none"
+            @keydown.enter="applyFilters"
+          />
+        </div>
+        <button
+          type="button"
+          class="shrink-0 rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-ink-inverse transition hover:opacity-90 active:scale-[0.98]"
+          @click="applyFilters"
+        >
+          搜索
+        </button>
+      </div>
     </div>
 
     <div v-if="loading" class="py-24 text-center text-neutral-500">加载中...</div>
@@ -235,9 +191,7 @@ watch(
                     class="w-full h-full flex items-center justify-center text-neutral-300 dark:text-neutral-600"
                     aria-hidden="true"
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                      <path d="M4 6h16v12H4zM8 10h.01M12 14l3-3 3 4" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
+                    <AppIcon name="notification" :size="20" />
                   </div>
                 </div>
                 <span
@@ -246,7 +200,7 @@ watch(
                   :class="
                     article.progress.is_completed
                       ? 'bg-emerald-500 text-white'
-                      : 'bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 ring-1 ring-black/8 dark:ring-white/10'
+                      : 'bg-card text-ink-soft ring-1 ring-black/8 dark:ring-white/10'
                   "
                 >
                   {{ article.progress.is_completed ? '完' : `${Math.round(article.progress.completion_percent)}%` }}
@@ -263,18 +217,18 @@ watch(
             <div class="mt-auto pt-3.5 flex flex-wrap items-center gap-1.5">
               <span
                 v-if="article.topic"
-                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-sunken text-neutral-600 dark:text-neutral-300"
               >
                 {{ article.topic }}
               </span>
               <span
                 v-if="article.source"
-                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-sunken text-neutral-600 dark:text-neutral-300"
               >
                 {{ article.source }}
               </span>
               <span
-                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40"
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-warning-soft"
                 :title="`${article.stars} 星`"
               >
                 {{ starsLabel(article.stars) }}

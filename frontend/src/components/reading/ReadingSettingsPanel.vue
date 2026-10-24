@@ -26,7 +26,7 @@ const layoutOptions: { key: ReadingLayoutMode; label: string; desc: string }[] =
 
 const optionSelectedClass = 'border-neutral-900 bg-neutral-50 dark:border-neutral-400 dark:bg-neutral-800'
 const optionDefaultClass =
-  'border-black/8 hover:border-black/15 hover:bg-neutral-50/50 dark:border-white/10 dark:hover:border-white/20 dark:hover:bg-neutral-800/50'
+  'border-line hover:border-black/15 hover:bg-neutral-50/50 dark:hover:border-white/20 dark:hover:bg-neutral-800/50'
 </script>
 
 <template>

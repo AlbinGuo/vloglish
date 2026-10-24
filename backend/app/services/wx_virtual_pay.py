@@ -23,30 +23,38 @@ from .account_merge import normalize_pay_client
 
 logger = logging.getLogger(__name__)
 
+PLAN_WEEK = "week"
 PLAN_QUARTER = "quarter"
 PLAN_YEAR = "year"
 PLAN_FOREVER = "forever"
 PLAN_TEST = "test"
 
 PLANS: dict[str, dict] = {
+    PLAN_WEEK: {
+        "name": "周会员",
+        "days": 7,
+        "price_cent": 100,
+        "product_env": "WECHAT_XPAY_PRODUCT_WEEK",
+        "product_default": "member_week",
+    },
     PLAN_QUARTER: {
         "name": "季度会员",
         "days": 90,
-        "price_cent": 2900,
+        "price_cent": 3800,
         "product_env": "WECHAT_XPAY_PRODUCT_QUARTER",
         "product_default": "member_quarter",
     },
     PLAN_YEAR: {
         "name": "年度会员",
         "days": 365,
-        "price_cent": 5900,
+        "price_cent": 7800,
         "product_env": "WECHAT_XPAY_PRODUCT_YEAR",
         "product_default": "member_year",
     },
     PLAN_FOREVER: {
         "name": "永久会员",
         "days": None,
-        "price_cent": 9900,
+        "price_cent": 9800,
         "product_env": "WECHAT_XPAY_PRODUCT_FOREVER",
         "product_default": "member_forever",
     },

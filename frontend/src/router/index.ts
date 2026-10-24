@@ -163,12 +163,6 @@ const memberSubmitRoutes: RouteRecordRaw[] = [
     component: () => import('@/pages/SubmitArticlePage.vue'),
     meta: { requiresAuth: true, requiresMember: true },
   },
-  {
-    path: 'english/my-submissions',
-    name: 'MySubmissions',
-    component: () => import('@/pages/MySubmissionsPage.vue'),
-    meta: { requiresAuth: true, requiresMember: true },
-  },
 ]
 
 const userRoutes: RouteRecordRaw[] = [
@@ -302,6 +296,13 @@ const userRoutes: RouteRecordRaw[] = [
       },
       ...(isMobile ? [] : memberSubmitRoutes),
       {
+        // 我的语料库：App 与 Web 都可用（收藏 + 投稿管理）
+        path: 'english/my-submissions',
+        name: 'MySubmissions',
+        component: () => import('@/pages/MySubmissionsPage.vue'),
+        meta: { requiresAuth: true, requiresMember: true },
+      },
+      {
         path: 'english/notifications',
         name: 'Notifications',
         component: () => import('@/pages/NotificationsPage.vue'),
@@ -337,6 +338,18 @@ const userRoutes: RouteRecordRaw[] = [
         component: () => import('@/pages/WishWallPage.vue'),
         meta: { requiresAuth: true },
       },
+      {
+        path: 'english/history',
+        name: 'WatchHistory',
+        component: () => import('@/pages/WatchHistoryPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
+        path: 'english/mine',
+        name: 'Mine',
+        component: () => import('@/pages/MinePage.vue'),
+        meta: { requiresAuth: true },
+      },
     ],
   },
   {
@@ -348,6 +361,16 @@ const userRoutes: RouteRecordRaw[] = [
     path: '/download',
     name: 'AppDownload',
     component: () => import('@/pages/AppDownloadPage.vue'),
+  },
+  {
+    path: '/privacy',
+    name: 'PrivacyPolicy',
+    component: () => import('@/pages/PrivacyPolicyPage.vue'),
+  },
+  {
+    path: '/terms',
+    name: 'Terms',
+    component: () => import('@/pages/TermsPage.vue'),
   },
 ]
 
@@ -389,8 +412,10 @@ router.beforeEach(async (to) => {
     await siteConfig.hydrate()
   }
 
-  if (to.meta.landing && auth.isLoggedIn) {
-    return '/english'
+  if (to.meta.landing) {
+    if (auth.isLoggedIn) return '/english'
+    // App 端不显示介绍/落地页，未登录直接进登录页
+    if (isMobile) return '/login'
   }
 
   if (to.meta.requiresAuth && !auth.isLoggedIn) {

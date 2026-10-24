@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -57,19 +58,19 @@ const justifyClass = computed(() => {
 
 const shadowBtnClass = computed(() => {
   if (props.shadowActive) {
-    return 'border-teal-500 bg-teal-50 text-teal-800 ring-2 ring-teal-400/30 dark:border-teal-500 dark:bg-teal-950/50 dark:text-teal-200'
+    return 'border-teal-500 bg-brand-soft text-brand-on-soft ring-2 ring-teal-400/30 dark:border-teal-500'
   }
   if (props.hasShadowTrack) {
-    return 'border-teal-300/80 text-teal-700 dark:border-teal-700 dark:text-teal-300'
+    return 'border-teal-300/80 text-brand dark:border-teal-700'
   }
   return ''
 })
 
 const btnBase =
-  'inline-flex items-center justify-center gap-1 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300 touch-manipulation shrink-0'
+  'inline-flex items-center justify-center gap-1 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-line text-neutral-600 dark:bg-neutral-800/90 dark:text-neutral-300 touch-manipulation shrink-0'
 
 const menuItemBase =
-  'w-full flex items-center justify-between gap-3 px-3 py-2 text-left text-[13px] text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800 transition'
+  'w-full flex items-center justify-between gap-3 px-3 py-2 text-left text-[13px] text-neutral-700 hover:bg-sunken dark:text-neutral-200 transition'
 
 function measureWidth() {
   const el = rootRef.value
@@ -120,7 +121,7 @@ function fire(kind: ActionKind, e: MouseEvent) {
   e.stopPropagation()
   e.preventDefault()
   closeMenu()
-  emit(kind, e)
+  ;(emit as unknown as (kind: ActionKind, e: MouseEvent) => void)(kind, e)
 }
 
 watch([() => props.variant, () => props.align], () => {
@@ -173,13 +174,7 @@ onUnmounted(() => {
       <span :class="[btnBase, 'px-2.5']">影子跟读</span>
       <span :class="[btnBase, 'px-2.5']">
         练习
-        <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-          <path
-            fill-rule="evenodd"
-            d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
-            clip-rule="evenodd"
-          />
-        </svg>
+        <AppIcon name="chevron-down-xs" class="w-3.5 h-3.5" />
       </span>
     </div>
 
@@ -192,10 +187,7 @@ onUnmounted(() => {
         aria-label="AI讲解"
         @click="fire('explain', $event)"
       >
-        <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3l1.6 4.2L18 9l-4.4 1.8L12 15l-1.6-4.2L6 9l4.4-1.8L12 3z" />
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l.7 1.8L21.5 16.5l-1.8.7L19 19l-.7-1.8L16.5 16.5l1.8-.7L19 14z" />
-        </svg>
+        <AppIcon name="sparkles" class="w-3.5 h-3.5 shrink-0" />
         <span v-if="!iconsOnly">AI讲解</span>
       </button>
       <button
@@ -205,10 +197,7 @@ onUnmounted(() => {
         aria-label="AI跟读"
         @click="fire('shadowing', $event)"
       >
-        <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3a3 3 0 0 1 3 3v5a3 3 0 1 1-6 0V6a3 3 0 0 1 3-3z" />
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 0 1-14 0M12 18v3" />
-        </svg>
+        <AppIcon name="mic" class="w-3.5 h-3.5 shrink-0" />
         <template v-if="!iconsOnly">
           <span>AI跟读</span>
           <span class="px-1 py-px rounded text-[9px] font-semibold leading-none bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300">
@@ -229,10 +218,7 @@ onUnmounted(() => {
         :aria-pressed="shadowActive"
         @click="fire('shadow', $event)"
       >
-        <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 12c1.5-2 3-3 4.5-3S11 10 12 12s1.5 3 3.5 3 3-1 4.5-3" />
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 17c1.5-2 3-3 4.5-3S11 15 12 17s1.5 3 3.5 3 3-1 4.5-3" />
-        </svg>
+        <AppIcon name="text-lines" class="w-3.5 h-3.5 shrink-0" />
         <span v-if="!iconsOnly">影子跟读</span>
         <span
           v-if="hasShadowTrack"
@@ -257,33 +243,10 @@ onUnmounted(() => {
           aria-haspopup="menu"
           @click="toggleMenu"
         >
-          <svg
-            v-if="iconsOnly"
-            class="w-3.5 h-3.5 shrink-0"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            aria-hidden="true"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h10" />
-          </svg>
+          <AppIcon name="menu" v-if="iconsOnly" class="w-3.5 h-3.5 shrink-0" />
           <template v-else>
             练习
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              class="w-3.5 h-3.5 opacity-70 transition-transform"
-              :class="menuOpen ? 'rotate-180' : ''"
-              aria-hidden="true"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
-                clip-rule="evenodd"
-              />
-            </svg>
+            <AppIcon name="chevron-down-xs" class="w-3.5 h-3.5 opacity-70 transition-transform" />
           </template>
         </button>
         <div
@@ -297,7 +260,7 @@ onUnmounted(() => {
           <button
             type="button"
             role="menuitem"
-            :class="[menuItemBase, dictationActive ? 'bg-amber-50 dark:bg-amber-950/40' : '']"
+            :class="[menuItemBase, dictationActive ? 'bg-warning-soft' : '']"
             @click="fire('dictation', $event)"
           >
             听写
@@ -313,7 +276,7 @@ onUnmounted(() => {
         class="inline-flex items-center gap-1 px-2.5 h-7 rounded-full text-[11px] font-medium border transition bg-white/90 border-black/10 text-neutral-600 hover:border-neutral-400 dark:bg-neutral-800/90 dark:border-white/10 dark:text-neutral-300 dark:hover:border-neutral-500"
         :class="
           shadowActive || hasShadowTrack || dictationActive
-            ? 'border-teal-400/70 text-teal-700 dark:border-teal-600 dark:text-teal-300'
+            ? 'border-teal-400/70 text-brand dark:border-teal-600'
             : ''
         "
         :aria-expanded="menuOpen"
@@ -321,20 +284,7 @@ onUnmounted(() => {
         @click="toggleMenu"
       >
         练习
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          class="w-3.5 h-3.5 opacity-70 transition-transform"
-          :class="menuOpen ? 'rotate-180' : ''"
-          aria-hidden="true"
-        >
-          <path
-            fill-rule="evenodd"
-            d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
-            clip-rule="evenodd"
-          />
-        </svg>
+        <AppIcon name="chevron-down-xs" class="w-3.5 h-3.5 opacity-70 transition-transform" />
         <span
           v-if="hasShadowTrack"
           class="w-1.5 h-1.5 rounded-full bg-teal-500"
@@ -374,7 +324,7 @@ onUnmounted(() => {
         <button
           type="button"
           role="menuitem"
-          :class="[menuItemBase, dictationActive ? 'bg-amber-50 dark:bg-amber-950/40' : '']"
+          :class="[menuItemBase, dictationActive ? 'bg-warning-soft' : '']"
           @click="fire('dictation', $event)"
         >
           听写

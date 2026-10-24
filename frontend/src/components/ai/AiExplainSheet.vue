@@ -54,7 +54,7 @@ watch(
           </div>
           <button
             type="button"
-            class="text-sm text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+            class="text-sm text-neutral-500 hover:text-ink-soft"
             @click="$emit('close')"
           >
             关闭

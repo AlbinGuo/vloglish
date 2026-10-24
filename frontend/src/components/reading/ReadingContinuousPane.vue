@@ -51,7 +51,7 @@ const blocks = computed(() => props.segments)
     <header v-if="coverUrl || title" class="mb-5">
       <div
         v-if="coverUrl"
-        class="overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800 ring-1 ring-black/5 dark:ring-white/10"
+        class="overflow-hidden rounded-xl bg-sunken ring-1 ring-black/5 dark:ring-white/10"
       >
         <img
           :src="coverUrl"

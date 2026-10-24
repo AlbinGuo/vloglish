@@ -458,9 +458,22 @@ ENRICH_SYSTEM_PROMPT = """你是资深影视/Vlog 字幕译制，同时输出美
 ## 音标（ipa）
 整句美式 IPA，斜杠包裹，如 /həˈloʊ wɜːrld/
 
+8. **chinese_literal**：同一句的对照直译，尽量贴英文词序，但仍要能读懂；专名同样遵守 glossary
+
 仅返回合法 JSON。
-JSON：{"items": [{"chinese": "中文", "ipa": "/音标/"}, ...]}
+JSON：{"items": [{"chinese": "意译", "chinese_literal": "直译", "ipa": "/音标/"}, ...]}
 条目数必须与 lines 完全一致。"""
+
+
+LITERAL_CHINESE_SYSTEM_PROMPT = """你是字幕直译助手。把一句英文口语句子译成对照用的中文直译。
+要求：
+1. 尽量贴英文词序，便于对照原文，但必须能读懂
+2. glossary 里的专名/梗按给定译法
+3. 可参考 sense_chinese（意译），不要照抄
+4. 不要解释、括号注释、emoji
+5. glossary_hits：本句实际出现的专名/梗，没有则 []
+仅返回合法 JSON。
+JSON：{"chinese_literal":"...","glossary_hits":[{"en":"...","zh":"..."}]}"""
 
 
 IPA_ONLY_SYSTEM_PROMPT = """你是英语语音学助手。对用户提供的每行英文字幕，输出对应的美式英语整句 IPA 音标。
@@ -559,28 +572,16 @@ JSON 结构：{"title": "...", "summary": "..."}"""
 
 
 def _translate_lines_once(lines: list[str]) -> list[str]:
-    user_payload = {"lines": lines}
-    content = _chat_completion(
-        system=TRANSLATE_SYSTEM_PROMPT,
-        user=json.dumps(user_payload, ensure_ascii=False),
-        response_format={"type": "json_object"},
-        temperature=0.2,
-        timeout=120,
-    )
-    raw = _extract_json(content)
-    translations = raw.get("translations")
-    if not isinstance(translations, list):
-        raise RuntimeError("DeepSeek 翻译返回格式无效")
-    if len(translations) != len(lines):
-        raise RuntimeError("DeepSeek 翻译返回条数与输入不一致")
-    return [str(t) for t in translations]
+    from .index_translate import translate_lines
+
+    return translate_lines(lines)
 
 
 _TRANSLATE_BATCH_SIZE = 10
 
 
 def translate_lines_with_deepseek(lines: list[str]) -> list[str]:
-    """Translate lines in small batches with half-split retry on failure."""
+    """Translate lines via Index-Translate, with half-split retry on failure."""
     if not lines:
         return []
 
@@ -693,6 +694,28 @@ def _line_englishs(lines: list[str] | list[dict]) -> list[str]:
     ]
 
 
+def _ipa_only_batch(english_lines: list[str]) -> list[str]:
+    if not english_lines:
+        return []
+    content = _chat_completion(
+        system=IPA_ONLY_SYSTEM_PROMPT,
+        user=json.dumps({"lines": english_lines}, ensure_ascii=False),
+        response_format={"type": "json_object"},
+        temperature=0.2,
+        timeout=180,
+    )
+    raw = _extract_json(content)
+    items = raw.get("items")
+    if not isinstance(items, list) or len(items) != len(english_lines):
+        raise RuntimeError("DeepSeek IPA 返回格式无效")
+    out: list[str] = []
+    for item in items:
+        if not isinstance(item, dict):
+            raise RuntimeError("DeepSeek IPA 返回格式无效")
+        out.append(str(item.get("ipa", "")).strip())
+    return out
+
+
 def _enrich_subtitle_lines_batch(
     lines: list[str] | list[dict],
     *,
@@ -703,53 +726,37 @@ def _enrich_subtitle_lines_batch(
     episode_summary: str = "",
     translation_brief: dict | None = None,
 ) -> list[dict[str, str]]:
+    english_lines = _line_englishs(lines)
+    line_count = len(english_lines)
+    zh_items = [{"chinese": "", "chinese_literal": ""} for _ in range(line_count)]
     if translate_chinese:
-        line_items = _normalize_enrich_lines(lines)
-        user_payload: dict = {"lines": line_items}
-        episode: dict[str, str] = {}
-        if episode_title.strip():
-            episode["title"] = episode_title.strip()
-        if episode_summary.strip():
-            episode["summary"] = episode_summary.strip()[:800]
-        if episode:
-            user_payload["episode"] = episode
-        if translation_brief:
-            user_payload["brief"] = translation_brief
-        if before:
-            user_payload["before"] = before
-        if after:
-            user_payload["after"] = after
-        line_count = len(line_items)
-    else:
-        english_lines = _line_englishs(lines)
-        user_payload = {"lines": english_lines}
-        line_count = len(english_lines)
+        from .index_translate import translate_subtitle_items
 
-    content = _chat_completion(
-        system=ENRICH_SYSTEM_PROMPT if translate_chinese else IPA_ONLY_SYSTEM_PROMPT,
-        user=json.dumps(user_payload, ensure_ascii=False),
-        response_format={"type": "json_object"},
-        # 翻译略提高温度，减少机械直译；仅 IPA 仍偏低温
-        temperature=0.45 if translate_chinese else 0.2,
-        timeout=180,
-    )
-    raw = _extract_json(content)
-    items = raw.get("items")
-    if not isinstance(items, list):
-        raise RuntimeError("DeepSeek 字幕增强返回格式无效")
-    if len(items) != line_count:
-        raise RuntimeError("DeepSeek 返回条数与输入不一致")
-    result: list[dict[str, str]] = []
-    for item in items:
-        if not isinstance(item, dict):
-            raise RuntimeError("DeepSeek 字幕增强返回格式无效")
-        result.append(
-            {
-                "chinese": str(item.get("chinese", "")).strip(),
-                "ipa": str(item.get("ipa", "")).strip(),
-            }
+        zh_items = translate_subtitle_items(
+            _normalize_enrich_lines(lines),
+            before=before,
+            after=after,
+            episode_title=episode_title,
+            episode_summary=episode_summary,
+            translation_brief=translation_brief,
         )
-    return result
+
+    ipa_list = [""] * line_count
+    try:
+        ipa_list = _ipa_only_batch(english_lines)
+    except Exception:
+        if not translate_chinese:
+            raise
+        logger.warning("DeepSeek IPA 失败，已保留 Index-Translate 中文翻译", exc_info=True)
+
+    return [
+        {
+            "chinese": zh_items[i].get("chinese", ""),
+            "chinese_literal": zh_items[i].get("chinese_literal", ""),
+            "ipa": ipa_list[i],
+        }
+        for i in range(line_count)
+    ]
 
 
 def enrich_subtitle_lines_with_deepseek(
@@ -776,7 +783,7 @@ def enrich_subtitle_lines_with_deepseek(
         try:
             return _enrich_subtitle_lines_batch(lines, **kwargs)
         except Exception:
-            return [{"chinese": "", "ipa": ""}]
+            return [{"chinese": "", "chinese_literal": "", "ipa": ""}]
 
     try:
         return _enrich_subtitle_lines_batch(lines, **kwargs)
@@ -804,24 +811,25 @@ def enrich_subtitle_lines_with_deepseek(
         )
 
 
-def localize_video_metadata_with_deepseek(title: str, summary: str) -> dict[str, str]:
-    title = title.strip()
-    summary = summary.strip()
-    if not title and not summary:
-        return {"title": "", "summary": ""}
+def translate_literal_chinese_with_deepseek(
+    english: str,
+    *,
+    sense_chinese: str = "",
+    glossary: list[dict] | None = None,
+) -> dict:
+    from .index_translate import translate_literal
 
-    user_payload = {"title": title, "summary": summary}
-    content = _chat_completion(
-        system=METADATA_LOCALIZE_PROMPT,
-        user=json.dumps(user_payload, ensure_ascii=False),
-        response_format={"type": "json_object"},
-        temperature=0.2,
-        timeout=120,
+    return translate_literal(
+        english,
+        sense_chinese=sense_chinese,
+        glossary=glossary,
     )
-    raw = _extract_json(content)
-    out_title = str(raw.get("title", "")).strip() or title
-    out_summary = str(raw.get("summary", "")).strip()
-    return {"title": out_title, "summary": out_summary}
+
+
+def localize_video_metadata_with_deepseek(title: str, summary: str) -> dict[str, str]:
+    from .index_translate import localize_metadata
+
+    return localize_metadata(title, summary)
 
 
 def analyze_episode_metrics_with_deepseek(

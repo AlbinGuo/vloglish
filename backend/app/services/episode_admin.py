@@ -112,6 +112,10 @@ def _detach_subtitle_refs(db: Session, subtitle_ids: list[int]) -> None:
 def replace_subtitles(db: Session, episode_id: int, rows: list[dict]) -> None:
     from .episode_word_cards import invalidate_episode_word_cards
 
+    old_literals = {
+        int(s.index): (getattr(s, "chinese_literal", None) or "").strip()
+        for s in db.query(Subtitle).filter(Subtitle.episode_id == episode_id).all()
+    }
     subtitle_ids = [
         sid for (sid,) in db.query(Subtitle.id).filter(Subtitle.episode_id == episode_id).all()
     ]
@@ -139,6 +143,8 @@ def replace_subtitles(db: Session, episode_id: int, rows: list[dict]) -> None:
                 "end": row["end"],
                 "english": english,
                 "chinese": chinese,
+                "chinese_literal": (row.get("chinese_literal") or "").strip()
+                or old_literals.get(int(row["index"]), ""),
                 "ipa": row.get("ipa", ""),
                 "english_html": english_html,
             }
@@ -159,6 +165,15 @@ def apply_episode_fields(ep: Episode, data: dict, *, author: Author, tags: list[
         ep.vocab_summary = data.get("vocab_summary") or ""
     if "video_context" in data:
         ep.video_context = data.get("video_context") or ""
+    if "glossary" in data or "glossary_json" in data:
+        from .episode_glossary import parse_glossary, set_episode_glossary
+
+        raw = data.get("glossary")
+        if raw is None:
+            raw = data.get("glossary_json")
+        if isinstance(raw, str):
+            raw = parse_glossary(raw)
+        set_episode_glossary(ep, raw)
     if "stars" in data:
         ep.stars = data.get("stars", 3)
     if "voca_size" in data:

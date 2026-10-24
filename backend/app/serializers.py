@@ -4,6 +4,7 @@ from .models import Article, ArticleSegment, Author, Episode, Entry, Tag, UserAr
 from .media import resolve_audio_url, resolve_cover_url, resolve_video_url
 from .services.episode_admin import episode_is_new
 from .services.audience_notes import published_audience_notes
+from .services.episode_glossary import parse_glossary
 from .services.vocab_summary import parse_vocab_summary
 
 
@@ -114,6 +115,7 @@ def episode_detail(
                     "end": s.end,
                     "english": s.english or "",
                     "chinese": s.chinese or "",
+                    "chinese_literal": getattr(s, "chinese_literal", None) or "",
                     "ipa": s.ipa or "",
                     "english_html": s.english_html or "",
                 }
@@ -123,6 +125,7 @@ def episode_detail(
             "vocab_summary": parse_vocab_summary(getattr(episode, "vocab_summary", None) or ""),
             "vocab_summary_text": getattr(episode, "vocab_summary", None) or "",
             "video_context": getattr(episode, "video_context", None) or "",
+            "glossary": parse_glossary(getattr(episode, "glossary_json", None)),
             "is_favorite": bool(is_favorite),
             "audience_notes": published_audience_notes(episode),
         },

@@ -738,7 +738,7 @@ async function fetchFromSourceUrl() {
   try {
     const data = await adminFetchMediaFromUrl({
       url,
-      slug: mediaSlug.value.trim() || form.value.video_id.trim() || undefined,
+      slug: mediaSlug.value.trim() || form.value.video_id?.trim() || undefined,
       enrich_subtitles: false,
       quality: mediaQuality.value,
     })

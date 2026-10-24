@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import {
   ackNotificationPopup,
@@ -32,6 +32,10 @@ import ListenPlayerHost from '@/components/listen/ListenPlayerHost.vue'
 import ListenPlaylistSheet from '@/components/listen/ListenPlaylistSheet.vue'
 import ListenSleepSheet from '@/components/listen/ListenSleepSheet.vue'
 import { useListenPlayerStore } from '@/stores/listenPlayer'
+import { isMobileAppBuild } from '@/utils/platform'
+import AppIcon from '@/components/AppIcon.vue'
+import UserAvatar from '@/components/UserAvatar.vue'
+import BottomTabBar from '@/components/layout/BottomTabBar.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -124,6 +128,30 @@ const showListenFloatCard = computed(
 )
 const { headerVisible: catalogHeaderVisible, catalogHeaderAutoHide } = useCatalogMobileHeaderHide()
 
+// 首页"回到顶部"按钮的底部偏移：若右下角有播放浮卡，则堆叠到浮卡之上，避免重叠
+const listenFloatWrap = ref<HTMLElement | null>(null)
+function recomputeHomeFabBottom() {
+  let rem = 4.75
+  if (showListenFloatCard.value && listenFloatWrap.value) {
+    const hRem = listenFloatWrap.value.offsetHeight / 16
+    rem = Math.max(rem, 0.85 + hRem + 0.75)
+  }
+  document.documentElement.style.setProperty('--home-fab-bottom', rem.toFixed(2) + 'rem')
+}
+watch(showListenFloatCard, async () => {
+  await nextTick()
+  recomputeHomeFabBottom()
+})
+onMounted(() => {
+  void nextTick(recomputeHomeFabBottom)
+})
+
+/** App 端隐藏移动端轻量 header 的品牌 logo / 通知 / 头像（底部 Tab 负责导航），仅保留状态栏安全区 */
+const hideAppMobileHeader = isMobileAppBuild()
+
+/** 移动端底部 Tab Bar：仅非沉浸式页面、已登录时显示 */
+const showBottomTabs = computed(() => !immersive.value && auth.isLoggedIn && !route.meta.landing)
+
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let popupPollTimer: ReturnType<typeof setInterval> | null = null
 let currentPageKey = normalizePresencePageKey(route.name)
@@ -161,7 +189,9 @@ async function refreshPendingPopups() {
     return
   }
   try {
-    const results = await getPendingPopups()
+    const raw = await getPendingPopups()
+    // App 端不展示"新剧集/文章发布"类弹窗（管理端发布后不应打扰移动端用户）
+    const results = isMobileAppBuild() ? raw.filter((r) => !isReleasePopup(r)) : raw
     const units = buildPopupUnits(results)
     const head = currentUnit.value
     if (head) {
@@ -326,12 +356,12 @@ watch(
 
 <template>
   <div
-    class="flex flex-col bg-neutral-50 dark:bg-neutral-950"
+    class="flex flex-col bg-canvas"
     :class="immersive ? 'h-dvh overflow-hidden' : 'min-h-dvh'"
   >
     <header
       v-if="!immersive"
-      class="z-40 bg-white/90 dark:bg-neutral-900/90 backdrop-blur border-b border-black/5 dark:border-white/10 transition-transform duration-300 ease-out will-change-transform pt-[env(safe-area-inset-top,0px)]"
+      class="max-sm:hidden z-40 bg-card-glass backdrop-blur border-b border-line-soft transition-transform duration-300 ease-out will-change-transform pt-[env(safe-area-inset-top,0px)]"
       :class="[
         catalogHeaderAutoHide ? 'fixed inset-x-0 top-0' : 'sticky top-0',
         catalogHeaderVisible ? 'translate-y-0' : '-translate-y-full',
@@ -345,7 +375,7 @@ watch(
           />
           <span class="flex flex-col min-w-0">
             <span class="text-[1.05rem] font-semibold tracking-[-0.02em] leading-tight">Vloglish</span>
-            <span class="text-[11px] text-neutral-500 dark:text-neutral-400 tracking-[0.01em] leading-tight mt-0.5">
+            <span class="text-[11px] text-ink-faint tracking-[0.01em] leading-tight mt-0.5">
               Real vlogs · Real English
             </span>
           </span>
@@ -354,26 +384,12 @@ watch(
         <div class="flex items-center gap-1 sm:gap-3 text-sm shrink-0">
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg transition p-2 sm:px-2 sm:py-1.5 text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800"
+            class="inline-flex items-center gap-1.5 rounded-lg transition p-2 sm:px-2 sm:py-1.5 text-ink-soft hover:text-ink hover:bg-sunken"
             aria-label="联系作者"
             title="联系作者"
             @click="contactAuthorOpen = true"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.75"
-              class="w-5 h-5 shrink-0"
-              aria-hidden="true"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M7.5 8.25h9m-9 3.75h5.25M21 12c0 4.556-4.03 8.25-9 8.25a9.76 9.76 0 0 1-2.53-.33l-3.97 1.32a.75.75 0 0 1-.95-.95l1.32-3.97A8.7 8.7 0 0 1 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"
-              />
-            </svg>
+            <AppIcon name="chat-bubble" class="w-5 h-5 shrink-0" />
             <span class="hidden sm:inline">联系作者</span>
           </button>
           <AppDownloadEntry variant="header" />
@@ -384,45 +400,20 @@ watch(
               class="inline-flex items-center gap-1.5 rounded-lg transition p-2 sm:px-2 sm:py-1.5"
               :class="
                 route.path.startsWith('/english/study')
-                  ? 'text-teal-800 bg-teal-50 dark:text-teal-200 dark:bg-teal-950/50'
-                  : 'text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800'
+                  ? 'text-brand-on-soft bg-brand-soft'
+                  : 'text-ink-soft hover:text-ink hover:bg-sunken'
               "
               aria-label="怎么学"
               title="英语学习方法"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.75"
-                class="w-5 h-5 shrink-0"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"
-                />
-              </svg>
+              <AppIcon name="book-open" class="w-5 h-5 shrink-0" />
               <span class="hidden sm:inline">怎么学</span>
             </RouterLink>
             <RouterLink
               to="/english/learning"
-              class="hidden sm:inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition"
+              class="hidden sm:inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-ink-soft hover:text-ink hover:bg-sunken transition"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.75"
-                class="w-5 h-5 shrink-0"
-                aria-hidden="true"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M7 19V11M12 19V5M17 19V15" />
-                <path stroke-linecap="round" d="M4 19h16" />
-              </svg>
+              <AppIcon name="chart-bar" class="w-5 h-5 shrink-0" />
               学习统计
             </RouterLink>
             <RouterLink
@@ -430,31 +421,17 @@ watch(
               class="relative inline-flex items-center gap-1.5 rounded-lg transition"
               :class="[
                 vocabNavActive
-                  ? 'text-amber-800 bg-amber-50 dark:text-amber-200 dark:bg-amber-950/50'
-                  : 'text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800',
+                  ? 'text-warning bg-warning-soft'
+                  : 'text-ink-soft hover:text-ink hover:bg-sunken',
                 'p-2 sm:px-2 sm:py-1.5',
               ]"
               aria-label="生词本"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.75"
-                class="w-5 h-5 shrink-0"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z"
-                />
-              </svg>
+              <AppIcon name="flag" class="w-5 h-5 shrink-0" />
               <span class="hidden sm:inline">生词本</span>
               <span
                 v-if="vocabCount > 0"
-                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none"
+                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-warning text-ink-inverse text-[10px] font-semibold flex items-center justify-center leading-none"
               >
                 {{ vocabBadgeLabel }}
               </span>
@@ -464,51 +441,30 @@ watch(
               class="relative inline-flex items-center gap-1.5 rounded-lg transition"
               :class="[
                 clipNavActive
-                  ? 'text-sky-800 bg-sky-50 dark:text-sky-200 dark:bg-sky-950/50'
-                  : 'text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800',
+                  ? 'text-info bg-info-soft'
+                  : 'text-ink-soft hover:text-ink hover:bg-sunken',
                 'p-2 sm:px-2 sm:py-1.5',
               ]"
               aria-label="我的摘录"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.75"
-                class="w-5 h-5 shrink-0"
-                aria-hidden="true"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h4.5M3.75 6.75A2.25 2.25 0 0 1 6 4.5h12A2.25 2.25 0 0 1 20.25 6.75v10.5A2.25 2.25 0 0 1 18 19.5H6a2.25 2.25 0 0 1-2.25-2.25V6.75Z"
-                />
-              </svg>
+              <AppIcon name="clipboard-list" class="w-5 h-5 shrink-0" />
               <span class="hidden sm:inline">摘录</span>
               <span
                 v-if="clipCount > 0"
-                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-sky-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none"
+                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-info text-ink-inverse text-[10px] font-semibold flex items-center justify-center leading-none"
               >
                 {{ clipBadgeLabel }}
               </span>
             </RouterLink>
             <RouterLink
               to="/english/notifications"
-              class="relative p-2 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition"
+              class="relative p-2 rounded-lg text-ink-soft hover:text-ink hover:bg-sunken transition"
               aria-label="通知"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
-                <path
-                  fill-rule="evenodd"
-                  d="M5.25 9a6.75 6.75 0 0 1 13.5 0v.75c0 2.123.8 4.077 2.125 5.548a.75.75 0 0 1-.513 1.297H3.638a.75.75 0 0 1-.513-1.297A6.75 6.75 0 0 0 5.25 9Zm2.25 0a4.5 4.5 0 1 1 9 0v.75c0 1.214.455 2.34 1.204 3.192a.75.75 0 0 1-.204 1.058H6.5a.75.75 0 0 1-.204-1.058A4.5 4.5 0 0 0 7.5 9.75V9Z"
-                  clip-rule="evenodd"
-                />
-                <path d="M9 18.75a3 3 0 0 0 6 0H9Z" />
-              </svg>
+              <AppIcon name="bell" class="w-5 h-5" />
               <span
                 v-if="notifications.unreadCount > 0"
-                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none"
+                class="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-danger text-ink-inverse text-[10px] font-semibold flex items-center justify-center leading-none"
               >
                 {{ notifications.unreadCount > 99 ? '99+' : notifications.unreadCount }}
               </span>
@@ -517,25 +473,17 @@ watch(
             <RouterLink
               v-if="!auth.isMember && siteConfig.isContentGated"
               to="/pricing"
-              class="inline-flex items-center justify-center rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition p-2 sm:px-3 sm:py-1.5"
+              class="inline-flex items-center justify-center rounded-lg bg-brand text-ink-inverse hover:bg-brand-hover transition p-2 sm:px-3 sm:py-1.5"
               aria-label="开通会员"
               title="开通会员"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                class="w-5 h-5 sm:hidden"
-                aria-hidden="true"
-              >
-                <path d="M5 16 3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5Zm0 2h14v2H5v-2Z" />
-              </svg>
+              <AppIcon name="crown" class="w-5 h-5 sm:hidden" />
               <span class="hidden sm:inline text-sm font-medium">开通会员</span>
             </RouterLink>
             <button
               v-if="!auth.user?.wx_bound"
               type="button"
-              class="inline-flex items-center rounded-lg border border-amber-700/30 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-500/30 px-2 py-1.5 text-xs sm:text-sm font-medium transition"
+              class="inline-flex items-center rounded-lg border border-warning/30 bg-warning-soft text-warning hover:opacity-90 px-2 py-1.5 text-xs sm:text-sm font-medium transition"
               title="扫一下即关联微信"
               @click="bindWechatOpen = true"
             >
@@ -547,10 +495,10 @@ watch(
             />
           </template>
           <template v-else>
-            <RouterLink to="/login" class="text-neutral-600 hover:text-black dark:text-neutral-400 dark:hover:text-white">登录</RouterLink>
+            <RouterLink to="/login" class="text-ink-soft hover:text-ink">登录</RouterLink>
             <RouterLink
               to="/signup"
-              class="px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-sm hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+              class="px-3 py-1.5 rounded-lg bg-ink text-ink-inverse text-sm hover:opacity-90"
             >
               注册
             </RouterLink>
@@ -558,14 +506,63 @@ watch(
         </div>
       </div>
     </header>
+    <!-- 移动端轻量 header：品牌 + 通知 + 我的头像（底部 Tab 负责主导航） -->
+    <header
+      v-if="!immersive"
+      class="sm:hidden sticky top-0 z-40 bg-canvas pt-[env(safe-area-inset-top,0px)]"
+      :class="hideAppMobileHeader ? '' : 'border-b border-line-soft'"
+    >
+      <div v-if="!hideAppMobileHeader" class="px-4 py-2 flex items-center justify-between gap-3">
+        <RouterLink to="/english" class="flex items-center gap-2 min-w-0 shrink-0">
+          <BrandLogo :size="26" />
+          <span class="text-[1rem] font-semibold tracking-[-0.02em] leading-none">Vloglish</span>
+        </RouterLink>
+        <div class="flex items-center gap-0.5">
+          <RouterLink
+            v-if="auth.isLoggedIn"
+            to="/english/notifications"
+            class="relative inline-flex items-center justify-center rounded-lg p-2 text-ink-soft transition hover:bg-sunken"
+            aria-label="通知"
+          >
+            <AppIcon name="bell" class="w-5 h-5" />
+            <span
+              v-if="notifications.unreadCount > 0"
+              class="absolute top-0.5 right-0.5 min-w-[1.05rem] h-[1.05rem] px-1 rounded-full bg-danger text-ink-inverse text-[10px] font-semibold flex items-center justify-center leading-none"
+            >
+              {{ notifications.unreadCount > 99 ? '99+' : notifications.unreadCount }}
+            </span>
+          </RouterLink>
+          <RouterLink
+            :to="auth.isLoggedIn ? '/english/mine' : '/login'"
+            class="inline-flex items-center justify-center rounded-full p-1 transition active:scale-95"
+            aria-label="我的"
+          >
+            <UserAvatar
+              v-if="auth.isLoggedIn"
+              :avatar-key="auth.user?.avatar_key"
+              :user-id="auth.user?.id"
+              size-class="w-7 h-7"
+              alt=""
+            />
+            <AppIcon v-else name="user" class="w-6 h-6 text-ink-soft" />
+          </RouterLink>
+        </div>
+      </div>
+    </header>
     <!-- 占位高度勿做 transition：动画过程中 scrollY 连续跳变会触发 header 显隐闪烁 -->
     <div
       v-if="!immersive && catalogHeaderAutoHide"
-      class="shrink-0 pointer-events-none overflow-hidden"
+      class="max-sm:hidden shrink-0 pointer-events-none overflow-hidden"
       :class="catalogHeaderVisible ? 'h-[calc(4.25rem+env(safe-area-inset-top,0px))]' : 'h-0'"
       aria-hidden="true"
     />
-    <main class="flex-1" :class="immersive ? 'min-h-0 overflow-hidden' : ''">
+    <main
+      class="flex-1"
+      :class="[
+        immersive ? 'min-h-0 overflow-hidden' : '',
+        showBottomTabs ? 'pb-[var(--tabbar-offset)]' : '',
+      ]"
+    >
       <RouterView v-slot="{ Component, route }">
         <KeepAlive include="HomePage">
           <component
@@ -578,21 +575,33 @@ watch(
     <div
       v-if="showListenMiniBarSpacer"
       class="shrink-0"
-      :style="{ height: 'calc(4.35rem + env(safe-area-inset-bottom, 0px))' }"
+      :style="{
+        height: showBottomTabs
+          ? 'calc(4.35rem + var(--tabbar-offset))'
+          : 'calc(4.35rem + env(safe-area-inset-bottom, 0px))',
+      }"
       aria-hidden="true"
     />
     <div
       v-if="showListenMiniBar"
-      class="fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom,0px)]"
+      class="fixed inset-x-0 z-40"
+      :class="showBottomTabs ? 'bottom-[var(--tabbar-offset)]' : 'bottom-0 pb-[env(safe-area-inset-bottom,0px)]'"
     >
       <ListenMiniBar />
     </div>
     <div
       v-if="showListenFloatCard"
-      class="fixed z-40 right-3 bottom-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+0.85rem))]"
+      ref="listenFloatWrap"
+      class="fixed z-40 right-3"
+      :class="
+        showBottomTabs
+          ? 'bottom-[calc(var(--tabbar-offset)+0.85rem)]'
+          : 'bottom-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+0.85rem))]'
+      "
     >
       <ListenFloatCard />
     </div>
+    <BottomTabBar v-if="showBottomTabs" :vocab-count="vocabCount" />
     <ListenPlayerHost />
     <ListenPlaylistSheet />
     <ListenSleepSheet />

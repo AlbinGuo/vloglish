@@ -189,7 +189,6 @@ const LEVEL_TAG_CLASSES: Record<string, string> = {
   高级: 'bg-rose-50 text-rose-700 dark:bg-rose-950/45 dark:text-rose-300',
 }
 
-const FALLBACK_TAG_CLASS = GROUP_TAG_PALETTE[0]
 
 function normalizeGroupTitle(title: string): string {
   return (title || '')

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { createWish, listWishes, toggleWishLike, type WishItem } from '@/api/wishWall'
 import WishStickyNote from '@/components/wish/WishStickyNote.vue'
+import AppIcon from '@/components/AppIcon.vue'
 
 const loading = ref(true)
 const submitting = ref(false)
@@ -102,13 +103,7 @@ onMounted(() => {
     <div class="page-container wish-page-inner">
       <header class="wish-hero">
         <div class="wish-bulb" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-9 h-9">
-            <path
-              fill="#fbbf24"
-              d="M12 2.25A6.75 6.75 0 0 0 5.25 9c0 2.387 1.24 4.485 3.12 5.67.3.19.48.52.48.87v.46c0 .41.34.75.75.75h4.8c.41 0 .75-.34.75-.75v-.46c0-.35.18-.68.48-.87A6.74 6.74 0 0 0 18.75 9 6.75 6.75 0 0 0 12 2.25Z"
-            />
-            <path fill="#f59e0b" d="M9.6 18.6h4.8c.33 0 .6.27.6.6v.15c0 .99-.81 1.8-1.8 1.8h-2.4c-.99 0-1.8-.81-1.8-1.8V19.2c0-.33.27-.6.6-.6Z" />
-          </svg>
+          <AppIcon name="bell-solid" class="w-9 h-9" />
         </div>
         <h1>需求墙</h1>
         <p>说出你的想法，一起让 Vloglish 变得更好</p>

@@ -418,7 +418,7 @@ onUnmounted(() => {
           </h2>
           <button
             type="button"
-            class="rounded-lg px-2 py-1 text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            class="rounded-lg px-2 py-1 text-sm text-neutral-500 hover:bg-sunken"
             @click="close"
           >
             关闭
@@ -432,14 +432,14 @@ onUnmounted(() => {
 
           <div
             v-if="!configured"
-            class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+            class="rounded-xl border border-amber-200 bg-warning-soft px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:text-amber-100"
           >
             服务端尚未配置声音复刻（DASHSCOPE_API_KEY），暂时无法创建音色。
           </div>
 
           <div
             v-if="remoteVoice?.needsReenroll"
-            class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+            class="rounded-xl border border-amber-200 bg-warning-soft px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:text-amber-100"
           >
             当前音色绑定的是旧合成模型，无法直接用于新模型，请再录一段后提交。
           </div>

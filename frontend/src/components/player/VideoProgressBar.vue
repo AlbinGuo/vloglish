@@ -121,7 +121,7 @@ watch(
     <div class="flex items-center gap-2.5 pointer-events-auto">
       <span
         class="text-[11px] tabular-nums min-w-[2.25rem]"
-        :class="variant === 'overlay' ? 'text-white sm:text-xs' : 'text-neutral-500 dark:text-neutral-400'"
+        :class="variant === 'overlay' ? 'text-white sm:text-xs' : 'text-ink-faint'"
       >
         {{ formatTime(currentTime) }}
       </span>
@@ -150,7 +150,7 @@ watch(
 
       <span
         class="text-[11px] tabular-nums min-w-[2.25rem] text-right"
-        :class="variant === 'overlay' ? 'text-white sm:text-xs' : 'text-neutral-500 dark:text-neutral-400'"
+        :class="variant === 'overlay' ? 'text-white sm:text-xs' : 'text-ink-faint'"
       >
         {{ formatTime(duration) }}
       </span>

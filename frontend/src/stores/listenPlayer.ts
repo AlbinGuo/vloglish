@@ -556,6 +556,15 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     await playFromQueue(item.video_id, expand)
   }
 
+  /** 用一整批节目替换播放队列并从 startVideoId 开始播放（支持收听页上下滑动切集） */
+  async function playPlaylist(rows: EpisodeSummary[], startVideoId: string, expand = true) {
+    if (rows.length) {
+      queue.value = rows.map(summaryToQueueItem)
+      persistQueue()
+    }
+    await playFromQueue(startVideoId, expand)
+  }
+
   async function openEpisode(videoId: string) {
     pendingPlay = true
     isPlaying.value = true
@@ -708,6 +717,7 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
     playPrev,
     removeFromQueue,
     enqueueAndPlay,
+    playPlaylist,
     openEpisode,
     collapse,
     expand,

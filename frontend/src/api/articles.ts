@@ -1,6 +1,5 @@
 import api from './client'
 import { fetchWordLookup } from '@/composables/useWordLookupCache'
-import type { EntryDetail } from '@/types'
 export interface ArticleProgress {
   last_segment_index: number
   max_reached_index: number

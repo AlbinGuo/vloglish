@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -11,8 +12,16 @@ from PIL import Image, ImageDraw
 APP_ROOT = Path(__file__).resolve().parents[1]
 ASSETS = APP_ROOT / "assets"
 ANDROID_RES = APP_ROOT / "android" / "app" / "src" / "main" / "res"
+IOS_ASSETS = ASSETS / "ios"
+IOS_ICON_SRC = IOS_ASSETS / "AppIcon.appiconset"
 IOS_ICON = (
     APP_ROOT / "ios" / "App" / "App" / "Assets.xcassets" / "AppIcon.appiconset"
+)
+IOS_SPLASH = (
+    APP_ROOT / "ios" / "App" / "App" / "Assets.xcassets" / "Splash.imageset"
+)
+IOS_LAUNCH = (
+    APP_ROOT / "ios" / "App" / "App" / "Base.lproj" / "LaunchScreen.storyboard"
 )
 
 BG = (17, 17, 17, 255)  # #111111
@@ -87,6 +96,129 @@ def save(img: Image.Image, path: Path) -> None:
     print(f"wrote {path.relative_to(APP_ROOT)} ({img.size[0]}x{img.size[1]})")
 
 
+def _clear_dir(path: Path) -> None:
+    if not path.is_dir():
+        return
+    for child in path.iterdir():
+        if child.is_dir():
+            shutil.rmtree(child)
+        else:
+            child.unlink()
+
+
+def _copy_tree_files(src: Path, dst: Path) -> None:
+    dst.mkdir(parents=True, exist_ok=True)
+    for child in src.iterdir():
+        target = dst / child.name
+        if child.is_dir():
+            shutil.copytree(child, target, dirs_exist_ok=True)
+        else:
+            shutil.copy2(child, target)
+
+
+def _flatten_ios_icon(path: Path) -> None:
+    """去掉 alpha 通道：App Store 大图标不允许带 alpha/透明。
+
+    先用图标边缘的填充色铺满整块画布，再把图标叠上去，输出不带 alpha 的 RGB PNG。
+    iOS 运行时会自己套圆角遮罩，所以把透明圆角铺成同色后视觉无缝、且能通过校验。
+    """
+    im = Image.open(path).convert("RGBA")
+    w, h = im.size
+    probes = [(w // 2, 0), (w // 2, h - 1), (0, h // 2), (w - 1, h // 2)]
+    counts: dict[tuple[int, int, int], int] = {}
+    for x, y in probes:
+        for dx in range(-2, 3):
+            for dy in range(-2, 3):
+                px = im.getpixel((min(max(x + dx, 0), w - 1), min(max(y + dy, 0), h - 1)))
+                if px[3] > 200:
+                    key = (px[0], px[1], px[2])
+                    counts[key] = counts.get(key, 0) + 1
+    bg = max(counts, key=counts.get) if counts else (255, 255, 255)
+    base = Image.new("RGB", (w, h), bg)
+    base.paste(im, (0, 0), im)
+    base.save(path, format="PNG")
+
+
+def _flatten_ios_icons_dir() -> None:
+    for png in sorted(IOS_ICON.glob("*.png")):
+        _flatten_ios_icon(png)
+
+
+def _install_ios_icons() -> None:
+    """优先使用 assets/ios/AppIcon.appiconset 的整套图标；否则用品牌标生成 1024 单图。"""
+    if IOS_ICON_SRC.is_dir():
+        _clear_dir(IOS_ICON)
+        _copy_tree_files(IOS_ICON_SRC, IOS_ICON)
+        print("iOS AppIcon 已替换为 assets/ios/AppIcon.appiconset 的自定义图标")
+    else:
+        IOS_ICON.mkdir(parents=True, exist_ok=True)
+        save(draw_brand_circle(1024, canvas_fill=BG), IOS_ICON / "AppIcon-512@2x.png")
+        (IOS_ICON / "Contents.json").write_text(
+            '{\n  "images" : [\n    {\n      "filename" : "AppIcon-512@2x.png",\n'
+            '      "idiom" : "universal",\n      "platform" : "ios",\n'
+            '      "size" : "1024x1024"\n    }\n  ],\n'
+            '  "info" : {\n    "author" : "xcode",\n    "version" : 1\n  }\n}\n',
+            encoding="utf-8",
+        )
+        print("iOS AppIcon 由品牌标生成（未提供 assets/ios/AppIcon.appiconset）")
+    # 统一去掉 alpha，满足 App Store「大图标不允许透明/带 alpha 通道」的要求
+    _flatten_ios_icons_dir()
+
+
+def _install_ios_splash() -> None:
+    """生成纯色 iOS 启动图（无 logo），与应用内动画启动页首帧同色，实现无缝过渡。"""
+    IOS_SPLASH.mkdir(parents=True, exist_ok=True)
+    _clear_dir(IOS_SPLASH)
+    width, height = 1290, 2796
+    img = Image.new("RGB", (width, height), (17, 17, 17))  # #111111，与 AppSplash 背景一致
+    filename = "splash.png"
+    img.save(IOS_SPLASH / filename, format="PNG")
+    (IOS_SPLASH / "Contents.json").write_text(
+        '{\n  "images" : [\n    {\n      "idiom" : "universal",\n'
+        f'      "filename" : "{filename}"\n    }}\n  ],\n'
+        '  "info" : {\n    "version" : 1,\n    "author" : "xcode"\n  }\n}\n',
+        encoding="utf-8",
+    )
+    print(f"iOS 启动图已生成纯色背景 Splash.imageset（{filename}）")
+
+
+def _patch_ios_launch_screen() -> None:
+    """把 iOS 启动 storyboard 的背景改成深色、启动图改为铺满。
+
+    Capacitor 默认 LaunchScreen 的背景是 systemBackground（浅色下为白），
+    启动图若用 aspect-fit，在宽高比不一致的机型上顶部会露出白边 —— 表现为
+    「打开 App 时顶部闪一下」。这里统一成 #111111 并把图改为 aspect-fill。
+    未匹配到对应节点时自动跳过（不破坏原文件）。
+    """
+    import re
+
+    path = IOS_LAUNCH
+    if not path.is_file():
+        return
+    try:
+        xml = path.read_text(encoding="utf-8")
+    except OSError:
+        return
+
+    dark_color = (
+        '<color key="backgroundColor" red="0.06666666666666667" '
+        'green="0.06666666666666667" blue="0.06666666666666667" alpha="1" '
+        'colorSpace="custom" customColorSpace="sRGB"/>'
+    )
+    updated = re.sub(
+        r'<color key="backgroundColor"[^>]*?/>',
+        dark_color,
+        xml,
+    )
+    updated = updated.replace('contentMode="scaleAspectFit"', 'contentMode="scaleAspectFill"')
+
+    if updated != xml:
+        path.write_text(updated, encoding="utf-8")
+        print("iOS LaunchScreen.storyboard 已调整（深色背景 + 启动图铺满）")
+    else:
+        print("iOS LaunchScreen.storyboard 无需调整（跳过）")
+
+
 def main() -> None:
     ASSETS.mkdir(parents=True, exist_ok=True)
 
@@ -157,20 +289,9 @@ def main() -> None:
         print("skip Android: res dir not found")
 
     if IOS_ICON.is_dir():
-        ios_icons = [
-            ("AppIcon-20x20@2x.png", 40),
-            ("AppIcon-20x20@3x.png", 60),
-            ("AppIcon-29x29@2x.png", 58),
-            ("AppIcon-29x29@3x.png", 87),
-            ("AppIcon-40x40@2x.png", 80),
-            ("AppIcon-40x40@3x.png", 120),
-            ("AppIcon-60x60@2x.png", 120),
-            ("AppIcon-60x60@3x.png", 180),
-            ("AppIcon-1024x1024.png", 1024),
-        ]
-        for name, size in ios_icons:
-            save(draw_brand_circle(size, canvas_fill=BG), IOS_ICON / name)
-        print("iOS AppIcon updated")
+        _install_ios_icons()
+        _install_ios_splash()
+        _patch_ios_launch_screen()
     else:
         print("skip iOS: AppIcon.appiconset not found (ok if Android-only)")
 

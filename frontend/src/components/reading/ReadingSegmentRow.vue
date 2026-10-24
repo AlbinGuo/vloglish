@@ -41,8 +41,8 @@ const useHtml = computed(() =>
     class="rounded-xl border transition-colors cursor-pointer overflow-hidden hover:border-black/10 dark:hover:border-white/15"
     :class="
       active
-        ? 'border-amber-300/70 dark:border-amber-500/40 ring-1 ring-amber-200/60 dark:ring-amber-500/20 bg-white dark:bg-neutral-900'
-        : 'border-black/5 dark:border-white/10 bg-white dark:bg-neutral-900'
+        ? 'border-amber-300/70 dark:border-amber-500/40 ring-1 ring-amber-200/60 dark:ring-amber-500/20 bg-card'
+        : 'border-line-soft bg-card'
     "
     :data-reading-segment-id="segment.id"
     :data-reading-context="segment.english"

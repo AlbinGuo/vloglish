@@ -7,6 +7,7 @@ import {
 } from '@/composables/usePlayerControls'
 import { modeShowsChinese, type FullscreenCaptionMode, type SubtitleDisplayMode } from '@/utils/subtitleHtml'
 import { getFullscreenElement, subscribeFullscreenChange, toggleAppFullscreen } from '@/utils/fullscreen'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -430,24 +431,16 @@ const voiceModeLabel = computed(() =>
       </div>
 
       <button type="button" class="shrink-0 p-1 active:scale-95" title="上一句" @click="player.prevSentence()">
-        <svg class="w-9 h-9" viewBox="0 0 24 24" fill="currentColor">
-          <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-4.28 9.22a.75.75 0 0 0 0 1.06l3 3a.75.75 0 1 0 1.06-1.06l-1.72-1.72h5.69a.75.75 0 0 0 0-1.5h-5.69l1.72-1.72a.75.75 0 0 0-1.06-1.06l-3 3Z" />
-        </svg>
+        <AppIcon name="arrow-uturn-left" class="w-9 h-9" />
       </button>
 
       <button type="button" class="shrink-0 p-0.5 active:scale-95" :title="player.mainActionLabel.value" @click="handleMainAction">
-        <svg v-if="player.isPlaying.value || clonedSpeaking" class="w-11 h-11" viewBox="0 0 24 24" fill="currentColor">
-          <path fill-rule="evenodd" clip-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12ZM9 8.25a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75h.75a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H9Zm5.25 0a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75H15a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-.75Z" />
-        </svg>
-        <svg v-else class="w-11 h-11" viewBox="0 0 24 24" fill="currentColor">
-          <path fill-rule="evenodd" clip-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm14.024-.983a1.125 1.125 0 0 1 0 1.966l-5.603 3.113A1.125 1.125 0 0 1 9 15.113V8.887c0-.857.921-1.4 1.671-.983l5.603 3.113Z" />
-        </svg>
+        <AppIcon name="pause-circle" v-if="player.isPlaying.value || clonedSpeaking" class="w-11 h-11" />
+        <AppIcon v-else name="play-circle" class="w-11 h-11" />
       </button>
 
       <button type="button" class="shrink-0 p-1 active:scale-95" title="下一句" @click="player.nextSentence()">
-        <svg class="w-9 h-9" viewBox="0 0 24 24" fill="currentColor">
-          <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm4.28 10.28a.75.75 0 0 0 0-1.06l-3-3a.75.75 0 1 0-1.06 1.06l1.72 1.72H8.25a.75.75 0 0 0 0 1.5h5.69l-1.72 1.72a.75.75 0 0 0 1.06 1.06l3-3Z" />
-        </svg>
+        <AppIcon name="arrow-uturn-right" class="w-9 h-9" />
       </button>
 
       <button
@@ -460,28 +453,8 @@ const voiceModeLabel = computed(() =>
         @click.stop="emit('toggleChrome')"
       >
         <div class="w-10 h-10 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10">
-          <svg
-            v-if="chromeVisible !== false"
-            class="w-5 h-5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            aria-hidden="true"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
-          </svg>
-          <svg
-            v-else
-            class="w-5 h-5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            aria-hidden="true"
-          >
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
+          <AppIcon name="chevron-down" v-if="chromeVisible !== false" class="w-5 h-5" />
+          <AppIcon v-else name="menu" class="w-5 h-5" />
         </div>
       </button>
 
@@ -526,13 +499,8 @@ const voiceModeLabel = computed(() =>
         @click="toggleHideVideo"
       >
         <div class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10">
-          <svg v-if="videoHidden" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
-          </svg>
-          <svg v-else class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-          </svg>
+          <AppIcon name="eye-off" v-if="videoHidden" class="w-4 h-4" />
+          <AppIcon v-else name="eye" class="w-4 h-4" />
         </div>
         <span class="text-[11px] leading-tight mt-0.5">{{ videoHidden ? '显示视频' : '隐藏视频' }}</span>
       </button>
@@ -548,13 +516,8 @@ const voiceModeLabel = computed(() =>
           class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10"
           :class="subtitlesHidden ? 'text-orange-500' : ''"
         >
-          <svg v-if="subtitlesHidden" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h10.5m-10.5 5.25H12" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="m15 15 6 6m0-6-6 6" />
-          </svg>
-          <svg v-else class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-          </svg>
+          <AppIcon name="subtitles-off" v-if="subtitlesHidden" class="w-4 h-4" />
+          <AppIcon v-else name="subtitles" class="w-4 h-4" />
         </div>
         <span class="text-[11px] leading-tight mt-0.5">{{ subtitlesHidden ? '显示字幕' : '隐藏字幕' }}</span>
       </button>
@@ -572,8 +535,8 @@ const voiceModeLabel = computed(() =>
             class="px-1.5 h-7 rounded-full text-[10px] font-medium transition-colors"
             :class="
               fsCaptionMode === 'both'
-                ? 'bg-neutral-700 text-white dark:bg-neutral-200 dark:text-neutral-900'
-                : 'text-neutral-600 dark:text-neutral-300'
+                ? 'bg-neutral-700 text-ink-inverse dark:bg-neutral-200'
+                : 'text-ink-soft'
             "
             :aria-pressed="fsCaptionMode === 'both'"
             title="中英字幕"
@@ -586,8 +549,8 @@ const voiceModeLabel = computed(() =>
             class="px-1.5 h-7 rounded-full text-[10px] font-medium transition-colors"
             :class="
               fsCaptionMode === 'en'
-                ? 'bg-neutral-700 text-white dark:bg-neutral-200 dark:text-neutral-900'
-                : 'text-neutral-600 dark:text-neutral-300'
+                ? 'bg-neutral-700 text-ink-inverse dark:bg-neutral-200'
+                : 'text-ink-soft'
             "
             :aria-pressed="fsCaptionMode === 'en'"
             title="仅英文字幕"
@@ -600,8 +563,8 @@ const voiceModeLabel = computed(() =>
             class="px-1.5 h-7 rounded-full text-[10px] font-medium transition-colors"
             :class="
               fsCaptionMode === 'blind'
-                ? 'bg-neutral-700 text-white dark:bg-neutral-200 dark:text-neutral-900'
-                : 'text-neutral-600 dark:text-neutral-300'
+                ? 'bg-neutral-700 text-ink-inverse dark:bg-neutral-200'
+                : 'text-ink-soft'
             "
             :aria-pressed="fsCaptionMode === 'blind'"
             title="盲听，不显示字幕"
@@ -620,12 +583,8 @@ const voiceModeLabel = computed(() =>
         @click="toggleFullscreen"
       >
         <div class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10">
-          <svg v-if="isFullscreen" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" />
-          </svg>
-          <svg v-else class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-          </svg>
+          <AppIcon name="fullscreen" v-if="isFullscreen" class="w-4 h-4" />
+          <AppIcon v-else name="fullscreen-exit" class="w-4 h-4" />
         </div>
         <span class="text-[11px] leading-tight mt-0.5">全屏</span>
       </button>
@@ -652,9 +611,7 @@ const voiceModeLabel = computed(() =>
         title="上一句"
         @click="player.prevSentence()"
       >
-        <svg class="w-8 h-8 text-neutral-800 dark:text-neutral-200" viewBox="0 0 24 24" fill="currentColor">
-          <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-4.28 9.22a.75.75 0 0 0 0 1.06l3 3a.75.75 0 1 0 1.06-1.06l-1.72-1.72h5.69a.75.75 0 0 0 0-1.5h-5.69l1.72-1.72a.75.75 0 0 0-1.06-1.06l-3 3Z" />
-        </svg>
+        <AppIcon name="arrow-uturn-left" class="w-8 h-8 text-neutral-800 dark:text-neutral-200" />
         <span class="text-[11px] leading-tight mt-0.5">上一句</span>
       </button>
 
@@ -665,12 +622,8 @@ const voiceModeLabel = computed(() =>
         :title="player.mainActionLabel.value"
         @click="handleMainAction"
       >
-        <svg v-if="player.isPlaying.value || clonedSpeaking" class="w-8 h-8 text-neutral-800 dark:text-neutral-200" viewBox="0 0 24 24" fill="currentColor">
-          <path fill-rule="evenodd" clip-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12ZM9 8.25a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75h.75a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H9Zm5.25 0a.75.75 0 0 0-.75.75v6c0 .414.336.75.75.75H15a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-.75Z" />
-        </svg>
-        <svg v-else class="w-8 h-8 text-neutral-800 dark:text-neutral-200" viewBox="0 0 24 24" fill="currentColor">
-          <path fill-rule="evenodd" clip-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm14.024-.983a1.125 1.125 0 0 1 0 1.966l-5.603 3.113A1.125 1.125 0 0 1 9 15.113V8.887c0-.857.921-1.4 1.671-.983l5.603 3.113Z" />
-        </svg>
+        <AppIcon name="pause-circle" v-if="player.isPlaying.value || clonedSpeaking" class="w-8 h-8 text-neutral-800 dark:text-neutral-200" />
+        <AppIcon v-else name="play-circle" class="w-8 h-8 text-neutral-800 dark:text-neutral-200" />
         <span class="text-[11px] leading-tight mt-0.5">{{ clonedSpeaking ? '停止' : player.mainActionLabel.value }}</span>
       </button>
 
@@ -681,9 +634,7 @@ const voiceModeLabel = computed(() =>
         title="下一句"
         @click="player.nextSentence()"
       >
-        <svg class="w-8 h-8 text-neutral-800 dark:text-neutral-200" viewBox="0 0 24 24" fill="currentColor">
-          <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm4.28 10.28a.75.75 0 0 0 0-1.06l-3-3a.75.75 0 1 0-1.06 1.06l1.72 1.72H8.25a.75.75 0 0 0 0 1.5h5.69l-1.72 1.72a.75.75 0 0 0 1.06 1.06l3-3Z" />
-        </svg>
+        <AppIcon name="arrow-uturn-right" class="w-8 h-8 text-ink-soft" />
         <span class="text-[11px] leading-tight mt-0.5">下一句</span>
       </button>
 
@@ -724,25 +675,12 @@ const voiceModeLabel = computed(() =>
         <button
           type="button"
           class="flex flex-col items-center text-xs transition-all active:scale-95 focus:outline-none cursor-pointer"
-          :class="loopActive ? 'text-neutral-900 dark:text-neutral-100' : ''"
+          :class="loopActive ? 'text-ink' : ''"
           title="单句循环与句末停下"
           @click.stop="toggleLoopMenu"
         >
           <div class="relative w-8 h-8 flex items-center justify-center">
-            <svg
-              class="w-8 h-8"
-              :class="
-                loopActive || player.pauseAfterSentence.value
-                  ? 'text-amber-600 dark:text-amber-400'
-                  : ''
-              "
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-            >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
-            </svg>
+            <AppIcon name="loop" class="w-8 h-8" />
             <span
               class="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tabular-nums"
               :class="
@@ -778,9 +716,7 @@ const voiceModeLabel = computed(() =>
               : 'bg-black/5 dark:bg-white/10'
           "
         >
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          </svg>
+          <AppIcon name="history" class="w-4 h-4" />
         </div>
         <span
           class="text-[11px] leading-tight mt-0.5"
@@ -808,7 +744,7 @@ const voiceModeLabel = computed(() =>
         @click.self="moreOpen = false"
       >
         <div
-          class="w-full max-w-lg rounded-t-2xl bg-white dark:bg-neutral-900 shadow-2xl border-t border-black/10 dark:border-white/10 pb-[env(safe-area-inset-bottom)]"
+          class="w-full max-w-lg rounded-t-2xl bg-card shadow-2xl border-t border-black/10 dark:border-white/10 pb-[env(safe-area-inset-bottom)]"
           @click.stop
         >
           <div class="flex justify-center pt-3 pb-2">
@@ -817,12 +753,12 @@ const voiceModeLabel = computed(() =>
           <p class="text-sm font-medium text-center mb-3">更多控制</p>
           <div class="grid grid-cols-4 gap-3 px-4 pb-4">
             <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="toggleHideVideo(); moreOpen = false">
-              <div class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">{{ videoHidden ? '显' : '隐' }}</div>
+              <div class="w-11 h-11 rounded-full bg-sunken flex items-center justify-center">{{ videoHidden ? '显' : '隐' }}</div>
               <span>{{ videoHidden ? '显示视频' : '隐藏视频' }}</span>
             </button>
             <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="toggleHideSubtitles(); moreOpen = false">
               <div
-                class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center"
+                class="w-11 h-11 rounded-full bg-sunken flex items-center justify-center"
                 :class="subtitlesHidden ? 'text-orange-500' : ''"
               >
                 <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -951,7 +887,7 @@ const voiceModeLabel = computed(() =>
               :class="
                 player.playbackRate.value === r
                   ? 'bg-neutral-600 border-neutral-600 text-white'
-                  : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800'
+                  : 'border-neutral-200 hover:bg-sunken dark:border-neutral-700'
               "
               @click="selectRate(r)"
             >
@@ -992,7 +928,7 @@ const voiceModeLabel = computed(() =>
               :class="
                 player.sentenceLoopCount.value === n
                   ? 'bg-neutral-600 border-neutral-600 text-white'
-                  : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800'
+                  : 'border-neutral-200 hover:bg-sunken dark:border-neutral-700'
               "
               @click="selectLoopCount(n)"
             >
@@ -1006,7 +942,7 @@ const voiceModeLabel = computed(() =>
               :class="
                 player.pauseAfterSentence.value
                   ? 'bg-orange-50 text-orange-900 dark:bg-orange-950/50 dark:text-orange-100'
-                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+                  : 'hover:bg-sunken text-ink-soft'
               "
               @click="togglePauseAfterSentence"
             >
@@ -1034,8 +970,8 @@ const voiceModeLabel = computed(() =>
                 player.pauseAfterSentence.value
                   ? 'opacity-40 cursor-not-allowed text-neutral-400'
                   : player.autoAdvanceAfterLoop.value
-                    ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
-                    : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+                    ? 'bg-amber-50 text-warning dark:bg-amber-950/50'
+                    : 'hover:bg-sunken text-ink-soft'
               "
               :disabled="player.pauseAfterSentence.value"
               @click="toggleAutoAdvanceAfterLoop"
@@ -1066,8 +1002,8 @@ const voiceModeLabel = computed(() =>
               class="w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors"
               :class="
                 player.dictationAfterLoop.value
-                  ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
-                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+                  ? 'bg-amber-50 text-warning dark:bg-amber-950/50'
+                  : 'hover:bg-sunken text-ink-soft'
               "
               @click="toggleDictationAfterLoop"
             >
@@ -1118,7 +1054,7 @@ const voiceModeLabel = computed(() =>
             :class="
               player.playbackRate.value === r
                 ? 'bg-neutral-600 border-neutral-600 text-white'
-                : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800'
+                : 'border-neutral-200 hover:bg-sunken dark:border-neutral-700'
             "
             @click="selectRate(r)"
           >
@@ -1156,7 +1092,7 @@ const voiceModeLabel = computed(() =>
             :class="
               player.sentenceLoopCount.value === n
                 ? 'bg-neutral-600 border-neutral-600 text-white'
-                : 'border-neutral-200 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800'
+                : 'border-neutral-200 hover:bg-sunken dark:border-neutral-700'
             "
             @click="selectLoopCount(n)"
           >
@@ -1170,7 +1106,7 @@ const voiceModeLabel = computed(() =>
             :class="
               player.pauseAfterSentence.value
                 ? 'bg-orange-50 text-orange-900 dark:bg-orange-950/50 dark:text-orange-100'
-                : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+                : 'hover:bg-sunken text-ink-soft'
             "
             title="按循环次数连播，播满后暂停"
             @click="togglePauseAfterSentence"
@@ -1199,8 +1135,8 @@ const voiceModeLabel = computed(() =>
               player.pauseAfterSentence.value
                 ? 'opacity-40 cursor-not-allowed text-neutral-400'
                 : player.autoAdvanceAfterLoop.value
-                  ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
-                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+                  ? 'bg-amber-50 text-warning dark:bg-amber-950/50'
+                  : 'hover:bg-sunken text-ink-soft'
             "
             :disabled="player.pauseAfterSentence.value"
             :title="
@@ -1236,8 +1172,8 @@ const voiceModeLabel = computed(() =>
             class="w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors"
             :class="
               player.dictationAfterLoop.value
-                ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200'
-                : 'hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+                ? 'bg-amber-50 text-warning dark:bg-amber-950/50'
+                : 'hover:bg-sunken text-ink-soft'
             "
             :title="
               player.autoAdvanceAfterLoop.value

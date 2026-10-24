@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '@/components/AppIcon.vue'
 withDefaults(
   defineProps<{
     size?: number
@@ -14,18 +15,6 @@ withDefaults(
     :style="{ width: `${size}px`, height: `${size}px` }"
     aria-hidden="true"
   >
-    <svg
-      :width="size"
-      :height="size"
-      viewBox="0 0 32 32"
-      xmlns="http://www.w3.org/2000/svg"
-      class="block"
-    >
-      <circle cx="16" cy="16" r="16" class="fill-neutral-900 dark:fill-white" />
-      <path
-        d="M10.2 9.6h3.05l2.55 8.35L18.35 9.6h3.05L16.95 23.1h-1.9L10.2 9.6Z"
-        class="fill-white dark:fill-neutral-900"
-      />
-    </svg>
+    <AppIcon name="brand-mark" class="block" />
   </span>
 </template>

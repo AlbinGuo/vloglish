@@ -31,7 +31,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         @click="close"
       />
       <div
-        class="relative w-full max-w-sm rounded-2xl bg-white dark:bg-neutral-900 p-5 shadow-xl border border-black/5 dark:border-white/10"
+        class="relative w-full max-w-sm rounded-2xl bg-card p-5 shadow-xl border border-line-soft"
       >
         <div class="flex items-start justify-between gap-3">
           <div>
@@ -44,7 +44,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           </div>
           <button
             type="button"
-            class="w-8 h-8 rounded-full text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 shrink-0"
+            class="w-8 h-8 rounded-full text-neutral-500 hover:bg-sunken shrink-0"
             aria-label="关闭"
             @click="close"
           >
@@ -52,7 +52,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           </button>
         </div>
         <div
-          class="mt-4 flex justify-center items-center rounded-xl bg-neutral-50 dark:bg-neutral-950 border border-black/5 dark:border-white/10 p-4"
+          class="mt-4 flex justify-center items-center rounded-xl bg-canvas border border-line-soft p-4"
         >
           <img
             src="/author-wechat-qr.png"

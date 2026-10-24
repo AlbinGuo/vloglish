@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useTheme } from '@/composables/useTheme'
+import AppIcon from '@/components/AppIcon.vue'
 
 const { resolvedTheme, setThemeMode } = useTheme()
 
@@ -16,39 +17,12 @@ function toggleTheme() {
 <template>
   <button
     type="button"
-    class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800 transition-colors"
+    class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-ink-soft hover:text-black hover:bg-sunken dark:hover:text-white transition-colors"
     :title="ariaLabel"
     :aria-label="ariaLabel"
     @click="toggleTheme"
   >
-    <svg
-      v-if="isDark"
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.75"
-      class="w-5 h-5"
-      aria-hidden="true"
-    >
-      <path
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        d="M21 14.5A7.5 7.5 0 0 1 9.5 3 6.5 6.5 0 1 0 21 14.5Z"
-      />
-    </svg>
-    <svg
-      v-else
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.75"
-      class="w-5 h-5"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="4" />
-      <path stroke-linecap="round" d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-    </svg>
+    <AppIcon name="moon" v-if="isDark" class="w-5 h-5" />
+    <AppIcon v-else name="sun" class="w-5 h-5" />
   </button>
 </template>

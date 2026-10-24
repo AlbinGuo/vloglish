@@ -35,7 +35,7 @@ function openEpisode(videoId: string) {
 </script>
 
 <template>
-  <div class="min-h-dvh bg-neutral-50 dark:bg-neutral-950 flex flex-col">
+  <div class="min-h-dvh bg-canvas flex flex-col">
     <div v-if="!store.verified" class="flex-1 flex items-center justify-center p-6">
       <div class="w-full max-w-sm space-y-6 text-center">
         <div>
@@ -54,7 +54,7 @@ function openEpisode(videoId: string) {
           <button
             type="submit"
             :disabled="store.loading || !inputCode"
-            class="w-full py-3 bg-black text-white rounded-xl font-medium disabled:opacity-40 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+            class="w-full py-3 bg-black text-ink-inverse rounded-xl font-medium disabled:opacity-40 dark:bg-neutral-100 dark:hover:bg-white"
           >
             {{ store.loading ? '验证中...' : '继续' }}
           </button>
@@ -79,14 +79,14 @@ function openEpisode(videoId: string) {
           class="cursor-pointer group"
           @click="openEpisode(ep.video_id)"
         >
-          <div class="rounded-2xl overflow-hidden border border-black/5 dark:border-white/10 shadow-sm hover:opacity-90 transition">
-            <div class="relative aspect-video bg-neutral-200 dark:bg-neutral-800">
+          <div class="rounded-2xl overflow-hidden border border-line-soft shadow-sm hover:opacity-90 transition">
+            <div class="relative aspect-video bg-sunken">
               <img :src="resolveMediaUrl(ep.cover)" :alt="ep.short_title" class="w-full h-full object-cover" loading="lazy" />
               <span class="absolute bottom-2 right-2 text-white text-xs bg-black/60 px-2 py-0.5 rounded">
                 {{ formatDuration(ep.clip_length) }}
               </span>
             </div>
-            <div class="p-4 bg-white dark:bg-neutral-900">
+            <div class="p-4 bg-card">
               <div class="flex items-center gap-2 mb-1">
                 <span>{{ ep.author.nationality }}</span>
                 <span class="text-sm font-medium">{{ ep.author.name }}</span>

@@ -8,11 +8,14 @@
     "build": "vue-tsc -b && vite build",
     "build:docker": "vite build",
     "build:app-assets": "vite build --mode app --outDir ../app/www --emptyOutDir && node scripts/compatWebViewCss.mjs",
+    "verify:tokens": "node scripts/check-design-tokens.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/app": "^7.1.2",
     "@capacitor/core": "^7.6.8",
+    "@capacitor/push-notifications": "^7.0.7",
     "@capacitor/splash-screen": "^7.0.5",
     "@capacitor/status-bar": "^7.0.6",
     "axios": "^1.7.9",

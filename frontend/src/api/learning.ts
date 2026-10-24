@@ -76,6 +76,15 @@ export async function getEpisodeProgress(videoId: string) {
   return data
 }
 
+/** 记录一次打开/浏览（用于"浏览记录"），失败静默 */
+export async function recordEpisodeView(videoId: string) {
+  try {
+    await api.post(`/api/learning/view/${videoId}/`)
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function updateEpisodeProgress(
   videoId: string,
   payload: Partial<{

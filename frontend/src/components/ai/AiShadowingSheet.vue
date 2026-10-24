@@ -14,10 +14,12 @@ import { fetchOralRemoteAudio } from '@/api/oralEvalAudio'
 import { getPracticeRecord, uploadPracticeAudio } from '@/api/practiceRecords'
 import { READING_TTS_KEY } from '@/composables/useReadingTts'
 import { useOralEvalEngine } from '@/composables/useOralEvalEngine'
+import { nativeSpeechAvailable, startNativeListen, type NativeListenController } from '@/services/nativeSpeech'
 import { playWordPronunciation, stopSpeaking } from '@/utils/speakWord'
 import { buildPracticeFeedbackSpeech } from '@/utils/practiceFeedbackSpeech'
 import { formatAudioClock, probeAudioDuration } from '@/utils/audioDuration'
 import { highlightVocabLinkText, type VocabSummaryGroup } from '@/utils/vocabSummary'
+import AppIcon from '@/components/AppIcon.vue'
 
 /** 篇章评测：按段落展示，播放中随语音切换浅底 */
 export type PassagePracticeBlock = {
@@ -125,6 +127,7 @@ const oral = useOralEvalEngine()
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let recognition: any = null
+let nativeController: NativeListenController | null = null
 let autoPlayTimer: ReturnType<typeof setTimeout> | null = null
 let demoPlayingTimer: ReturnType<typeof setTimeout> | null = null
 let demoAudio: HTMLAudioElement | null = null
@@ -252,12 +255,12 @@ const playDemoLabel = computed(() => {
 const recordHint = computed(() => {
   if (loading.value) return '正在评分…'
   if (listening.value && useOral.value) return '正在录音… 说完点一下结束'
-  if (listening.value) return '正在听你说… 说完再点停止'
+  if (listening.value) return '正在听你说… 说完停顿一下即可自动点评'
   if (micUnsupported.value) return '可用下方输入框提交英文'
   if (useOral.value && practiceMode.value === 'word') return '点麦克风读出这个单词'
   if (useOral.value && practiceMode.value === 'passage') return '点麦克风朗读整段'
   if (useOral.value) return '点麦克风跟读，系统直接评发音'
-  return '点麦克风跟读，停止后自动点评'
+  return '点麦克风跟读，说完停顿一下自动点评'
 })
 
 const dimensionItems = computed(() => {
@@ -277,7 +280,7 @@ const dimensionItems = computed(() => {
 function wordToneClass(score: number) {
   if (score >= 85) return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
   if (score >= 75) return 'bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300'
-  if (score >= 55) return 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
+  if (score >= 55) return 'bg-sunken text-ink-soft'
   return 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300'
 }
 
@@ -895,6 +898,16 @@ function resetState() {
 }
 
 function stopListening(abort = false) {
+  if (nativeController) {
+    const c = nativeController
+    nativeController = null
+    void c.stop()
+    listening.value = false
+    if (abort) {
+      autoSubmitArmed.value = false
+    }
+    return
+  }
   try {
     if (abort) recognition?.abort?.()
     else recognition?.stop?.()
@@ -1154,9 +1167,16 @@ function goRecord() {
   error.value = ''
   result.value = null
   step.value = 'record'
+  // 「开始跟读」直接进入录音，省得用户以为没反应
+  void startListening()
 }
 
 async function resolveEngine() {
+  // App(原生)里阿里云 Web SDK 不可用：直接用「识别点评」+ 原生语音识别
+  if (nativeSpeechAvailable()) {
+    engineMode.value = 'llm'
+    return
+  }
   engineMode.value = 'unknown'
   const ok = await oral.probe()
   engineMode.value = ok ? 'oral' : 'llm'
@@ -1295,6 +1315,11 @@ async function startListening() {
   silencePlaybackForMic()
   emit('recording', true)
 
+  if (nativeSpeechAvailable()) {
+    await startNativeListening()
+    return
+  }
+
   const Ctor = getRecognitionCtor()
   if (!Ctor) {
     micUnsupported.value = true
@@ -1318,7 +1343,7 @@ async function startListening() {
   recognition.interimResults = true
   recognition.continuous = false
   recognition.maxAlternatives = 1
-  recognition.onresult = (event) => {
+  recognition.onresult = (event: any) => {
     let text = ''
     for (let i = 0; i < event.results.length; i++) {
       text += event.results[i][0]?.transcript || ''
@@ -1326,7 +1351,7 @@ async function startListening() {
     transcript.value = text.trim()
     if (transcript.value) error.value = ''
   }
-  recognition.onerror = (event) => {
+  recognition.onerror = (event: any) => {
     listening.value = false
     emit('recording', false)
     const code = String(event?.error || '')
@@ -1364,6 +1389,49 @@ async function startListening() {
       error.value = '语音识别启动失败，请输入英文后点评'
     }
   }
+}
+
+async function startNativeListening() {
+  micUnsupported.value = false
+  listening.value = true
+  await syncNativeController()
+  if (!nativeController) {
+    // 启动失败时 startNativeListen 已通过 onError 提示
+    if (!error.value) {
+      micUnsupported.value = true
+      error.value = '当前设备语音识别不可用，请输入英文后点评'
+    }
+    listening.value = false
+    emit('recording', false)
+  }
+}
+
+async function syncNativeController() {
+  nativeController = await startNativeListen({
+    language: 'en-US',
+    onPartial: (t) => {
+      transcript.value = t
+      if (t) error.value = ''
+    },
+    onFinal: (t) => {
+      if (t) transcript.value = t
+      nativeController = null
+      listening.value = false
+      emit('recording', false)
+      const text = transcript.value.trim()
+      if (text && autoSubmitArmed.value && !loading.value && !result.value) {
+        autoSubmitArmed.value = false
+        void submitFeedback()
+      }
+    },
+    onError: (m) => {
+      nativeController = null
+      listening.value = false
+      emit('recording', false)
+      micUnsupported.value = true
+      error.value = m || '语音识别不可用，请输入英文后点评'
+    },
+  })
 }
 
 function toggleMic() {
@@ -1447,6 +1515,7 @@ watch(
       document.body.style.overflow = v ? 'hidden' : ''
     }
     if (!v) {
+      stopListening(true)
       resetState()
       return
     }
@@ -1559,7 +1628,7 @@ onUnmounted(() => {
               <p class="text-[12px] text-neutral-500 dark:text-neutral-400">
                 <span
                   class="font-medium"
-                  :class="useOral ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'"
+                  :class="useOral ? 'text-emerald-700 dark:text-emerald-400' : 'text-warning'"
                 >{{ engineLabel }}</span>
                 <span class="mx-1 opacity-40">·</span>
                 <span>{{ step === 'listen' ? '听示范' : step === 'record' ? '跟读录音' : '查看结果' }}</span>
@@ -1567,13 +1636,11 @@ onUnmounted(() => {
             </div>
             <button
               type="button"
-              class="w-9 h-9 flex items-center justify-center rounded-full text-neutral-400 hover:text-neutral-700 hover:bg-black/5 dark:hover:text-neutral-200 dark:hover:bg-white/10 shrink-0"
+              class="w-9 h-9 flex items-center justify-center rounded-full text-neutral-400 hover:text-ink-soft hover:bg-black/5 dark:hover:bg-white/10 shrink-0"
               aria-label="关闭"
               @click="$emit('close')"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
+              <AppIcon name="close" :size="18" />
             </button>
           </div>
 
@@ -1588,7 +1655,7 @@ onUnmounted(() => {
                   ? 'bg-amber-500'
                   : i < (['listen', 'record', 'result'] as Step[]).indexOf(step)
                     ? 'bg-amber-300/80 dark:bg-amber-700/60'
-                    : 'bg-neutral-200 dark:bg-neutral-800'
+                    : 'bg-sunken'
               "
             />
           </div>
@@ -1628,7 +1695,7 @@ onUnmounted(() => {
                   class="rounded-xl px-2.5 py-2 transition-colors"
                   :class="
                     i === activeBlockIndex
-                      ? 'bg-amber-50 dark:bg-amber-950/40 ring-1 ring-amber-200/80 dark:ring-amber-800/50'
+                      ? 'bg-warning-soft ring-1 ring-amber-200/80 dark:ring-amber-800/50'
                       : 'bg-transparent'
                   "
                 >
@@ -1695,7 +1762,7 @@ onUnmounted(() => {
                   :class="
                     demoVoice === 'original'
                       ? 'bg-white text-amber-800 shadow-sm dark:bg-neutral-700 dark:text-amber-200'
-                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                      : 'text-ink-faint hover:text-neutral-700'
                   "
                   @click="setDemoVoice('original')"
                 >
@@ -1707,7 +1774,7 @@ onUnmounted(() => {
                   :class="
                     demoVoice === 'Ryan'
                       ? 'bg-white text-amber-800 shadow-sm dark:bg-neutral-700 dark:text-amber-200'
-                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                      : 'text-ink-faint hover:text-neutral-700'
                   "
                   @click="setDemoVoice('Ryan')"
                 >
@@ -1719,7 +1786,7 @@ onUnmounted(() => {
                   :class="
                     demoVoice === 'Katerina'
                       ? 'bg-white text-amber-800 shadow-sm dark:bg-neutral-700 dark:text-amber-200'
-                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                      : 'text-ink-faint hover:text-neutral-700'
                   "
                   @click="setDemoVoice('Katerina')"
                 >
@@ -1736,7 +1803,7 @@ onUnmounted(() => {
                   :class="
                     demoRate === 0.5
                       ? 'bg-white text-amber-800 shadow-sm dark:bg-neutral-700 dark:text-amber-200'
-                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                      : 'text-ink-faint hover:text-neutral-700'
                   "
                   @click="setDemoRate(0.5)"
                 >
@@ -1748,7 +1815,7 @@ onUnmounted(() => {
                   :class="
                     demoRate === 1
                       ? 'bg-white text-amber-800 shadow-sm dark:bg-neutral-700 dark:text-amber-200'
-                      : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
+                      : 'text-ink-faint hover:text-neutral-700'
                   "
                   @click="setDemoRate(1)"
                 >
@@ -1801,42 +1868,9 @@ onUnmounted(() => {
                       class="absolute inset-0 rounded-full bg-amber-400/40 animate-ping"
                       aria-hidden="true"
                     />
-                    <svg
-                      v-if="demoLoading"
-                      class="relative animate-spin"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.2"
-                      aria-hidden="true"
-                    >
-                      <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
-                    </svg>
-                    <svg
-                      v-else-if="demoPlaying"
-                      class="relative"
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <rect x="6" y="5" width="4" height="14" rx="1" />
-                      <rect x="14" y="5" width="4" height="14" rx="1" />
-                    </svg>
-                    <svg
-                      v-else
-                      class="relative ml-0.5"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path d="M8 5v14l11-7L8 5z" />
-                    </svg>
+                    <AppIcon name="spinner" v-if="demoLoading" class="relative animate-spin" :size="20" />
+                    <AppIcon name="pause" v-else-if="demoPlaying" class="relative" :size="18" />
+                    <AppIcon v-else name="play" class="relative ml-0.5" :size="20" />
                   </span>
 
                   <span class="min-w-0 flex-1">
@@ -1900,11 +1934,7 @@ onUnmounted(() => {
                   <span
                     class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/18 ring-1 ring-white/25 transition group-hover:scale-105"
                   >
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                      <path
-                        d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"
-                      />
-                    </svg>
+                    <AppIcon name="mic" :size="22" />
                   </span>
                   <span class="min-w-0 flex-1">
                     <span class="block text-[15px] font-semibold tracking-wide">开始跟读</span>
@@ -1912,25 +1942,14 @@ onUnmounted(() => {
                       {{ useOral ? '对着麦克风读，系统直接评发音' : '跟读后自动识别并点评' }}
                     </span>
                   </span>
-                  <svg
-                    class="shrink-0 opacity-80 transition group-hover:translate-x-0.5"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.2"
-                    aria-hidden="true"
-                  >
-                    <path d="M9 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
+                  <AppIcon name="check" class="shrink-0 opacity-80 transition group-hover:translate-x-0.5" :size="18" />
                 </span>
               </button>
             </div>
 
             <button
               type="button"
-              class="mt-1 text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition"
+              class="mt-1 text-sm text-neutral-400 hover:text-ink-soft transition"
               @click="$emit('close')"
             >
               稍后再练
@@ -1958,26 +1977,9 @@ onUnmounted(() => {
                 class="absolute inset-[-6px] rounded-full border-2 border-rose-300/70 animate-ping"
                 aria-hidden="true"
               />
-              <svg
-                v-if="loading"
-                class="animate-spin"
-                width="28"
-                height="28"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
-              </svg>
-              <svg v-else-if="!listening" width="30" height="30" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"
-                />
-              </svg>
-              <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="6" y="6" width="12" height="12" rx="2" />
-              </svg>
+              <AppIcon name="spinner" v-if="loading" class="animate-spin" :size="28" />
+              <AppIcon name="mic" v-else-if="!listening" :size="30" />
+              <AppIcon v-else name="stop" :size="24" />
             </button>
 
             <p class="text-sm text-neutral-600 dark:text-neutral-300 text-center min-h-[1.25rem] px-2">
@@ -2029,7 +2031,7 @@ onUnmounted(() => {
                   <p
                     class="text-lg font-semibold"
                     :class="{
-                      'text-emerald-700 dark:text-emerald-300': scoreTone === 'good',
+                      'text-success': scoreTone === 'good',
                       'text-amber-700 dark:text-amber-300': scoreTone === 'mid',
                       'text-rose-700 dark:text-rose-300': scoreTone === 'low',
                     }"
@@ -2063,31 +2065,9 @@ onUnmounted(() => {
                     class="relative flex h-6 w-6 items-center justify-center rounded-full bg-white/20"
                     aria-hidden="true"
                   >
-                    <svg
-                      v-if="feedbackTtsLoading"
-                      class="animate-spin"
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.2"
-                    >
-                      <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
-                    </svg>
-                    <svg
-                      v-else-if="feedbackTtsPlaying"
-                      width="11"
-                      height="11"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <rect x="6" y="5" width="4" height="14" rx="1" />
-                      <rect x="14" y="5" width="4" height="14" rx="1" />
-                    </svg>
-                    <svg v-else class="ml-0.5" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M8 5v14l11-7L8 5z" />
-                    </svg>
+                    <AppIcon name="spinner" v-if="feedbackTtsLoading" class="animate-spin" :size="12" />
+                    <AppIcon name="pause" v-else-if="feedbackTtsPlaying" :size="11" />
+                    <AppIcon v-else name="play" class="ml-0.5" :size="12" />
                   </span>
                   <span>
                     {{
@@ -2104,7 +2084,7 @@ onUnmounted(() => {
                   class="h-9 px-2.5 rounded-full text-[11px] font-medium transition touch-manipulation"
                   :class="
                     feedbackTtsMuted
-                      ? 'text-neutral-500 bg-neutral-100 dark:bg-neutral-800 dark:text-neutral-400'
+                      ? 'text-ink-faint bg-sunken'
                       : 'text-violet-700 bg-violet-50 dark:bg-violet-950/40 dark:text-violet-300'
                   "
                   :aria-label="feedbackTtsMuted ? '开启自动播报' : '关闭自动播报'"
@@ -2190,42 +2170,9 @@ onUnmounted(() => {
                       class="absolute inset-0 rounded-full bg-emerald-400/35 animate-ping"
                       aria-hidden="true"
                     />
-                    <svg
-                      v-if="playbackLoading"
-                      class="relative animate-spin"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.2"
-                      aria-hidden="true"
-                    >
-                      <path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round" />
-                    </svg>
-                    <svg
-                      v-else-if="playbackPlaying"
-                      class="relative"
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <rect x="6" y="5" width="4" height="14" rx="1" />
-                      <rect x="14" y="5" width="4" height="14" rx="1" />
-                    </svg>
-                    <svg
-                      v-else
-                      class="relative ml-0.5"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path d="M8 5v14l11-7L8 5z" />
-                    </svg>
+                    <AppIcon name="spinner" v-if="playbackLoading" class="relative animate-spin" :size="20" />
+                    <AppIcon name="pause" v-else-if="playbackPlaying" class="relative" :size="18" />
+                    <AppIcon v-else name="play" class="relative ml-0.5" :size="20" />
                   </span>
 
                   <span class="min-w-0 flex-1">
@@ -2311,18 +2258,7 @@ onUnmounted(() => {
                 @click="showTips = !showTips"
               >
                 <span>{{ showTips ? '收起建议' : '改进建议' }}</span>
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  class="transition-transform"
-                  :class="showTips ? 'rotate-180' : ''"
-                >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
+                <AppIcon name="chevron-down" class="transition-transform" :size="16" />
               </button>
               <div
                 v-if="showTips"
@@ -2382,7 +2318,7 @@ onUnmounted(() => {
           <template v-else>
             <button
               type="button"
-              class="flex-1 h-11 rounded-2xl text-sm border border-black/10 dark:border-white/15 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
+              class="flex-1 h-11 rounded-2xl text-sm border border-line-strong hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
               :disabled="loading || listening"
               @click.stop="retry"
             >

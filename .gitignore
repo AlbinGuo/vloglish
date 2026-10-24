@@ -6,6 +6,9 @@ backend/.env
 backend/db_switch.py
 *.pem
 *.key
+*.p8
+*.p12
+*.mobileprovision
 **/cookies.txt
 **/teco_session.json
 

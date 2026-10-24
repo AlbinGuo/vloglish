@@ -4,6 +4,7 @@ import { fetchWordLookup, getCachedWordLookup, type WordLookupMeta } from '@/com
 import type { EntryDetail } from '@/types'
 import { firstChineseDefinition, firstEnglishDefinition, primaryIpa } from '@/utils/entryDisplay'
 import { playWordPronunciation } from '@/utils/speakWord'
+import AppIcon from '@/components/AppIcon.vue'
 
 defineOptions({ inheritAttrs: false })
 
@@ -88,15 +89,15 @@ function pickWordSpan(start: HTMLElement, root: HTMLElement): HTMLElement | null
       span = (span.querySelector(':scope > span') as HTMLElement | null) ?? span
     }
     if (span.parentElement?.classList.contains('subtitle-word-wrap')) {
-      const inner = span.parentElement.querySelector(':scope > span')
+      const inner: Element | null = span.parentElement.querySelector(':scope > span')
       if (inner instanceof HTMLElement) span = inner
     }
     if (span.classList.contains('intensive-gloss-unit')) {
-      const inner = span.querySelector('.intensive-gloss-word span, .intensive-gloss-word')
+      const inner: Element | null = span.querySelector('.intensive-gloss-word span, .intensive-gloss-word')
       if (inner instanceof HTMLElement) span = inner
     }
     if (span.classList.contains('intensive-gloss-word')) {
-      const inner = span.querySelector('span')
+      const inner: Element | null = span.querySelector('span')
       if (inner instanceof HTMLElement) span = inner
     }
 
@@ -364,9 +365,7 @@ defineExpose({ hostRef })
                 aria-label="朗读单词"
                 @click.stop="speakWord"
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
-                </svg>
+                <AppIcon name="volume-up" :size="15" />
               </button>
             </div>
             <p v-if="ipa" class="text-xs font-mono text-neutral-300 leading-snug">{{ ipa }}</p>

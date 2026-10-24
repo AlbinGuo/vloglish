@@ -7,6 +7,7 @@ import {
   vocabGroupTagClass,
   vocabLevelTagClass,
 } from '@/utils/vocabSummary'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -174,7 +175,7 @@ async function onAdd(item: VocabSummaryItem, index: number) {
     </p>
     <div v-else class="space-y-2">
       <div
-        class="sticky top-0 z-10 -mx-3 px-3 py-2 lg:-mx-4 lg:px-4 bg-white dark:bg-neutral-900 border-b border-black/5 dark:border-white/10"
+        class="sticky top-0 z-10 -mx-3 px-3 py-2 lg:-mx-4 lg:px-4 bg-card border-b border-black/5 dark:border-white/10"
       >
         <div class="flex items-center gap-2 min-h-[28px]">
           <div
@@ -212,7 +213,7 @@ async function onAdd(item: VocabSummaryItem, index: number) {
         >
           <div class="flex items-start gap-2.5">
             <span
-              class="shrink-0 mt-0.5 w-6 h-6 rounded-md bg-neutral-100 dark:bg-neutral-800 text-xs font-semibold text-neutral-500 dark:text-neutral-400 inline-flex items-center justify-center tabular-nums"
+              class="shrink-0 mt-0.5 w-6 h-6 rounded-md bg-sunken text-xs font-semibold text-neutral-500 dark:text-neutral-400 inline-flex items-center justify-center tabular-nums"
             >
               {{ index + 1 }}
             </span>
@@ -232,26 +233,26 @@ async function onAdd(item: VocabSummaryItem, index: number) {
                 v-if="item.note"
                 class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-300"
               >
-                <span class="text-neutral-400 dark:text-neutral-500">含义：</span>{{ item.note }}
+                <span class="text-ink-disabled">含义：</span>{{ item.note }}
               </p>
               <p
                 v-if="item.example"
                 class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-300"
               >
-                <span class="text-neutral-400 dark:text-neutral-500">例句：</span>{{ item.example }}
+                <span class="text-ink-disabled">例句：</span>{{ item.example }}
               </p>
               <p
                 v-if="item.zh"
                 class="text-sm leading-relaxed text-neutral-600 dark:text-neutral-300"
               >
-                <span class="text-neutral-400 dark:text-neutral-500">释义：</span>{{ item.zh }}
+                <span class="text-ink-disabled">释义：</span>{{ item.zh }}
               </p>
               <p
                 v-if="rowState[itemKey(item, index)]?.tip"
                 class="text-xs font-medium"
                 :class="
                   rowState[itemKey(item, index)]?.tipTone === 'err'
-                    ? 'text-red-600 dark:text-red-400'
+                    ? 'text-danger'
                     : 'text-emerald-600 dark:text-emerald-400'
                 "
               >
@@ -266,7 +267,7 @@ async function onAdd(item: VocabSummaryItem, index: number) {
               :class="
                 savedKeys.has(item.en.trim().toLowerCase())
                   ? 'border-emerald-500/40 bg-emerald-500 text-white'
-                  : 'border-black/10 dark:border-white/15 bg-neutral-50 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                  : 'border-line-strong bg-neutral-50 dark:bg-neutral-800 text-ink-soft hover:bg-neutral-100 dark:hover:bg-neutral-700'
               "
               :disabled="rowState[itemKey(item, index)]?.saving"
               :title="savedKeys.has(item.en.trim().toLowerCase()) ? '已在生词本' : '加入生词本'"
@@ -277,30 +278,8 @@ async function onAdd(item: VocabSummaryItem, index: number) {
               "
               @click.stop="onAdd(item, index)"
             >
-              <svg
-                v-if="savedKeys.has(item.en.trim().toLowerCase())"
-                class="h-3.5 w-3.5"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.3a1 1 0 0 1-1.432.012l-3.25-3.2a1 1 0 1 1 1.4-1.426l2.53 2.49 6.54-6.58a1 1 0 0 1 1.456-.01Z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-              <svg
-                v-else
-                class="h-3.5 w-3.5"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.2"
-                aria-hidden="true"
-              >
-                <path stroke-linecap="round" d="M10 5v10M5 10h10" />
-              </svg>
+              <AppIcon name="check-xs" v-if="savedKeys.has(item.en.trim().toLowerCase())" class="h-3.5 w-3.5" />
+              <AppIcon v-else name="plus" class="h-3.5 w-3.5" />
             </button>
           </div>
         </li>

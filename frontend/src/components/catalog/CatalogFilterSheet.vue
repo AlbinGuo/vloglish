@@ -8,16 +8,19 @@ import { useCatalogStore, type CatalogDurationFilter } from '@/stores/catalog'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 import { useSiteConfigStore } from '@/stores/siteConfig'
 import { isMobileAppBuild } from '@/utils/platform'
+import AppIcon from '@/components/AppIcon.vue'
 
 const props = withDefaults(
   defineProps<{
     open: boolean
     showSubmitEntry?: boolean
+    search?: string
+    searchPlaceholder?: string
   }>(),
-  { showSubmitEntry: true },
+  { showSubmitEntry: true, search: '', searchPlaceholder: '搜索视频名称或作者' },
 )
 
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; 'update:search': [value: string] }>()
 
 const auth = useAuthStore()
 const siteConfig = useSiteConfigStore()
@@ -51,13 +54,13 @@ const mySubmissionsLink = computed(() =>
 )
 
 const segmentIdle =
-  'text-neutral-500 dark:text-neutral-400'
+  'text-ink-faint'
 const segmentActive =
-  'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-sm'
+  'bg-card text-ink shadow-sm'
 const pillIdle =
-  'border-black/10 bg-white text-neutral-700 dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-300'
+  'border-line bg-card text-ink-soft'
 const pillActive =
-  'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-100 dark:text-neutral-900'
+  'border-neutral-900 bg-ink text-ink-inverse dark:border-neutral-200'
 
 watch(
   () => props.open,
@@ -84,6 +87,10 @@ async function onReset() {
   if (browseMode.value !== 'all') setBrowseMode('all')
   await store.clearFilters()
 }
+
+function onSearchInput(e: Event) {
+  emit('update:search', (e.target as HTMLInputElement).value)
+}
 </script>
 
 <template>
@@ -94,7 +101,7 @@ async function onReset() {
       @click.self="onClose"
     >
       <div
-        class="w-full max-w-lg max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-white dark:bg-neutral-900 shadow-2xl pb-[env(safe-area-inset-bottom)]"
+        class="w-full max-w-lg max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-card shadow-2xl pb-[env(safe-area-inset-bottom)]"
         role="dialog"
         aria-modal="true"
         aria-label="筛选"
@@ -109,7 +116,7 @@ async function onReset() {
           <div class="flex items-center gap-3">
             <button
               type="button"
-              class="text-sm text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
+              class="text-sm text-neutral-500 hover:text-ink-soft dark:text-neutral-400"
               @click="onReset"
             >
               重置
@@ -126,9 +133,26 @@ async function onReset() {
 
         <div class="px-4 py-4 space-y-5">
           <section>
+            <p class="text-xs font-medium text-neutral-500 mb-2">搜索</p>
+            <div class="relative">
+              <AppIcon
+                name="search"
+                class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"
+              />
+              <input
+                type="search"
+                :value="props.search"
+                :placeholder="props.searchPlaceholder"
+                class="h-10 w-full rounded-full border border-black/10 bg-white pl-9 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:border-white/10 dark:bg-neutral-900 dark:text-white"
+                @input="onSearchInput"
+              />
+            </div>
+          </section>
+
+          <section>
             <p class="text-xs font-medium text-neutral-500 mb-2">浏览方式</p>
             <div
-              class="inline-flex w-full items-center gap-0.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-black/5 dark:border-white/10"
+              class="inline-flex w-full items-center gap-0.5 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 border border-line-soft"
               role="group"
               aria-label="浏览方式"
             >
@@ -192,9 +216,7 @@ async function onReset() {
                 class="inline-flex items-center gap-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium px-3 py-2 transition"
                 @click="onClose"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true">
-                  <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
-                </svg>
+                <AppIcon name="plus" class="w-3.5 h-3.5" />
                 上传视频
               </RouterLink>
               <RouterLink

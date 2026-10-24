@@ -32,7 +32,7 @@ from .models import (
     EpisodeAudienceNote,
 )
 from .schemas import AuthTokensOut
-from .routers import ai_coach, app_download, article_submit, auth, account_bind, clips, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, public_voice_enroll, site_config, wish_wall, word_practice, wxpay
+from .routers import ai_coach, app_download, article_submit, auth, account_bind, clips, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, public_voice_enroll, site_config, wish_wall, word_practice, wxpay, push
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import ai_usage as admin_ai_usage
@@ -75,6 +75,7 @@ app.include_router(demo.router)
 app.include_router(episodes.router)
 app.include_router(episode_submit.router)
 app.include_router(notifications.router)
+app.include_router(push.router)
 app.include_router(feedback.router)
 app.include_router(wish_wall.router)
 app.include_router(learning.router)
@@ -159,6 +160,12 @@ def startup():
         ensure_admin_user(db)
     finally:
         db.close()
+    try:
+        from .services.push import start_push_worker
+
+        start_push_worker()
+    except Exception as exc:  # pragma: no cover
+        print("[push] start worker failed", exc)
 
 
 def _backfill_member_plans() -> None:
@@ -424,6 +431,13 @@ def _migrate_schema():
         print("[vloglish] migrated users.member_plan")
         insp = inspect(engine)
         cols = {c["name"] for c in insp.get_columns("users")}
+    if "user_no" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN user_no VARCHAR(8)"))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_user_no ON users (user_no)"))
+        print("[vloglish] migrated users.user_no")
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("users")}
     _backfill_member_plans()
     if "wx_session_key" not in cols:
         with engine.begin() as conn:
@@ -431,6 +445,18 @@ def _migrate_schema():
         print("[vloglish] migrated users.wx_session_key")
         insp = inspect(engine)
         cols = {c["name"] for c in insp.get_columns("users")}
+    if "apple_sub" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN apple_sub VARCHAR(255)"))
+        print("[vloglish] migrated users.apple_sub")
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("users")}
+    # 为 apple_sub 建唯一索引（ALTER 加列不会带唯一约束；NULL 可重复）
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_apple_sub ON users (apple_sub)"))
+    except Exception as exc:  # noqa: BLE001 - 索引已存在等场景忽略
+        print(f"[vloglish] skip apple_sub unique index: {exc}")
     for col, col_type in (
         ("signup_country", "VARCHAR(64)"),
         ("signup_region", "VARCHAR(64)"),
@@ -494,11 +520,19 @@ def _migrate_schema():
         if "video_context" not in ep_cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE episodes ADD COLUMN video_context TEXT NOT NULL DEFAULT ''"))
+        if "glossary_json" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE episodes ADD COLUMN glossary_json TEXT NOT NULL DEFAULT '[]'"))
         if "release_notified_at" not in ep_cols:
             with engine.begin() as conn:
                 conn.execute(
                     text(f"ALTER TABLE episodes ADD COLUMN release_notified_at {datetime_type}")
                 )
+    if "subtitles" in insp.get_table_names():
+        sub_cols = {c["name"] for c in insp.get_columns("subtitles")}
+        if "chinese_literal" not in sub_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE subtitles ADD COLUMN chinese_literal TEXT NOT NULL DEFAULT ''"))
     if "user_notifications" in insp.get_table_names():
         notif_cols = {c["name"] for c in insp.get_columns("user_notifications")}
         if "broadcast_id" not in notif_cols:

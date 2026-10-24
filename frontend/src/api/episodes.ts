@@ -1,5 +1,5 @@
 import api from './client'
-import { cacheWordLookupEntry, fetchWordLookup, type WordLookupMeta } from '@/composables/useWordLookupCache'
+import { cacheWordLookupEntry, fetchWordLookup } from '@/composables/useWordLookupCache'
 import type {
   AuthorCatalogItem,
   EntryDetail,
@@ -92,6 +92,15 @@ export async function getEpisodeDetail(videoId: string) {
   const { data } = await api.get<{ episode: EpisodeDetail; total_episodes: number }>(
     `/api/episode/${videoId}/detail/`,
   )
+  return data
+}
+
+export async function generateSubtitleLiteral(videoId: string, subtitleId: number) {
+  const { data } = await api.post<{
+    chinese_literal: string
+    glossary: { en: string; zh: string }[]
+    hits: { en: string; zh: string }[]
+  }>(`/api/episode/${videoId}/subtitles/${subtitleId}/literal/`, {}, { timeout: 60000 })
   return data
 }
 
@@ -209,7 +218,7 @@ export async function lookupWord(
   context: string,
   meta?: { video_id?: string; subtitle_id?: number; episode_id?: number },
 ) {
-  const entry = await fetchWordLookup(word, type, context, meta satisfies WordLookupMeta)
+  const entry = await fetchWordLookup(word, type, context, meta)
   if (!entry) throw new Error('查词失败')
   return entry
 }

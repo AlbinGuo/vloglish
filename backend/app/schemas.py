@@ -8,6 +8,7 @@ EPISODE_STATUS_PATTERN = "^(draft|published|archived|rejected)$"
 class UserOut(BaseModel):
     id: int
     email: str
+    user_no: str | None = None
     nickname: str | None = None
     phone: str | None = None
     is_member: bool
@@ -15,6 +16,8 @@ class UserOut(BaseModel):
     member_until: str | None = None
     wx_bound: bool = False
     wechat_only: bool = False
+    # 是否已绑定可用于邮箱密码登录的真实邮箱（Apple 新用户为内部占位邮箱时为 False）
+    email_bound: bool = False
 
 
 class SetAvatarIn(BaseModel):
@@ -44,10 +47,25 @@ class LoginIn(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class SetCredentialsIn(BaseModel):
+    """为当前账号设置/修改登录邮箱与密码（Apple 登录账号绑定网页登录用）。"""
+
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    # 账号已绑定真实邮箱后，修改时需提供当前密码确认
+    current_password: str | None = Field(default=None, max_length=128)
+
+
 class WechatMiniLoginIn(BaseModel):
     code: str = Field(min_length=4, max_length=128)
     nickname: str | None = Field(default=None, max_length=64)
     platform: str | None = Field(default=None, max_length=16)
+
+
+class AppleLoginIn(BaseModel):
+    identity_token: str = Field(min_length=16, max_length=4096)
+    authorization_code: str | None = Field(default=None, max_length=1024)
+    full_name: str | None = Field(default=None, max_length=128)
 
 
 class RefreshIn(BaseModel):
@@ -383,6 +401,7 @@ class AdminSubtitleIn(BaseModel):
     end: float = Field(ge=0)
     english: str
     chinese: str = ""
+    chinese_literal: str = ""
     ipa: str = ""
     english_html: str = ""
 
@@ -822,6 +841,7 @@ class SubtitleOut(BaseModel):
     end: float
     english: str
     chinese: str
+    chinese_literal: str = ""
     ipa: str
     english_html: str
 
@@ -890,6 +910,7 @@ class EpisodeDetailOut(BaseModel):
     vocab_summary: list[VocabSummaryGroupOut] = []
     vocab_summary_text: str = ""
     video_context: str = ""
+    glossary: list[dict] = []
     is_favorite: bool = False
     audience_notes: list[AudienceNoteOut] = []
 
@@ -990,6 +1011,15 @@ class EpisodePublishedPopupListOut(BaseModel):
 
 class AckPopupsIn(BaseModel):
     ids: list[int]
+
+
+class PushRegisterIn(BaseModel):
+    token: str = ""
+    platform: str = ""
+    env: str = ""
+    # 客户端上报阶段（init/perm/registered 等）与错误信息，仅用于后端日志排查
+    stage: str = ""
+    error: str = ""
 
 
 class AdminReleasePopupUserOut(BaseModel):
