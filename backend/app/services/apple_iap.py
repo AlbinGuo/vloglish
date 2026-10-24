@@ -187,6 +187,35 @@ def status_ok(status: int | None) -> bool:
     return status in _OK_STATUSES
 
 
+def latest_known_transaction(res: dict, plan_resolver) -> dict | None:
+    """恢复购买场景：从整张收据里挑出“最近一笔、属于本应用已知套餐、未退款”的交易。
+
+    plan_resolver 传入 resolve_plan，用来过滤出能映射到本应用套餐的商品，
+    避免把 App Store 账号里其它 App 或未知商品的交易误判为本应用购买。
+    """
+    latest = res.get("latest_receipt_info") or []
+    inapp = (res.get("receipt") or {}).get("in_app") or []
+    candidates: list[dict] = [c for c in latest if isinstance(c, dict)] + [
+        c for c in inapp if isinstance(c, dict)
+    ]
+    candidates = [
+        c
+        for c in candidates
+        if not (c.get("cancellation_date_ms") or c.get("cancellation_date"))
+        and plan_resolver(c.get("product_id") or "")
+    ]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda r: int(r.get("purchase_date_ms") or 0), reverse=True)
+    chosen = candidates[0]
+    return {
+        "product_id": chosen.get("product_id"),
+        "transaction_id": chosen.get("transaction_id"),
+        "expires_ms": chosen.get("expires_date_ms"),
+        "purchase_ms": chosen.get("purchase_date_ms"),
+    }
+
+
 # ---------------------------------------------------------------------------
 # StoreKit 2：校验 Apple 签名的交易 JWS（无需 App 专用共享密钥）
 # ---------------------------------------------------------------------------

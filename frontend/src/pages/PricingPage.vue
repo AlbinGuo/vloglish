@@ -103,17 +103,37 @@ async function restorePurchase() {
   appleError.value = ''
   appleSuccess.value = ''
   try {
-    await restoreApplePurchases()
+    const receipt = await restoreApplePurchases()
+    // 先看服务端是否已是会员（可能已在别处开通）
     await auth.fetchMe()
     if (auth.isMember) {
       await router.replace('/english')
       return
     }
+    // 用刷新后的收据再向服务端核验一次（修复“已扣款但未开通”）
+    if (receipt) {
+      appleSuccess.value = '正在核验已购记录…'
+      const res = await verifyApplePurchase({
+        product_id: '',
+        transaction_id: '',
+        receipt,
+      })
+      if (res && (res.is_member || res.member_until)) {
+        appleSuccess.value = '已恢复购买，正在开通会员…'
+        await auth.fetchMe()
+        await catalog.loadEpisodes(true)
+        await router.replace('/english')
+        return
+      }
+    }
     appleError.value = '未找到可恢复的购买记录'
-  } catch {
-    appleError.value = '恢复购买失败，请稍后重试'
+  } catch (e) {
+    const detail = getErrorDetail(e)
+    const raw = typeof detail === 'string' && detail ? detail : e instanceof Error ? e.message : ''
+    appleError.value = raw || '恢复购买失败，请稍后重试'
   } finally {
     restoring.value = false
+    appleSuccess.value = ''
   }
 }
 

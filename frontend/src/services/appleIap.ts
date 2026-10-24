@@ -86,22 +86,84 @@ function clearPending() {
   }
 }
 
-/** 从 v13 的 Transaction 中取出用于后端校验的凭证（SK2 为交易 JWS，SK1 为 base64 应用收据） */
+/** 判断字符串是否形似 StoreKit2 交易 JWS（header.payload.signature，恰有两个点） */
+function looksLikeJws(s: unknown): s is string {
+  return typeof s === 'string' && s.length > 100 && s.split('.').length === 3
+}
+
+/** 从 v13 的 Transaction 中取出用于后端校验的凭证。
+ *
+ * 优先返回 StoreKit2 交易 JWS：它与本次交易一一对应、后端可离线验签（无需共享密钥），
+ * 不会出现「按产品在整张 App Receipt 里找不到本笔交易」的问题。
+ * 仅当拿不到 JWS 时，才回退旧版 base64 App Receipt。
+ */
 function extractAppReceipt(tx: any): string {
+  // 1) 优先 StoreKit2 交易 JWS（v13 中可能出现于多个位置）
+  const jwsCandidates = [
+    tx?.nativePurchase?.jwsRepresentation,
+    tx?.nativePurchase?.jws,
+    tx?.nativePurchase?.transaction?.jwsRepresentation,
+    tx?.jwsRepresentation,
+  ]
+  for (const c of jwsCandidates) {
+    if (looksLikeJws(c)) return c
+  }
+
+  // 2) 旧版 App Receipt 兜底
   const parent: any = tx?.parentReceipt
-  // 1) Receipt 对象的 nativeData.appStoreReceipt（标准路径）
   const fromNative = parent?.nativeData?.appStoreReceipt
   if (typeof fromNative === 'string' && fromNative) return fromNative
-  // 2) 某些版本在 Receipt 上直接挂 appStoreReceipt
   if (typeof parent?.appStoreReceipt === 'string' && parent.appStoreReceipt) return parent.appStoreReceipt
-  // 3) 若 parent 本身就是字符串（旧版本）
   if (typeof parent === 'string' && parent) return parent
-  // 4) tx.receipt 字符串
   if (typeof tx?.receipt === 'string' && tx.receipt) return tx.receipt
-  // 5) StoreKit2 JWS 兜底
+
+  // 3) 其它可能的 JWS 字段兜底
   const jws = tx?.nativePurchase?.jwsRepresentation ?? tx?.jwsRepresentation
   if (typeof jws === 'string' && jws) return jws
   return ''
+}
+
+/** 取一份「新鲜」的凭证用于后端校验。
+ *
+ * 关键：StoreKit 1 下交易本身不带 JWS，只能用整张 App Receipt；而插件缓存的
+ * `parentReceipt.nativeData.appStoreReceipt` 往往是 App 启动时抓取的旧收据，
+ * **不包含刚刚完成的这笔交易**，会导致后端按产品/交易号查不到记录（“未找到对应
+ * 的购买记录”）。因此这里优先刷新一次收据，拿到包含本次交易的最新 App Receipt。
+ */
+async function getFreshReceipt(C: CdvPurchase, tx: any): Promise<string> {
+  // StoreKit2 交易 JWS 直接可用，无需刷新
+  const jws = [
+    tx?.nativePurchase?.jwsRepresentation,
+    tx?.jwsRepresentation,
+  ].find(looksLikeJws)
+  if (jws) return jws
+
+  // StoreKit1：调用原生刷新收据，确保包含本次交易；失败/超时再回退到缓存收据
+  const adapter: any = (() => {
+    try {
+      return C.store.getAdapter?.(C.Platform.APPLE_APPSTORE)
+    } catch {
+      return null
+    }
+  })()
+  if (adapter && typeof adapter.refreshReceipt === 'function') {
+    // 最多重试两次（首次刷新偶发拿不到最新交易）
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const fresh = await Promise.race([
+          adapter.refreshReceipt(),
+          new Promise((resolve) => setTimeout(() => resolve(null), 8000)),
+        ])
+        const receipt = (fresh as any)?.appStoreReceipt
+        if (typeof receipt === 'string' && receipt.length > 20) return receipt
+      } catch {
+        /* 刷新失败，尝试下一次或回退 */
+      }
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 1200))
+    }
+  }
+
+  return extractAppReceipt(tx)
 }
 
 function attachHandlers(C: CdvPurchase) {
@@ -112,20 +174,24 @@ function attachHandlers(C: CdvPurchase) {
   }
   const when = C.store.when?.()
   when?.approved?.((tx: any) => {
-    const pid = String(tx?.products?.[0]?.id ?? tx?.productId ?? '')
-    const result: ApplePurchaseResult = {
-      productId: pid,
-      transactionId: String(tx?.transactionId ?? ''),
-      receipt: extractAppReceipt(tx),
-    }
-    try {
-      tx?.finish?.()
-    } catch {
-      /* ignore */
-    }
-    const resolve = pendingResolve
-    clearPending()
-    resolve?.(result)
+    void (async () => {
+      const pid = String(tx?.products?.[0]?.id ?? tx?.productId ?? '')
+      // 先拿到包含本次交易的新鲜凭证，再 finish 交易（finish 后交易会从收据队列移除）
+      const receipt = await getFreshReceipt(C, tx)
+      const result: ApplePurchaseResult = {
+        productId: pid,
+        transactionId: String(tx?.transactionId ?? ''),
+        receipt,
+      }
+      try {
+        await tx?.finish?.()
+      } catch {
+        /* ignore */
+      }
+      const resolve = pendingResolve
+      clearPending()
+      resolve?.(result)
+    })()
   })
   when?.cancelled?.(() => {
     const reject = pendingReject
@@ -319,15 +385,37 @@ export async function appleIapWarmup(productIds: string[]): Promise<void> {
   }
 }
 
-/** 恢复购买（换机/重装后找回已购） */
-export async function restoreApplePurchases(): Promise<void> {
+/** 恢复购买（换机/重装后找回已购）。返回刷新后的最新 App Receipt（StoreKit1）或空串，
+ * 便于调用方把收据重新提交给后端核对（修复“已扣款但未开通”后可通过恢复购买自愈）。 */
+export async function restoreApplePurchases(): Promise<string> {
   const C = getCdv()
-  if (!C) return
+  if (!C) return ''
   try {
     await C.store.restorePurchases?.()
   } catch {
     /* ignore */
   }
+  // 恢复后再刷新一次收据，拿到包含历史交易的最新 App Receipt
+  const adapter: any = (() => {
+    try {
+      return C.store.getAdapter?.(C.Platform.APPLE_APPSTORE)
+    } catch {
+      return null
+    }
+  })()
+  if (adapter && typeof adapter.refreshReceipt === 'function') {
+    try {
+      const fresh = await Promise.race([
+        adapter.refreshReceipt(),
+        new Promise((resolve) => setTimeout(() => resolve(null), 8000)),
+      ])
+      const receipt = (fresh as any)?.appStoreReceipt
+      if (typeof receipt === 'string' && receipt.length > 20) return receipt
+    } catch {
+      /* ignore */
+    }
+  }
+  return ''
 }
 
 /**

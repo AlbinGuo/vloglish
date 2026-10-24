@@ -101,6 +101,12 @@ def verify_apple_purchase(
         if not status_ok(status):
             raise HTTPException(status_code=400, detail=f"Apple 收据无效（status={status}）")
         info = extract_transaction(res, body.product_id, body.transaction_id)
+        if not info and not (body.product_id or "").strip():
+            # 恢复购买场景：客户端只带整张收据、不带商品/交易号。
+            # 从收据里挑出“任一本应用已知套餐”的最近一笔未退款交易。
+            from ..services.apple_iap import latest_known_transaction
+
+            info = latest_known_transaction(res, resolve_plan)
         if not info:
             raise HTTPException(status_code=400, detail="未找到对应的购买记录")
     plan = resolve_plan(info.get("product_id") or body.product_id)
