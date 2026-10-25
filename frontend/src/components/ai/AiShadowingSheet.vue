@@ -1170,21 +1170,25 @@ function setDemoRate(rate: 0.5 | 1) {
   void playDemo()
 }
 
-function goRecord() {
+async function goRecord() {
   silencePlaybackForMic()
   error.value = ''
   result.value = null
+  fallbackHint.value = ''
+  transcript.value = ''
   step.value = 'record'
-  // 「开始跟读」直接进入录音，省得用户以为没反应
-  void startListening()
+  // 若引擎还在探测（刚打开弹窗就点），先等判定完成，避免误走不可用的原生识别
+  if (engineMode.value === 'unknown') await resolveEngine()
+  // 走哪种引擎与麦克风按钮保持一致：口语评测可用就口语评测，否则识别点评。
+  if (useOral.value) void startOralRecording()
+  else void startListening()
 }
 
 async function resolveEngine() {
-  // App(原生)里阿里云 Web SDK 不可用：直接用「识别点评」+ 原生语音识别
-  if (nativeSpeechAvailable()) {
-    engineMode.value = 'llm'
-    return
-  }
+  // App 和浏览器统一走同一套判定：优先用阿里云口语评测 Web SDK（iOS Safari 已验证可用），
+  // 它依赖 getUserMedia + AudioContext + WebSocket，Capacitor 的 WKWebView 同样支持，
+  // 与「影子跟读」在 App 内录音同源。只有 SDK 不可用时才回退「识别点评」。
+  // （此前 App 内强制走原生 speech-recognition 插件，识别结果进不来导致跟读无反应。）
   engineMode.value = 'unknown'
   const ok = await oral.probe()
   engineMode.value = ok ? 'oral' : 'llm'
@@ -1249,7 +1253,8 @@ async function startOralRecording() {
   oral.resetEngine()
 
   // 口语 SDK 自己申请麦克风；不要先 getUserMedia 再 stop，否则易抢占/弄死 stream
-  if (typeof window !== 'undefined' && !window.isSecureContext) {
+  // App 内页面来自 capacitor://localhost，本身就是安全上下文，无需再要求 HTTPS
+  if (typeof window !== 'undefined' && !window.isSecureContext && !nativeSpeechAvailable()) {
     engineMode.value = 'llm'
     micUnsupported.value = true
     error.value = '需要 HTTPS 或 localhost 才能录音'
@@ -2036,7 +2041,7 @@ onUnmounted(() => {
             </div>
 
             <p
-              v-if="error && !useOral"
+              v-if="error"
               class="w-full text-sm text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/30 rounded-2xl px-3 py-2"
             >
               {{ error }}
