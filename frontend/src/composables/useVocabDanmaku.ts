@@ -2,16 +2,16 @@ import { ref, watch } from 'vue'
 
 const STORAGE_KEY = 'teco-vocab-danmaku'
 
-/** 默认开启；仅显式存 false 时关闭 */
+/** 默认关闭；仅显式存为 true 时开启（新用户默认不显示弹幕） */
 function loadVocabDanmakuEnabled(): boolean {
   try {
     const v = localStorage.getItem(STORAGE_KEY)
-    if (v === null) return true
+    if (v === null) return false
     return v === 'true'
   } catch {
     /* ignore */
   }
-  return true
+  return false
 }
 
 const vocabDanmakuEnabled = ref(loadVocabDanmakuEnabled())
