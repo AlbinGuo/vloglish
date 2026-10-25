@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
@@ -90,6 +91,71 @@ def draw_splash(size: int, bg) -> Image.Image:
     return img
 
 
+# ---------------------------------------------------------------------------
+# 自定义图标（app/assets/icon-source.png 等）
+#
+# 若 assets/ 下存在 icon-source.(png|jpg|jpeg|webp)，则优先用它作为图标母版，
+# 统一生成 Android / iOS 各尺寸；否则回退到上面基于 BrandLogo(V) 的绘制。
+# 换图标只需替换这张母版（建议 1024×1024 正方形、不带透明）。
+# ---------------------------------------------------------------------------
+CUSTOM_ICON_NAMES = ("icon-source.png", "icon-source.jpg", "icon-source.jpeg", "icon-source.webp")
+
+
+def load_custom_icon() -> Image.Image | None:
+    for name in CUSTOM_ICON_NAMES:
+        path = ASSETS / name
+        if not path.is_file():
+            continue
+        try:
+            im = Image.open(path).convert("RGBA")
+        except OSError:
+            continue
+        w, h = im.size
+        side = min(w, h)
+        left = (w - side) // 2
+        top = (h - side) // 2
+        im = im.crop((left, top, left + side, top + side))
+        return im.resize((1024, 1024), Image.LANCZOS)
+    return None
+
+
+def icon_square(icon: Image.Image, size: int) -> Image.Image:
+    return icon.resize((size, size), Image.LANCZOS)
+
+
+def icon_round(icon: Image.Image, size: int) -> Image.Image:
+    im = icon.resize((size, size), Image.LANCZOS)
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, size - 1, size - 1), fill=255)
+    out = Image.new("RGBA", (size, size), TRANSPARENT)
+    out.paste(im, (0, 0), mask)
+    return out
+
+
+def icon_foreground(icon: Image.Image, size: int, scale: float = 0.78) -> Image.Image:
+    """自适应图标前景：把母版缩到安全区（约 0.78），四周透明，配合纯色背景层。"""
+    inner = max(1, int(size * scale))
+    small = icon.resize((inner, inner), Image.LANCZOS)
+    canvas = Image.new("RGBA", (size, size), TRANSPARENT)
+    offset = (size - inner) // 2
+    canvas.paste(small, (offset, offset), small)
+    return canvas
+
+
+def edge_color(icon: Image.Image) -> tuple[int, int, int]:
+    """取母版边缘主色，作为 Android 自适应图标的背景色。"""
+    w, h = icon.size
+    probes = [(3, 3), (w - 4, 3), (3, h - 4), (w - 4, h - 4), (w // 2, 3), (w // 2, h - 4)]
+    colors: list[tuple[int, int, int]] = []
+    for x, y in probes:
+        p = icon.getpixel((x, y))
+        if p[3] > 200:
+            colors.append((p[0], p[1], p[2]))
+    if not colors:
+        return (255, 255, 255)
+    return tuple(sorted(channel)[len(channel) // 2] for channel in zip(*colors))  # type: ignore[return-value]
+
+
 def save(img: Image.Image, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     img.save(path, format="PNG")
@@ -144,25 +210,64 @@ def _flatten_ios_icons_dir() -> None:
         _flatten_ios_icon(png)
 
 
-def _install_ios_icons() -> None:
-    """优先使用 assets/ios/AppIcon.appiconset 的整套图标；否则用品牌标生成 1024 单图。"""
-    if IOS_ICON_SRC.is_dir():
-        _clear_dir(IOS_ICON)
-        _copy_tree_files(IOS_ICON_SRC, IOS_ICON)
-        print("iOS AppIcon 已替换为 assets/ios/AppIcon.appiconset 的自定义图标")
-    else:
-        IOS_ICON.mkdir(parents=True, exist_ok=True)
-        save(draw_brand_circle(1024, canvas_fill=BG), IOS_ICON / "AppIcon-512@2x.png")
-        (IOS_ICON / "Contents.json").write_text(
-            '{\n  "images" : [\n    {\n      "filename" : "AppIcon-512@2x.png",\n'
-            '      "idiom" : "universal",\n      "platform" : "ios",\n'
-            '      "size" : "1024x1024"\n    }\n  ],\n'
-            '  "info" : {\n    "author" : "xcode",\n    "version" : 1\n  }\n}\n',
-            encoding="utf-8",
-        )
-        print("iOS AppIcon 由品牌标生成（未提供 assets/ios/AppIcon.appiconset）")
-    # 统一去掉 alpha，满足 App Store「大图标不允许透明/带 alpha 通道」的要求
-    _flatten_ios_icons_dir()
+def _generate_ios_appiconset_from(custom: Image.Image) -> None:
+    """依据 assets/ios/AppIcon.appiconset/Contents.json 的尺寸清单，从母版生成每个尺寸。"""
+    IOS_ICON_SRC.mkdir(parents=True, exist_ok=True)
+    contents = IOS_ICON_SRC / "Contents.json"
+    data = {}
+    if contents.is_file():
+        try:
+            data = json.loads(contents.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            data = {}
+    images = data.get("images") if isinstance(data, dict) else None
+    if not images:
+        print("iOS AppIcon Contents.json 缺失/无 images，跳过母版生成")
+        return
+    for entry in images:
+        if not isinstance(entry, dict):
+            continue
+        filename = entry.get("filename")
+        size_str = str(entry.get("size") or "")
+        scale_str = str(entry.get("scale") or "1x")
+        if not filename or "x" not in size_str:
+            continue
+        try:
+            base = float(size_str.split("x")[0])
+            mul = float(scale_str.rstrip("x"))
+        except ValueError:
+            continue
+        px = max(1, int(round(base * mul)))
+        save(icon_square(custom, px), IOS_ICON_SRC / filename)
+    print("iOS AppIcon 已由 assets/icon-source 母版生成")
+
+
+def _install_ios_icons(custom: Image.Image | None = None) -> None:
+    """优先使用自定义母版 assets/icon-source.* 生成整套图标；否则使用
+    assets/ios/AppIcon.appiconset 的整套图标；再否则用品牌标生成 1024 单图。"""
+    if custom is not None:
+        _generate_ios_appiconset_from(custom)
+
+    if IOS_ICON.is_dir():
+        if IOS_ICON_SRC.is_dir():
+            _clear_dir(IOS_ICON)
+            _copy_tree_files(IOS_ICON_SRC, IOS_ICON)
+            print("iOS AppIcon 已写入原生工程")
+        else:
+            IOS_ICON.mkdir(parents=True, exist_ok=True)
+            save(draw_brand_circle(1024, canvas_fill=BG), IOS_ICON / "AppIcon-512@2x.png")
+            (IOS_ICON / "Contents.json").write_text(
+                '{\n  "images" : [\n    {\n      "filename" : "AppIcon-512@2x.png",\n'
+                '      "idiom" : "universal",\n      "platform" : "ios",\n'
+                '      "size" : "1024x1024"\n    }\n  ],\n'
+                '  "info" : {\n    "author" : "xcode",\n    "version" : 1\n  }\n}\n',
+                encoding="utf-8",
+            )
+            print("iOS AppIcon 由品牌标生成（未提供 assets/ios/AppIcon.appiconset）")
+        # 统一去掉 alpha，满足 App Store「大图标不允许透明/带 alpha 通道」的要求
+        _flatten_ios_icons_dir()
+    elif custom is None:
+        print("skip iOS native: AppIcon.appiconset not found (ok if Android-only)")
 
 
 def _install_ios_splash() -> None:
@@ -222,9 +327,17 @@ def _patch_ios_launch_screen() -> None:
 def main() -> None:
     ASSETS.mkdir(parents=True, exist_ok=True)
 
-    save(draw_brand_circle(1024, canvas_fill=BG), ASSETS / "icon-only.png")
-    save(draw_foreground(1024), ASSETS / "icon-foreground.png")
-    save(draw_solid(1024, BG), ASSETS / "icon-background.png")
+    custom = load_custom_icon()
+    if custom is not None:
+        print("检测到 assets/icon-source.*，使用自定义母版生成图标")
+        bg4 = (*edge_color(custom), 255)
+        save(icon_square(custom, 1024), ASSETS / "icon-only.png")
+        save(icon_foreground(custom, 1024), ASSETS / "icon-foreground.png")
+        save(draw_solid(1024, bg4), ASSETS / "icon-background.png")
+    else:
+        save(draw_brand_circle(1024, canvas_fill=BG), ASSETS / "icon-only.png")
+        save(draw_foreground(1024), ASSETS / "icon-foreground.png")
+        save(draw_solid(1024, BG), ASSETS / "icon-background.png")
     save(draw_splash(2732, SPLASH_BG), ASSETS / "splash.png")
     save(draw_splash(2732, SPLASH_BG), ASSETS / "splash-dark.png")
 
@@ -244,16 +357,23 @@ def main() -> None:
             "mipmap-xxxhdpi": 432,
         }
         for folder, size in legacy.items():
-            icon = draw_brand_circle(size, canvas_fill=BG)
-            save(icon, ANDROID_RES / folder / "ic_launcher.png")
-            save(icon, ANDROID_RES / folder / "ic_launcher_round.png")
+            if custom is not None:
+                save(icon_square(custom, size), ANDROID_RES / folder / "ic_launcher.png")
+                save(icon_round(custom, size), ANDROID_RES / folder / "ic_launcher_round.png")
+            else:
+                icon = draw_brand_circle(size, canvas_fill=BG)
+                save(icon, ANDROID_RES / folder / "ic_launcher.png")
+                save(icon, ANDROID_RES / folder / "ic_launcher_round.png")
         for folder, size in adaptive.items():
-            save(draw_foreground(size), ANDROID_RES / folder / "ic_launcher_foreground.png")
+            fg = icon_foreground(custom, size) if custom is not None else draw_foreground(size)
+            save(fg, ANDROID_RES / folder / "ic_launcher_foreground.png")
 
+        bg_rgb = edge_color(custom) if custom is not None else BG[:3]
+        bg_hex = "#%02X%02X%02X" % bg_rgb
         (ANDROID_RES / "values" / "ic_launcher_background.xml").write_text(
             '<?xml version="1.0" encoding="utf-8"?>\n'
             "<resources>\n"
-            '    <color name="ic_launcher_background">#111111</color>\n'
+            f'    <color name="ic_launcher_background">{bg_hex}</color>\n'
             "</resources>\n",
             encoding="utf-8",
         )
@@ -288,10 +408,11 @@ def main() -> None:
     else:
         print("skip Android: res dir not found")
 
-    if IOS_ICON.is_dir():
-        _install_ios_icons()
-        _install_ios_splash()
-        _patch_ios_launch_screen()
+    if IOS_ICON.is_dir() or custom is not None:
+        _install_ios_icons(custom)
+        if IOS_ICON.is_dir():
+            _install_ios_splash()
+            _patch_ios_launch_screen()
     else:
         print("skip iOS: AppIcon.appiconset not found (ok if Android-only)")
 

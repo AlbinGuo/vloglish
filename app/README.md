@@ -24,7 +24,10 @@ npm run open:android     # 用 Android Studio 打开
 `oklch` / `@layer` / `@property` / `color-mix` 降级，避免部分国产机
 系统 WebView 过旧导致「整页没样式」。
 
-图标源文件在 `assets/`（`icon-only.png` 等），由 `scripts/generate-brand-assets.py` 写入 Android `mipmap-*` / splash。
+图标源文件在 `assets/`：把新图标（建议 1024×1024 正方形、不透明）保存为
+`assets/icon-source.png`，运行 `npm run assets:generate` 即会自动生成 Android
+`mipmap-*`（含自适应前景/圆形图标）、iOS `assets/ios/AppIcon.appiconset` 与启动图，
+详见 `scripts/generate-brand-assets.py`。若没有 `icon-source.*`，则回退用 BrandLogo(V) 生成。
 
 Release APK 输出：
 
