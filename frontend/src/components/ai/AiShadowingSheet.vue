@@ -128,6 +128,8 @@ const oral = useOralEvalEngine()
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let recognition: any = null
 let nativeController: NativeListenController | null = null
+/** 每次 startListening 自增；用于丢弃被取消/过期的原生启动 */
+let listenGen = 0
 let autoPlayTimer: ReturnType<typeof setTimeout> | null = null
 let demoPlayingTimer: ReturnType<typeof setTimeout> | null = null
 let demoAudio: HTMLAudioElement | null = null
@@ -898,14 +900,20 @@ function resetState() {
 }
 
 function stopListening(abort = false) {
+  // 使正在等待音频释放的「过期启动」失效
+  listenGen++
   if (nativeController) {
     const c = nativeController
     nativeController = null
-    void c.stop()
-    listening.value = false
     if (abort) {
+      // 关闭弹窗/切换句子：直接中止，不再等最终结果、不再触发点评
       autoSubmitArmed.value = false
+      c.abort()
+    } else {
+      // 用户主动停止：优雅收尾，等原生送回最后一句后自动点评
+      void c.stop()
     }
+    listening.value = false
     return
   }
   try {
@@ -1371,6 +1379,9 @@ async function startListening() {
     if (text && autoSubmitArmed.value && !loading.value && !result.value) {
       autoSubmitArmed.value = false
       void submitFeedback()
+    } else if (!text && autoSubmitArmed.value && !error.value) {
+      autoSubmitArmed.value = false
+      error.value = '没有识别到语音，请靠近麦克风再说一次'
     }
   }
 
@@ -1394,7 +1405,22 @@ async function startListening() {
 async function startNativeListening() {
   micUnsupported.value = false
   listening.value = true
+  const gen = ++listenGen
+  // 先等一会儿让 WebView 释放音频会话（视频/TTS 刚被 silencePlaybackForMic 暂停），
+  // 否则原生 SFSpeechRecognizer/AVAudioSession 抢不到麦克风，讲话没结果。
+  await new Promise((r) => setTimeout(r, 280))
+  // 等待期间用户可能已点「停止」或关闭弹窗：丢弃这次过期启动
+  if (gen !== listenGen || !props.open) {
+    return
+  }
   await syncNativeController()
+  if (gen !== listenGen) {
+    // 启动过程中被取消：立即中止刚拿到的控制器，别让它继续占麦克风
+    const c = nativeController
+    nativeController = null
+    c?.abort()
+    return
+  }
   if (!nativeController) {
     // 启动失败时 startNativeListen 已通过 onError 提示
     if (!error.value) {
@@ -1422,6 +1448,10 @@ async function syncNativeController() {
       if (text && autoSubmitArmed.value && !loading.value && !result.value) {
         autoSubmitArmed.value = false
         void submitFeedback()
+      } else if (!text) {
+        // 说了话却没有识别结果：给明确反馈，避免「没反应」的错觉
+        autoSubmitArmed.value = false
+        error.value = '没有识别到语音，请靠近麦克风再说一次'
       }
     },
     onError: (m) => {

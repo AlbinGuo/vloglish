@@ -14,9 +14,11 @@ import { isNativePlatform } from '@/utils/platform'
  */
 
 /** 识别到内容后，停顿多久判定「说完了」并自动结束 */
-const SILENCE_MS = 1600
+const SILENCE_MS = 1500
 /** 刚启动后，给用户开口的时间；超时仍无内容则结束 */
 const INITIAL_MS = 12000
+/** 主动 stop() 后，等待原生把「最后一句」送回的回调宽限（避免抢在最终结果前收尾） */
+const FINAL_GRACE_MS = 650
 
 type PermissionState2 = 'prompt' | 'prompt-with-rationale' | 'granted' | 'denied'
 
@@ -58,7 +60,10 @@ export interface NativeListenHandlers {
 }
 
 export interface NativeListenController {
+  /** 优雅停止：等待原生送回最后一句再回调 onFinal / 触发点评 */
   stop: () => Promise<void>
+  /** 立即中止：直接结束，不回调 onFinal（用于关闭弹窗/切换句子） */
+  abort: () => void
 }
 
 export async function startNativeListen(
@@ -92,13 +97,19 @@ export async function startNativeListen(
 
   let finalText = ''
   let ended = false
+  let stopRequested = false
   let silenceTimer: ReturnType<typeof setTimeout> | null = null
+  let graceTimer: ReturnType<typeof setTimeout> | null = null
   const handles: Array<{ remove: () => void }> = []
 
   const clearSilence = () => {
     if (silenceTimer) {
       clearTimeout(silenceTimer)
       silenceTimer = null
+    }
+    if (graceTimer) {
+      clearTimeout(graceTimer)
+      graceTimer = null
     }
   }
   const cleanup = () => {
@@ -118,15 +129,26 @@ export async function startNativeListen(
     cleanup()
     h.onFinal?.(finalText.trim())
   }
-  const stopAndFinish = async () => {
+  /**
+   * 请求收尾：先让原生把「最后一句」送回来，再宽限 FINAL_GRACE_MS 收尾。
+   * 直接 finish() 会抢在最终 partialResults/listeningState 之前移除监听，
+   * 导致「说完了却没有任何文字」——这里必须等。
+   */
+  const stopAndFinish = () => {
     clearSilence()
     if (ended) return
+    stopRequested = true
     try {
-      await SR.stop()
+      void SR.stop()
     } catch {
       /* ignore */
     }
-    finish()
+    if (!graceTimer) {
+      graceTimer = setTimeout(() => {
+        graceTimer = null
+        finish()
+      }, FINAL_GRACE_MS)
+    }
   }
   // 停顿检测：每次听到新内容都重置计时；到点主动 stop 触发收尾
   const schedule = (ms: number) => {
@@ -134,7 +156,7 @@ export async function startNativeListen(
     if (ended) return
     silenceTimer = setTimeout(() => {
       silenceTimer = null
-      void stopAndFinish()
+      stopAndFinish()
     }, ms)
   }
 
@@ -147,14 +169,32 @@ export async function startNativeListen(
         if (text) {
           finalText = text
           h.onPartial?.(text)
-          // 只在真正识别到内容时重置停顿计时，避免空结果刷屏导致永不结束
-          schedule(SILENCE_MS)
+          if (!stopRequested) {
+            // 录音中：刷新停顿计时
+            schedule(SILENCE_MS)
+          } else {
+            // 已请求停止：每收到新一句就顺延收尾，确保最后一句不丢
+            if (graceTimer) clearTimeout(graceTimer)
+            graceTimer = setTimeout(() => {
+              graceTimer = null
+              finish()
+            }, FINAL_GRACE_MS)
+          }
         }
       }),
     )
     handles.push(
       await SR.addListener('listeningState', (data: any) => {
-        if (data?.status === 'stopped') finish()
+        // 原生判定结束时可能已带上最后一版结果，再给它一点时间收最终文本
+        if (data?.status === 'stopped') {
+          if (!stopRequested) stopRequested = true
+          if (!graceTimer && !ended) {
+            graceTimer = setTimeout(() => {
+              graceTimer = null
+              finish()
+            }, FINAL_GRACE_MS)
+          }
+        }
       }),
     )
   } catch {
@@ -204,7 +244,17 @@ export async function startNativeListen(
 
   return {
     stop: async () => {
-      await stopAndFinish()
+      stopAndFinish()
+    },
+    abort: () => {
+      if (ended) return
+      ended = true
+      cleanup()
+      try {
+        void SR.stop()
+      } catch {
+        /* ignore */
+      }
     },
   }
 }
