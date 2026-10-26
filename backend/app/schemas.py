@@ -1750,6 +1750,26 @@ class AdminMembershipOrderListOut(BaseModel):
     results: list[AdminMembershipOrderOut]
 
 
+class AdminTestMemberOut(BaseModel):
+    id: int
+    email: str
+    nickname: str | None = None
+    member_source: str | None = None
+    member_plan: str | None = None
+    member_until: str | None = None
+    is_member: bool = False
+
+
+class AdminTestMemberListOut(BaseModel):
+    count: int
+    results: list[AdminTestMemberOut]
+
+
+class AdminPurgeTestMembersOut(BaseModel):
+    revoked: int
+    test_mode_enabled: bool
+
+
 class SiteConfigOut(BaseModel):
     """公开站点配置（前端用于隐藏内容限量引导等）。"""
 

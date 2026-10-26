@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_APP_TARGET?: 'mobile' | string
   readonly VITE_API_BASE_URL?: string
   readonly VITE_API_PROXY?: string
+  readonly VITE_APP_TEST_MODE?: string
 }
 
 interface ImportMeta {

@@ -128,6 +128,12 @@ def alipay_seller_email() -> str:
     return (os.getenv("ALIPAY_SELLER_EMAIL") or "").strip()
 
 
+def external_test_mode_enabled() -> bool:
+    """外部测试模式（TestFlight）：开启时用户登录后可自动开通试用会员，免 IAP。"""
+    flag = (os.getenv("EXTERNAL_TEST_MODE") or os.getenv("APP_TEST_MODE") or "").strip().lower()
+    return flag in {"1", "true", "yes", "on"}
+
+
 def public_https_base() -> str:
     """仅公网 HTTPS 才可作为 notify_url；本地验收省略该字段。"""
     base = backend_public_url()

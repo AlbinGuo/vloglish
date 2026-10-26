@@ -3,6 +3,13 @@ export function isMobileAppBuild(): boolean {
   return import.meta.env.VITE_APP_TARGET === 'mobile'
 }
 
+/**
+ * 外部测试（TestFlight）构建标记。
+ * 仅当 CI/本地构建显式设置 VITE_APP_TEST_MODE=true 时为 true；
+ * 正式包不设置，故不会触发「登录自动开通试用会员」。
+ */
+export const APP_TEST_MODE = import.meta.env.VITE_APP_TEST_MODE === 'true'
+
 /** 运行在 Capacitor 原生壳内 */
 export function isNativePlatform(): boolean {
   try {

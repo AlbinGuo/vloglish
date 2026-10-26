@@ -49,6 +49,64 @@ class AppleVerifyIn(BaseModel):
     receipt: str = ""
 
 
+@router.post("/external-test-trial/")
+def external_test_trial(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """外部测试（TestFlight）免 IAP 试用会员开通。
+
+    仅在 EXTERNAL_TEST_MODE=true 时生效；生产环境必须关闭。
+    - 已有非测试会员时不覆盖；
+    - 试用到期后再次调用可续（仅测试期）；
+    - 试用会员 member_source='test_trial'，发布前通过清理脚本统一撤销。
+    """
+    from ..services.membership_config import external_test_mode_enabled
+    from ..services.membership import apply_membership
+
+    if not external_test_mode_enabled():
+        raise HTTPException(status_code=403, detail="未开启外部测试模式")
+
+    # 已有真实付费会员：不覆盖
+    real_sources = {"apple_iap", "apple_iap_sandbox", "alipay", "wxpay", "manual"}
+    if user.is_member and (user.member_source or "") in real_sources:
+        return {
+            "is_member": True,
+            "member_until": user.member_until.isoformat() if user.member_until else None,
+            "member_plan": user.member_plan,
+            "test": False,
+            "note": "已有正式会员，未覆盖",
+        }
+
+    # 试用幂等：已是有效测试会员则不重复叠加天数（避免每次登录续期膨胀）
+    from datetime import datetime as _dt
+
+    if (
+        (user.member_source or "") == "test_trial"
+        and user.is_member
+        and user.member_until is not None
+        and user.member_until > _dt.utcnow()
+    ):
+        return {
+            "is_member": True,
+            "member_until": user.member_until.isoformat(),
+            "member_plan": user.member_plan,
+            "test": True,
+            "note": "试用进行中",
+        }
+
+    apply_membership(user, 7, plan="custom")
+    user.member_source = "test_trial"
+    db.commit()
+    db.refresh(user)
+    return {
+        "is_member": True,
+        "member_until": user.member_until.isoformat() if user.member_until else None,
+        "member_plan": user.member_plan,
+        "test": True,
+    }
+
+
 @router.post("/apple/verify/")
 def verify_apple_purchase(
     body: AppleVerifyIn,
@@ -129,6 +187,20 @@ def verify_apple_purchase(
         if existed and existed.user_id != user.id:
             raise HTTPException(status_code=409, detail="该购买记录已绑定其他账号")
 
+    # 是否沙盒交易：StoreKit2 看 JWS payload.environment；旧版 receipt 看 Apple 响应 environment
+    is_sandbox = False
+    if is_storekit2_jws(receipt):
+        try:
+            is_sandbox = str(payload.get("environment") or "").lower() == "sandbox"
+        except Exception:
+            is_sandbox = False
+    else:
+        try:
+            is_sandbox = str(res.get("environment") or "").lower() == "sandbox"
+        except Exception:
+            is_sandbox = False
+    source = "apple_iap_sandbox" if is_sandbox else "apple_iap"
+
     # 应用到账号：订阅以到期时间为准（幂等），永久会员直接置永久
     if plan_name == "forever":
         apply_membership(user, None, plan="forever")
@@ -143,6 +215,8 @@ def verify_apple_purchase(
             remaining = days_until(expires_ms) or remaining
             apply_membership(user, remaining, plan=plan_name)
 
+    user.member_source = source
+
     # 记录交易（新建才写），并发插入靠唯一约束兜底
     if txn_id and not existed:
         db.add(
@@ -152,6 +226,7 @@ def verify_apple_purchase(
                 product_id=product_id,
                 plan=plan_name,
                 expires_ms=str(expires_ms or ""),
+                is_sandbox=is_sandbox,
             )
         )
         try:
@@ -165,6 +240,8 @@ def verify_apple_purchase(
         "is_member": bool(user.is_member),
         "member_until": user.member_until.isoformat() if user.member_until else None,
         "member_plan": user.member_plan,
+        "member_source": user.member_source,
+        "is_sandbox": is_sandbox,
     }
 
 

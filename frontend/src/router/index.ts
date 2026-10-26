@@ -51,6 +51,11 @@ const adminRoutes: RouteRecordRaw[] = [
         component: () => import('@/pages/admin/AdminMembershipOrdersPage.vue'),
       },
       {
+        path: 'test-members',
+        name: 'AdminTestMembers',
+        component: () => import('@/pages/admin/AdminTestMembersPage.vue'),
+      },
+      {
         path: 'users',
         name: 'AdminUsers',
         component: () => import('@/pages/admin/AdminUsersPage.vue'),

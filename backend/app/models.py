@@ -268,6 +268,8 @@ class User(Base):
     member_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # 最近开通档：quarter | year | forever | custom
     member_plan: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # 会员来源：apple_iap | apple_iap_sandbox | test_trial | manual | alipay | wxpay ...
+    member_source: Mapped[str | None] = mapped_column(String(24), nullable=True)
     # 微信 jscode2session 的 session_key，虚拟支付用户态签名用
     wx_session_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     # Sign in with Apple 的用户唯一标识（Apple 账号 sub），未绑定时为空
@@ -404,6 +406,8 @@ class AppleIapTransaction(Base):
     plan: Mapped[str | None] = mapped_column(String(16), nullable=True)
     # 订阅到期时间（毫秒时间戳，字符串存储）；永久/一次性为 ""
     expires_ms: Mapped[str] = mapped_column(String(32), default="")
+    # 是否沙盒交易（TestFlight / App Review），生产前可批量清理
+    is_sandbox: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

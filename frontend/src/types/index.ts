@@ -7,6 +7,7 @@ export interface User {
   is_member: boolean
   avatar_key?: string | null
   member_until?: string | null
+  member_plan?: string | null
   wx_bound?: boolean
   wechat_only?: boolean
   email_bound?: boolean

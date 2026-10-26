@@ -47,6 +47,7 @@ from .routers.admin import episodes as admin_episodes
 from .routers.admin import feedback as admin_feedback
 from .routers.admin import wish_wall as admin_wish_wall
 from .routers.admin import membership_orders as admin_membership_orders
+from .routers.admin import test_members as admin_test_members
 from .routers.admin import notifications as admin_notifications
 from .routers.admin import presence as admin_presence
 from .routers.admin import site_settings as admin_site_settings
@@ -94,6 +95,7 @@ app.include_router(admin_site_settings.router)
 app.include_router(admin_app_release.router)
 app.include_router(admin_activation_codes.router)
 app.include_router(admin_membership_orders.router)
+app.include_router(admin_test_members.router)
 app.include_router(admin_users.router)
 app.include_router(admin_teco_import.router)
 app.include_router(admin_episode_import.router)
@@ -431,6 +433,23 @@ def _migrate_schema():
         print("[vloglish] migrated users.member_plan")
         insp = inspect(engine)
         cols = {c["name"] for c in insp.get_columns("users")}
+    if "member_source" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN member_source VARCHAR(24)"))
+        print("[vloglish] migrated users.member_source")
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("users")}
+    if "apple_iap_transactions" in insp.get_table_names():
+        ait_cols = {c["name"] for c in insp.get_columns("apple_iap_transactions")}
+        if "is_sandbox" not in ait_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text(
+                        f"ALTER TABLE apple_iap_transactions ADD COLUMN is_sandbox BOOLEAN NOT NULL DEFAULT {bool_default}"
+                    )
+                )
+            print("[vloglish] migrated apple_iap_transactions.is_sandbox")
+            insp = inspect(engine)
     if "user_no" not in cols:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN user_no VARCHAR(8)"))

@@ -67,3 +67,21 @@ export async function verifyApplePurchase(payload: ApplePurchaseVerifyIn) {
   const { data } = await api.post<ApplePurchaseVerifyOut>('/api/membership/apple/verify/', payload)
   return data
 }
+
+export interface ExternalTestTrialOut {
+  is_member: boolean
+  member_until: string | null
+  member_plan?: string | null
+  test?: boolean
+  note?: string
+}
+
+/**
+ * 外部测试（TestFlight）免 IAP 试用会员开通。
+ * 仅在后端 EXTERNAL_TEST_MODE=true 且客户端为测试构建时生效；
+ * 后端未开启时会返回 403，调用方应静默忽略。
+ */
+export async function claimExternalTestTrial() {
+  const { data } = await api.post<ExternalTestTrialOut>('/api/membership/external-test-trial/')
+  return data
+}

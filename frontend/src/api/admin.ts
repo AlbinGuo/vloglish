@@ -383,6 +383,31 @@ export async function adminListMembershipOrders(params: {
   return data
 }
 
+export interface AdminTestMemberRow {
+  id: number
+  email: string
+  nickname?: string | null
+  member_source?: string | null
+  member_plan?: string | null
+  member_until?: string | null
+  is_member: boolean
+}
+
+export async function adminListTestMembers(params: { page?: number; page_size?: number } = {}) {
+  const { data } = await adminApi.get<{ count: number; results: AdminTestMemberRow[] }>(
+    '/api/admin/test-members/',
+    { params },
+  )
+  return data
+}
+
+export async function adminPurgeTestMembers() {
+  const { data } = await adminApi.post<{ revoked: number; test_mode_enabled: boolean }>(
+    '/api/admin/test-members/purge/',
+  )
+  return data
+}
+
 export async function adminFetchUserGeoStats() {
   const { data } = await adminApi.get<AdminUserGeoStats>('/api/admin/users/geo-stats/')
   return data
