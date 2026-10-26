@@ -995,6 +995,7 @@ def curate_audience_notes_with_deepseek(
         temperature=0.25,
         timeout=180,
         max_tokens=3500,
+        thinking=False,
     )
     raw = _extract_json(content)
     items = raw.get("items")
