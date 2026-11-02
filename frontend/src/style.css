@@ -1830,6 +1830,22 @@ html.vloglish-css-fullscreen body {
   z-index: 2147483646;
 }
 
+/* 修复 Android 部分机型「查词弹层被视频盖住」：
+   移动端视频面板是 sticky(z-20)，其内 <video> 会被浏览器提升为独立硬件合成层。
+   若查词弹层没有自己的合成层，某些 GPU/WebView 会无视 z-index，把视频层画在弹层之上
+   （同页的 header 因为带 transform 被提升为合成层，所以不受影响）。
+   这里给弹层单独提升为合成层，确保其稳定位于视频之上。 */
+.entry-card-overlay {
+  z-index: 9000;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+}
+
+/* 悬停查词气泡同理：用 will-change 提升合成层，避免覆盖 translate 定位 */
+.subtitle-word-tooltip {
+  will-change: transform;
+}
+
 /* 全屏元素外的 fixed 弹窗不可见；挂进来后改 absolute，盖住字幕/控件 */
 .video-panel:fullscreen .entry-card-overlay,
 .video-panel.video-panel--fullscreen .entry-card-overlay {

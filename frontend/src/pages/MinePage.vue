@@ -241,7 +241,7 @@ async function submitCredentials() {
     return
   }
   if (emailBound.value && !credCurrent.value) {
-    credError.value = '请输入当前登录密码以确认修改'
+    credError.value = '请输入已设置的登录密码，以确认身份'
     return
   }
   credBusy.value = true
@@ -256,7 +256,15 @@ async function submitCredentials() {
       credOpen.value = false
     }, 800)
   } catch (e) {
-    credError.value = getErrorDetail(e) || '保存失败，请稍后重试'
+    const status = (e as { response?: { status?: number } })?.response?.status
+    const detail = getErrorDetail(e)
+    if (status === 409) {
+      credError.value =
+        detail ||
+        '该邮箱已被其他账号使用。如果你就是该账号的主人，请直接用该邮箱 + 密码登录，或联系客服合并账号。'
+    } else {
+      credError.value = detail || '保存失败，请稍后重试'
+    }
   } finally {
     credBusy.value = false
   }
@@ -483,7 +491,7 @@ async function submitCredentials() {
       >
         <AppIcon name="user" class="h-5 w-5 shrink-0" />
         <span class="flex-1 text-[14px] text-ink">
-          登录邮箱与密码
+          绑定邮箱
           <span class="ml-1 text-[12px] text-ink-faint">
             {{ emailBound ? maskEmail(auth.user?.email) : '未绑定' }}
           </span>
@@ -509,7 +517,7 @@ async function submitCredentials() {
     <ContactAuthorDialog v-model:open="contactAuthorOpen" />
     <FeedbackModal v-model:open="feedbackOpen" />
 
-    <!-- 登录邮箱与密码弹窗 -->
+    <!-- 绑定邮箱弹窗 -->
     <div
       v-if="credOpen"
       class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 px-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] pt-8 sm:items-center"
@@ -519,14 +527,19 @@ async function submitCredentials() {
         <div class="flex items-center gap-2 text-ink">
           <AppIcon name="user" class="h-5 w-5" />
           <h3 class="text-[16px] font-semibold">
-            {{ emailBound ? '修改登录邮箱与密码' : '绑定登录邮箱与密码' }}
+            {{ emailBound ? '更换绑定邮箱' : '绑定邮箱' }}
           </h3>
         </div>
         <p class="mt-2 text-[12px] leading-relaxed text-ink-soft">
-          绑定后即可在电脑浏览器用该邮箱 + 密码登录，与 App 内 Apple 登录是同一个账号、数据实时同步。
+          <template v-if="!emailBound">
+            绑定一个邮箱 + 登录密码后，就可以在电脑浏览器用「邮箱 + 密码」登录；和 App 里的 Apple 登录是同一个账号，数据实时同步。
+          </template>
+          <template v-else>
+            当前已绑定邮箱。如需更换绑定邮箱或重置网页登录密码，请填写新信息并输入当前登录密码确认身份。如只需修改密码，邮箱保持不变即可。
+          </template>
         </p>
 
-        <label class="mt-4 block text-[12px] text-ink-soft">登录邮箱</label>
+        <label class="mt-4 block text-[12px] text-ink-soft">邮箱地址</label>
         <input
           v-model="credEmail"
           type="email"
@@ -537,17 +550,17 @@ async function submitCredentials() {
         />
 
         <label class="mt-3 block text-[12px] text-ink-soft">
-          {{ emailBound ? '新密码' : '设置密码' }}
+          {{ emailBound ? '登录密码' : '设置登录密码' }}
         </label>
         <input
           v-model="credPassword"
           type="password"
           autocomplete="new-password"
           class="mt-1 w-full rounded-xl border border-line-soft bg-sunken px-3 py-2.5 text-[14px] text-ink outline-none focus:border-brand"
-          placeholder="至少 8 位"
+          placeholder="至少 8 位，用于网页登录"
         />
 
-        <label class="mt-3 block text-[12px] text-ink-soft">确认密码</label>
+        <label class="mt-3 block text-[12px] text-ink-soft">确认登录密码</label>
         <input
           v-model="credPassword2"
           type="password"
@@ -557,13 +570,13 @@ async function submitCredentials() {
         />
 
         <template v-if="emailBound">
-          <label class="mt-3 block text-[12px] text-ink-soft">当前登录密码（确认修改）</label>
+          <label class="mt-3 block text-[12px] text-ink-soft">当前登录密码（确认身份）</label>
           <input
             v-model="credCurrent"
             type="password"
             autocomplete="current-password"
             class="mt-1 w-full rounded-xl border border-line-soft bg-sunken px-3 py-2.5 text-[14px] text-ink outline-none focus:border-brand"
-            placeholder="当前密码"
+            placeholder="已设置的登录密码"
           />
         </template>
 
@@ -571,7 +584,7 @@ async function submitCredentials() {
           {{ credError }}
         </p>
         <p v-if="credDone" class="mt-3 rounded-lg bg-brand/10 px-3 py-2 text-[12px] text-brand">
-          已保存，现在可用新邮箱 + 密码在网页登录了
+          绑定成功，现在可用该邮箱 + 密码在网页登录了
         </p>
 
         <div class="mt-5 flex gap-3">
