@@ -1,3 +1,5 @@
+import { isNativePlatform } from '@/utils/platform'
+
 const CSS_FS_ATTR = 'data-css-fullscreen'
 const CSS_FS_CLASS = 'vloglish-css-fullscreen'
 
@@ -102,17 +104,93 @@ async function exitNativeFullscreen(): Promise<void> {
   if (ret && typeof (ret as Promise<void>).then === 'function') await ret
 }
 
+type OrientationLockApi = {
+  lock?: (orientation: string) => Promise<void>
+  unlock?: () => void
+}
+
+function orientationApi(): OrientationLockApi | null {
+  if (typeof screen === 'undefined') return null
+  return (screen as unknown as { orientation?: OrientationLockApi }).orientation ?? null
+}
+
+function isTouchDevice(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+  return window.matchMedia('(pointer: coarse)').matches
+}
+
+/**
+ * 全屏时尝试锁定横屏。
+ * - 原生壳（iOS / Android）：用 @capacitor/screen-orientation 插件（iOS 必须走插件才能转屏）。
+ * - 移动端浏览器：用 Screen Orientation API（Android Chrome 支持；iOS Safari 会 reject，忽略）。
+ */
+async function lockLandscape(): Promise<void> {
+  if (isNativePlatform()) {
+    try {
+      const { ScreenOrientation } = await import('@capacitor/screen-orientation')
+      await ScreenOrientation.lock({ orientation: 'landscape' })
+    } catch {
+      /* 插件不可用 / 平台不支持：保持原方向 */
+    }
+    return
+  }
+  if (!isTouchDevice()) return
+  const api = orientationApi()
+  if (!api?.lock) return
+  try {
+    await api.lock('landscape')
+  } catch {
+    /* 不支持或未处于全屏：静默忽略 */
+  }
+}
+
+function unlockOrientation(): void {
+  if (isNativePlatform()) {
+    void (async () => {
+      try {
+        const { ScreenOrientation } = await import('@capacitor/screen-orientation')
+        await ScreenOrientation.unlock()
+      } catch {
+        /* ignore */
+      }
+    })()
+    return
+  }
+  const api = orientationApi()
+  if (!api?.unlock) return
+  try {
+    api.unlock()
+  } catch {
+    /* ignore */
+  }
+}
+
+// 用户通过系统手势/返回键退出全屏时也要解除横屏锁定
+if (typeof document !== 'undefined') {
+  const onFsChange = () => {
+    if (!getFullscreenElement()) unlockOrientation()
+  }
+  document.addEventListener('fullscreenchange', onFsChange)
+  document.addEventListener('webkitfullscreenchange', onFsChange)
+}
+
 export async function requestAppFullscreen(el: HTMLElement): Promise<void> {
   if (getFullscreenElement() === el) return
   if (getFullscreenElement()) await exitAppFullscreen()
   if (!shouldSkipNativeFullscreen()) {
     const ok = await requestNativeFullscreen(el)
-    if (ok) return
+    if (ok) {
+      // 不阻塞全屏切换：横屏锁定失败（如 iOS）就保持原方向
+      void lockLandscape()
+      return
+    }
   }
   enterCssFullscreen(el)
+  void lockLandscape()
 }
 
 export async function exitAppFullscreen(): Promise<void> {
+  unlockOrientation()
   const cssEl = document.querySelector(`[${CSS_FS_ATTR}]`) as HTMLElement | null
   if (cssEl) {
     leaveCssFullscreen(cssEl)

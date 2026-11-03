@@ -617,7 +617,13 @@ const videoPanelRef = ref<HTMLElement | null>(null)
 const isVideoPanelFullscreen = ref(false)
 
 function onVideoPanelFullscreenChange() {
+  const wasFullscreen = isVideoPanelFullscreen.value
   isVideoPanelFullscreen.value = getFullscreenElement() === videoPanelRef.value
+  // 退出全屏时把全屏字幕语言同步到侧栏模式（全屏期间为避免整页重渲染不做同步）
+  if (wasFullscreen && !isVideoPanelFullscreen.value) {
+    const mode = fullscreenCaptionMode.value
+    if (mode === 'both' || mode === 'en') selectSubtitleMode(mode)
+  }
 }
 
 const subtitleTooltipTeleport = computed(() =>
@@ -1432,7 +1438,11 @@ function setFullscreenCaptionMode(mode: FullscreenCaptionMode) {
   } catch {
     /* ignore */
   }
-  if (mode === 'both' || mode === 'en') selectSubtitleMode(mode)
+  // 全屏期间只切全屏字幕语言；不在此处改全局 subtitleMode，
+  // 否则会触发隐藏的字幕列表整片重渲染，导致切换卡顿。退出全屏时再同步（见 onVideoPanelFullscreenChange）。
+  if (!isVideoPanelFullscreen.value && (mode === 'both' || mode === 'en')) {
+    selectSubtitleMode(mode)
+  }
 }
 
 const fullscreenCaptionStyle = computed(() => {

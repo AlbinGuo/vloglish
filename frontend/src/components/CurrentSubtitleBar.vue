@@ -215,18 +215,23 @@ function panelBudgetPx(): number {
   return Math.min(h * 0.34, 13.5 * 16) - 8
 }
 
+let fitToken = 0
 async function fitEnglishToViewport() {
   if ((!props.pinChinese && !props.overlay) || (!usePinLayout.value && !useOverlay.value)) {
     fitScale.value = 1
     englishOverflow.value = false
     return
   }
+  // 每次切换字幕会被 watch / after-enter / resize 多次触发 fit。
+  // 用令牌让过期的一轮立即退出，避免多轮强制布局重叠造成掉帧（全屏切换卡顿）。
+  const token = ++fitToken
   englishOverflow.value = false
   fitScale.value = 1
   await nextTick()
   await new Promise<void>((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
   })
+  if (token !== fitToken) return
 
   const root = rootRef.value
   const scroll = scrollRef.value
@@ -234,6 +239,7 @@ async function fitEnglishToViewport() {
 
   const budget = panelBudgetPx()
   for (let i = 0; i < 12; i += 1) {
+    if (token !== fitToken) return
     const need = root.scrollHeight
     if (need <= budget + 4) break
     const next = Math.max(0.62, Number((fitScale.value - 0.05).toFixed(3)))
@@ -243,17 +249,21 @@ async function fitEnglishToViewport() {
   }
 
   await nextTick()
+  if (token !== fitToken) return
   if (root.scrollHeight > budget + 8) {
     englishOverflow.value = true
     await nextTick()
+    if (token !== fitToken) return
     if (scroll) {
       for (let i = 0; i < 6; i += 1) {
+        if (token !== fitToken) return
         if (scroll.scrollHeight <= scroll.clientHeight + 2) break
         const next = Math.max(0.58, Number((fitScale.value - 0.04).toFixed(3)))
         if (next === fitScale.value) break
         fitScale.value = next
         await nextTick()
       }
+      if (token !== fitToken) return
       scroll.scrollTop = 0
     }
   }
@@ -492,7 +502,7 @@ onUnmounted(() => {
 .csb-slide-up-enter-active,
 .csb-slide-down-leave-active,
 .csb-slide-down-enter-active {
-  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
 }
 .csb-slide-up-leave-active,
