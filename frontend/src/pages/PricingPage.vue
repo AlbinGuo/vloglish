@@ -463,16 +463,20 @@ async function startScanPay() {
               @click="selected = 'author'"
             >
               <span
-                class="text-[10px] font-bold"
-                :style="{ color: selected === 'author' ? '#edd577' : '#a16207' }"
+                class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold shadow-sm"
+                :style="
+                  selected === 'author'
+                    ? { color: '#111111', backgroundColor: '#edd577' }
+                    : { color: '#ffffff', backgroundColor: '#dc2626' }
+                "
               >
                 推荐
               </span>
               <div class="flex items-start justify-between gap-3 mt-1">
                 <div class="min-w-0">
                   <p
-                    class="text-[11px] font-medium tracking-wide"
-                    :class="selected === 'author' ? 'text-white/70' : 'text-ink-faint'"
+                    class="text-sm font-semibold tracking-wide"
+                    :class="selected === 'author' ? 'text-white/80' : 'text-neutral-900 dark:text-neutral-100'"
                   >
                     加作者微信
                   </p>
@@ -485,7 +489,7 @@ async function startScanPay() {
                 </div>
                 <p class="shrink-0 flex items-start leading-none">
                   <span class="mt-1 mr-0.5 text-sm font-semibold">¥</span>
-                  <span class="text-[1.75rem] font-semibold tracking-tight">128</span>
+                  <span class="text-[1.75rem] font-semibold tracking-tight">98</span>
                 </p>
               </div>
               <p
@@ -562,7 +566,7 @@ async function startScanPay() {
             <p v-else class="text-sm text-neutral-400 text-center px-4">正在准备支付码…</p>
           </div>
           <p v-if="selected === 'author'" class="mt-2 text-center text-xs text-neutral-500 leading-relaxed">
-            微信扫码添加作者，¥128
+            微信扫码添加作者，¥98
             <span class="font-bold text-neutral-800 dark:text-neutral-200">开通永久会员</span>
             ，付款后请备注登录邮箱
           </p>

@@ -54,7 +54,7 @@
         </view>
         <view class="wx-price-wrap">
           <text class="wx-yen">¥</text>
-          <text class="wx-price">79</text>
+          <text class="wx-price">98</text>
         </view>
       </view>
       <text class="wx-note">付款后请备注登录邮箱</text>
