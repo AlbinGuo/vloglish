@@ -451,6 +451,31 @@ async function startScanPay() {
               <p class="text-sm font-medium">{{ p.name }}</p>
               <p class="mt-1 text-2xl font-semibold tracking-tight">¥{{ p.price }}</p>
               <p class="mt-1 text-xs opacity-70">{{ p.period }} · {{ p.note }}</p>
+              <div
+                v-if="selected === p.id"
+                class="mt-4 flex min-h-48 flex-col items-center justify-center rounded-lg border border-white/10 bg-white p-3 text-center"
+              >
+                <p v-if="loading" class="text-sm text-neutral-400">正在生成支付码…</p>
+                <img v-else-if="payQr" :src="payQr" alt="支付小程序码" class="h-40 w-40 object-contain" />
+                <div v-else-if="payOnComputer" class="text-xs leading-relaxed text-neutral-600">
+                  <p class="font-medium text-neutral-800">App 内暂时无法生成支付码</p>
+                  <p class="mt-1">请在电脑浏览器打开开通页扫码支付。</p>
+                  <div class="mt-2 flex items-center gap-2 rounded-lg border border-black/10 px-2 py-1.5">
+                    <span class="min-w-0 flex-1 break-all text-left">{{ WEB_PAY_URL }}</span>
+                    <span
+                      role="button"
+                      class="shrink-0 cursor-pointer rounded-md border border-black/10 px-2 py-1"
+                      @click.stop="copyWebPayUrl"
+                    >
+                      {{ copiedUrl ? '已复制' : '复制' }}
+                    </span>
+                  </div>
+                </div>
+                <p v-else class="text-sm text-neutral-400">正在准备支付码…</p>
+                <p v-if="payHint" class="mt-2 text-xs text-neutral-500">{{ payHint }}</p>
+                <p v-if="paidOk" class="mt-2 text-sm text-emerald-600">支付成功，正在进入学习…</p>
+                <p v-if="error" class="mt-2 text-sm text-red-600">{{ error }}</p>
+              </div>
             </button>
             <button
               type="button"
@@ -498,6 +523,13 @@ async function startScanPay() {
               >
                 付款后请备注登录邮箱
               </p>
+              <div
+                v-if="selected === 'author'"
+                class="mt-4 flex flex-col items-center rounded-lg border border-white/10 bg-white p-3 text-center"
+              >
+                <img :src="AUTHOR_QR" alt="作者微信二维码" class="h-40 w-40 rounded-lg object-contain" />
+                <p class="mt-2 text-xs leading-relaxed text-neutral-600">微信扫码添加作者，¥98 开通永久会员</p>
+              </div>
             </button>
           </div>
 
@@ -523,7 +555,7 @@ async function startScanPay() {
         </section>
 
         <section
-          class="lg:col-span-2 rounded-2xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 p-5 sm:p-6 flex flex-col"
+          class="hidden lg:flex lg:col-span-2 rounded-2xl border border-black/8 dark:border-white/10 bg-white dark:bg-neutral-900 p-5 sm:p-6 flex-col"
         >
           <h2 class="text-lg font-semibold text-neutral-900 dark:text-white mb-1">
             {{ selected === 'author' ? '加作者微信' : payOnComputer ? '请在电脑上支付' : '微信扫码支付' }}
@@ -565,12 +597,7 @@ async function startScanPay() {
             </div>
             <p v-else class="text-sm text-neutral-400 text-center px-4">正在准备支付码…</p>
           </div>
-          <p v-if="selected === 'author'" class="mt-2 text-center text-xs text-neutral-500 leading-relaxed">
-            微信扫码添加作者，¥98
-            <span class="font-bold text-neutral-800 dark:text-neutral-200">开通永久会员</span>
-            ，付款后请备注登录邮箱
-          </p>
-          <p v-else-if="payHint" class="mt-2 text-center text-xs text-neutral-500">{{ payHint }}</p>
+          <p v-if="selected !== 'author' && payHint" class="mt-2 text-center text-xs text-neutral-500">{{ payHint }}</p>
           <p v-if="selected !== 'author' && paidOk" class="mt-2 text-center text-sm text-emerald-600">支付成功，正在进入学习…</p>
           <p v-if="selected !== 'author' && error" class="mt-2 text-sm text-red-600 dark:text-red-400">{{ error }}</p>
 
