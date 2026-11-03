@@ -20,7 +20,7 @@
     <text class="group-label">服务</text>
     <view class="cell" bindtap="onMembership">
       <text class="cell-title">{{isMember ? '会员权益' : '开通会员'}}</text>
-      <text class="cell-sub">季度 29 · 年度 59 · 永久 99</text>
+      <text class="cell-sub">季度 38 · 年度 78 · 永久 128</text>
     </view>
     <block wx:if="{{showBindAccount}}">
       <view wx:if="{{wechatOnly}}" class="cell" bindtap="onBindEmail">

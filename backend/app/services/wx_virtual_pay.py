@@ -54,7 +54,7 @@ PLANS: dict[str, dict] = {
     PLAN_FOREVER: {
         "name": "永久会员",
         "days": None,
-        "price_cent": 9800,
+        "price_cent": 12800,
         "product_env": "WECHAT_XPAY_PRODUCT_FOREVER",
         "product_default": "member_forever",
     },

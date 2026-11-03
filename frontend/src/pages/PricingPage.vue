@@ -23,7 +23,7 @@ const AUTHOR_QR = '/author-wechat-qr.png'
 const plans: { id: PlanId; name: string; price: string; period: string; note: string; recommend: boolean }[] = [
   { id: 'quarter', name: '季度会员', price: '38', period: '3 个月', note: '约 ¥12.7 / 月', recommend: false },
   { id: 'year', name: '年度会员', price: '78', period: '12 个月', note: '约 ¥6.5 / 月', recommend: false },
-  { id: 'forever', name: '永久会员', price: '98', period: '一次买断', note: '不再续费', recommend: false },
+  { id: 'forever', name: '永久会员', price: '128', period: '一次买断', note: '不再续费', recommend: false },
   // { id: 'test', name: '测试会员', price: '1', period: '1 天', note: '联调付款', recommend: false },
 ]
 
@@ -485,7 +485,7 @@ async function startScanPay() {
                 </div>
                 <p class="shrink-0 flex items-start leading-none">
                   <span class="mt-1 mr-0.5 text-sm font-semibold">¥</span>
-                  <span class="text-[1.75rem] font-semibold tracking-tight">98</span>
+                  <span class="text-[1.75rem] font-semibold tracking-tight">128</span>
                 </p>
               </div>
               <p
@@ -562,7 +562,7 @@ async function startScanPay() {
             <p v-else class="text-sm text-neutral-400 text-center px-4">正在准备支付码…</p>
           </div>
           <p v-if="selected === 'author'" class="mt-2 text-center text-xs text-neutral-500 leading-relaxed">
-            微信扫码添加作者，¥98
+            微信扫码添加作者，¥128
             <span class="font-bold text-neutral-800 dark:text-neutral-200">开通永久会员</span>
             ，付款后请备注登录邮箱
           </p>
