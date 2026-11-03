@@ -37,6 +37,8 @@ const props = defineProps<{
   dictationFrost?: boolean
   glossary?: { en: string; zh: string }[]
   literalLoading?: boolean
+  /** 是否关闭字幕切换动效（只显示当前字幕，不滑动上一句） */
+  disableCueMotion?: boolean
   /** 隐藏「意译 / 直译」切换按钮 */
   hideSenseToggle?: boolean
 }>()
@@ -116,7 +118,7 @@ const englishAlign = computed(() => props.align ?? 'center')
 const viewportRef = ref<HTMLElement | null>(null)
 const reduceMotion = ref(false)
 const seekSnap = ref(false)
-const cueMotion = computed(() => !reduceMotion.value && !seekSnap.value)
+const cueMotion = computed(() => !props.disableCueMotion && !reduceMotion.value && !seekSnap.value)
 const slideDir = ref<'up' | 'down'>('up')
 const slideName = computed(() => (slideDir.value === 'down' ? 'csb-slide-down' : 'csb-slide-up'))
 

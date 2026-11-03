@@ -614,6 +614,7 @@ watch(currentIndex, () => {
 })
 const videoRef = ref<HTMLVideoElement | null>(null)
 const videoPanelRef = ref<HTMLElement | null>(null)
+
 const isVideoPanelFullscreen = ref(false)
 
 /**
@@ -677,6 +678,10 @@ const listRef = ref<HTMLElement | null>(null)
 const showSettings = ref(false)
 const isPhone = useIsPhone()
 const isPad = useIsPad()
+/** PC / Pad 的播放器下方当前句、手机全屏字幕关闭切句滑动动效 */
+const disableDynamicCueMotion = computed(
+  () => !isPhone.value || (isVideoPanelFullscreen.value && isPhone.value),
+)
 /** 手机划选模式：默认关，打开后才能触控圈字加入摘录 */
 const clipSelectMode = ref(false)
 const isSplitRow = useMediaQuery(
@@ -3108,6 +3113,7 @@ function subtitleRowClass(index: number) {
                 class="w-full min-h-0"
                 pin-chinese
                 hide-sense-toggle
+                :disable-cue-motion="disableDynamicCueMotion"
                 :align="isPhone ? 'left' : 'center'"
                 :mono-english="isPhone"
                 :intensive="intensiveMode"
@@ -3179,6 +3185,7 @@ function subtitleRowClass(index: number) {
               class="w-full"
               :class="isPhone ? '' : 'min-h-0 flex-1'"
               hide-sense-toggle
+              :disable-cue-motion="disableDynamicCueMotion"
               :compact="isPhone"
               :top-align="isPad"
               :intensive="intensiveMode"

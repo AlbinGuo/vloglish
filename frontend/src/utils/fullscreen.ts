@@ -1,4 +1,4 @@
-import { isNativePlatform } from '@/utils/platform'
+import { getNativePlatform, isNativePlatform } from '@/utils/platform'
 
 const CSS_FS_ATTR = 'data-css-fullscreen'
 const CSS_FS_CLASS = 'vloglish-css-fullscreen'
@@ -121,11 +121,12 @@ function isTouchDevice(): boolean {
 
 /**
  * 全屏时尝试锁定横屏。
- * - 原生壳（iOS / Android）：用 @capacitor/screen-orientation 插件（iOS 必须走插件才能转屏）。
- * - 移动端浏览器：用 Screen Orientation API（Android Chrome 支持；iOS Safari 会 reject，忽略）。
+ * - 原生壳（仅 Android）：用 @capacitor/screen-orientation 插件；iOS 保持用户当前方向。
+ * - 移动端浏览器：用 Screen Orientation API（Android Chrome 支持；iOS Safari 不锁方向）。
  */
 async function lockLandscape(): Promise<void> {
   if (isNativePlatform()) {
+    if (getNativePlatform() !== 'android') return
     try {
       const { ScreenOrientation } = await import('@capacitor/screen-orientation')
       await ScreenOrientation.lock({ orientation: 'landscape' })
@@ -146,6 +147,7 @@ async function lockLandscape(): Promise<void> {
 
 function unlockOrientation(): void {
   if (isNativePlatform()) {
+    if (getNativePlatform() !== 'android') return
     void (async () => {
       try {
         const { ScreenOrientation } = await import('@capacitor/screen-orientation')
