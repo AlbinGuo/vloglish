@@ -37,6 +37,8 @@ const props = defineProps<{
   dictationFrost?: boolean
   glossary?: { en: string; zh: string }[]
   literalLoading?: boolean
+  /** 隐藏「意译 / 直译」切换按钮 */
+  hideSenseToggle?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -74,6 +76,7 @@ const displayChinese = computed(() =>
 )
 const showSenseToggle = computed(
   () =>
+    !props.hideSenseToggle &&
     showChinese.value &&
     !props.overlay &&
     !props.dictationFrost &&

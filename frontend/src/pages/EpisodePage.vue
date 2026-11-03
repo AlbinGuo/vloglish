@@ -616,11 +616,32 @@ const videoRef = ref<HTMLVideoElement | null>(null)
 const videoPanelRef = ref<HTMLElement | null>(null)
 const isVideoPanelFullscreen = ref(false)
 
+/**
+ * 全屏进入 / 旋转的短暂过渡期：临时关掉字幕条的毛玻璃、阴影等重绘制，
+ * 避免 iOS 旋转 WKWebView 时 backdrop-filter 重新合成导致的掉帧。
+ */
+const captionSettling = ref(false)
+let captionSettleTimer: ReturnType<typeof setTimeout> | null = null
+function markCaptionSettling(ms = 420) {
+  if (!isVideoPanelFullscreen.value) return
+  captionSettling.value = true
+  if (captionSettleTimer) clearTimeout(captionSettleTimer)
+  captionSettleTimer = setTimeout(() => {
+    captionSettling.value = false
+    captionSettleTimer = null
+  }, ms)
+}
+function onViewportSettle() {
+  markCaptionSettling()
+}
+
 function onVideoPanelFullscreenChange() {
   const wasFullscreen = isVideoPanelFullscreen.value
   isVideoPanelFullscreen.value = getFullscreenElement() === videoPanelRef.value
+  if (!wasFullscreen && isVideoPanelFullscreen.value) markCaptionSettling()
   // 退出全屏时把全屏字幕语言同步到侧栏模式（全屏期间为避免整页重渲染不做同步）
   if (wasFullscreen && !isVideoPanelFullscreen.value) {
+    captionSettling.value = false
     const mode = fullscreenCaptionMode.value
     if (mode === 'both' || mode === 'en') selectSubtitleMode(mode)
   }
@@ -1872,6 +1893,8 @@ onMounted(() => {
   if (auth.isLoggedIn && !props.adminPreview && props.videoId) void recordEpisodeView(props.videoId)
   window.addEventListener('keydown', onEntryKeydown)
   window.addEventListener('afterprint', onAfterPrint)
+  window.addEventListener('orientationchange', onViewportSettle)
+  window.addEventListener('resize', onViewportSettle)
   unsubscribeVideoPanelFullscreen = subscribeFullscreenChange(onVideoPanelFullscreenChange)
   if (props.videoId) void warmEpisodeWordLookups(props.videoId)
 })
@@ -1885,6 +1908,12 @@ onUnmounted(() => {
   document.body.style.overflow = ''
   window.removeEventListener('keydown', onEntryKeydown)
   window.removeEventListener('afterprint', onAfterPrint)
+  window.removeEventListener('orientationchange', onViewportSettle)
+  window.removeEventListener('resize', onViewportSettle)
+  if (captionSettleTimer) {
+    clearTimeout(captionSettleTimer)
+    captionSettleTimer = null
+  }
   unsubscribeVideoPanelFullscreen?.()
   unsubscribeVideoPanelFullscreen = null
   void exitAppFullscreen()
@@ -3005,6 +3034,7 @@ function subtitleRowClass(index: number) {
               'is-dragging': captionDragging,
               'is-resizing': captionResizing,
               'is-user-sized': fullscreenCaptionHeightPx != null,
+              'is-settling': captionSettling,
             }"
             :style="fullscreenCaptionStyle"
             @pointerdown="onCaptionOverlayPointerDown"
@@ -3077,6 +3107,7 @@ function subtitleRowClass(index: number) {
               <CurrentSubtitleBar
                 class="w-full min-h-0"
                 pin-chinese
+                hide-sense-toggle
                 :align="isPhone ? 'left' : 'center'"
                 :mono-english="isPhone"
                 :intensive="intensiveMode"
@@ -3147,6 +3178,7 @@ function subtitleRowClass(index: number) {
             <CurrentSubtitleBar
               class="w-full"
               :class="isPhone ? '' : 'min-h-0 flex-1'"
+              hide-sense-toggle
               :compact="isPhone"
               :top-align="isPad"
               :intensive="intensiveMode"

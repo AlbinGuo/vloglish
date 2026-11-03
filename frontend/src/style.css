@@ -1618,10 +1618,22 @@ html.highlight-style-background .reading-page .subtitle-english span.highlight.r
   border-radius: 1rem;
   background: rgb(8 8 8 / 0.45);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 10px 32px rgb(0 0 0 / 0.38);
   cursor: grab;
   touch-action: none;
   user-select: none;
+  /* 固定成独立合成层：旋转 / 关闭毛玻璃时不会与主层反复合并重绘 */
+  will-change: transform;
+}
+
+/* 全屏进入 / 旋转的短暂过渡期：临时关闭毛玻璃、阴影，避免 iOS 旋转时重新合成卡顿 */
+.video-panel:fullscreen .video-panel__subtitle.is-settling,
+.video-panel.video-panel--fullscreen .video-panel__subtitle.is-settling {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgb(8 8 8 / 0.62) !important;
+  box-shadow: none !important;
 }
 
 .video-panel:fullscreen .video-panel__subtitle.is-user-sized,
