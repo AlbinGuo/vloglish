@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import type { usePlayerControls } from '@/composables/usePlayerControls'
 
@@ -11,19 +11,16 @@ const props = defineProps<{
 }>()
 
 /* ───────────── 可配置常量（后续可提为 props） ───────────── */
-const BALL_SIZE = 48 // dp
-const SWIPE_THRESHOLD = 24 // 判定为滑动的最小水平位移
-const DRAG_THRESHOLD = 40 // 位移超过即进入拖动
-const MOVE_CANCEL = 10 // 明显位移阈值：超过则取消长按
-const MAX_NUDGE = 26 // 滑动时球体临时位移上限
-const LONG_PRESS_MS = 400
-const DOUBLE_TAP_MS = 300
-const MENU_RADIUS = 70 // 径向菜单半径
-const MENU_BTN = 40 // 菜单按钮尺寸
-const MENU_CLEARANCE = MENU_RADIUS + MENU_BTN / 2 // 菜单展开时需要的边距
+const BALL_SIZE = 48 // 主球直径
+const ACTION_SIZE = 40 // 上/下按钮直径
+const GAP = 8 // 主球与上/下按钮的间距
 const MARGIN = 8 // 吸附边距
-const MIN_BOTTOM = 12
-const HALF_HIDE_RATIO = 0.65 // 半隐藏时露出比例
+const SWIPE_MIN_DIST = 18 // 判定为滑动的最小位移
+const SWIPE_SPEED = 0.4 // 快速滑动速度阈值（px/ms，约 400px/s）
+const DRAG_THRESHOLD = 40 // 位移超过该值进入拖动跟手
+const MOVE_CANCEL = 10 // 视为「有位移」的阈值
+const TAP_MAX = 12 // 位移小于该值视为单击
+const MAX_NUDGE = 26 // 滑动时球体临时位移上限
 
 const POS_KEY = 'teco-floating-ball-pos'
 const GUIDE_KEY = 'teco-floating-ball-guide-done'
@@ -71,16 +68,15 @@ const vh = ref(typeof window !== 'undefined' ? window.innerHeight : 667)
 
 /* ───────────── 交互状态 ───────────── */
 const pressed = ref(false)
-const interacting = ref(false)
 const dragging = ref(false)
 const swipeNudge = ref(0)
-const spinning = ref(false)
 const replayFlash = ref(false)
 const arrowFlash = ref<'' | 'left' | 'right'>('')
-const menuOpen = ref(false)
 
 const guideActive = ref(false)
 const guideStep = ref(0)
+const guideCardRef = ref<HTMLElement | null>(null)
+const guideCardHeight = ref(300)
 
 const dragLeft = ref(0)
 const dragBottom = ref(0)
@@ -99,62 +95,41 @@ let dragAnchorX = 0
 let dragAnchorY = 0
 let dragOriginLeft = 0
 let dragOriginBottom = 0
+let lastX = 0
+let lastY = 0
+let lastT = 0
+let recentSpeed = 0
 let moved = false
 let dragActive = false
-let longPressFired = false
-let longPressTimer: ReturnType<typeof setTimeout> | null = null
-let singleTapTimer: ReturnType<typeof setTimeout> | null = null
-let lastTapAt = 0
-let spinTimer: ReturnType<typeof setTimeout> | null = null
 let replayTimer: ReturnType<typeof setTimeout> | null = null
 let arrowTimer: ReturnType<typeof setTimeout> | null = null
 let guideTimer: ReturnType<typeof setTimeout> | null = null
 
-/* ───────────── 位置与半隐藏 ───────────── */
-const minRatio = computed(() => (MENU_CLEARANCE + MARGIN + 4) / vh.value)
-const maxRatio = computed(() => (vh.value - MENU_CLEARANCE - MARGIN - 4) / vh.value)
-
-const revealed = computed(
-  () => interacting.value || dragging.value || menuOpen.value || guideActive.value,
-)
+/* ───────────── 位置（全显示，无半隐藏） ───────────── */
+const minBottomPx = computed(() => GAP + ACTION_SIZE + MARGIN)
+const maxBottomPx = computed(() => vh.value - BALL_SIZE - GAP - ACTION_SIZE - MARGIN)
 
 function currentRest(): { left: number; bottom: number } {
-  const ratio = clamp(centerY.value, minRatio.value, maxRatio.value)
   const left = edge.value === 'right' ? vw.value - MARGIN - BALL_SIZE : MARGIN
-  const bottom = vh.value - ratio * vh.value - BALL_SIZE / 2
+  const rawBottom = vh.value - centerY.value * vh.value - BALL_SIZE / 2
+  const bottom = clamp(rawBottom, minBottomPx.value, maxBottomPx.value)
   return { left, bottom }
 }
-
-const hiddenShift = computed(() => {
-  if (revealed.value) return 0
-  const rest = currentRest()
-  const anchor =
-    edge.value === 'right'
-      ? vw.value - Math.round(BALL_SIZE * HALF_HIDE_RATIO)
-      : -Math.round(BALL_SIZE * (1 - HALF_HIDE_RATIO))
-  return anchor - rest.left
-})
 
 const outerStyle = computed(() => {
   if (dragging.value) {
     return {
       left: `${dragLeft.value}px`,
       bottom: `${dragBottom.value}px`,
-      transform: 'none',
       transition: 'none',
     }
   }
   const rest = currentRest()
-  const shift = hiddenShift.value
-  const style: Record<string, string> = {
+  return {
     left: `${rest.left}px`,
     bottom: `${rest.bottom}px`,
-    transition: 'left .28s ease, bottom .28s ease, transform .25s ease',
+    transition: 'left .28s ease, bottom .28s ease',
   }
-  // 仅在真正半隐藏时加 transform：避免 transform: translateX(0) 让
-  // 内部 fixed 遮罩以 48px 容器为参照而非全屏
-  if (shift !== 0) style.transform = `translateX(${shift}px)`
-  return style
 })
 
 const ballStyle = computed(() => ({
@@ -162,17 +137,11 @@ const ballStyle = computed(() => ({
   height: `${BALL_SIZE}px`,
   transform: `translateX(${swipeNudge.value}px) scale(${pressed.value ? 0.9 : 1})`,
   transition: 'transform .18s ease, opacity .2s ease',
-  opacity: disabled.value ? 0.4 : pressed.value || dragging.value || menuOpen.value ? 0.96 : 0.75,
+  opacity: disabled.value ? 0.4 : pressed.value || dragging.value ? 1 : 0.82,
 }))
 
 const breathing = computed(
-  () =>
-    isPlaying.value &&
-    !disabled.value &&
-    !interacting.value &&
-    !dragging.value &&
-    !menuOpen.value &&
-    !guideActive.value,
+  () => isPlaying.value && !disabled.value && !pressed.value && !dragging.value && !guideActive.value,
 )
 
 /* ───────────── 动作 ───────────── */
@@ -185,35 +154,27 @@ function flashArrow(dir: 'left' | 'right') {
   }, 300)
 }
 
-function doToggle() {
-  props.player.togglePlay()
-  vibrate(10)
-}
-
 function doReplay() {
+  if (disabled.value) return
   props.player.replayCurrentSentence()
   vibrate([0, 18, 60, 22])
-  spinning.value = true
   replayFlash.value = true
-  if (spinTimer) clearTimeout(spinTimer)
   if (replayTimer) clearTimeout(replayTimer)
-  spinTimer = setTimeout(() => {
-    spinning.value = false
-    spinTimer = null
-  }, 520)
   replayTimer = setTimeout(() => {
     replayFlash.value = false
     replayTimer = null
-  }, 620)
+  }, 520)
 }
 
 function doPrev() {
+  if (disabled.value) return
   props.player.prevSentence()
   vibrate(12)
   flashArrow('left')
 }
 
 function doNext() {
+  if (disabled.value) return
   props.player.nextSentence()
   vibrate(12)
   flashArrow('right')
@@ -227,108 +188,25 @@ function persist() {
   }
 }
 
-/* ───────────── 菜单 ───────────── */
-function openMenu() {
-  menuOpen.value = true
-  vibrate([0, 22])
-}
-
-function closeMenu() {
-  menuOpen.value = false
-}
-
-const menuButtons = computed(() => {
-  const sign = edge.value === 'right' ? -1 : 1
-  const playing = isPlaying.value
-  const defs: { key: string; angle: number; icon: string; label: string }[] = [
-    { key: 'replay', angle: -60, icon: 'repeat', label: '重播当前句' },
-    { key: 'prev', angle: -22, icon: 'chevron-left', label: '上一句' },
-    { key: 'next', angle: 22, icon: 'chevron-right', label: '下一句' },
-    { key: 'play', angle: 60, icon: playing ? 'pause' : 'play', label: playing ? '暂停' : '播放' },
-  ]
-  return defs.map((d) => {
-    const rad = (d.angle * Math.PI) / 180
-    const x = sign * MENU_RADIUS * Math.cos(rad)
-    const y = MENU_RADIUS * Math.sin(rad)
-    return {
-      ...d,
-      left: BALL_SIZE / 2 + x - MENU_BTN / 2,
-      top: BALL_SIZE / 2 + y - MENU_BTN / 2,
-    }
-  })
-})
-
-function onMenuAction(key: string) {
-  if (key === 'prev') doPrev()
-  else if (key === 'next') doNext()
-  else if (key === 'replay') doReplay()
-  else doToggle()
-  closeMenu()
-}
-
 /* ───────────── 指针手势 ───────────── */
-function clearLongPress() {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer)
-    longPressTimer = null
-  }
-}
-
-function handleTap() {
-  const now = performance.now()
-  if (lastTapAt > 0 && now - lastTapAt <= DOUBLE_TAP_MS) {
-    if (singleTapTimer) {
-      clearTimeout(singleTapTimer)
-      singleTapTimer = null
-    }
-    lastTapAt = 0
-    doReplay()
-    return
-  }
-  lastTapAt = now
-  if (singleTapTimer) clearTimeout(singleTapTimer)
-  singleTapTimer = setTimeout(() => {
-    singleTapTimer = null
-    lastTapAt = 0
-    doToggle()
-  }, DOUBLE_TAP_MS)
-}
-
-function resetTapChain() {
-  lastTapAt = 0
-  if (singleTapTimer) {
-    clearTimeout(singleTapTimer)
-    singleTapTimer = null
-  }
-}
-
-function clearSingleTimer() {
-  if (singleTapTimer) {
-    clearTimeout(singleTapTimer)
-    singleTapTimer = null
-  }
-}
-
 function onPointerDown(e: PointerEvent) {
   if (props.hidden || disabled.value || guideActive.value) return
-  if (menuOpen.value) {
-    closeMenu()
-    return
-  }
   const el = ballRef.value
   if (!el) return
 
-  // 只清除待触发的单击动作，保留 lastTapAt 以便识别双击
-  clearSingleTimer()
+  // 阻止移动端长按的原生选中 / 上下文菜单
+  e.preventDefault()
 
   startX = e.clientX
   startY = e.clientY
   startT = performance.now()
+  lastX = e.clientX
+  lastY = e.clientY
+  lastT = startT
+  recentSpeed = 0
   moved = false
   dragActive = false
-  longPressFired = false
   pid = e.pointerId
-  interacting.value = true
   pressed.value = true
   swipeNudge.value = 0
 
@@ -337,16 +215,6 @@ function onPointerDown(e: PointerEvent) {
   } catch {
     /* ignore */
   }
-
-  clearLongPress()
-  longPressTimer = setTimeout(() => {
-    longPressTimer = null
-    if (pid !== null && !moved && !dragActive) {
-      longPressFired = true
-      pressed.value = false
-      openMenu()
-    }
-  }, LONG_PRESS_MS)
 }
 
 function onPointerMove(e: PointerEvent) {
@@ -355,25 +223,37 @@ function onPointerMove(e: PointerEvent) {
   const dy = e.clientY - startY
   const dist = Math.hypot(dx, dy)
 
-  if (!moved && dist > MOVE_CANCEL) {
-    moved = true
-    clearLongPress()
+  // 追踪最近一段的瞬时速度，用于区分「快速滑动」与「慢速拖动」
+  const now = performance.now()
+  const dt = now - lastT
+  if (dt > 0) {
+    recentSpeed = Math.hypot(e.clientX - lastX, e.clientY - lastY) / dt
   }
+  lastX = e.clientX
+  lastY = e.clientY
+  lastT = now
+
+  if (!moved && dist > MOVE_CANCEL) moved = true
   if (!moved) return
 
   if (!dragActive && dist >= DRAG_THRESHOLD) {
-    const el = ballRef.value
-    if (el) {
-      const rect = el.getBoundingClientRect()
-      dragOriginLeft = rect.left
-      dragOriginBottom = vh.value - rect.bottom
+    // 快速水平滑动视为切句意图，不进入拖动（球只做小幅回弹预览）
+    const fastHorizontal =
+      Math.abs(dx) > Math.abs(dy) * 1.2 && recentSpeed >= SWIPE_SPEED && dist >= SWIPE_MIN_DIST
+    if (!fastHorizontal) {
+      const el = ballRef.value
+      if (el) {
+        const rect = el.getBoundingClientRect()
+        dragOriginLeft = rect.left
+        dragOriginBottom = vh.value - rect.bottom
+      }
+      dragAnchorX = e.clientX
+      dragAnchorY = e.clientY
+      dragActive = true
+      dragging.value = true
+      pressed.value = false
+      swipeNudge.value = 0
     }
-    dragAnchorX = e.clientX
-    dragAnchorY = e.clientY
-    dragActive = true
-    dragging.value = true
-    pressed.value = false
-    swipeNudge.value = 0
   }
 
   if (dragActive) {
@@ -384,8 +264,8 @@ function onPointerMove(e: PointerEvent) {
     )
     dragBottom.value = clamp(
       dragOriginBottom - (e.clientY - dragAnchorY),
-      MIN_BOTTOM,
-      vh.value - BALL_SIZE - MIN_BOTTOM,
+      minBottomPx.value,
+      maxBottomPx.value,
     )
     e.preventDefault()
   } else {
@@ -401,77 +281,72 @@ function onPointerUp(e: PointerEvent, cancelled = false) {
   } catch {
     /* ignore */
   }
-  clearLongPress()
 
-  const wasLong = longPressFired
   const dx = e.clientX - startX
   const dy = e.clientY - startY
   const dist = Math.hypot(dx, dy)
-  const duration = performance.now() - startT
+  const duration = Math.max(1, performance.now() - startT)
+  const wasDrag = dragActive
 
   pid = null
   pressed.value = false
 
-  if (wasLong) {
-    interacting.value = false
-    resetTapChain()
-    return
-  }
-
-  if (dragActive) {
-    const centerX = dragLeft.value + BALL_SIZE / 2
-    edge.value = centerX < vw.value / 2 ? 'left' : 'right'
-    centerY.value = clamp(
-      (vh.value - dragBottom.value - BALL_SIZE / 2) / vh.value,
-      minRatio.value,
-      maxRatio.value,
-    )
-    persist()
+  if (cancelled) {
     dragging.value = false
     dragActive = false
-    interacting.value = false
-    resetTapChain()
+    swipeNudge.value = 0
     return
   }
 
-  swipeNudge.value = 0
-  interacting.value = false
-
-  if (cancelled) {
-    dragActive = false
-    resetTapChain()
-    return
-  }
-
+  // 快速水平滑动：优先判定为切句（无论位移多大）
+  const avgSpeed = dist / duration
+  const flickSpeed = Math.max(avgSpeed, recentSpeed)
   const horizontal = Math.abs(dx) > Math.abs(dy) * 1.2
-  if (dist >= SWIPE_THRESHOLD && horizontal && duration <= 600) {
+  if (dist >= SWIPE_MIN_DIST && horizontal && flickSpeed >= SWIPE_SPEED) {
+    // 取消拖动位移，球回弹到原位，再切换句子
+    dragging.value = false
     dragActive = false
-    resetTapChain()
+    swipeNudge.value = 0
     if (dx < 0) doPrev()
     else doNext()
     return
   }
 
+  // 慢速拖动：移动悬浮球位置
+  if (wasDrag) {
+    const centerX = dragLeft.value + BALL_SIZE / 2
+    edge.value = centerX < vw.value / 2 ? 'left' : 'right'
+    centerY.value = clamp(
+      (vh.value - dragBottom.value - BALL_SIZE / 2) / vh.value,
+      0,
+      1,
+    )
+    persist()
+    dragging.value = false
+    dragActive = false
+    return
+  }
+
+  swipeNudge.value = 0
   dragActive = false
-  if (dist < SWIPE_THRESHOLD) {
-    handleTap()
-  } else {
-    resetTapChain()
+
+  // 轻点：重播当前句
+  if (dist < TAP_MAX) {
+    doReplay()
   }
 }
 
 /* ───────────── 引导 ───────────── */
 const guideSteps = [
-  { title: '单击', desc: '播放 / 暂停', icon: 'play' },
-  { title: '双击', desc: '重播当前句子', icon: 'repeat' },
+  { title: '单击', desc: '重播当前句子', icon: 'repeat' },
   { title: '左右滑动', desc: '左滑上一句 · 右滑下一句', icon: 'swipe-hint' },
-  { title: '长按', desc: '展开完整菜单', icon: 'menu' },
+  { title: '上下按钮', desc: '球上方切上一句 · 下方切下一句', icon: 'chevron-down' },
+  { title: '拖动', desc: '按住拖动可移动悬浮球位置', icon: 'swipe-hint' },
 ]
 
 function showGuide() {
   guideStep.value = 0
   guideActive.value = true
-  interacting.value = false
   // 严格「只显示一次」：展示即标记已引导
   try {
     localStorage.setItem(GUIDE_KEY, '1')
@@ -511,10 +386,14 @@ const guideSpotStyle = computed(() => {
 const guideCardStyle = computed(() => {
   const c = guideBallCenter.value
   const half = (BALL_SIZE + 28) / 2
-  const placeAbove = c.y > vh.value * 0.5
-  return placeAbove
-    ? { bottom: `${vh.value - (c.y - half) + 14}px` }
-    : { top: `${c.y + half + 14}px` }
+  const gap = 14
+  const h = guideCardHeight.value
+  const topSpace = c.y - half - gap
+  const bottomSpace = vh.value - (c.y + half) - gap
+  if (topSpace >= h) return { bottom: `${vh.value - (c.y - half) + gap}px` }
+  if (bottomSpace >= h) return { top: `${c.y + half + gap}px` }
+  // 上下都放不下：竖直居中，避免超出屏幕
+  return { top: `${Math.max(12, (vh.value - h) / 2)}px` }
 })
 
 /* ───────────── 生命周期 ───────────── */
@@ -526,15 +405,15 @@ function onResize() {
 watch(
   () => props.hidden,
   (h) => {
-    if (h) {
-      menuOpen.value = false
-      guideActive.value = false
-    }
+    if (h) guideActive.value = false
   },
 )
 
-watch(disabled, (d) => {
-  if (d) menuOpen.value = false
+watch([guideActive, guideStep], async () => {
+  if (!guideActive.value) return
+  await nextTick()
+  const el = guideCardRef.value
+  if (el) guideCardHeight.value = el.getBoundingClientRect().height
 })
 
 onMounted(() => {
@@ -559,9 +438,6 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('resize', onResize)
   window.removeEventListener('orientationchange', onResize)
-  clearLongPress()
-  if (singleTapTimer) clearTimeout(singleTapTimer)
-  if (spinTimer) clearTimeout(spinTimer)
   if (replayTimer) clearTimeout(replayTimer)
   if (arrowTimer) clearTimeout(arrowTimer)
   if (guideTimer) clearTimeout(guideTimer)
@@ -571,45 +447,47 @@ onUnmounted(() => {
 <template>
   <div
     v-show="!hidden"
-    class="fixed select-none"
-    :class="menuOpen ? 'z-[45]' : 'z-30'"
+    class="fb-root fixed z-30 select-none"
     :style="outerStyle"
+    @selectstart.prevent
+    @contextmenu.prevent
+    @dragstart.prevent
   >
-    <!-- 径向菜单按钮 -->
-    <template v-if="menuOpen">
-      <button
-        v-for="item in menuButtons"
-        :key="item.key"
-        type="button"
-        class="fb-menu-btn absolute flex items-center justify-center rounded-full border border-white/20 bg-neutral-900/90 text-white shadow-lg backdrop-blur-md active:scale-90"
-        :style="{ left: `${item.left}px`, top: `${item.top}px`, width: `${MENU_BTN}px`, height: `${MENU_BTN}px` }"
-        :aria-label="item.label"
-        :title="item.label"
-        @click.stop="onMenuAction(item.key)"
-      >
-        <AppIcon :name="item.icon" class="h-5 w-5" />
-      </button>
-    </template>
+    <!-- 上一句（球上方） -->
+    <button
+      type="button"
+      class="fb-action absolute flex touch-none items-center justify-center rounded-full border border-white/20 bg-neutral-900/85 text-white shadow-lg backdrop-blur-md active:scale-90 disabled:opacity-40"
+      :style="{ left: `${(BALL_SIZE - ACTION_SIZE) / 2}px`, top: `${-(GAP + ACTION_SIZE)}px`, width: `${ACTION_SIZE}px`, height: `${ACTION_SIZE}px` }"
+      :disabled="disabled"
+      aria-label="上一句"
+      title="上一句"
+      @click.stop="doPrev"
+      @contextmenu.prevent
+      @selectstart.prevent
+      @dragstart.prevent
+    >
+      <AppIcon name="chevron-down" class="h-5 w-5 rotate-180" />
+    </button>
 
-    <!-- 主球 -->
+    <!-- 主球：重复当前句 -->
     <div class="fb-breathe" :class="{ 'fb-breathing': breathing }">
       <button
         ref="ballRef"
         type="button"
-        class="fb-ball relative flex touch-none select-none items-center justify-center rounded-full border border-white/20 text-white shadow-lg backdrop-blur-md"
-        :class="[dragging ? 'ring-2 ring-amber-400/70' : '', spinning ? 'fb-spin-once' : '']"
+        class="fb-ball relative flex touch-none select-none items-center justify-center rounded-full border border-white/20 bg-neutral-900/75 text-white shadow-lg backdrop-blur-md"
+        :class="dragging ? 'ring-2 ring-amber-400/70' : ''"
         :style="ballStyle"
-        :aria-label="disabled ? '悬浮球不可用' : isPlaying ? '暂停' : '播放'"
+        :aria-label="disabled ? '悬浮球不可用' : '重复当前句'"
         :aria-disabled="disabled"
         @pointerdown="onPointerDown"
         @pointermove="onPointerMove"
         @pointerup="onPointerUp($event)"
         @pointercancel="onPointerUp($event, true)"
         @contextmenu.prevent
+        @selectstart.prevent
+        @dragstart.prevent
       >
-        <AppIcon v-if="replayFlash" name="repeat" class="fb-replay-icon h-6 w-6" />
-        <AppIcon v-else-if="isPlaying" name="pause" class="h-6 w-6" />
-        <AppIcon v-else name="play" class="ml-0.5 h-6 w-6" />
+        <AppIcon name="repeat" class="h-6 w-6" :class="{ 'fb-replay-icon': replayFlash }" />
 
         <Transition name="fb-arrow">
           <span
@@ -624,12 +502,23 @@ onUnmounted(() => {
         </Transition>
       </button>
     </div>
-  </div>
 
-  <!-- 菜单遮罩（独立于球体定位，避免 transform 影响 fixed 参照） -->
-  <Teleport to="body">
-    <div v-if="menuOpen" class="fixed inset-0 z-[44] bg-black/25" @click="closeMenu" />
-  </Teleport>
+    <!-- 下一句（球下方） -->
+    <button
+      type="button"
+      class="fb-action absolute flex touch-none items-center justify-center rounded-full border border-white/20 bg-neutral-900/85 text-white shadow-lg backdrop-blur-md active:scale-90 disabled:opacity-40"
+      :style="{ left: `${(BALL_SIZE - ACTION_SIZE) / 2}px`, top: `${BALL_SIZE + GAP}px`, width: `${ACTION_SIZE}px`, height: `${ACTION_SIZE}px` }"
+      :disabled="disabled"
+      aria-label="下一句"
+      title="下一句"
+      @click.stop="doNext"
+      @contextmenu.prevent
+      @selectstart.prevent
+      @dragstart.prevent
+    >
+      <AppIcon name="chevron-down" class="h-5 w-5" />
+    </button>
+  </div>
 
   <!-- 首次使用引导 -->
   <Teleport to="body">
@@ -640,6 +529,7 @@ onUnmounted(() => {
       />
       <div class="absolute inset-0" @click.stop />
       <div
+        ref="guideCardRef"
         class="fb-guide-card absolute left-1/2 w-[88vw] max-w-[320px] -translate-x-1/2 rounded-2xl bg-white p-4 shadow-2xl ring-1 ring-black/10 dark:bg-neutral-900 dark:ring-white/10"
         :style="guideCardStyle"
         @click.stop
@@ -651,15 +541,62 @@ onUnmounted(() => {
           <button type="button" class="text-[12px] text-ink-faint" @click="dismissGuide">不再提示</button>
         </div>
 
-        <div class="mt-3 flex items-center gap-3">
-          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sunken text-ink">
-            <AppIcon :name="guideSteps[guideStep].icon" class="h-5 w-5" />
-          </span>
-          <div class="min-w-0">
-            <p class="text-[14px] font-semibold text-ink">{{ guideSteps[guideStep].title }}</p>
-            <p class="text-[12px] text-ink-soft">{{ guideSteps[guideStep].desc }}</p>
+        <Transition name="fb-step" mode="out-in">
+          <div :key="guideStep" class="mt-3">
+            <!-- 操作动画演示 -->
+            <div class="fb-demo" aria-hidden="true">
+              <!-- 0 单击：重播 -->
+              <template v-if="guideStep === 0">
+                <div class="fb-demo-ball">
+                  <AppIcon name="repeat" class="h-4 w-4" />
+                </div>
+                <span class="fb-demo-ripple" />
+                <span class="fb-demo-finger" />
+              </template>
+
+              <!-- 1 左右滑动 -->
+              <template v-else-if="guideStep === 1">
+                <span class="fb-demo-chev fb-demo-chev-left">
+                  <AppIcon name="chevron-left" class="h-5 w-5" />
+                </span>
+                <span class="fb-demo-chev fb-demo-chev-right">
+                  <AppIcon name="chevron-right" class="h-5 w-5" />
+                </span>
+                <div class="fb-demo-ball fb-demo-swipe">
+                  <AppIcon name="repeat" class="h-4 w-4" />
+                </div>
+              </template>
+
+              <!-- 2 上下按钮 -->
+              <template v-else-if="guideStep === 2">
+                <div class="fb-demo-col">
+                  <span class="fb-demo-btn fb-demo-btn-up">
+                    <AppIcon name="chevron-down" class="h-4 w-4 rotate-180" />
+                  </span>
+                  <div class="fb-demo-ball">
+                    <AppIcon name="repeat" class="h-4 w-4" />
+                  </div>
+                  <span class="fb-demo-btn fb-demo-btn-down">
+                    <AppIcon name="chevron-down" class="h-4 w-4" />
+                  </span>
+                </div>
+              </template>
+
+              <!-- 3 拖动 -->
+              <template v-else>
+                <span class="fb-demo-ghost" />
+                <div class="fb-demo-ball fb-demo-drag">
+                  <AppIcon name="repeat" class="h-4 w-4" />
+                </div>
+              </template>
+            </div>
+
+            <div class="mt-2 text-center">
+              <p class="text-[14px] font-semibold text-ink">{{ guideSteps[guideStep].title }}</p>
+              <p class="mt-0.5 text-[12px] text-ink-soft">{{ guideSteps[guideStep].desc }}</p>
+            </div>
           </div>
-        </div>
+        </Transition>
 
         <div class="mt-3 flex items-center gap-1">
           <span
@@ -686,6 +623,22 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.fb-root {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-drag: none;
+  touch-action: none;
+  outline: none;
+}
+.fb-root * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+}
+
 .fb-breathe {
   display: inline-block;
 }
@@ -702,30 +655,12 @@ onUnmounted(() => {
   }
 }
 
-.fb-spin-once {
-  animation: fb-spin 0.5s ease;
+.fb-replay-icon {
+  animation: fb-spin 0.7s linear infinite;
 }
 @keyframes fb-spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-.fb-replay-icon {
-  animation: fb-spin 0.7s linear infinite;
-}
-
-.fb-menu-btn {
-  animation: fb-menu-in 0.16s ease-out;
-}
-@keyframes fb-menu-in {
-  from {
-    opacity: 0;
-    transform: scale(0.7);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
   }
 }
 
@@ -750,6 +685,251 @@ onUnmounted(() => {
   to {
     opacity: 1;
     transform: translate(-50%, 0);
+  }
+}
+
+/* ───── 新手引导：操作动画演示 ───── */
+.fb-demo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 116px;
+  overflow: hidden;
+}
+.fb-demo-ball {
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  background: #52525b;
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+  outline: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+/* 单击 */
+.fb-demo-finger {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: 9999px;
+  background: #f59e0b;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25);
+  animation: fbTapFinger 1.9s ease-in-out infinite;
+}
+.fb-demo-ripple {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  border-radius: 9999px;
+  border: 2px solid rgba(245, 158, 11, 0.85);
+  animation: fbTapRipple 1.9s ease-out infinite;
+}
+@keyframes fbTapFinger {
+  0%,
+  18% {
+    transform: translateY(-16px);
+    opacity: 0.3;
+  }
+  40%,
+  55% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  72%,
+  100% {
+    transform: translateY(-16px);
+    opacity: 0;
+  }
+}
+@keyframes fbTapRipple {
+  0%,
+  38% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  46% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  80%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* 左右滑动 */
+.fb-demo-chev {
+  position: absolute;
+  top: 50%;
+  margin-top: -10px;
+  color: #f59e0b;
+}
+.fb-demo-chev-left {
+  left: calc(50% - 56px);
+  animation: fbChevLeft 2.6s ease-in-out infinite;
+}
+.fb-demo-chev-right {
+  right: calc(50% - 56px);
+  animation: fbChevRight 2.6s ease-in-out infinite;
+}
+@keyframes fbChevLeft {
+  0%,
+  8%,
+  46%,
+  100% {
+    opacity: 0;
+  }
+  18%,
+  34% {
+    opacity: 1;
+  }
+}
+@keyframes fbChevRight {
+  0%,
+  54%,
+  92%,
+  100% {
+    opacity: 0;
+  }
+  64%,
+  80% {
+    opacity: 1;
+  }
+}
+.fb-demo-swipe {
+  animation: fbSwipeX 2.6s ease-in-out infinite;
+}
+@keyframes fbSwipeX {
+  0%,
+  8% {
+    transform: translateX(0);
+  }
+  26% {
+    transform: translateX(-26px);
+  }
+  46% {
+    transform: translateX(0);
+  }
+  66% {
+    transform: translateX(26px);
+  }
+  88%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* 上下按钮 */
+.fb-demo-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.fb-demo-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  background: #52525b;
+  color: #fff;
+}
+.fb-demo-btn-up {
+  animation: fbBtnUp 2.4s ease-in-out infinite;
+}
+.fb-demo-btn-down {
+  animation: fbBtnDown 2.4s ease-in-out infinite;
+}
+@keyframes fbBtnUp {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+  20% {
+    transform: scale(1.14);
+    box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.35);
+  }
+  44% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+@keyframes fbBtnDown {
+  0%,
+  52%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+  70% {
+    transform: scale(1.14);
+    box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.35);
+  }
+  90% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+
+/* 拖动 */
+.fb-demo-ghost {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  border-radius: 9999px;
+  border: 2px dashed rgba(130, 130, 140, 0.65);
+}
+.fb-demo-drag {
+  animation: fbDragPath 2.8s ease-in-out infinite;
+}
+@keyframes fbDragPath {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  30% {
+    transform: translate(34px, -22px);
+  }
+  60% {
+    transform: translate(-14px, 18px);
+  }
+  80% {
+    transform: translate(0, 0);
+  }
+}
+
+/* 步骤切换淡入 */
+.fb-step-enter-active,
+.fb-step-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.fb-step-enter-from,
+.fb-step-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fb-demo * {
+    animation: none !important;
   }
 }
 </style>
