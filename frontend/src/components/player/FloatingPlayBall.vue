@@ -16,7 +16,9 @@ const ACTION_SIZE = 40 // 上/下按钮直径
 const GAP = 8 // 主球与上/下按钮的间距
 const MARGIN = 8 // 吸附边距
 const SWIPE_MIN_DIST = 18 // 判定为滑动的最小位移
-const SWIPE_SPEED = 0.4 // 快速滑动速度阈值（px/ms，约 400px/s）
+const SWIPE_SPEED_X = 0.4 // 水平快速滑动速度阈值（px/ms，约 400px/s）
+const SWIPE_SPEED_Y = 0.9 // 竖直快速滑动速度阈值（更高，避免和竖直拖动冲突）
+const SWIPE_MAX_MS = 450 // 超过该时长视为拖动（而非快速滑动）
 const DRAG_THRESHOLD = 40 // 位移超过该值进入拖动跟手
 const MOVE_CANCEL = 10 // 视为「有位移」的阈值
 const TAP_MAX = 12 // 位移小于该值视为单击
@@ -26,6 +28,7 @@ const POS_KEY = 'teco-floating-ball-pos'
 const GUIDE_KEY = 'teco-floating-ball-guide-done'
 
 type Edge = 'left' | 'right'
+type Dir = 'left' | 'right' | 'up' | 'down'
 interface SavedPos {
   edge: Edge
   centerY: number
@@ -70,8 +73,9 @@ const vh = ref(typeof window !== 'undefined' ? window.innerHeight : 667)
 const pressed = ref(false)
 const dragging = ref(false)
 const swipeNudge = ref(0)
+const swipeNudgeY = ref(0)
 const replayFlash = ref(false)
-const arrowFlash = ref<'' | 'left' | 'right'>('')
+const arrowFlash = ref<'' | Dir>('')
 
 const guideActive = ref(false)
 const guideStep = ref(0)
@@ -135,7 +139,7 @@ const outerStyle = computed(() => {
 const ballStyle = computed(() => ({
   width: `${BALL_SIZE}px`,
   height: `${BALL_SIZE}px`,
-  transform: `translateX(${swipeNudge.value}px) scale(${pressed.value ? 0.9 : 1})`,
+  transform: `translate(${swipeNudge.value}px, ${swipeNudgeY.value}px) scale(${pressed.value ? 0.9 : 1})`,
   transition: 'transform .18s ease, opacity .2s ease',
   opacity: disabled.value ? 0.4 : pressed.value || dragging.value ? 1 : 0.82,
 }))
@@ -145,7 +149,7 @@ const breathing = computed(
 )
 
 /* ───────────── 动作 ───────────── */
-function flashArrow(dir: 'left' | 'right') {
+function flashArrow(dir: Dir) {
   arrowFlash.value = dir
   if (arrowTimer) clearTimeout(arrowTimer)
   arrowTimer = setTimeout(() => {
@@ -166,19 +170,34 @@ function doReplay() {
   }, 520)
 }
 
-function doPrev() {
+function doPrev(arrow: Dir = 'left') {
   if (disabled.value) return
   props.player.prevSentence()
   vibrate(12)
-  flashArrow('left')
+  flashArrow(arrow)
 }
 
-function doNext() {
+function doNext(arrow: Dir = 'right') {
   if (disabled.value) return
   props.player.nextSentence()
   vibrate(12)
-  flashArrow('right')
+  flashArrow(arrow)
 }
+
+const arrowIcon = computed<{ name: string; rotate: boolean }>(() => {
+  switch (arrowFlash.value) {
+    case 'left':
+      return { name: 'chevron-left', rotate: false }
+    case 'right':
+      return { name: 'chevron-right', rotate: false }
+    case 'up':
+      return { name: 'chevron-down', rotate: true }
+    case 'down':
+      return { name: 'chevron-down', rotate: false }
+    default:
+      return { name: 'chevron-right', rotate: false }
+  }
+})
 
 function persist() {
   try {
@@ -209,6 +228,7 @@ function onPointerDown(e: PointerEvent) {
   pid = e.pointerId
   pressed.value = true
   swipeNudge.value = 0
+  swipeNudgeY.value = 0
 
   try {
     el.setPointerCapture(e.pointerId)
@@ -237,10 +257,12 @@ function onPointerMove(e: PointerEvent) {
   if (!moved) return
 
   if (!dragActive && dist >= DRAG_THRESHOLD) {
-    // 快速水平滑动视为切句意图，不进入拖动（球只做小幅回弹预览）
-    const fastHorizontal =
-      Math.abs(dx) > Math.abs(dy) * 1.2 && recentSpeed >= SWIPE_SPEED && dist >= SWIPE_MIN_DIST
-    if (!fastHorizontal) {
+    // 快速滑动（主轴方向、手势够短）视为切句意图，不进入拖动（球只做小幅回弹预览）
+    const horizontalAxis = Math.abs(dx) >= Math.abs(dy)
+    const speedThreshold = horizontalAxis ? SWIPE_SPEED_X : SWIPE_SPEED_Y
+    const fastFlick =
+      now - startT <= SWIPE_MAX_MS && recentSpeed >= speedThreshold && dist >= SWIPE_MIN_DIST
+    if (!fastFlick) {
       const el = ballRef.value
       if (el) {
         const rect = el.getBoundingClientRect()
@@ -253,6 +275,7 @@ function onPointerMove(e: PointerEvent) {
       dragging.value = true
       pressed.value = false
       swipeNudge.value = 0
+      swipeNudgeY.value = 0
     }
   }
 
@@ -268,8 +291,12 @@ function onPointerMove(e: PointerEvent) {
       maxBottomPx.value,
     )
     e.preventDefault()
-  } else {
+  } else if (Math.abs(dx) >= Math.abs(dy)) {
     swipeNudge.value = clamp(dx, -MAX_NUDGE, MAX_NUDGE)
+    swipeNudgeY.value = 0
+  } else {
+    swipeNudgeY.value = clamp(dy, -MAX_NUDGE, MAX_NUDGE)
+    swipeNudge.value = 0
   }
 }
 
@@ -295,20 +322,27 @@ function onPointerUp(e: PointerEvent, cancelled = false) {
     dragging.value = false
     dragActive = false
     swipeNudge.value = 0
+    swipeNudgeY.value = 0
     return
   }
 
-  // 快速水平滑动：优先判定为切句（无论位移多大）
+  // 快速滑动：按主轴方向切句（左右 / 上下都支持）
   const avgSpeed = dist / duration
   const flickSpeed = Math.max(avgSpeed, recentSpeed)
-  const horizontal = Math.abs(dx) > Math.abs(dy) * 1.2
-  if (dist >= SWIPE_MIN_DIST && horizontal && flickSpeed >= SWIPE_SPEED) {
-    // 取消拖动位移，球回弹到原位，再切换句子
+  const dominantHorizontal = Math.abs(dx) >= Math.abs(dy)
+  const speedThreshold = dominantHorizontal ? SWIPE_SPEED_X : SWIPE_SPEED_Y
+  if (dist >= SWIPE_MIN_DIST && duration <= SWIPE_MAX_MS && flickSpeed >= speedThreshold) {
     dragging.value = false
     dragActive = false
     swipeNudge.value = 0
-    if (dx < 0) doPrev()
-    else doNext()
+    swipeNudgeY.value = 0
+    if (dominantHorizontal) {
+      if (dx < 0) doPrev('left')
+      else doNext('right')
+    } else {
+      if (dy < 0) doPrev('up')
+      else doNext('down')
+    }
     return
   }
 
@@ -324,10 +358,13 @@ function onPointerUp(e: PointerEvent, cancelled = false) {
     persist()
     dragging.value = false
     dragActive = false
+    swipeNudge.value = 0
+    swipeNudgeY.value = 0
     return
   }
 
   swipeNudge.value = 0
+  swipeNudgeY.value = 0
   dragActive = false
 
   // 轻点：重播当前句
@@ -339,7 +376,7 @@ function onPointerUp(e: PointerEvent, cancelled = false) {
 /* ───────────── 引导 ───────────── */
 const guideSteps = [
   { title: '单击', desc: '重播当前句子', icon: 'repeat' },
-  { title: '左右滑动', desc: '左滑上一句 · 右滑下一句', icon: 'swipe-hint' },
+  { title: '四周滑动', desc: '左/上滑上一句 · 右/下滑下一句', icon: 'swipe-hint' },
   { title: '上下按钮', desc: '球上方切上一句 · 下方切下一句', icon: 'chevron-down' },
   { title: '拖动', desc: '按住拖动可移动悬浮球位置', icon: 'swipe-hint' },
 ]
@@ -461,7 +498,7 @@ onUnmounted(() => {
       :disabled="disabled"
       aria-label="上一句"
       title="上一句"
-      @click.stop="doPrev"
+      @click.stop="doPrev('up')"
       @contextmenu.prevent
       @selectstart.prevent
       @dragstart.prevent
@@ -495,8 +532,9 @@ onUnmounted(() => {
             class="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-amber-500/30"
           >
             <AppIcon
-              :name="arrowFlash === 'left' ? 'chevron-left' : 'chevron-right'"
+              :name="arrowIcon.name"
               class="h-6 w-6 text-white"
+              :class="arrowIcon.rotate ? 'rotate-180' : ''"
             />
           </span>
         </Transition>
@@ -511,7 +549,7 @@ onUnmounted(() => {
       :disabled="disabled"
       aria-label="下一句"
       title="下一句"
-      @click.stop="doNext"
+      @click.stop="doNext('down')"
       @contextmenu.prevent
       @selectstart.prevent
       @dragstart.prevent
@@ -554,13 +592,19 @@ onUnmounted(() => {
                 <span class="fb-demo-finger" />
               </template>
 
-              <!-- 1 左右滑动 -->
+              <!-- 1 四周滑动 -->
               <template v-else-if="guideStep === 1">
                 <span class="fb-demo-chev fb-demo-chev-left">
                   <AppIcon name="chevron-left" class="h-5 w-5" />
                 </span>
                 <span class="fb-demo-chev fb-demo-chev-right">
                   <AppIcon name="chevron-right" class="h-5 w-5" />
+                </span>
+                <span class="fb-demo-chev fb-demo-chev-up">
+                  <AppIcon name="chevron-down" class="h-5 w-5 rotate-180" />
+                </span>
+                <span class="fb-demo-chev fb-demo-chev-down">
+                  <AppIcon name="chevron-down" class="h-5 w-5" />
                 </span>
                 <div class="fb-demo-ball fb-demo-swipe">
                   <AppIcon name="repeat" class="h-4 w-4" />
@@ -769,65 +813,111 @@ onUnmounted(() => {
   }
 }
 
-/* 左右滑动 */
+/* 四周滑动 */
 .fb-demo-chev {
   position: absolute;
-  top: 50%;
-  margin-top: -10px;
   color: #f59e0b;
 }
 .fb-demo-chev-left {
   left: calc(50% - 56px);
-  animation: fbChevLeft 2.6s ease-in-out infinite;
+  top: calc(50% - 10px);
+  animation: fbChevLeft 3.2s ease-in-out infinite;
 }
 .fb-demo-chev-right {
   right: calc(50% - 56px);
-  animation: fbChevRight 2.6s ease-in-out infinite;
+  top: calc(50% - 10px);
+  animation: fbChevRight 3.2s ease-in-out infinite;
+}
+.fb-demo-chev-up {
+  top: 6px;
+  left: calc(50% - 10px);
+  animation: fbChevUp 3.2s ease-in-out infinite;
+}
+.fb-demo-chev-down {
+  bottom: 6px;
+  left: calc(50% - 10px);
+  animation: fbChevDown 3.2s ease-in-out infinite;
 }
 @keyframes fbChevLeft {
   0%,
-  8%,
-  46%,
+  2%,
+  16%,
   100% {
     opacity: 0;
   }
-  18%,
-  34% {
+  6%,
+  12% {
+    opacity: 1;
+  }
+}
+@keyframes fbChevUp {
+  0%,
+  20%,
+  33%,
+  100% {
+    opacity: 0;
+  }
+  23%,
+  30% {
     opacity: 1;
   }
 }
 @keyframes fbChevRight {
   0%,
-  54%,
-  92%,
+  37%,
+  51%,
   100% {
     opacity: 0;
   }
-  64%,
-  80% {
+  41%,
+  48% {
+    opacity: 1;
+  }
+}
+@keyframes fbChevDown {
+  0%,
+  55%,
+  68%,
+  100% {
+    opacity: 0;
+  }
+  59%,
+  66% {
     opacity: 1;
   }
 }
 .fb-demo-swipe {
-  animation: fbSwipeX 2.6s ease-in-out infinite;
+  animation: fbSwipeCross 3.2s ease-in-out infinite;
 }
-@keyframes fbSwipeX {
+@keyframes fbSwipeCross {
   0%,
-  8% {
-    transform: translateX(0);
+  3% {
+    transform: translate(0, 0);
+  }
+  10% {
+    transform: translate(-22px, 0);
+  }
+  17% {
+    transform: translate(0, 0);
   }
   26% {
-    transform: translateX(-26px);
+    transform: translate(0, -22px);
   }
-  46% {
-    transform: translateX(0);
+  33% {
+    transform: translate(0, 0);
   }
-  66% {
-    transform: translateX(26px);
+  44% {
+    transform: translate(22px, 0);
   }
-  88%,
+  51% {
+    transform: translate(0, 0);
+  }
+  60% {
+    transform: translate(0, 22px);
+  }
+  67%,
   100% {
-    transform: translateX(0);
+    transform: translate(0, 0);
   }
 }
 
