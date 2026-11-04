@@ -3,6 +3,7 @@ import { useHighlightStyle, type HighlightStyle } from '@/composables/useHighlig
 import { useTheme, type ThemeMode } from '@/composables/useTheme'
 import { useIntensiveReadingMode } from '@/composables/useIntensiveReadingMode'
 import { useVocabDanmaku } from '@/composables/useVocabDanmaku'
+import { useFloatingBall } from '@/composables/useFloatingBall'
 import type { SubtitleAlign } from '@/utils/subtitleHtml'
 
 const props = defineProps<{
@@ -18,6 +19,7 @@ const { highlightStyle, setHighlightStyle } = useHighlightStyle()
 const { themeMode, setThemeMode } = useTheme()
 const { intensiveMode, setIntensiveMode } = useIntensiveReadingMode()
 const { vocabDanmakuEnabled, setVocabDanmakuEnabled } = useVocabDanmaku()
+const { floatingBallEnabled, setFloatingBallEnabled } = useFloatingBall()
 
 const themeOptions: { key: ThemeMode; label: string; desc: string }[] = [
   { key: 'light', label: '浅色', desc: '明亮界面，适合白天使用' },
@@ -152,7 +154,7 @@ const currentAlign = () => props.subtitleAlign ?? 'left'
         </label>
       </section>
 
-      <section class="mb-1">
+      <section class="mb-6">
         <h4 class="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-3">词汇弹幕</h4>
         <label
           class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors"
@@ -168,6 +170,27 @@ const currentAlign = () => props.subtitleAlign ?? 'left'
             <span class="block text-sm font-medium">在视频上显示词汇弹幕</span>
             <span class="block text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
               当前句命中「汇总」中的词汇时从右向左飘过，可一键加入生词本（默认开启）
+            </span>
+          </span>
+        </label>
+      </section>
+
+      <section class="mb-1">
+        <h4 class="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-3">悬浮播放球</h4>
+        <label
+          class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors"
+          :class="floatingBallEnabled ? optionSelectedClass : optionDefaultClass"
+        >
+          <input
+            type="checkbox"
+            class="mt-1 shrink-0"
+            :checked="floatingBallEnabled"
+            @change="setFloatingBallEnabled(($event.target as HTMLInputElement).checked)"
+          />
+          <span>
+            <span class="block text-sm font-medium">显示悬浮播放球</span>
+            <span class="block text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+              手机端视频页显示可拖动的悬浮球，方便单手播放/暂停与上下切换字幕（默认开启）
             </span>
           </span>
         </label>

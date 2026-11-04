@@ -33,6 +33,7 @@ import SubtitleModeSheet from '@/components/episode/SubtitleModeSheet.vue'
 import { useIsPad, useIsPhone, useMediaQuery } from '@/composables/useBreakpoint'
 import { useEpisodeVideoSplit } from '@/composables/useEpisodeVideoSplit'
 import { useMobilePlayerChrome } from '@/composables/useMobilePlayerChrome'
+import { useFloatingBall } from '@/composables/useFloatingBall'
 import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import { useSubtitleVirtualList } from '@/composables/useSubtitleVirtualList'
 import { useLearningProgress } from '@/composables/useLearningProgress'
@@ -53,6 +54,7 @@ import PlayerControls from '@/components/PlayerControls.vue'
 import VideoPlayer from '@/components/player/VideoPlayer.vue'
 import GapCountdownOverlay from '@/components/player/GapCountdownOverlay.vue'
 import VideoProgressBar from '@/components/player/VideoProgressBar.vue'
+import FloatingPlayBall from '@/components/player/FloatingPlayBall.vue'
 import KeyboardHelp from '@/components/KeyboardHelp.vue'
 import SettingsButton from '@/components/SettingsButton.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
@@ -726,6 +728,7 @@ const sortedSubs = computed(() =>
 
 const { intensiveMode, intensivePageClass } = useIntensiveReadingMode()
 const { vocabDanmakuEnabled } = useVocabDanmaku()
+const { floatingBallEnabled } = useFloatingBall()
 
 const coreVocabSources = computed<CoreVocabSource[]>(() =>
   sortedSubs.value.map((sub) => ({
@@ -1837,6 +1840,28 @@ const mobileChromeBlocked = computed(
     subtitleModeSheetOpen.value ||
     showSettings.value ||
     dictationOpen.value,
+)
+
+/** 悬浮播放球：手机浏览器 / App 播放页，非全屏、非管理预览，且设置开启 */
+const showFloatingBall = computed(
+  () =>
+    isPhone.value &&
+    floatingBallEnabled.value &&
+    Boolean(episode.value) &&
+    !props.adminPreview &&
+    !isVideoPanelFullscreen.value,
+)
+
+/** 任意弹层 / 抽屉 / 练习面板打开时收起悬浮球，避免遮挡与误触 */
+const floatingBallHidden = computed(
+  () =>
+    mobileChromeBlocked.value ||
+    aiExplainOpen.value ||
+    aiShadowOpen.value ||
+    aiClozeOpen.value ||
+    voiceCloneOpen.value ||
+    blankPrintSheetOpen.value ||
+    wordCardPrintSheetOpen.value,
 )
 
 const {
@@ -3684,6 +3709,13 @@ function subtitleRowClass(index: number) {
         </div>
       </div>
     </div>
+
+    <!-- 手机端：悬浮播放球（拖动 / 播放暂停 / 上一句重播下一句） -->
+    <FloatingPlayBall
+      v-if="showFloatingBall"
+      :player="player"
+      :hidden="floatingBallHidden"
+    />
 
     <!-- 移动端更多菜单 -->
     <Teleport to="body">
