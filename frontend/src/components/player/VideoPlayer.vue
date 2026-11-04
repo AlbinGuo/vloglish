@@ -2,9 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { usePlayerControls } from '@/composables/usePlayerControls'
 import { useIsPhone } from '@/composables/useBreakpoint'
-import { usePlayerSubtitlePosition } from '@/composables/useSubtitleOverlayPosition'
 import VideoProgressBar from '@/components/player/VideoProgressBar.vue'
-import PlayerSubtitleOverlay from '@/components/player/PlayerSubtitleOverlay.vue'
 import PlayerTapGuide from '@/components/player/PlayerTapGuide.vue'
 import playIcon from '@/assets/svg/play2.svg'
 import { resumeMedia } from '@/utils/playMedia'
@@ -24,14 +22,10 @@ const props = defineProps<{
   autoHideProgress?: boolean
   /** 手机端沉浸式：去掉圆角与阴影，贴边显示 */
   flush?: boolean
-  /** 隐藏字幕时同时隐藏播放器上的字幕叠加 */
-  subtitlesHidden?: boolean
 }>()
 
 const isPhone = useIsPhone()
-const { playerSubtitlePosition } = usePlayerSubtitlePosition()
 const guideVisible = ref(false)
-let guideTimer: ReturnType<typeof setTimeout> | null = null
 
 const videoEl = ref<HTMLVideoElement | null>(null)
 const controlsVisible = ref(true)
@@ -178,23 +172,13 @@ function onTapZone(zone: 'left' | 'middle' | 'right') {
   else props.player.nextSentence()
 }
 
-function hideTapGuide(markSeen: boolean) {
-  guideVisible.value = false
-  if (guideTimer) {
-    clearTimeout(guideTimer)
-    guideTimer = null
-  }
-  if (markSeen) {
-    try {
-      localStorage.setItem(TAP_GUIDE_KEY, '1')
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
 function dismissTapGuide() {
-  hideTapGuide(true)
+  guideVisible.value = false
+  try {
+    localStorage.setItem(TAP_GUIDE_KEY, '1')
+  } catch {
+    /* ignore */
+  }
 }
 
 function maybeShowTapGuide() {
@@ -205,10 +189,8 @@ function maybeShowTapGuide() {
   } catch {
     /* ignore */
   }
+  // 一直显示，直到用户点按任意处关闭
   guideVisible.value = true
-  if (guideTimer) clearTimeout(guideTimer)
-  // 自动收起但不算「已看过」，避免被其它引导遮住时被误标记
-  guideTimer = setTimeout(() => hideTapGuide(false), 7000)
 }
 
 function onVideoError() {
@@ -222,10 +204,6 @@ function onVideoError() {
 
 onUnmounted(() => {
   clearHideTimer()
-  if (guideTimer) {
-    clearTimeout(guideTimer)
-    guideTimer = null
-  }
   props.registerVideo?.(null)
 })
 
@@ -277,13 +255,6 @@ onMounted(() => {
     />
 
     <template v-if="!hidden && !youtubeId">
-      <!-- 中英字幕叠加（英文在上 · 中文在下） -->
-      <PlayerSubtitleOverlay
-        v-if="!subtitlesHidden"
-        :sub="player.currentSub.value"
-        :position="playerSubtitlePosition"
-      />
-
       <!-- 手机端：三分区点按（左=上一句，中=播放/暂停，右=下一句） -->
       <div v-if="isPhone" class="absolute inset-0 z-10 flex">
         <button

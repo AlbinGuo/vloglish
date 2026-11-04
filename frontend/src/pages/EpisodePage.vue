@@ -35,6 +35,7 @@ import { useEpisodeVideoSplit } from '@/composables/useEpisodeVideoSplit'
 import { useMobilePlayerChrome } from '@/composables/useMobilePlayerChrome'
 import { useFloatingBall } from '@/composables/useFloatingBall'
 import { useSubtitleAlign } from '@/composables/useSubtitleAlign'
+import { usePlayerSubtitlePosition } from '@/composables/useSubtitleOverlayPosition'
 import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import { useSubtitleVirtualList } from '@/composables/useSubtitleVirtualList'
 import { useLearningProgress } from '@/composables/useLearningProgress'
@@ -53,6 +54,7 @@ import EntryCard from '@/components/EntryCard.vue'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import PlayerControls from '@/components/PlayerControls.vue'
 import VideoPlayer from '@/components/player/VideoPlayer.vue'
+import PlayerSubtitleOverlay from '@/components/player/PlayerSubtitleOverlay.vue'
 import GapCountdownOverlay from '@/components/player/GapCountdownOverlay.vue'
 import VideoProgressBar from '@/components/player/VideoProgressBar.vue'
 import FloatingPlayBall from '@/components/player/FloatingPlayBall.vue'
@@ -595,6 +597,7 @@ const blankPrintOptions = ref<BlankPrintOptions | null>(null)
 const wordCardPrintSheetOpen = ref(false)
 const wordCardPrintOptions = ref<WordCardPrintOptions | null>(null)
 const { subtitleAlign } = useSubtitleAlign()
+const { playerSubtitlePosition } = usePlayerSubtitlePosition()
 const showIpa = ref(true)
 const selectedEntry = ref<EntryDetail | null>(null)
 const showEntryPanel = ref(false)
@@ -3023,7 +3026,14 @@ function subtitleRowClass(index: number) {
             :show-progress-bar="!isPhone || isVideoPanelFullscreen"
             :auto-hide-progress="!isPhone || isVideoPanelFullscreen"
             :flush="mobileVideoImmersive || isVideoPanelFullscreen"
-            :subtitles-hidden="subtitlesHidden || isVideoPanelFullscreen"
+          />
+          <!-- 播放器上的中英字幕叠加（英文 Impact 青蓝 / 中文白色，可点词查词） -->
+          <PlayerSubtitleOverlay
+            v-if="!isVideoPanelFullscreen && !videoHidden && !subtitlesHidden && displaySub"
+            :sub="displaySub"
+            :english-html="renderHtml(displaySub.english_html, displaySub.id)"
+            :position="playerSubtitlePosition"
+            @click="onSubtitleClick"
           />
           <VocabDanmakuOverlay
             v-if="vocabDanmakuEnabled && !videoHidden && displaySub"

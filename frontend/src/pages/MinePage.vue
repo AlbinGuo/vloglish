@@ -146,6 +146,7 @@ const subtitlePositionOptions: { value: PlayerSubtitlePosition; label: string }[
   { value: 'top', label: '顶部' },
   { value: 'middle', label: '中部' },
   { value: 'bottom', label: '底部' },
+  { value: 'off', label: '关闭' },
 ]
 
 function formatDuration(sec: number) {

@@ -1,13 +1,13 @@
 import { ref, watch } from 'vue'
 
-export type PlayerSubtitlePosition = 'top' | 'middle' | 'bottom'
+export type PlayerSubtitlePosition = 'top' | 'middle' | 'bottom' | 'off'
 
 const STORAGE_KEY = 'teco-player-subtitle-position'
 
 function loadPosition(): PlayerSubtitlePosition {
   try {
     const v = localStorage.getItem(STORAGE_KEY)
-    if (v === 'top' || v === 'middle' || v === 'bottom') return v
+    if (v === 'top' || v === 'middle' || v === 'bottom' || v === 'off') return v
   } catch {
     /* ignore */
   }
