@@ -34,6 +34,7 @@ import { useIsPad, useIsPhone, useMediaQuery } from '@/composables/useBreakpoint
 import { useEpisodeVideoSplit } from '@/composables/useEpisodeVideoSplit'
 import { useMobilePlayerChrome } from '@/composables/useMobilePlayerChrome'
 import { useFloatingBall } from '@/composables/useFloatingBall'
+import { useSubtitleAlign } from '@/composables/useSubtitleAlign'
 import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import { useSubtitleVirtualList } from '@/composables/useSubtitleVirtualList'
 import { useLearningProgress } from '@/composables/useLearningProgress'
@@ -56,8 +57,6 @@ import GapCountdownOverlay from '@/components/player/GapCountdownOverlay.vue'
 import VideoProgressBar from '@/components/player/VideoProgressBar.vue'
 import FloatingPlayBall from '@/components/player/FloatingPlayBall.vue'
 import KeyboardHelp from '@/components/KeyboardHelp.vue'
-import SettingsButton from '@/components/SettingsButton.vue'
-import SettingsPanel from '@/components/SettingsPanel.vue'
 import CurrentSubtitleBar from '@/components/CurrentSubtitleBar.vue'
 import ClipSelectToolbar from '@/components/episode/ClipSelectToolbar.vue'
 import SubtitleBlock from '@/components/SubtitleBlock.vue'
@@ -98,7 +97,6 @@ import {
   modeUsesBlank,
   preprocessSubtitleHtml,
   resolveDisplaySub,
-  type SubtitleAlign,
   type SubtitleDisplayMode,
   type FullscreenCaptionMode,
 } from '@/utils/subtitleHtml'
@@ -596,7 +594,7 @@ const blankPrintSheetOpen = ref(false)
 const blankPrintOptions = ref<BlankPrintOptions | null>(null)
 const wordCardPrintSheetOpen = ref(false)
 const wordCardPrintOptions = ref<WordCardPrintOptions | null>(null)
-const subtitleAlign = ref<SubtitleAlign>('left')
+const { subtitleAlign } = useSubtitleAlign()
 const showIpa = ref(true)
 const selectedEntry = ref<EntryDetail | null>(null)
 const showEntryPanel = ref(false)
@@ -677,7 +675,6 @@ function syncSubtitlesHiddenForVideo(videoId: string) {
   skipSubtitlesHiddenPersist.value = false
 }
 const listRef = ref<HTMLElement | null>(null)
-const showSettings = ref(false)
 const isPhone = useIsPhone()
 const isPad = useIsPad()
 /** PC / Pad 的播放器下方当前句、手机全屏字幕关闭切句滑动动效 */
@@ -1838,7 +1835,6 @@ const mobileChromeBlocked = computed(
     mobileDrawerOpen.value ||
     showEntryPanel.value ||
     subtitleModeSheetOpen.value ||
-    showSettings.value ||
     dictationOpen.value,
 )
 
@@ -1862,6 +1858,11 @@ const floatingBallHidden = computed(
     voiceCloneOpen.value ||
     blankPrintSheetOpen.value ||
     wordCardPrintSheetOpen.value,
+)
+
+/** 无字幕 / 视频加载中：悬浮球禁用态 */
+const floatingBallDisabled = computed(
+  () => loading.value || sortedSubs.value.length === 0,
 )
 
 const {
@@ -1893,14 +1894,9 @@ watch(showEntryPanel, (open) => {
   document.body.style.overflow = open ? 'hidden' : ''
 })
 
-watch(showSettings, (open) => {
-  if (open && !showEntryPanel.value) document.body.style.overflow = 'hidden'
-  else if (!showEntryPanel.value && !mobileMoreOpen.value) document.body.style.overflow = ''
-})
-
 watch(mobileMoreOpen, (open) => {
   if (open && !showEntryPanel.value) document.body.style.overflow = 'hidden'
-  else if (!showEntryPanel.value && !showSettings.value) document.body.style.overflow = ''
+  else if (!showEntryPanel.value) document.body.style.overflow = ''
 })
 
 function onEntryKeydown(e: KeyboardEvent) {
@@ -1910,7 +1906,6 @@ function onEntryKeydown(e: KeyboardEvent) {
       return
     }
     if (showEntryPanel.value) closeEntryPanel()
-    else if (showSettings.value) showSettings.value = false
   }
 }
 
@@ -1991,11 +1986,6 @@ function openSubtitleModeFromMore() {
 function openMobileDrawerFromMore(tab: 'related' | 'lookup') {
   closeMobileMore()
   openMobileDrawer(tab)
-}
-
-function openSettingsFromMore() {
-  closeMobileMore()
-  showSettings.value = true
 }
 
 function openMobileDrawer(tab: 'related' | 'lookup') {
@@ -2952,7 +2942,6 @@ function subtitleRowClass(index: number) {
           />
         </button>
         <IntensiveModeToggle />
-        <SettingsButton v-if="!isPhone" @click="showSettings = true" />
         <button class="hidden sm:inline text-xs text-neutral-400 hover:text-black dark:hover:text-white px-2 py-1" @click="player.showHelp.value = true">
           ? 快捷键
         </button>
@@ -3710,11 +3699,12 @@ function subtitleRowClass(index: number) {
       </div>
     </div>
 
-    <!-- 手机端：悬浮播放球（拖动 / 播放暂停 / 上一句重播下一句） -->
+    <!-- 手机端：手势优先悬浮球（拖动 / 单击暂停 / 双击重播 / 左右滑切句 / 长按菜单） -->
     <FloatingPlayBall
       v-if="showFloatingBall"
       :player="player"
       :hidden="floatingBallHidden"
+      :disabled="floatingBallDisabled"
     />
 
     <!-- 移动端更多菜单 -->
@@ -3836,13 +3826,6 @@ function subtitleRowClass(index: number) {
               @click="openMobileDrawerFromMore('lookup')"
             >
               查词记录
-            </button>
-            <button
-              type="button"
-              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
-              @click="openSettingsFromMore"
-            >
-              设置
             </button>
           </div>
         </div>
@@ -4030,12 +4013,6 @@ function subtitleRowClass(index: number) {
       :user-id="auth.user.id"
       @close="voiceCloneOpen = false"
       @updated="onClonedVoiceUpdated"
-    />
-    <SettingsPanel
-      v-if="showSettings"
-      :subtitle-align="subtitleAlign"
-      @close="showSettings = false"
-      @update:subtitle-align="subtitleAlign = $event"
     />
 
     <Teleport to="body">

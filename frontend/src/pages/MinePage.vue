@@ -11,6 +11,11 @@ import { getLearningCalendar, getLearningSummary } from '@/api/learning'
 import { getErrorDetail } from '@/api/tokens'
 import { useIsPhone } from '@/composables/useBreakpoint'
 import { useTheme } from '@/composables/useTheme'
+import { useHighlightStyle, type HighlightStyle } from '@/composables/useHighlightStyle'
+import { useIntensiveReadingMode } from '@/composables/useIntensiveReadingMode'
+import { useVocabDanmaku } from '@/composables/useVocabDanmaku'
+import { useFloatingBall } from '@/composables/useFloatingBall'
+import { useSubtitleAlign } from '@/composables/useSubtitleAlign'
 import { useAuthStore } from '@/stores/auth'
 import { useClipsStore } from '@/stores/clips'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
@@ -28,6 +33,11 @@ const clips = useClipsStore()
 const voiceClone = useVoiceCloneStore()
 
 const { themeMode, setThemeMode } = useTheme()
+const { highlightStyle, setHighlightStyle } = useHighlightStyle()
+const { intensiveMode, setIntensiveMode } = useIntensiveReadingMode()
+const { vocabDanmakuEnabled, setVocabDanmakuEnabled } = useVocabDanmaku()
+const { floatingBallEnabled, setFloatingBallEnabled } = useFloatingBall()
+const { subtitleAlign, setSubtitleAlign } = useSubtitleAlign()
 
 const isPhone = useIsPhone()
 
@@ -115,6 +125,16 @@ const themeOptions: { value: 'light' | 'dark' | 'system'; label: string; icon: s
   { value: 'light', label: '浅色', icon: 'sun' },
   { value: 'dark', label: '深色', icon: 'moon' },
   { value: 'system', label: '跟随系统', icon: 'sparkles' },
+]
+
+const highlightOptions: { value: HighlightStyle; label: string }[] = [
+  { value: 'underline', label: '下划线' },
+  { value: 'background', label: '背景色' },
+]
+
+const alignOptions: { value: 'left' | 'center'; label: string }[] = [
+  { value: 'left', label: '左对齐' },
+  { value: 'center', label: '居中' },
 ]
 
 function formatDuration(sec: number) {
@@ -407,6 +427,131 @@ async function submitCredentials() {
 
     <!-- 设置 -->
     <section class="mt-4 overflow-hidden rounded-2xl border border-line-soft bg-card">
+      <h2 class="px-4 pt-4 text-[14px] font-medium text-ink">设置</h2>
+
+      <!-- 主题 -->
+      <div class="flex items-center gap-3 px-4 py-3.5">
+        <AppIcon name="sun" class="h-5 w-5 shrink-0 text-ink-soft" />
+        <span class="flex-1 text-[14px] text-ink">主题</span>
+        <div class="flex items-center gap-1 rounded-full bg-sunken p-0.5">
+          <button
+            v-for="opt in themeOptions"
+            :key="opt.value"
+            type="button"
+            class="rounded-full px-2.5 py-1 text-[12px] transition"
+            :class="themeMode === opt.value ? 'bg-card text-ink shadow-sm font-medium' : 'text-ink-faint'"
+            @click="setThemeMode(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 文字高亮样式 -->
+      <div class="flex items-center gap-3 border-t border-line-soft px-4 py-3.5">
+        <AppIcon name="sparkles" class="h-5 w-5 shrink-0 text-ink-soft" />
+        <span class="flex-1 text-[14px] text-ink">文字高亮</span>
+        <div class="flex items-center gap-1 rounded-full bg-sunken p-0.5">
+          <button
+            v-for="opt in highlightOptions"
+            :key="opt.value"
+            type="button"
+            class="rounded-full px-2.5 py-1 text-[12px] transition"
+            :class="highlightStyle === opt.value ? 'bg-card text-ink shadow-sm font-medium' : 'text-ink-faint'"
+            @click="setHighlightStyle(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 字幕对齐 -->
+      <div class="flex items-center gap-3 border-t border-line-soft px-4 py-3.5">
+        <AppIcon name="align-left" class="h-5 w-5 shrink-0 text-ink-soft" />
+        <span class="flex-1 text-[14px] text-ink">字幕对齐</span>
+        <div class="flex items-center gap-1 rounded-full bg-sunken p-0.5">
+          <button
+            v-for="opt in alignOptions"
+            :key="opt.value"
+            type="button"
+            class="rounded-full px-2.5 py-1 text-[12px] transition"
+            :class="subtitleAlign === opt.value ? 'bg-card text-ink shadow-sm font-medium' : 'text-ink-faint'"
+            @click="setSubtitleAlign(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 精读模式 -->
+      <div class="flex items-center gap-3 border-t border-line-soft px-4 py-3.5">
+        <AppIcon name="book-open" class="h-5 w-5 shrink-0 text-ink-soft" />
+        <div class="min-w-0 flex-1">
+          <p class="text-[14px] text-ink">精读模式</p>
+          <p class="text-[11px] text-ink-faint">词下直译、段落译文对照、核心词汇侧栏</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          :aria-checked="intensiveMode"
+          class="relative h-6 w-11 shrink-0 rounded-full transition-colors"
+          :class="intensiveMode ? 'bg-brand' : 'bg-neutral-300 dark:bg-neutral-600'"
+          @click="setIntensiveMode(!intensiveMode)"
+        >
+          <span
+            class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all"
+            :class="intensiveMode ? 'left-[1.375rem]' : 'left-0.5'"
+          />
+        </button>
+      </div>
+
+      <!-- 词汇弹幕 -->
+      <div class="flex items-center gap-3 border-t border-line-soft px-4 py-3.5">
+        <AppIcon name="chat-bubble" class="h-5 w-5 shrink-0 text-ink-soft" />
+        <div class="min-w-0 flex-1">
+          <p class="text-[14px] text-ink">词汇弹幕</p>
+          <p class="text-[11px] text-ink-faint">视频上飘过当前句命中的重点词汇</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          :aria-checked="vocabDanmakuEnabled"
+          class="relative h-6 w-11 shrink-0 rounded-full transition-colors"
+          :class="vocabDanmakuEnabled ? 'bg-brand' : 'bg-neutral-300 dark:bg-neutral-600'"
+          @click="setVocabDanmakuEnabled(!vocabDanmakuEnabled)"
+        >
+          <span
+            class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all"
+            :class="vocabDanmakuEnabled ? 'left-[1.375rem]' : 'left-0.5'"
+          />
+        </button>
+      </div>
+
+      <!-- 悬浮播放球 -->
+      <div class="flex items-center gap-3 border-t border-line-soft px-4 py-3.5">
+        <AppIcon name="play-circle" class="h-5 w-5 shrink-0 text-ink-soft" />
+        <div class="min-w-0 flex-1">
+          <p class="text-[14px] text-ink">悬浮播放球</p>
+          <p class="text-[11px] text-ink-faint">手机视频页显示可拖动悬浮球，方便单手操作</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          :aria-checked="floatingBallEnabled"
+          class="relative h-6 w-11 shrink-0 rounded-full transition-colors"
+          :class="floatingBallEnabled ? 'bg-brand' : 'bg-neutral-300 dark:bg-neutral-600'"
+          @click="setFloatingBallEnabled(!floatingBallEnabled)"
+        >
+          <span
+            class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all"
+            :class="floatingBallEnabled ? 'left-[1.375rem]' : 'left-0.5'"
+          />
+        </button>
+      </div>
+    </section>
+
+    <!-- 账户与更多 -->
+    <section class="mt-4 overflow-hidden rounded-2xl border border-line-soft bg-card">
       <RouterLink
         to="/english/study"
         class="flex items-center gap-3 px-4 py-3.5 text-ink-soft transition hover:bg-sunken"
@@ -415,27 +560,6 @@ async function submitCredentials() {
         <span class="flex-1 text-[14px] text-ink">怎么学</span>
         <AppIcon name="chevron-right" class="h-4 w-4 text-ink-faint" />
       </RouterLink>
-
-      <div class="flex items-center gap-3 border-t border-line-soft px-4 py-3.5">
-        <AppIcon name="moon" class="h-5 w-5 shrink-0 text-ink-soft" />
-        <span class="flex-1 text-[14px] text-ink">主题</span>
-        <div class="flex items-center gap-1 rounded-full bg-sunken p-0.5">
-          <button
-            v-for="opt in themeOptions"
-            :key="opt.value"
-            type="button"
-            class="rounded-full px-2.5 py-1 text-[12px] transition"
-            :class="
-              themeMode === opt.value
-                ? 'bg-card text-ink shadow-sm font-medium'
-                : 'text-ink-faint'
-            "
-            @click="setThemeMode(opt.value)"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
-      </div>
 
       <button
         type="button"
