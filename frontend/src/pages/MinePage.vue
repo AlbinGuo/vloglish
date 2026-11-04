@@ -16,6 +16,10 @@ import { useIntensiveReadingMode } from '@/composables/useIntensiveReadingMode'
 import { useVocabDanmaku } from '@/composables/useVocabDanmaku'
 import { useFloatingBall } from '@/composables/useFloatingBall'
 import { useSubtitleAlign } from '@/composables/useSubtitleAlign'
+import {
+  usePlayerSubtitlePosition,
+  type PlayerSubtitlePosition,
+} from '@/composables/useSubtitleOverlayPosition'
 import { useAuthStore } from '@/stores/auth'
 import { useClipsStore } from '@/stores/clips'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
@@ -38,6 +42,7 @@ const { intensiveMode, setIntensiveMode } = useIntensiveReadingMode()
 const { vocabDanmakuEnabled, setVocabDanmakuEnabled } = useVocabDanmaku()
 const { floatingBallEnabled, setFloatingBallEnabled } = useFloatingBall()
 const { subtitleAlign, setSubtitleAlign } = useSubtitleAlign()
+const { playerSubtitlePosition, setPlayerSubtitlePosition } = usePlayerSubtitlePosition()
 
 const isPhone = useIsPhone()
 
@@ -135,6 +140,12 @@ const highlightOptions: { value: HighlightStyle; label: string }[] = [
 const alignOptions: { value: 'left' | 'center'; label: string }[] = [
   { value: 'left', label: '左对齐' },
   { value: 'center', label: '居中' },
+]
+
+const subtitlePositionOptions: { value: PlayerSubtitlePosition; label: string }[] = [
+  { value: 'top', label: '顶部' },
+  { value: 'middle', label: '中部' },
+  { value: 'bottom', label: '底部' },
 ]
 
 function formatDuration(sec: number) {
@@ -477,6 +488,24 @@ async function submitCredentials() {
             class="rounded-full px-2.5 py-1 text-[12px] transition"
             :class="subtitleAlign === opt.value ? 'bg-card text-ink shadow-sm font-medium' : 'text-ink-faint'"
             @click="setSubtitleAlign(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 播放器字幕位置 -->
+      <div class="flex items-center gap-3 border-t border-line-soft px-4 py-3.5">
+        <AppIcon name="subtitles" class="h-5 w-5 shrink-0 text-ink-soft" />
+        <span class="flex-1 text-[14px] text-ink">播放器字幕位置</span>
+        <div class="flex items-center gap-1 rounded-full bg-sunken p-0.5">
+          <button
+            v-for="opt in subtitlePositionOptions"
+            :key="opt.value"
+            type="button"
+            class="rounded-full px-2.5 py-1 text-[12px] transition"
+            :class="playerSubtitlePosition === opt.value ? 'bg-card text-ink shadow-sm font-medium' : 'text-ink-faint'"
+            @click="setPlayerSubtitlePosition(opt.value)"
           >
             {{ opt.label }}
           </button>

@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { usePlayerControls } from '@/composables/usePlayerControls'
+import { useIsPhone } from '@/composables/useBreakpoint'
+import { usePlayerSubtitlePosition } from '@/composables/useSubtitleOverlayPosition'
 import VideoProgressBar from '@/components/player/VideoProgressBar.vue'
+import PlayerSubtitleOverlay from '@/components/player/PlayerSubtitleOverlay.vue'
+import PlayerTapGuide from '@/components/player/PlayerTapGuide.vue'
 import playIcon from '@/assets/svg/play2.svg'
 import { resumeMedia } from '@/utils/playMedia'
 
 const HIDE_DELAY_MS = 3000
+const TAP_GUIDE_KEY = 'teco-player-tap-guide-seen'
 
 const props = defineProps<{
   src: string
@@ -19,7 +24,14 @@ const props = defineProps<{
   autoHideProgress?: boolean
   /** 手机端沉浸式：去掉圆角与阴影，贴边显示 */
   flush?: boolean
+  /** 隐藏字幕时同时隐藏播放器上的字幕叠加 */
+  subtitlesHidden?: boolean
 }>()
+
+const isPhone = useIsPhone()
+const { playerSubtitlePosition } = usePlayerSubtitlePosition()
+const guideVisible = ref(false)
+let guideTimer: ReturnType<typeof setTimeout> | null = null
 
 const videoEl = ref<HTMLVideoElement | null>(null)
 const controlsVisible = ref(true)
@@ -151,6 +163,54 @@ function onVideoClick() {
   props.player.togglePlay()
 }
 
+function onTapZone(zone: 'left' | 'middle' | 'right') {
+  if (youtubeId.value || guideVisible.value) return
+  if (zone === 'middle') {
+    onVideoClick()
+    return
+  }
+  try {
+    navigator.vibrate?.(10)
+  } catch {
+    /* ignore */
+  }
+  if (zone === 'left') props.player.prevSentence()
+  else props.player.nextSentence()
+}
+
+function hideTapGuide(markSeen: boolean) {
+  guideVisible.value = false
+  if (guideTimer) {
+    clearTimeout(guideTimer)
+    guideTimer = null
+  }
+  if (markSeen) {
+    try {
+      localStorage.setItem(TAP_GUIDE_KEY, '1')
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function dismissTapGuide() {
+  hideTapGuide(true)
+}
+
+function maybeShowTapGuide() {
+  if (!isPhone.value || props.hidden || youtubeId.value) return
+  if (guideVisible.value) return
+  try {
+    if (localStorage.getItem(TAP_GUIDE_KEY) === '1') return
+  } catch {
+    /* ignore */
+  }
+  guideVisible.value = true
+  if (guideTimer) clearTimeout(guideTimer)
+  // 自动收起但不算「已看过」，避免被其它引导遮住时被误标记
+  guideTimer = setTimeout(() => hideTapGuide(false), 7000)
+}
+
 function onVideoError() {
   const code = videoEl.value?.error?.code
   if (code === 4) {
@@ -162,7 +222,16 @@ function onVideoError() {
 
 onUnmounted(() => {
   clearHideTimer()
+  if (guideTimer) {
+    clearTimeout(guideTimer)
+    guideTimer = null
+  }
   props.registerVideo?.(null)
+})
+
+onMounted(() => {
+  // 首次进入视频页（手机端）给出画面上点按操作指引
+  window.setTimeout(maybeShowTapGuide, 800)
 })
 </script>
 
@@ -208,24 +277,58 @@ onUnmounted(() => {
     />
 
     <template v-if="!hidden && !youtubeId">
-      <!-- 点击区域：播放 / 暂停 -->
+      <!-- 中英字幕叠加（英文在上 · 中文在下） -->
+      <PlayerSubtitleOverlay
+        v-if="!subtitlesHidden"
+        :sub="player.currentSub.value"
+        :position="playerSubtitlePosition"
+      />
+
+      <!-- 手机端：三分区点按（左=上一句，中=播放/暂停，右=下一句） -->
+      <div v-if="isPhone" class="absolute inset-0 z-10 flex">
+        <button
+          type="button"
+          class="h-full flex-1 cursor-pointer border-0 bg-transparent p-0"
+          aria-label="上一句"
+          @click.stop="onTapZone('left')"
+        />
+        <button
+          type="button"
+          class="h-full flex-1 cursor-pointer border-0 bg-transparent p-0"
+          aria-label="播放或暂停"
+          @click.stop="onTapZone('middle')"
+        />
+        <button
+          type="button"
+          class="h-full flex-1 cursor-pointer border-0 bg-transparent p-0"
+          aria-label="下一句"
+          @click.stop="onTapZone('right')"
+        />
+      </div>
+
+      <!-- 桌面端：点击切换播放 / 暂停 -->
       <div
+        v-else
         class="absolute inset-0 z-10 cursor-pointer"
         aria-label="播放或暂停"
         @click="onVideoClick"
+      />
+
+      <!-- 中心播放按钮（暂停时） -->
+      <div
+        v-if="showCenterPlay && !guideVisible"
+        class="pointer-events-none absolute inset-0 z-[11] flex items-center justify-center bg-black/10"
       >
-        <div
-          v-if="showCenterPlay"
-          class="flex h-full items-center justify-center bg-black/10 pointer-events-none"
-        >
-          <img
-            :src="playIcon"
-            alt=""
-            class="w-10 h-10 sm:w-12 sm:h-12 drop-shadow-md pointer-events-none"
-            aria-hidden="true"
-          />
-        </div>
+        <img
+          :src="playIcon"
+          alt=""
+          class="w-10 h-10 sm:w-12 sm:h-12 drop-shadow-md pointer-events-none"
+          aria-hidden="true"
+        />
       </div>
+
+      <!-- 首次使用：播放器点按操作指引 -->
+      <PlayerTapGuide v-if="guideVisible" @dismiss="dismissTapGuide" />
 
       <!-- 底部进度条 -->
       <div

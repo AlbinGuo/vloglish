@@ -3023,6 +3023,7 @@ function subtitleRowClass(index: number) {
             :show-progress-bar="!isPhone || isVideoPanelFullscreen"
             :auto-hide-progress="!isPhone || isVideoPanelFullscreen"
             :flush="mobileVideoImmersive || isVideoPanelFullscreen"
+            :subtitles-hidden="subtitlesHidden || isVideoPanelFullscreen"
           />
           <VocabDanmakuOverlay
             v-if="vocabDanmakuEnabled && !videoHidden && displaySub"
