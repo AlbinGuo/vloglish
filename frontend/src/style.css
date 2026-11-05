@@ -1821,15 +1821,13 @@ html.vloglish-css-fullscreen body {
   letter-spacing: 0.02em;
 }
 
-/* 全屏字幕高亮词统一高对比（#22e3ff 对深色底对比度约 13.49） */
-.video-panel:fullscreen .video-panel__subtitle .subtitle-english span[class*='highlight-'],
-.video-panel.video-panel--fullscreen .video-panel__subtitle .subtitle-english span[class*='highlight-'],
-.video-panel:fullscreen .video-panel__subtitle .subtitle-english--active span[class*='highlight-'],
-.video-panel.video-panel--fullscreen .video-panel__subtitle .subtitle-english--active span[class*='highlight-'] {
+/* 播放器字幕高亮词：仅「下划线」样式时改用高对比色（#22e3ff 对深色底约 13.49）；
+   「背景色」样式保留原有浅底彩块，确保设置里的「文字高亮」在播放器中生效 */
+html:not(.highlight-style-background) .psub-box .subtitle-english span[class*='highlight-'],
+html:not(.highlight-style-background) .psub-box .subtitle-english--active span[class*='highlight-'],
+html:not(.highlight-style-background) .video-panel__subtitle .subtitle-english span[class*='highlight-'],
+html:not(.highlight-style-background) .video-panel__subtitle .subtitle-english--active span[class*='highlight-'] {
   color: #22e3ff !important;
-  background-color: transparent !important;
-  text-decoration-line: underline !important;
-  padding: 0 !important;
 }
 
 .video-panel:fullscreen .video-panel__subtitle .subtitle-chinese,
