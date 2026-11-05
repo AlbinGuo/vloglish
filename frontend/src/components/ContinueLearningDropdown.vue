@@ -313,6 +313,14 @@ watch(
 
         <div class="border-t border-black/5 dark:border-white/10 py-1">
           <RouterLink
+            to="/english/mine"
+            class="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800/80 transition"
+            @click="close"
+          >
+            <AppIcon name="settings" class="w-4 h-4 shrink-0 opacity-70" />
+            我的 / 设置
+          </RouterLink>
+          <RouterLink
             to="/english/study"
             class="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800/80 transition"
             @click="close"

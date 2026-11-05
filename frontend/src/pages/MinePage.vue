@@ -20,6 +20,10 @@ import {
   usePlayerSubtitlePosition,
   type PlayerSubtitlePosition,
 } from '@/composables/useSubtitleOverlayPosition'
+import {
+  usePlayerSubtitlePrefs,
+  type PlayerSubtitleSize,
+} from '@/composables/usePlayerSubtitlePrefs'
 import { useAuthStore } from '@/stores/auth'
 import { useClipsStore } from '@/stores/clips'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
@@ -43,6 +47,7 @@ const { vocabDanmakuEnabled, setVocabDanmakuEnabled } = useVocabDanmaku()
 const { floatingBallEnabled, setFloatingBallEnabled } = useFloatingBall()
 const { subtitleAlign, setSubtitleAlign } = useSubtitleAlign()
 const { playerSubtitlePosition, setPlayerSubtitlePosition } = usePlayerSubtitlePosition()
+const { subtitleSize, stripHighlight, setSubtitleSize, setStripHighlight } = usePlayerSubtitlePrefs()
 
 const isPhone = useIsPhone()
 
@@ -147,6 +152,12 @@ const subtitlePositionOptions: { value: PlayerSubtitlePosition; label: string }[
   { value: 'middle', label: '中部' },
   { value: 'bottom', label: '底部' },
   { value: 'off', label: '关闭' },
+]
+
+const subtitleSizeOptions: { value: PlayerSubtitleSize; label: string }[] = [
+  { value: 'small', label: '小' },
+  { value: 'medium', label: '中' },
+  { value: 'large', label: '大' },
 ]
 
 function formatDuration(sec: number) {
@@ -511,6 +522,46 @@ async function submitCredentials() {
             {{ opt.label }}
           </button>
         </div>
+      </div>
+
+      <!-- 字幕文字大小 -->
+      <div class="flex items-center gap-3 border-t border-line-soft px-4 py-3.5">
+        <AppIcon name="subtitles" class="h-5 w-5 shrink-0 text-ink-soft" />
+        <span class="flex-1 text-[14px] text-ink">字幕文字大小</span>
+        <div class="flex items-center gap-1 rounded-full bg-sunken p-0.5">
+          <button
+            v-for="opt in subtitleSizeOptions"
+            :key="opt.value"
+            type="button"
+            class="rounded-full px-3 py-1 text-[12px] transition"
+            :class="subtitleSize === opt.value ? 'bg-card text-ink shadow-sm font-medium' : 'text-ink-faint'"
+            @click="setSubtitleSize(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 去除重点词高亮 -->
+      <div class="flex items-center gap-3 border-t border-line-soft px-4 py-3.5">
+        <AppIcon name="sparkle" class="h-5 w-5 shrink-0 text-ink-soft" />
+        <div class="min-w-0 flex-1">
+          <p class="text-[14px] text-ink">去除重点词高亮</p>
+          <p class="text-[11px] text-ink-faint">关闭后播放器字幕中的重点词不再高亮</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          :aria-checked="stripHighlight"
+          class="relative h-6 w-11 shrink-0 rounded-full transition-colors"
+          :class="stripHighlight ? 'bg-brand' : 'bg-neutral-300 dark:bg-neutral-600'"
+          @click="setStripHighlight(!stripHighlight)"
+        >
+          <span
+            class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all"
+            :class="stripHighlight ? 'left-[1.375rem]' : 'left-0.5'"
+          />
+        </button>
       </div>
 
       <!-- 精读模式 -->

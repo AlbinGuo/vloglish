@@ -36,6 +36,7 @@ import { useMobilePlayerChrome } from '@/composables/useMobilePlayerChrome'
 import { useFloatingBall } from '@/composables/useFloatingBall'
 import { useSubtitleAlign } from '@/composables/useSubtitleAlign'
 import { usePlayerSubtitlePosition } from '@/composables/useSubtitleOverlayPosition'
+import { usePlayerSubtitlePrefs } from '@/composables/usePlayerSubtitlePrefs'
 import { useSwipeNavigation } from '@/composables/useSwipeNavigation'
 import { useSubtitleVirtualList } from '@/composables/useSubtitleVirtualList'
 import { useLearningProgress } from '@/composables/useLearningProgress'
@@ -55,6 +56,7 @@ import StarIcon from '@/components/icons/StarIcon.vue'
 import PlayerControls from '@/components/PlayerControls.vue'
 import VideoPlayer from '@/components/player/VideoPlayer.vue'
 import PlayerSubtitleOverlay from '@/components/player/PlayerSubtitleOverlay.vue'
+import PlayerMaskBoard from '@/components/player/PlayerMaskBoard.vue'
 import GapCountdownOverlay from '@/components/player/GapCountdownOverlay.vue'
 import VideoProgressBar from '@/components/player/VideoProgressBar.vue'
 import FloatingPlayBall from '@/components/player/FloatingPlayBall.vue'
@@ -99,6 +101,7 @@ import {
   modeUsesBlank,
   preprocessSubtitleHtml,
   resolveDisplaySub,
+  stripHighlightClass,
   type SubtitleDisplayMode,
   type FullscreenCaptionMode,
 } from '@/utils/subtitleHtml'
@@ -598,6 +601,7 @@ const wordCardPrintSheetOpen = ref(false)
 const wordCardPrintOptions = ref<WordCardPrintOptions | null>(null)
 const { subtitleAlign } = useSubtitleAlign()
 const { playerSubtitlePosition } = usePlayerSubtitlePosition()
+const { subtitleSize, stripHighlight, sizeScale } = usePlayerSubtitlePrefs()
 const showIpa = ref(true)
 const selectedEntry = ref<EntryDetail | null>(null)
 const showEntryPanel = ref(false)
@@ -1769,6 +1773,19 @@ useSwipeNavigation(dynamicFocusRef, {
 
 const displaySub = computed(() => resolveDisplaySub(sortedSubs.value, player.currentTime.value))
 
+/** 播放器叠加字幕用的英文 HTML：按设置可选去除重点词高亮 */
+const captionEnglishHtml = computed(() => {
+  const sub = displaySub.value
+  if (!sub) return ''
+  const base = renderCaptionHtml(sub.english_html, sub.id)
+  return stripHighlight.value ? stripHighlightClass(base) : base
+})
+
+const maskBoardVisible = ref(false)
+function toggleMaskBoard() {
+  maskBoardVisible.value = !maskBoardVisible.value
+}
+
 /** 当前句字幕中命中的「汇总」词，供弹幕同步展示 */
 const danmakuSources = computed(() =>
   matchSummaryDanmakuSources(displaySub.value?.english || '', vocabSummaryGroups.value),
@@ -2448,6 +2465,18 @@ function renderHtml(html: string, subtitleId?: number | null) {
   return applyUserClipMarks(result, snippets)
 }
 
+/**
+ * 播放器画面上的字幕：不做「挖空」处理，保证始终可读；
+ * 保留用户划选标记。是否显示中/英由字幕语言模式控制。
+ */
+function renderCaptionHtml(html: string, subtitleId?: number | null) {
+  const result = preprocessSubtitleHtml(html, { blank: false })
+  if (props.adminPreview || !subtitleId) return result
+  const snippets = clipSnippetsBySubtitle.value.get(subtitleId)
+  if (!snippets?.length) return result
+  return applyUserClipMarks(result, snippets)
+}
+
 /** 列表模式：当前句贴在顶部；手机端用动画滚动 */
 function animateScrollTo(el: HTMLElement, to: number, duration = 320) {
   if (listScrollAnim) cancelAnimationFrame(listScrollAnim)
@@ -3027,14 +3056,18 @@ function subtitleRowClass(index: number) {
             :auto-hide-progress="!isPhone || isVideoPanelFullscreen"
             :flush="mobileVideoImmersive || isVideoPanelFullscreen"
           />
-          <!-- 播放器上的中英字幕叠加（英文 Impact 青蓝 / 中文白色，可点词查词） -->
+          <!-- 播放器上的中英字幕叠加（英文青蓝 / 中文白色，可点词查词） -->
           <PlayerSubtitleOverlay
             v-if="!isVideoPanelFullscreen && !videoHidden && !subtitlesHidden && displaySub"
             :sub="displaySub"
-            :english-html="renderHtml(displaySub.english_html, displaySub.id)"
+            :english-html="captionEnglishHtml"
             :position="playerSubtitlePosition"
+            :mode="fullscreenCaptionMode"
+            :size="subtitleSize"
             @click="onSubtitleClick"
           />
+          <!-- 遮挡板：可拖动 / 四角缩放 -->
+          <PlayerMaskBoard v-if="maskBoardVisible && !videoHidden" @close="maskBoardVisible = false" />
           <VocabDanmakuOverlay
             v-if="vocabDanmakuEnabled && !videoHidden && displaySub"
             :sources="danmakuSources"
@@ -3147,7 +3180,8 @@ function subtitleRowClass(index: number) {
                 :current-time="playbackTime"
                 :subtitle-mode="fullscreenCaptionMode === 'both' ? 'both' : 'en'"
                 :show-ipa="false"
-                :english-html="renderHtml(displaySub.english_html, displaySub.id)"
+                :english-html="captionEnglishHtml"
+                :size-scale="sizeScale"
                 :dictation-frost="isDictationFrost(displaySub.id)"
                 :glossary="episodeGlossary"
                 :literal-loading="literalLoadingId === displaySub.id"
@@ -3174,6 +3208,7 @@ function subtitleRowClass(index: number) {
           :subtitle-voice-mode="subtitleVoiceMode"
           :has-cloned-voice="hasClonedVoice"
           :cloned-speaking="clonedPlaybackActive"
+          :mask-active="maskBoardVisible"
           @update:show-ipa="showIpa = $event"
           @update:video-hidden="videoHidden = $event"
           @update:subtitles-hidden="subtitlesHidden = $event"
@@ -3182,6 +3217,7 @@ function subtitleRowClass(index: number) {
           @update:subtitle-voice-mode="setSubtitleVoiceMode"
           @open-voice-clone="openVoiceClone"
           @refresh-voice-clone="() => voiceClone.refresh()"
+          @toggle-mask="toggleMaskBoard"
         />
         <button
           v-if="subtitlesHidden && !isVideoPanelFullscreen"
@@ -3690,6 +3726,8 @@ function subtitleRowClass(index: number) {
             :show-ipa="showIpa"
             :video-hidden="videoHidden"
             :subtitles-hidden="subtitlesHidden"
+            :subtitle-mode="subtitleMode"
+            :fullscreen-caption-mode="fullscreenCaptionMode"
             :video-panel-ref="videoPanelRef"
             compact
             docked
@@ -3698,10 +3736,13 @@ function subtitleRowClass(index: number) {
             :subtitle-voice-mode="subtitleVoiceMode"
             :has-cloned-voice="hasClonedVoice"
             :cloned-speaking="clonedPlaybackActive"
+            :mask-active="maskBoardVisible"
             @update:show-ipa="showIpa = $event"
             @update:video-hidden="videoHidden = $event"
             @update:subtitles-hidden="subtitlesHidden = $event"
+            @update:fullscreen-caption-mode="setFullscreenCaptionMode"
             @update:subtitle-voice-mode="setSubtitleVoiceMode"
+            @toggle-mask="toggleMaskBoard"
             @toggle-chrome="toggleMobileChrome"
             @open-voice-clone="openVoiceClone"
             @refresh-voice-clone="() => voiceClone.refresh()"

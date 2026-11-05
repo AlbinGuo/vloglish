@@ -29,11 +29,14 @@ const props = withDefaults(
     subtitleVoiceMode?: 'original' | 'cloned'
     hasClonedVoice?: boolean
     clonedSpeaking?: boolean
+    /** 遮挡板是否已开启（控制栏按钮高亮） */
+    maskActive?: boolean
   }>(),
   {
     subtitleVoiceMode: 'original',
     hasClonedVoice: false,
     clonedSpeaking: false,
+    maskActive: false,
   },
 )
 
@@ -47,6 +50,7 @@ const emit = defineEmits<{
   toggleChrome: []
   openVoiceClone: []
   refreshVoiceClone: []
+  toggleMask: []
 }>()
 
 const voiceSheetOpen = ref(false)
@@ -522,9 +526,8 @@ const voiceModeLabel = computed(() =>
         <span class="text-[11px] leading-tight mt-0.5">{{ subtitlesHidden ? '显示字幕' : '隐藏字幕' }}</span>
       </button>
 
-      <!-- 全屏字幕语言：中英 / 英语 / 盲听 -->
+      <!-- 字幕语言：中英 / 英语 / 盲听（全屏与非全屏都可切换） -->
       <div
-        v-if="isFullscreen"
         class="flex flex-col items-center shrink-0 min-w-[3.5rem] text-xs"
         role="group"
         aria-label="字幕语言"
@@ -575,6 +578,25 @@ const voiceModeLabel = computed(() =>
         </div>
         <span class="text-[11px] leading-tight mt-0.5">字幕</span>
       </div>
+
+      <!-- 遮挡板 -->
+      <button
+        type="button"
+        class="flex flex-col items-center shrink-0 min-w-[3rem] text-xs transition-all active:scale-95 focus:outline-none cursor-pointer"
+        title="遮挡板：拖动调整遮挡区域"
+        @click="emit('toggleMask')"
+      >
+        <div
+          class="p-0.5 w-8 h-8 rounded-full flex items-center justify-center bg-black/5 dark:bg-white/10"
+          :class="maskActive ? 'text-orange-500' : ''"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <rect x="3.5" y="6" width="17" height="12" rx="2" />
+            <path stroke-linecap="round" d="M7 6v12M17 6v12" />
+          </svg>
+        </div>
+        <span class="text-[11px] leading-tight mt-0.5">遮挡板</span>
+      </button>
 
       <!-- 全屏 -->
       <button
@@ -779,7 +801,6 @@ const voiceModeLabel = computed(() =>
               <span>{{ subtitlesHidden ? '显示字幕' : '隐藏字幕' }}</span>
             </button>
             <button
-              v-if="isFullscreen"
               type="button"
               class="flex flex-col items-center gap-1 text-xs"
               @click="setCaptionMode('both'); moreOpen = false"
@@ -793,7 +814,6 @@ const voiceModeLabel = computed(() =>
               <span>中英字幕</span>
             </button>
             <button
-              v-if="isFullscreen"
               type="button"
               class="flex flex-col items-center gap-1 text-xs"
               @click="setCaptionMode('en'); moreOpen = false"
@@ -807,7 +827,6 @@ const voiceModeLabel = computed(() =>
               <span>英文字幕</span>
             </button>
             <button
-              v-if="isFullscreen"
               type="button"
               class="flex flex-col items-center gap-1 text-xs"
               @click="setCaptionMode('blind'); moreOpen = false"
@@ -819,6 +838,22 @@ const voiceModeLabel = computed(() =>
                 盲
               </div>
               <span>盲听</span>
+            </button>
+            <button
+              type="button"
+              class="flex flex-col items-center gap-1 text-xs"
+              @click="emit('toggleMask'); moreOpen = false"
+            >
+              <div
+                class="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center"
+                :class="maskActive ? 'text-orange-500 ring-2 ring-orange-400/50' : ''"
+              >
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                  <rect x="3.5" y="6" width="17" height="12" rx="2" />
+                  <path stroke-linecap="round" d="M7 6v12M17 6v12" />
+                </svg>
+              </div>
+              <span>遮挡板</span>
             </button>
             <button type="button" class="flex flex-col items-center gap-1 text-xs" @click="openVoiceSheet">
               <div

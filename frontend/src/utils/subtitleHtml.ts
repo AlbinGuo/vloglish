@@ -40,6 +40,21 @@ export function preprocessSubtitleHtml(html: string, options: { blank?: boolean 
 
 export type SubtitleDisplayMode = 'both' | 'en' | 'zh' | 'blank' | 'dynamic' | 'ipa'
 
+/**
+ * 去掉字幕 HTML 里的重点词高亮样式（保留单词 span 及其查词属性）。
+ * 仅移除 class 中的 `highlight` token，不改变其它样式类。
+ */
+export function stripHighlightClass(html: string): string {
+  if (!html) return ''
+  return html.replace(/class="([^"]*)"/g, (_match, cls: string) => {
+    const cleaned = cls
+      .split(/\s+/)
+      .filter((c) => c && c !== 'highlight')
+      .join(' ')
+    return cleaned ? `class="${cleaned}"` : ''
+  })
+}
+
 /** 全屏当前句字幕：中英 / 英语 / 盲听 */
 export type FullscreenCaptionMode = 'both' | 'en' | 'blind'
 

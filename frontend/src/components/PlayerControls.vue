@@ -19,6 +19,7 @@ withDefaults(
     subtitleVoiceMode?: 'original' | 'cloned'
     hasClonedVoice?: boolean
     clonedSpeaking?: boolean
+    maskActive?: boolean
   }>(),
   {
     subtitleVoiceMode: 'original',
@@ -37,6 +38,7 @@ defineEmits<{
   toggleChrome: []
   openVoiceClone: []
   refreshVoiceClone: []
+  toggleMask: []
 }>()
 </script>
 
@@ -56,6 +58,7 @@ defineEmits<{
     :subtitle-voice-mode="subtitleVoiceMode"
     :has-cloned-voice="hasClonedVoice"
     :cloned-speaking="clonedSpeaking"
+    :mask-active="maskActive"
     @update:show-ipa="$emit('update:showIpa', $event)"
     @update:video-hidden="$emit('update:videoHidden', $event)"
     @update:subtitles-hidden="$emit('update:subtitlesHidden', $event)"
@@ -65,5 +68,6 @@ defineEmits<{
     @toggle-chrome="$emit('toggleChrome')"
     @open-voice-clone="$emit('openVoiceClone')"
     @refresh-voice-clone="$emit('refreshVoiceClone')"
+    @toggle-mask="$emit('toggleMask')"
   />
 </template>

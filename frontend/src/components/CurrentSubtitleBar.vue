@@ -41,6 +41,8 @@ const props = defineProps<{
   disableCueMotion?: boolean
   /** 隐藏「意译 / 直译」切换按钮 */
   hideSenseToggle?: boolean
+  /** 用户设置的字号倍率（大 / 中 / 小），仅作用于流体布局（全屏等） */
+  sizeScale?: number
 }>()
 
 const emit = defineEmits<{
@@ -198,9 +200,10 @@ const fluidStyle = computed(() => {
     zhRem = 0.85
   }
   const scale = fitScale.value
+  const userScale = props.sizeScale ?? 1
   return {
-    '--csb-en-size': `${enRem * scale}rem`,
-    '--csb-zh-size': `${zhRem * Math.max(0.9, scale)}rem`,
+    '--csb-en-size': `${enRem * scale * userScale}rem`,
+    '--csb-zh-size': `${zhRem * Math.max(0.9, scale) * userScale}rem`,
   } as Record<string, string>
 })
 
@@ -291,7 +294,14 @@ watch(
 
 watch(
   () =>
-    [props.pinChinese, props.overlay, props.sub.english, props.sub.chinese, props.subtitleMode] as const,
+    [
+      props.pinChinese,
+      props.overlay,
+      props.sub.english,
+      props.sub.chinese,
+      props.subtitleMode,
+      props.sizeScale,
+    ] as const,
   () => {
     void fitEnglishToViewport()
   },
