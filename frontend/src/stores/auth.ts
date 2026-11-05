@@ -12,8 +12,6 @@ import {
   register as registerApi,
   setAccountCredentials as setAccountCredentialsApi,
 } from '@/api/auth'
-import { claimExternalTestTrial } from '@/api/membership'
-import { APP_TEST_MODE } from '@/utils/platform'
 import { clearTokens, getAccessToken, getRefreshToken, isRemoteLoginDetail, setRemoteLoginNotice, setTokens } from '@/api/tokens'
 import type { User } from '@/types'
 
@@ -31,27 +29,6 @@ export const useAuthStore = defineStore('auth', () => {
     refreshToken.value = refresh
     user.value = nextUser
     setTokens(access, refresh)
-    void applyExternalTestTrial()
-  }
-
-  /**
-   * 外部测试（TestFlight）构建：登录后自动尝试开通 7 天试用会员。
-   * 仅当 App 为测试构建（VITE_APP_TEST_MODE=true）时触发；后端未开启
-   * EXTERNAL_TEST_MODE 会返回 403，这里静默忽略，不影响正常登录。
-   */
-  async function applyExternalTestTrial() {
-    if (!APP_TEST_MODE || !accessToken.value || !user.value) return
-    if (user.value.is_member) return
-    try {
-      const res = await claimExternalTestTrial()
-      if (res?.is_member && user.value) {
-        user.value.is_member = true
-        user.value.member_until = res.member_until
-        if (res.member_plan != null) user.value.member_plan = res.member_plan
-      }
-    } catch {
-      /* 未开启测试模式 / 已有正式会员：忽略 */
-    }
   }
 
   function clearSession() {
@@ -98,7 +75,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
     const me = await fetchCurrentUser()
     user.value = me
-    void applyExternalTestTrial()
     return me
   }
 

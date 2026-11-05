@@ -13,6 +13,18 @@ import { getNativePlatform, isNativePlatform } from '@/utils/platform'
 const TOKEN_KEY = 'push_token'
 let inited = false
 
+/**
+ * 临时开关：Android 端缺少 FCM（google-services.json）配置时，
+ * 授予通知权限后调用 PushNotifications.register() 会导致原生闪退。
+ * 暂时在 Android 关闭推送；配置好 Firebase 后把此常量改回 false 即可恢复。
+ * iOS / Web 不受影响。
+ */
+const ANDROID_PUSH_DISABLED = true
+
+function isPushDisabled(): boolean {
+  return ANDROID_PUSH_DISABLED && getNativePlatform() === 'android'
+}
+
 function loadToken(): string {
   try {
     return localStorage.getItem(TOKEN_KEY) || ''
@@ -44,6 +56,7 @@ async function reportToken(token: string) {
 
 /** 把本地已保存的 token 补报一次（登录后 / 回到前台时调用，幂等） */
 export async function syncPushToken(): Promise<void> {
+  if (isPushDisabled()) return
   const token = loadToken()
   if (token) await reportToken(token)
 }
@@ -77,7 +90,7 @@ let routingInited = false
  * 这样即使 App 被杀死后点通知冷启动，也能在页面就绪后跳到对应详情页。
  */
 export async function setupPushNotificationRouting(): Promise<void> {
-  if (!isNativePlatform() || routingInited) return
+  if (!isNativePlatform() || isPushDisabled() || routingInited) return
   routingInited = true
   try {
     const { PushNotifications } = await import('@capacitor/push-notifications')
@@ -92,7 +105,7 @@ export async function setupPushNotificationRouting(): Promise<void> {
 }
 
 export async function initPushNotifications(): Promise<void> {
-  if (!isNativePlatform()) return
+  if (!isNativePlatform() || isPushDisabled()) return
   try {
     const { PushNotifications } = await import('@capacitor/push-notifications')
 

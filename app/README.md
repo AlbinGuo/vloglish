@@ -13,6 +13,7 @@ npm install              # 首次或依赖变更后必须执行
 npm run assets:generate  # 从 BrandLogo 生成图标/启动图（需本机 Python + pillow）
 npm run sync             # 构建 frontend → www（含旧 WebView CSS 降级）→ cap sync
 npm run build:apk        # 同步并打 release APK（正式分发，需先配置签名）
+powershell -ExecutionPolicy Bypass -File scripts/build-release.ps1  # 一键签名+打包+校验（见下）
 npm run add:android      # 首次添加 Android 工程
 npm run open:android     # 用 Android Studio 打开
 ```
@@ -37,6 +38,31 @@ Release APK 输出：
 
 正式签名：复制 `android/keystore.properties.example` 为 `android/keystore.properties` 并配置；
 密码推荐用环境变量 `VLOG_ANDROID_STORE_PASSWORD` / `VLOG_ANDROID_KEY_PASSWORD` 注入（避免明文入库）。详见仓库根目录 `APP_DEBUG_BUILD.md`。
+
+### 一键签名 + 打包 + 校验（PowerShell）
+
+`scripts/build-release.ps1` 把「签名配置 + 打包 + 签名校验」串成一条命令：
+
+```powershell
+cd app
+
+# 首次：生成密钥库并写 keystore.properties（会提示输入密码），然后继续出包
+.\scripts\build-release.ps1 -Init
+
+# 日常：密码走环境变量，避免每次输入
+$env:VLOG_ANDROID_STORE_PASSWORD = "***"
+$env:VLOG_ANDROID_KEY_PASSWORD = "***"
+.\scripts\build-release.ps1
+
+# 同时升版本号
+.\scripts\build-release.ps1 -VersionCode 13 -VersionName "1.2.0"
+```
+
+脚本会：校验 keystore → 调用 `npm run build:apk`（构建前端资源 + cap sync + assembleRelease）
+→ 确认产物是已签名 APK → 用 `apksigner` 校验签名 → 计算 SHA256 并输出 `dist/vloglish-release.apk`。
+
+可选参数：`-Init`（初始化签名）、`-InitOnly`（只初始化不打包）、`-StorePassword`/`-KeyPassword`、
+`-VersionCode`/`-VersionName`、`-SkipVerify`、`-OpenOutput`。
 
 真机安装：打开手机「允许未知来源」，把 APK 拷到手机安装即可（侧载仍会有系统“未知来源”提示，属正常）。
 

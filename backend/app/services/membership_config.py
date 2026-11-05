@@ -129,9 +129,17 @@ def alipay_seller_email() -> str:
 
 
 def external_test_mode_enabled() -> bool:
-    """外部测试模式（TestFlight）：开启时用户登录后可自动开通试用会员，免 IAP。"""
+    """外部测试（TestFlight）试用会员开关（默认关闭）。
+
+    已停用自动赠送：除了 EXTERNAL_TEST_MODE/APP_TEST_MODE 为真外，
+    还必须显式设置 ALLOW_EXTERNAL_TEST_TRIAL=true 才开放，避免正式环境
+    误开导致用户登录被自动/重复赠送 7 天会员。
+    """
     flag = (os.getenv("EXTERNAL_TEST_MODE") or os.getenv("APP_TEST_MODE") or "").strip().lower()
-    return flag in {"1", "true", "yes", "on"}
+    if flag not in {"1", "true", "yes", "on"}:
+        return False
+    allow = (os.getenv("ALLOW_EXTERNAL_TEST_TRIAL") or "").strip().lower()
+    return allow in {"1", "true", "yes", "on"}
 
 
 def public_https_base() -> str:
