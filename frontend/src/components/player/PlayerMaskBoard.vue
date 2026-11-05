@@ -199,10 +199,12 @@ onUnmounted(() => {
 
 .pmask__panel {
   border-radius: 6px;
-  background: rgba(9, 22, 26, 0.82);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
-  -webkit-backdrop-filter: blur(1px);
-  backdrop-filter: blur(1px);
+  background: rgba(8, 16, 20, 0.88);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  backdrop-filter: blur(16px) saturate(120%);
 }
 
 .pmask__corner {

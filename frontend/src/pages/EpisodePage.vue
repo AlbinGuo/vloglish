@@ -101,7 +101,6 @@ import {
   modeUsesBlank,
   preprocessSubtitleHtml,
   resolveDisplaySub,
-  stripHighlightClass,
   type SubtitleDisplayMode,
   type FullscreenCaptionMode,
 } from '@/utils/subtitleHtml'
@@ -601,7 +600,7 @@ const wordCardPrintSheetOpen = ref(false)
 const wordCardPrintOptions = ref<WordCardPrintOptions | null>(null)
 const { subtitleAlign } = useSubtitleAlign()
 const { playerSubtitlePosition } = usePlayerSubtitlePosition()
-const { subtitleSize, stripHighlight, sizeScale } = usePlayerSubtitlePrefs()
+const { subtitleSize, sizeScale } = usePlayerSubtitlePrefs()
 const showIpa = ref(true)
 const selectedEntry = ref<EntryDetail | null>(null)
 const showEntryPanel = ref(false)
@@ -1773,12 +1772,11 @@ useSwipeNavigation(dynamicFocusRef, {
 
 const displaySub = computed(() => resolveDisplaySub(sortedSubs.value, player.currentTime.value))
 
-/** 播放器叠加字幕用的英文 HTML：按设置可选去除重点词高亮 */
+/** 播放器叠加字幕用的英文 HTML（始终可读，不做挖空） */
 const captionEnglishHtml = computed(() => {
   const sub = displaySub.value
   if (!sub) return ''
-  const base = renderCaptionHtml(sub.english_html, sub.id)
-  return stripHighlight.value ? stripHighlightClass(base) : base
+  return renderCaptionHtml(sub.english_html, sub.id)
 })
 
 const maskBoardVisible = ref(false)
@@ -1858,10 +1856,10 @@ const mobileChromeBlocked = computed(
     dictationOpen.value,
 )
 
-/** 悬浮播放球：手机浏览器 / App 播放页，非全屏、非管理预览，且设置开启 */
+/** 悬浮播放球：手机 / Pad 浏览器 / App 播放页，非全屏、非管理预览，且设置开启 */
 const showFloatingBall = computed(
   () =>
-    isPhone.value &&
+    (isPhone.value || isPad.value) &&
     floatingBallEnabled.value &&
     Boolean(episode.value) &&
     !props.adminPreview &&
@@ -3248,7 +3246,7 @@ function subtitleRowClass(index: number) {
               hide-sense-toggle
               :disable-cue-motion="disableDynamicCueMotion"
               :compact="isPhone"
-              :top-align="isPad"
+              align="center"
               :intensive="intensiveMode"
               :lookup-meta="{ video_id: videoId, subtitle_id: displaySub.id }"
               :sub="displaySub"

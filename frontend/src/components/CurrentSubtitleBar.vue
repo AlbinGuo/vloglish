@@ -496,6 +496,8 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 0;
   padding: 0.75rem 1rem;
   box-sizing: border-box;

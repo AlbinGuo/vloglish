@@ -85,7 +85,15 @@ const sizeClass = computed(() => `is-${props.size}`)
   font-weight: 900 !important;
   letter-spacing: 0.02em;
   line-height: 1.15;
-  text-shadow: 0 0 6px rgba(34, 227, 255, 0.65), 0 0 14px rgba(34, 227, 255, 0.35);
+}
+
+/* 高亮词统一用高对比色（#22e3ff 对深色字幕底对比度约 13.49），保留色相区分下划线 */
+.psub-box :deep(.subtitle-english span[class*='highlight-']),
+.psub-box :deep(.subtitle-english--active span[class*='highlight-']) {
+  color: #22e3ff !important;
+  background-color: transparent !important;
+  text-decoration-line: underline !important;
+  padding: 0 !important;
 }
 
 .psub-box :deep(.subtitle-chinese) {
