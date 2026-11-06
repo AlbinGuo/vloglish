@@ -29,6 +29,14 @@ const form = ref<AdminAppRelease>({
   android_download_count: 0,
   ios_note: '应用即将上架 App Store，敬请期待。',
   ios_link: '',
+  ios_version: '',
+  ios_version_code: 0,
+  ios_min_supported_version_code: 0,
+  ios_force_update: false,
+  ios_changelog: '',
+  ios_wechat_id: 'vloglish01',
+  legacy_ios_block_mode: 'off',
+  legacy_ios_block_message: '',
 })
 
 const landingUrl = computed(() => `${window.location.origin}/download`)
@@ -66,6 +74,14 @@ function applyForm(data: AdminAppRelease) {
     android_download_count: data.android_download_count || 0,
     ios_note: data.ios_note || '应用即将上架 App Store，敬请期待。',
     ios_link: data.ios_link || '',
+    ios_version: data.ios_version || '',
+    ios_version_code: data.ios_version_code || 0,
+    ios_min_supported_version_code: data.ios_min_supported_version_code || 0,
+    ios_force_update: Boolean(data.ios_force_update),
+    ios_changelog: data.ios_changelog || '',
+    ios_wechat_id: data.ios_wechat_id || 'vloglish01',
+    legacy_ios_block_mode: data.legacy_ios_block_mode || 'off',
+    legacy_ios_block_message: data.legacy_ios_block_message || '',
   }
 }
 
@@ -105,6 +121,17 @@ async function save() {
         min_supported_version_code: Math.max(0, Number(form.value.min_supported_version_code) || 0),
         ios_note: form.value.ios_note.trim(),
         ios_link: form.value.ios_link.trim(),
+        ios_version: form.value.ios_version.trim(),
+        ios_version_code: Math.max(0, Number(form.value.ios_version_code) || 0),
+        ios_min_supported_version_code: Math.max(
+          0,
+          Number(form.value.ios_min_supported_version_code) || 0,
+        ),
+        ios_force_update: form.value.ios_force_update,
+        ios_changelog: form.value.ios_changelog.trim(),
+        ios_wechat_id: form.value.ios_wechat_id.trim(),
+        legacy_ios_block_mode: form.value.legacy_ios_block_mode,
+        legacy_ios_block_message: form.value.legacy_ios_block_message.trim(),
       }),
     )
     success.value = '已保存'
@@ -383,20 +410,118 @@ onMounted(() => {
       <!-- iOS -->
       <section class="rounded-2xl border border-line bg-card p-4 sm:p-5 space-y-3">
         <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-50">iOS</h2>
+
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="block text-xs space-y-1">
+            <span class="text-neutral-500">版本名（CFBundleShortVersionString）</span>
+            <input
+              v-model="form.ios_version"
+              type="text"
+              placeholder="例如 1.2.0"
+              class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
+            />
+          </label>
+          <label class="block text-xs space-y-1">
+            <span class="text-neutral-500">版本码（CFBundleVersion / build）</span>
+            <input
+              v-model.number="form.ios_version_code"
+              type="number"
+              min="0"
+              step="1"
+              placeholder="例如 12（每次发版 +1）"
+              class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
+            />
+            <span class="block text-[11px] leading-snug text-amber-600 dark:text-amber-400">
+              必须与 iOS 工程里的 build 号一致；填 0 表示暂不提示 iOS 更新。
+            </span>
+          </label>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="block text-xs space-y-1">
+            <span class="text-neutral-500">最低支持版本码（可选）</span>
+            <input
+              v-model.number="form.ios_min_supported_version_code"
+              type="number"
+              min="0"
+              step="1"
+              placeholder="0 表示不限制；低于此码强制更新"
+              class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
+            />
+          </label>
+          <label class="block text-xs space-y-1">
+            <span class="text-neutral-500">App Store / 下载链接</span>
+            <input
+              v-model="form.ios_link"
+              type="url"
+              placeholder="https://apps.apple.com/… 或 TestFlight / 官网"
+              class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
+            />
+            <span class="block text-[11px] leading-snug text-neutral-500">
+              用户在更新弹窗点「前往 App Store 更新」时打开此链接。
+            </span>
+          </label>
+        </div>
+
+        <label class="flex items-start gap-2.5 rounded-xl border border-line px-3 py-2.5 cursor-pointer">
+          <input v-model="form.ios_force_update" type="checkbox" class="mt-0.5 rounded border-neutral-300" />
+          <span class="min-w-0">
+            <span class="block text-sm font-medium text-neutral-900 dark:text-neutral-50">强制更新</span>
+            <span class="block text-[11px] text-neutral-500 mt-0.5">开启后，旧版 iOS App 只能去更新，无法关闭弹窗</span>
+          </span>
+        </label>
+
+        <label class="block text-xs space-y-1">
+          <span class="text-neutral-500">更新说明（可选）</span>
+          <textarea
+            v-model="form.ios_changelog"
+            rows="3"
+            placeholder="本次更新要点"
+            class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
+          />
+        </label>
+
+        <label class="block text-xs space-y-1">
+          <span class="text-neutral-500">作者微信号（更新 / 停服时引导添加）</span>
+          <input
+            v-model="form.ios_wechat_id"
+            type="text"
+            placeholder="vloglish01"
+            class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
+          />
+        </label>
+
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="block text-xs space-y-1">
+            <span class="text-neutral-500">旧版停服拦截</span>
+            <select
+              v-model="form.legacy_ios_block_mode"
+              class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
+            >
+              <option value="off">关闭</option>
+              <option value="billing">仅支付/开通引导（billing）</option>
+              <option value="full">完全停用旧版（full）</option>
+            </select>
+            <span class="block text-[11px] leading-snug text-neutral-500">
+              开启后，版本落后于最新 iOS 版本码的旧客户端会强制弹出停服提示。
+            </span>
+          </label>
+          <label class="block text-xs space-y-1">
+            <span class="text-neutral-500">停服提示文案（可选，{wechat} 会替换为微信号）</span>
+            <textarea
+              v-model="form.legacy_ios_block_message"
+              rows="3"
+              placeholder="留空使用默认：当前内测版本已停止服务，请更新到最新版本；或加作者微信 {wechat} 开通会员。"
+              class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
+            />
+          </label>
+        </div>
+
         <label class="block text-xs space-y-1">
           <span class="text-neutral-500">未上架说明</span>
           <textarea
             v-model="form.ios_note"
             rows="2"
-            class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
-          />
-        </label>
-        <label class="block text-xs space-y-1">
-          <span class="text-neutral-500">可选外链（TestFlight / 官网等）</span>
-          <input
-            v-model="form.ios_link"
-            type="url"
-            placeholder="https://"
             class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
           />
         </label>

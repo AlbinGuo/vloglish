@@ -1467,6 +1467,14 @@ export interface AdminAppRelease {
   android_download_count: number
   ios_note: string
   ios_link: string
+  ios_version: string
+  ios_version_code: number
+  ios_min_supported_version_code: number
+  ios_force_update: boolean
+  ios_changelog: string
+  ios_wechat_id: string
+  legacy_ios_block_mode: string
+  legacy_ios_block_message: string
 }
 
 export async function adminGetAppRelease() {

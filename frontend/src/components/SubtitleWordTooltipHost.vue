@@ -361,11 +361,11 @@ defineExpose({ hostRef })
               <p class="text-sm font-semibold truncate">{{ headword }}</p>
               <button
                 type="button"
-                class="shrink-0 inline-flex items-center justify-center h-7 w-7 rounded-full bg-white/10 text-neutral-200 hover:bg-white/20 hover:text-white transition-colors"
+                class="shrink-0 inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/15 text-white shadow-md shadow-black/20 ring-1 ring-white/15 hover:bg-white/25 transition-all active:scale-95"
                 aria-label="朗读单词"
                 @click.stop="speakWord"
               >
-                <AppIcon name="volume-up" :size="15" />
+                <AppIcon name="volume-up" :size="22" />
               </button>
             </div>
             <p v-if="ipa" class="text-xs font-mono text-neutral-300 leading-snug">{{ ipa }}</p>

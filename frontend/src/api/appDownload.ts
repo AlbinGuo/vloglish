@@ -13,6 +13,14 @@ export interface PublicAppDownload {
   min_supported_version_code: number
   ios_note: string
   ios_link: string
+  ios_version: string
+  ios_version_code: number
+  ios_min_supported_version_code: number
+  ios_force_update: boolean
+  ios_changelog: string
+  ios_wechat_id: string
+  legacy_ios_block_mode: string
+  legacy_ios_block_message: string
   has_android: boolean
 }
 
@@ -25,6 +33,13 @@ export interface AppVersionCheck {
   android_apk_bytes: number
   android_changelog: string
   download_page_path: string
+  platform: string
+  changelog: string
+  store_url: string
+  blocked: boolean
+  block_mode: string
+  block_message: string
+  wechat_id: string
 }
 
 /** 可计数的 Android 下载中转地址（302 → APK 直链）。扫码必须用绝对 URL，相对路径会被扫码器解析成 http:///… */
@@ -42,9 +57,9 @@ export async function fetchAppDownload() {
   return data
 }
 
-export async function checkAppVersion(versionCode: number) {
+export async function checkAppVersion(versionCode: number, platform: 'android' | 'ios' = 'android') {
   const { data } = await api.get<AppVersionCheck>('/api/app/version-check/', {
-    params: { version_code: versionCode },
+    params: { version_code: versionCode, platform },
   })
   return data
 }

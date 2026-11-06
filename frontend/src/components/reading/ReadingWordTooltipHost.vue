@@ -255,20 +255,21 @@ onUnmounted(() => {
               <span>{{ ipa }}</span>
               <button
                 type="button"
-                class="inline-flex p-0.5 rounded text-neutral-400 hover:text-white transition-colors"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white shadow-sm ring-1 ring-white/15 hover:bg-white/25 transition-all active:scale-95"
                 aria-label="朗读单词"
                 @click.stop="speakWord"
               >
-                <AppIcon name="volume-up" :size="14" />
+                <AppIcon name="volume-up" :size="19" />
               </button>
             </p>
             <p v-else-if="entry" class="text-xs leading-snug">
               <button
                 type="button"
-                class="inline-flex items-center gap-1 text-neutral-400 hover:text-white transition-colors"
+                class="inline-flex items-center gap-2 rounded-full bg-white/15 px-2.5 py-1.5 text-white shadow-sm ring-1 ring-white/15 hover:bg-white/25 transition-all active:scale-95"
+                aria-label="朗读单词"
                 @click.stop="speakWord"
               >
-                <AppIcon name="volume-up" :size="14" />
+                <AppIcon name="volume-up" :size="19" />
                 朗读
               </button>
             </p>

@@ -596,7 +596,20 @@ async function startScanPay() {
                 v-if="selected === 'author'"
                 class="mt-4 flex flex-col items-center rounded-lg border border-white/10 bg-white p-3 text-center"
               >
-                <img :src="AUTHOR_QR" alt="作者微信二维码" class="h-40 w-40 rounded-lg object-contain" />
+                <div class="flex w-full items-center justify-center gap-2">
+                  <span class="min-w-0 truncate font-mono text-[15px] font-bold tracking-wide text-neutral-900">
+                    {{ AUTHOR_WECHAT_ID }}
+                  </span>
+                  <span
+                    role="button"
+                    class="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-neutral-900 px-2 py-1 text-[12px] font-semibold text-white"
+                    @click.stop="copyAuthorWechat"
+                  >
+                    <AppIcon :name="copiedWechat ? 'check-xs' : 'clipboard'" class="h-3.5 w-3.5" />
+                    {{ copiedWechat ? '已复制' : '复制' }}
+                  </span>
+                </div>
+                <img :src="AUTHOR_QR" alt="作者微信二维码" class="mt-3 h-40 w-40 rounded-lg object-contain" />
                 <p class="mt-2 text-xs leading-relaxed text-neutral-600">微信扫码添加作者，¥98 开通永久会员</p>
               </div>
             </button>
@@ -634,12 +647,25 @@ async function startScanPay() {
 <!--          </p>-->
 
           <div class="flex justify-center min-h-[12rem] items-center rounded-xl bg-canvas border border-line-soft p-4">
-            <img
-              v-if="selected === 'author'"
-              :src="AUTHOR_QR"
-              alt="作者微信二维码"
-              class="w-48 h-48 object-contain bg-white rounded-lg"
-            />
+            <div v-if="selected === 'author'" class="flex flex-col items-center">
+              <div class="flex items-center gap-2">
+                <span class="text-[12px] text-ink-faint">微信号</span>
+                <span class="font-mono text-base font-bold tracking-wide text-ink">{{ AUTHOR_WECHAT_ID }}</span>
+                <button
+                  type="button"
+                  class="inline-flex shrink-0 items-center gap-1 rounded-md bg-ink px-2 py-1 text-[12px] font-medium text-ink-inverse transition hover:opacity-90 active:scale-95"
+                  @click="copyAuthorWechat"
+                >
+                  <AppIcon :name="copiedWechat ? 'check-xs' : 'clipboard'" class="h-3.5 w-3.5" />
+                  {{ copiedWechat ? '已复制' : '复制' }}
+                </button>
+              </div>
+              <img
+                :src="AUTHOR_QR"
+                alt="作者微信二维码"
+                class="mt-3 w-48 h-48 object-contain bg-white rounded-lg"
+              />
+            </div>
             <p v-else-if="loading" class="text-sm text-neutral-400">正在生成支付码…</p>
             <img v-else-if="payQr" :src="payQr" alt="支付小程序码" class="w-48 h-48 object-contain bg-white rounded-lg" />
             <div

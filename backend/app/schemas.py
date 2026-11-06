@@ -1799,6 +1799,14 @@ class AppReleaseOut(BaseModel):
     android_download_count: int = 0
     ios_note: str = ""
     ios_link: str = ""
+    ios_version: str = ""
+    ios_version_code: int = 0
+    ios_min_supported_version_code: int = 0
+    ios_force_update: bool = False
+    ios_changelog: str = ""
+    ios_wechat_id: str = "vloglish01"
+    legacy_ios_block_mode: str = "off"
+    legacy_ios_block_message: str = ""
 
 
 class AppReleasePatchIn(BaseModel):
@@ -1812,6 +1820,14 @@ class AppReleasePatchIn(BaseModel):
     min_supported_version_code: int | None = None
     ios_note: str | None = None
     ios_link: str | None = None
+    ios_version: str | None = None
+    ios_version_code: int | None = None
+    ios_min_supported_version_code: int | None = None
+    ios_force_update: bool | None = None
+    ios_changelog: str | None = None
+    ios_wechat_id: str | None = None
+    legacy_ios_block_mode: str | None = None
+    legacy_ios_block_message: str | None = None
 
 
 class AppApkUploadOut(BaseModel):
@@ -1830,6 +1846,14 @@ class PublicAppDownloadOut(BaseModel):
     min_supported_version_code: int = 0
     ios_note: str = ""
     ios_link: str = ""
+    ios_version: str = ""
+    ios_version_code: int = 0
+    ios_min_supported_version_code: int = 0
+    ios_force_update: bool = False
+    ios_changelog: str = ""
+    ios_wechat_id: str = "vloglish01"
+    legacy_ios_block_mode: str = "off"
+    legacy_ios_block_message: str = ""
     has_android: bool = False
 
 
@@ -1842,3 +1866,10 @@ class AppVersionCheckOut(BaseModel):
     android_apk_bytes: int = 0
     android_changelog: str = ""
     download_page_path: str = "/download"
+    platform: str = "android"
+    changelog: str = ""
+    store_url: str = ""
+    blocked: bool = False
+    block_mode: str = "off"
+    block_message: str = ""
+    wechat_id: str = ""

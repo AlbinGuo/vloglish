@@ -37,6 +37,7 @@ import { useSourceFocusPulse } from '@/composables/useSourceFocusPulse'
 import { useWordLongPress } from '@/composables/useWordLongPress'
 import type { EntryDetail } from '@/types'
 import { resolveReadingContext } from '@/utils/readingContext'
+import { playWordPronunciation } from '@/utils/speakWord'
 import { highlightVocabLinkText, parseVocabSummary, type VocabSummaryGroup, type VocabSummaryItem } from '@/utils/vocabSummary'
 
 const route = useRoute()
@@ -460,6 +461,7 @@ async function onWordClick(e: MouseEvent, segment?: ArticleSegment) {
   }
 
   activeSegment.value = hit.segment
+  playWordPronunciation(hit.word)
   showEntry.value = true
   entryLoading.value = true
   entryError.value = ''

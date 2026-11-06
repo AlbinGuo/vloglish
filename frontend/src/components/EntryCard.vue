@@ -182,16 +182,23 @@ function onToggleVocabulary() {
             </span>
           </div>
 
-          <div v-if="primaryPron || entry.headword" class="flex items-center gap-2 mt-3">
+  <div v-if="primaryPron || entry.headword" class="mt-3">
             <button
               type="button"
-              class="inline-flex items-center gap-1.5 text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 transition-colors"
+              class="group inline-flex items-center gap-3 rounded-full pr-3 transition active:scale-[0.98]"
+              aria-label="朗读单词"
               @click="playPronunciation"
             >
-              <span v-if="primaryPron" class="font-medium">{{ primaryPron.accent_type }}</span>
-              <AppIcon name="volume-up" class="text-neutral-500" :size="16" />
-              <span v-if="primaryPron?.ipa" class="font-serif text-neutral-700 dark:text-neutral-300">{{ primaryPron.ipa }}</span>
-              <span v-else class="text-neutral-500">朗读</span>
+              <span
+                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-white shadow-md shadow-black/20 ring-1 ring-black/5 transition-colors group-hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:ring-white/10 dark:group-hover:bg-white"
+              >
+                <AppIcon name="volume-up" :size="24" />
+              </span>
+              <span class="flex items-baseline gap-2 min-w-0">
+                <span v-if="primaryPron" class="text-sm font-medium text-neutral-600 dark:text-neutral-300">{{ primaryPron.accent_type }}</span>
+                <span v-if="primaryPron?.ipa" class="font-serif text-base text-neutral-700 dark:text-neutral-300">{{ primaryPron.ipa }}</span>
+                <span v-else-if="!primaryPron" class="text-sm font-medium text-neutral-600 dark:text-neutral-300">朗读</span>
+              </span>
             </button>
           </div>
 

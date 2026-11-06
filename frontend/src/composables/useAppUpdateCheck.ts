@@ -26,11 +26,13 @@ export function useAppUpdateCheck() {
 
   async function runCheck() {
     if (!isNativePlatform()) return
-    if (getNativePlatform() !== 'android') return
+    const platform = getNativePlatform()
+    if (platform !== 'android' && platform !== 'ios') return
 
     let versionCode = 0
     try {
       const { App } = await import('@capacitor/app')
+      // build：Android 为 versionCode，iOS 为 CFBundleVersion
       const appInfo = await App.getInfo()
       versionCode = Number.parseInt(String(appInfo.build || '0'), 10) || 0
     } catch {
@@ -39,7 +41,13 @@ export function useAppUpdateCheck() {
     if (versionCode <= 0) return
 
     try {
-      const result = await checkAppVersion(versionCode)
+      const result = await checkAppVersion(versionCode, platform)
+      // 旧版停服：必须弹出，不可跳过
+      if (result.blocked) {
+        info.value = result
+        open.value = true
+        return
+      }
       if (!result.has_update) return
       if (!result.force_update) {
         try {

@@ -27,9 +27,12 @@ def download_android_apk(db: Session = Depends(get_db)):
 
 @router.get("/app/version-check/", response_model=AppVersionCheckOut)
 def check_app_version(
-    version_code: int = Query(0, ge=0, description="当前 App 的 versionCode"),
+    version_code: int = Query(0, ge=0, description="当前 App 的 versionCode / CFBundleVersion"),
+    platform: str = Query("android", pattern="^(android|ios)$", description="App 平台"),
     db: Session = Depends(get_db),
 ):
     return AppVersionCheckOut(
-        **app_release_svc.check_app_version(db, current_version_code=version_code)
+        **app_release_svc.check_app_version(
+            db, current_version_code=version_code, platform=platform
+        )
     )

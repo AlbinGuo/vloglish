@@ -51,6 +51,7 @@ import { useClipsStore } from '@/stores/clips'
 import { useVoiceCloneStore } from '@/stores/voiceClone'
 import type { EntryDetail, EpisodeDetail, EpisodeSummary, Subtitle } from '@/types'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
+import { playWordPronunciation } from '@/utils/speakWord'
 import EntryCard from '@/components/EntryCard.vue'
 import StarIcon from '@/components/icons/StarIcon.vue'
 import PlayerControls from '@/components/PlayerControls.vue'
@@ -2737,6 +2738,7 @@ async function openWordEntry(payload: {
   gloss?: string
 }) {
   pausePlaybackForEntry()
+  playWordPronunciation(payload.word)
   showEntryPanel.value = true
   entryError.value = ''
   clearVocabNotice()
@@ -3063,6 +3065,7 @@ function subtitleRowClass(index: number) {
             :mode="fullscreenCaptionMode"
             :size="subtitleSize"
             @click="onSubtitleClick"
+            @close="subtitlesHidden = true"
           />
           <!-- 遮挡板：可拖动 / 四角缩放 -->
           <PlayerMaskBoard v-if="maskBoardVisible && !videoHidden" @close="maskBoardVisible = false" />

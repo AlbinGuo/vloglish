@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import SubtitleBlock from '@/components/SubtitleBlock.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import type { Subtitle } from '@/types'
 import type { PlayerSubtitlePosition } from '@/composables/useSubtitleOverlayPosition'
 import type { PlayerSubtitleSize } from '@/composables/usePlayerSubtitlePrefs'
@@ -17,7 +18,43 @@ const props = withDefaults(
   { mode: 'both', size: 'medium' },
 )
 
-defineEmits<{ click: [event: MouseEvent] }>()
+const emit = defineEmits<{
+  click: [event: MouseEvent]
+  close: []
+}>()
+
+const DRAG_STORAGE_KEY = 'teco-player-subtitle-drag-offset'
+
+function loadDragOffset(): { x: number; y: number } {
+  try {
+    const raw = localStorage.getItem(DRAG_STORAGE_KEY)
+    if (raw) {
+      const v = JSON.parse(raw) as { x?: number; y?: number }
+      if (typeof v.x === 'number' && typeof v.y === 'number') return { x: v.x, y: v.y }
+    }
+  } catch {
+    /* ignore */
+  }
+  return { x: 0, y: 0 }
+}
+
+const dragOffset = ref(loadDragOffset())
+const dragging = ref(false)
+let dragPointerId: number | null = null
+let dragStart = { x: 0, y: 0 }
+let dragOrigin = { x: 0, y: 0 }
+
+watch(
+  dragOffset,
+  (v) => {
+    try {
+      localStorage.setItem(DRAG_STORAGE_KEY, JSON.stringify(v))
+    } catch {
+      /* ignore */
+    }
+  },
+  { deep: true },
+)
 
 const en = computed(() => (props.sub?.english || '').trim())
 const zh = computed(() => (props.sub?.chinese || '').trim())
@@ -44,6 +81,46 @@ const positionClass = computed(() => {
 })
 
 const sizeClass = computed(() => `is-${props.size}`)
+const dragStyle = computed(() => ({
+  '--subtitle-drag-x': `${dragOffset.value.x}px`,
+  '--subtitle-drag-y': `${dragOffset.value.y}px`,
+}))
+
+watch(
+  () => props.position,
+  () => {
+    dragOffset.value = { x: 0, y: 0 }
+  },
+)
+
+function onDragStart(e: PointerEvent) {
+  if (e.button !== 0 || (e.target instanceof Element && e.target.closest('button, .subtitle-english, .subtitle-chinese, .subtitle-ipa'))) return
+  dragging.value = true
+  dragPointerId = e.pointerId
+  dragStart = { x: e.clientX, y: e.clientY }
+  dragOrigin = { ...dragOffset.value }
+  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  e.preventDefault()
+}
+
+function onDragMove(e: PointerEvent) {
+  if (!dragging.value || e.pointerId !== dragPointerId) return
+  dragOffset.value = {
+    x: dragOrigin.x + e.clientX - dragStart.x,
+    y: dragOrigin.y + e.clientY - dragStart.y,
+  }
+}
+
+function onDragEnd(e: PointerEvent) {
+  if (e.pointerId !== dragPointerId) return
+  dragging.value = false
+  dragPointerId = null
+}
+
+onUnmounted(() => {
+  dragging.value = false
+  dragPointerId = null
+})
 </script>
 
 <template>
@@ -52,7 +129,30 @@ const sizeClass = computed(() => `is-${props.size}`)
     class="psub-layer pointer-events-none absolute inset-x-0 z-[16] flex justify-center px-3"
     :class="positionClass"
   >
-    <div class="psub-box" :class="sizeClass" :data-subtitle-context="sub.english">
+    <div
+      class="psub-box"
+      :class="[sizeClass, { 'is-dragging': dragging }]"
+      :style="dragStyle"
+      :data-subtitle-context="sub.english"
+    >
+      <div
+        class="psub-drag-handle"
+        title="拖动字幕"
+        @pointerdown="onDragStart"
+        @pointermove="onDragMove"
+        @pointerup="onDragEnd"
+        @pointercancel="onDragEnd"
+      />
+      <button
+        type="button"
+        class="psub-close"
+        aria-label="关闭字幕"
+        title="关闭字幕"
+        @pointerdown.stop
+        @click.stop="emit('close')"
+      >
+        <AppIcon name="close" :size="12" />
+      </button>
       <SubtitleBlock
         :english-html="englishHtml"
         :chinese="sub.chinese"
@@ -61,7 +161,7 @@ const sizeClass = computed(() => `is-${props.size}`)
         :show-chinese="showChinese"
         :show-ipa="false"
         align="center"
-        @click="$emit('click', $event)"
+        @click="emit('click', $event)"
       />
     </div>
   </div>
@@ -75,9 +175,65 @@ const sizeClass = computed(() => `is-${props.size}`)
   background: rgba(0, 0, 0, 0.55);
   border-radius: 10px;
   padding: 0.3em 0.85em;
+  position: relative;
+  transform: translate(var(--subtitle-drag-x, 0px), var(--subtitle-drag-y, 0px));
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
   text-align: center;
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
+}
+
+.psub-box.is-dragging {
+  cursor: grabbing;
+}
+
+.psub-drag-handle {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 1;
+  width: 3.5rem;
+  height: 0.7rem;
+  transform: translateX(-50%);
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.psub-drag-handle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 1.8rem;
+  height: 2px;
+  transform: translateX(-50%);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.psub-close {
+  position: absolute;
+  z-index: 2;
+  top: 2px;
+  right: 3px;
+  display: inline-flex;
+  width: 19px;
+  height: 19px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: rgba(255, 255, 255, 0.58);
+  background: rgba(0, 0, 0, 0.16);
+  pointer-events: auto;
+  opacity: 0.72;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+.psub-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.4);
 }
 
 .psub-box :deep(.subtitle-english) {
