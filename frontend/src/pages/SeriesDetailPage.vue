@@ -103,7 +103,7 @@ watch(slug, load)
           />
         </div>
         <div class="min-w-0 flex-1">
-          <RouterLink to="/english/series" class="text-xs text-neutral-500 hover:text-ink-soft">
+          <RouterLink to="/english/series" class="hidden sm:inline text-xs text-neutral-500 hover:text-ink-soft">
             ← 全部合集
           </RouterLink>
           <h1 class="mt-2 text-2xl font-semibold tracking-tight">{{ series.title }}</h1>

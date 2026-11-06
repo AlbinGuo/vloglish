@@ -751,6 +751,7 @@ export interface AdminReleasePopupStats {
   video_id: string
   short_title: string
   notified: boolean
+  release_notifications_enabled: boolean
   release_notified_at: string
   recipient_count: number
   seen_count: number

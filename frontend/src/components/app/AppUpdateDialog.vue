@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { getAndroidApkTrackUrl, type AppVersionCheck } from '@/api/appDownload'
+import { openApkDownload } from '@/services/appUpdater'
 import { formatFileSize } from '@/utils/formatFileSize'
 
 const props = defineProps<{
@@ -19,12 +20,23 @@ const title = computed(() =>
   props.info?.force_update ? '需要更新后才能继续使用' : '发现新版本',
 )
 
-function onUpdate() {
-  if (props.info?.android_apk_url) {
-    window.open(getAndroidApkTrackUrl(), '_blank', 'noopener')
-  } else {
-    const path = props.info?.download_page_path || '/download'
-    window.open(path, '_blank', 'noopener')
+function absoluteUrl(path: string) {
+  try {
+    return new URL(path, window.location.origin).href
+  } catch {
+    return path
+  }
+}
+
+async function onUpdate() {
+  const url = props.info?.android_apk_url
+    ? getAndroidApkTrackUrl()
+    : absoluteUrl(props.info?.download_page_path || '/download')
+  // Android 原生壳里 window.open 不一定会唤起系统浏览器：
+  // 交给原生 startActivity 打开下载链接，确保真正下载并进入安装流程。
+  const handledByNative = await openApkDownload(url)
+  if (!handledByNative) {
+    window.open(url, '_blank', 'noopener')
   }
   emit('update')
 }

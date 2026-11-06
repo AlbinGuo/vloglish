@@ -716,6 +716,7 @@ watch(layoutMode, async () => {
               aria-valuemin="28"
               aria-valuemax="72"
               tabindex="0"
+              data-swipe-back-ignore
               class="group relative w-2 shrink-0 cursor-col-resize touch-none bg-transparent hover:bg-sky-500/15 active:bg-sky-500/25 transition-colors"
               @pointerdown="startDrag($event, dualSplitRef)"
             >

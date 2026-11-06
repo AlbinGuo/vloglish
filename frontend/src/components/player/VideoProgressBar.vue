@@ -111,6 +111,7 @@ watch(
 <template>
   <div
     v-if="video"
+    data-swipe-back-ignore
     :class="
       variant === 'overlay'
         ? 'absolute bottom-0 left-0 right-0 z-20 px-3 pb-2.5 pt-8 bg-gradient-to-t from-black/55 to-transparent pointer-events-auto'

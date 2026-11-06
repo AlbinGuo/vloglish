@@ -484,6 +484,7 @@ onUnmounted(() => {
 <template>
   <div
     v-show="!hidden"
+    data-swipe-back-ignore
     class="fb-root fixed z-30 select-none"
     :style="outerStyle"
     @selectstart.prevent

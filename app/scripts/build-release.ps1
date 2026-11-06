@@ -38,6 +38,7 @@ param(
   [int]$VersionCode = 0,
   [string]$VersionName = '',
   [switch]$SkipVerify,
+  [switch]$RequireVersionBump,
   [switch]$OpenOutput
 )
 
@@ -141,6 +142,49 @@ function Find-Apksigner {
     if (Test-Path $p) { return $p }
   }
   return $null
+}
+
+function Find-Aapt2 {
+  $sdk = $env:ANDROID_HOME
+  if (-not $sdk) { $sdk = $env:ANDROID_SDK_ROOT }
+  $localProps = Join-Path $AndroidRoot 'local.properties'
+  if (-not $sdk -and (Test-Path $localProps)) {
+    foreach ($line in [System.IO.File]::ReadAllLines($localProps)) {
+      if ($line -match '^\s*sdk\.dir\s*=\s*(.+)$') {
+        $sdk = $matches[1].Replace('\\\\', '\').Replace('\\', '\')
+        break
+      }
+    }
+  }
+  if (-not $sdk) { $sdk = Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
+  $bt = Join-Path $sdk 'build-tools'
+  if (-not (Test-Path $bt)) { return $null }
+  $dirs = Get-ChildItem -Path $bt -Directory | Sort-Object {
+    try { [version]($_.Name -replace '[^0-9.].*$', '') } catch { [version]'0.0.0' }
+  } -Descending
+  foreach ($d in $dirs) {
+    $p = Join-Path $d.FullName 'aapt2.exe'
+    if (Test-Path $p) { return $p }
+    $p = Join-Path $d.FullName 'aapt.exe'
+    if (Test-Path $p) { return $p }
+  }
+  return $null
+}
+
+function Get-ApkVersion([string]$apkPath) {
+  $result = [pscustomobject]@{ Code = 0; Name = '' }
+  $aapt = Find-Aapt2
+  if (-not $aapt) { return $result }
+  try {
+    $out = & $aapt dump badging $apkPath 2>$null
+  } catch {
+    return $result
+  }
+  foreach ($line in @($out)) {
+    if ($line -match "versionCode='([0-9]+)'") { $result.Code = [int]$matches[1] }
+    if ($line -match "versionName='([^']*)'") { $result.Name = $matches[1] }
+  }
+  return $result
 }
 
 function Initialize-Signing {
@@ -267,6 +311,35 @@ if (-not (Test-Path $SignedApk)) {
 
 $sizeMb = [math]::Round((Get-Item $SignedApk).Length / 1MB, 2)
 Ok "Signed Release APK: $SignedApk ($sizeMb MB)"
+
+# ---------------------------------------------------------------------------
+# Verify real versionCode / versionName inside the APK to avoid mismatch with the admin release config
+$apkVersion = Get-ApkVersion $SignedApk
+if ($apkVersion.Code -gt 0) {
+  Write-Host ("APK versionCode = {0}, versionName = {1}" -f $apkVersion.Code, $apkVersion.Name) -ForegroundColor Cyan
+  if ($VersionCode -gt 0 -and $apkVersion.Code -ne $VersionCode) {
+    Fail "APK versionCode ($($apkVersion.Code)) does not match -VersionCode ($VersionCode). Check build.gradle."
+  }
+  $marker = Join-Path $AppRoot 'dist\.last-build-version.json'
+  $lastCode = 0
+  if (Test-Path $marker) {
+    try { $lastCode = [int]((Get-Content $marker -Raw | ConvertFrom-Json).versionCode) } catch { $lastCode = 0 }
+  }
+  if ($RequireVersionBump -and $apkVersion.Code -le $lastCode) {
+    Fail "APK versionCode ($($apkVersion.Code)) is not greater than last build ($lastCode). Release builds must increase versionCode."
+  }
+  if ($lastCode -gt 0 -and $apkVersion.Code -le $lastCode) {
+    Warn "This versionCode ($($apkVersion.Code)) is not greater than last build ($lastCode): users will keep seeing the update prompt if this is published."
+  }
+  try {
+    New-Item -ItemType Directory -Force -Path (Split-Path $marker) | Out-Null
+    @{ versionCode = $apkVersion.Code; versionName = $apkVersion.Name; builtAt = (Get-Date).ToString('s') } |
+      ConvertTo-Json | Set-Content -Path $marker -Encoding UTF8
+  } catch { Warn "Failed to write build version marker: $marker" }
+  Write-Host ("Release reminder: set admin app versionCode to {0} and versionName to {1} (must match the APK exactly)." -f $apkVersion.Code, $apkVersion.Name) -ForegroundColor Yellow
+} else {
+  Warn "Could not read APK versionCode (aapt/aapt2 not found). Make sure build.gradle versionCode matches the admin config."
+}
 
 if (-not $SkipVerify) {
   $apksigner = Find-Apksigner

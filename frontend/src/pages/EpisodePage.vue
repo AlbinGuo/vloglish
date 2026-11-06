@@ -3089,6 +3089,7 @@ function subtitleRowClass(index: number) {
           <div
             v-if="isVideoPanelFullscreen"
             ref="captionOverlayRef"
+            data-swipe-back-ignore
             class="video-panel__subtitle"
             :class="{
               'is-blind': fullscreenCaptionMode === 'blind',
@@ -3277,6 +3278,7 @@ function subtitleRowClass(index: number) {
         :aria-valuemax="videoSplitMax"
         tabindex="0"
         title="拖动调整宽度，双击恢复默认"
+        data-swipe-back-ignore
         class="episode-split-handle group relative shrink-0 cursor-col-resize touch-none bg-transparent hover:bg-amber-500/15 active:bg-amber-500/25 transition-colors w-3.5 lg:w-2"
         :class="splitDragging ? 'bg-amber-500/20' : ''"
         @pointerdown="startVideoSplitDrag($event, episodeSplitRef)"
@@ -3472,6 +3474,7 @@ function subtitleRowClass(index: number) {
         <div
           v-else-if="modeIsDynamicFocus(subtitleMode) && currentSub && !isPhone"
           ref="dynamicFocusRef"
+          data-swipe-back-ignore
           class="subtitle-focus-light subtitle-scroll-hide flex-1 min-h-0 overflow-hidden overscroll-contain flex flex-col justify-start pt-2 px-3 pb-4 lg:justify-center lg:p-6 xl:p-10 cursor-pointer touch-pan-y"
           :class="subtitleAlign === 'left' ? 'items-start text-left' : 'items-center text-center'"
           @click="currentSub && player.seekTo(currentSub)"
@@ -3528,6 +3531,7 @@ function subtitleRowClass(index: number) {
         <div
           v-else
           ref="listRef"
+          data-swipe-back-ignore
           class="subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] px-3 pt-2 lg:p-4 lg:pb-4"
           :class="[mobileListBottomPad, clipSelectMode ? '' : 'touch-pan-y']"
         >
@@ -3713,6 +3717,7 @@ function subtitleRowClass(index: number) {
 
       <div
         class="pointer-events-auto transition-transform duration-300 ease-out"
+        data-swipe-back-ignore
         :class="mobileChromeVisible || adminPreview ? 'translate-y-0' : 'translate-y-full'"
         @pointerdown="onMobileChromeInteraction"
       >

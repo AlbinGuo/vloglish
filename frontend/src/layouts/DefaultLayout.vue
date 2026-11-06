@@ -15,6 +15,8 @@ import FavoriteCorpusToast from '@/components/FavoriteCorpusToast.vue'
 import AiQuotaExhaustedModal from '@/components/ai/AiQuotaExhaustedModal.vue'
 import FeedbackModal from '@/components/FeedbackModal.vue'
 import { useCatalogMobileHeaderHide } from '@/composables/useCatalogMobileHeaderHide'
+import { useSwipeBack } from '@/composables/useSwipeBack'
+import { navigateBack } from '@/utils/navigation'
 import { useAuthStore } from '@/stores/auth'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 import { useNotificationStore } from '@/stores/notifications'
@@ -36,6 +38,7 @@ import { isMobileAppBuild } from '@/utils/platform'
 import AppIcon from '@/components/AppIcon.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import BottomTabBar from '@/components/layout/BottomTabBar.vue'
+import BackButton from '@/components/layout/BackButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -64,6 +67,10 @@ type PopupUnit =
   | { kind: 'multi'; items: EpisodePublishedPopupItem[] }
 
 const RELEASE_POPUP_TYPES = new Set(['episode_new_release', 'article_new_release', 'author_new_episode'])
+
+// 暂时关闭「新剧集/文章发布」实时弹窗（管理端发布后不再实时打扰用户）。
+// 产品确认恢复时改回 true 即可；App 端与浏览器端统一走这个开关。
+const RELEASE_POPUPS_ENABLED: boolean = false
 
 function isReleasePopup(item: EpisodePublishedPopupItem) {
   return RELEASE_POPUP_TYPES.has(item.type)
@@ -152,6 +159,58 @@ const hideAppMobileHeader = isMobileAppBuild()
 /** 移动端底部 Tab Bar：仅非沉浸式页面、已登录时显示 */
 const showBottomTabs = computed(() => !immersive.value && auth.isLoggedIn && !route.meta.landing)
 
+/** 移动端一级 Tab 页面：顶部不显示返回箭头 */
+const MOBILE_ROOT_ROUTE_NAMES = new Set([
+  'HomePage',
+  'SeriesList',
+  'NewsReadingList',
+  'Vocabulary',
+  'Mine',
+  'ListenHome',
+])
+
+/** 无历史可退时的兜底路由（按页面给出更合理的上级） */
+const MOBILE_BACK_FALLBACKS: Record<string, string> = {
+  SeriesDetail: '/english/series',
+  AuthorDetail: '/english',
+  Notifications: '/english/mine',
+  StudyGuide: '/english/mine',
+  Learning: '/english/mine',
+  Clips: '/english/mine',
+  MySubmissions: '/english/mine',
+  WishWall: '/english/mine',
+  WatchHistory: '/english/mine',
+  WordPractice: '/english/mine',
+}
+
+const showMobileBack = computed(() => {
+  if (immersive.value) return false
+  return !MOBILE_ROOT_ROUTE_NAMES.has(String(route.name ?? ''))
+})
+
+/** 右滑返回：播放/阅读等沉浸式页面也启用，只排除一级 Tab 页 */
+const swipeBackEnabled = computed(
+  () => !MOBILE_ROOT_ROUTE_NAMES.has(String(route.name ?? '')),
+)
+
+const mobileBackFallback = computed(() => {
+  const name = String(route.name ?? '')
+  if (name === 'NewsReading') return '/english/reading'
+  if (name === 'ArticleTyping') {
+    const id = route.params.articleId
+    return typeof id === 'string' && id ? `/english/reading/${id}` : '/english/reading'
+  }
+  if (name === 'ListenEpisode') return '/english/listen'
+  if (name === 'DemoEpisode') return '/demo'
+  return MOBILE_BACK_FALLBACKS[name] ?? '/english'
+})
+
+// 任意位置右滑返回：播放页/阅读页也启用，仅一级 Tab 页不响应
+useSwipeBack({
+  enabled: () => swipeBackEnabled.value,
+  onBack: () => navigateBack(router, mobileBackFallback.value),
+})
+
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let popupPollTimer: ReturnType<typeof setInterval> | null = null
 let currentPageKey = normalizePresencePageKey(route.name)
@@ -194,8 +253,15 @@ async function refreshPendingPopups() {
   }
   try {
     const raw = await getPendingPopups()
-    // App 端不展示"新剧集/文章发布"类弹窗（管理端发布后不应打扰移动端用户）
-    const results = isMobileAppBuild() ? raw.filter((r) => !isReleasePopup(r)) : raw
+    // 发布类实时弹窗总开关（当前关闭）；保留「投稿通过」等非发布类弹窗。
+    const releaseIds = RELEASE_POPUPS_ENABLED ? [] : raw.filter(isReleasePopup).map((r) => r.id)
+    const results = RELEASE_POPUPS_ENABLED ? raw : raw.filter((r) => !isReleasePopup(r))
+    if (releaseIds.length) {
+      // 静默标记已读：既不弹窗，也别让这些发布通知堆成未读红点/占满待弹列表
+      void ackNotificationPopups(releaseIds)
+        .then(() => refreshUnreadCount())
+        .catch(() => {})
+    }
     const units = buildPopupUnits(results)
     const head = currentUnit.value
     if (head) {
@@ -510,18 +576,22 @@ watch(
         </div>
       </div>
     </header>
-    <!-- 移动端轻量 header：品牌 + 通知 + 我的头像（底部 Tab 负责主导航） -->
+    <!-- 移动端轻量 header：一级页显示品牌，二级页显示统一的返回箭头（App 与手机浏览器一致） -->
     <header
       v-if="!immersive"
       class="sm:hidden sticky top-0 z-40 bg-canvas pt-[env(safe-area-inset-top,0px)]"
       :class="hideAppMobileHeader ? '' : 'border-b border-line-soft'"
     >
-      <div v-if="!hideAppMobileHeader" class="px-4 py-2 flex items-center justify-between gap-3">
-        <RouterLink to="/english" class="flex items-center gap-2 min-w-0 shrink-0">
+      <div
+        v-if="showMobileBack || !hideAppMobileHeader"
+        class="px-4 py-2 flex items-center justify-between gap-3"
+      >
+        <BackButton v-if="showMobileBack" :fallback="mobileBackFallback" />
+        <RouterLink v-else to="/english" class="flex items-center gap-2 min-w-0 shrink-0">
           <BrandLogo :size="26" />
           <span class="text-[1rem] font-semibold tracking-[-0.02em] leading-none">Vloglish</span>
         </RouterLink>
-        <div class="flex items-center gap-0.5">
+        <div v-if="!hideAppMobileHeader" class="flex items-center gap-0.5">
           <RouterLink
             v-if="auth.isLoggedIn"
             to="/english/notifications"

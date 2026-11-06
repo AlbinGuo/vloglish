@@ -41,6 +41,7 @@ from ...services.subtitle_import_admin import (
     import_subtitle_text_for_admin,
 )
 from ...services.user_notifications import (
+    RELEASE_NOTIFICATIONS_ENABLED,
     maybe_notify_catalog_release,
     maybe_notify_submitter_on_status_change,
 )
@@ -493,6 +494,7 @@ def release_popup_stats(
         video_id=ep.video_id,
         short_title=ep.short_title or "",
         notified=bool(getattr(ep, "release_notified_at", None)) or bool(rows),
+        release_notifications_enabled=RELEASE_NOTIFICATIONS_ENABLED,
         release_notified_at=_fmt_dt(getattr(ep, "release_notified_at", None)),
         recipient_count=len(rows),
         seen_count=len(seen_users),

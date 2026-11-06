@@ -1034,6 +1034,7 @@ class AdminReleasePopupStatsOut(BaseModel):
     video_id: str
     short_title: str
     notified: bool
+    release_notifications_enabled: bool = True
     release_notified_at: str = ""
     recipient_count: int = 0
     seen_count: int = 0

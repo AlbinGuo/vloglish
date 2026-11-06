@@ -852,7 +852,11 @@ watch(
         <div v-if="releaseStatsLoading && !releaseStats" class="text-amber-800/70">加载中...</div>
         <template v-else-if="releaseStats">
           <p v-if="!releaseStats.notified" class="text-amber-900">
-            尚未推送全站上线弹窗（发布为全站可见后会自动推送一次）。
+            {{
+              releaseStats.release_notifications_enabled
+                ? '尚未推送全站上线弹窗（发布为全站可见后会自动推送一次）。'
+                : '新内容发布通知当前已关闭：不会写站内通知，也不会发推送。'
+            }}
           </p>
           <template v-else>
             <div class="flex flex-wrap gap-3 text-amber-950">

@@ -162,6 +162,7 @@ onUnmounted(() => {
 <template>
   <div
     ref="rootRef"
+    data-swipe-back-ignore
     class="pmask absolute z-[34] select-none touch-none"
     :style="style"
     @pointerdown="onPointerDown($event, 'move')"

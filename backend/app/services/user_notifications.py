@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -5,6 +6,17 @@ from sqlalchemy.orm import Session
 from ..models import Article, Author, Episode, User, UserNotification
 from .author_subscribe import subscriber_user_ids
 from .push import enqueue_push
+
+# 全站「新内容上线」通知总开关（站内通知 + App 推送）。
+# 当前关闭：管理端发布新视频/文章后，不再给用户写站内通知，也不再发推送。
+# 仅影响「新内容发布」类通知；投稿审核、投稿待审等通知不受影响。
+# 恢复方式：把默认值改成 True，或部署时设置环境变量 RELEASE_NOTIFICATIONS_ENABLED=1。
+_RELEASE_NOTIFICATIONS_ENV = os.getenv("RELEASE_NOTIFICATIONS_ENABLED")
+RELEASE_NOTIFICATIONS_ENABLED = (
+    _RELEASE_NOTIFICATIONS_ENV.strip().lower() in {"1", "true", "yes", "on"}
+    if _RELEASE_NOTIFICATIONS_ENV is not None
+    else False
+)
 
 
 def _episode_title(ep: Episode) -> str:
@@ -29,6 +41,10 @@ def notify_catalog_episode_released(db: Session, ep: Episode) -> int:
     if getattr(ep, "release_notified_at", None):
         return 0
     if not is_catalog_published_episode(ep):
+        return 0
+    if not RELEASE_NOTIFICATIONS_ENABLED:
+        # 总开关关闭：不写站内通知、不发推送。
+        # 不设置 release_notified_at，管理端仍可如实显示“未推送”。
         return 0
 
     users = db.query(User).filter(User.is_active.is_(True)).all()
@@ -85,6 +101,10 @@ def notify_catalog_article_released(db: Session, article: Article) -> int:
     if getattr(article, "release_notified_at", None):
         return 0
     if not is_catalog_published_article(article):
+        return 0
+    if not RELEASE_NOTIFICATIONS_ENABLED:
+        # 总开关关闭：不写站内通知、不发推送。
+        # 不设置 release_notified_at，管理端仍可如实显示“未推送”。
         return 0
 
     users = db.query(User).filter(User.is_active.is_(True)).all()

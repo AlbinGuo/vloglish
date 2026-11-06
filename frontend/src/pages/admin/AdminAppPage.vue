@@ -291,6 +291,9 @@ onMounted(() => {
               placeholder="例如 2（每次发版 +1）"
               class="w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
             />
+            <span class="block text-[11px] leading-snug text-amber-600 dark:text-amber-400">
+              必须与 APK 内 versionCode 完全一致（打包脚本会打印「APK versionCode = X」）。填错会导致用户装完仍是旧版、反复提示更新。
+            </span>
           </label>
         </div>
 
