@@ -19,6 +19,10 @@ type PlanId = 'week' | 'quarter' | 'year' | 'forever' | 'test'
 type PayChoice = PlanId | 'author'
 
 const AUTHOR_QR = '/author-wechat-qr.png'
+const AUTHOR_WECHAT_ID = 'vloglish01'
+
+/** iOS App 内购买开关：当前测试商品未上架，先走作者微信开通；正式上架后改为 true 即可恢复。 */
+const IOS_APPLE_IAP_ENABLED = false
 
 const plans: { id: PlanId; name: string; price: string; period: string; note: string; recommend: boolean }[] = [
   { id: 'quarter', name: '季度会员', price: '38', period: '3 个月', note: '约 ¥12.7 / 月', recommend: false },
@@ -38,6 +42,9 @@ const payOnComputer = ref(false)
 const WEB_PAY_URL = 'https://en.yunankexun.com/'
 const copiedUrl = ref(false)
 let copiedTimer: ReturnType<typeof setTimeout> | undefined
+
+const copiedWechat = ref(false)
+let copiedWechatTimer: ReturnType<typeof setTimeout> | undefined
 
 function isAppClient() {
   return isMobileAppBuild() || isNativePlatform()
@@ -155,6 +162,15 @@ async function copyWebPayUrl() {
   }, 2000)
 }
 
+async function copyAuthorWechat() {
+  const ok = await copyText(AUTHOR_WECHAT_ID)
+  copiedWechat.value = ok
+  if (copiedWechatTimer) clearTimeout(copiedWechatTimer)
+  copiedWechatTimer = setTimeout(() => {
+    copiedWechat.value = false
+  }, 2000)
+}
+
 async function syncIfPaidOnWeb() {
   await auth.fetchMe()
   if (!auth.isMember) return false
@@ -191,7 +207,7 @@ function stopPay() {
 }
 
 onMounted(async () => {
-  if (isIosApp) {
+  if (isIosApp && IOS_APPLE_IAP_ENABLED) {
     selected.value = 'year'
     void appleIapWarmup(Object.values(APPLE_PRODUCT_IDS))
   }
@@ -209,6 +225,7 @@ onMounted(async () => {
 onUnmounted(() => {
   stopPay()
   if (copiedTimer) clearTimeout(copiedTimer)
+  if (copiedWechatTimer) clearTimeout(copiedWechatTimer)
 })
 
 watch(selected, (choice) => {
@@ -295,7 +312,12 @@ async function startScanPay() {
       <h1 class="flex-1 text-[16px] font-semibold tracking-tight">开通会员</h1>
     </header>
 
-    <div class="flex-1 space-y-4 overflow-y-auto px-4 pb-44 pt-5">
+    <div
+      class="flex-1 space-y-4 overflow-y-auto px-4 pt-5"
+      :class="IOS_APPLE_IAP_ENABLED ? 'pb-44' : 'pb-10'"
+    >
+      <!-- 正式上架后恢复 App 内购买；当前先隐藏测试支付选项 -->
+      <template v-if="IOS_APPLE_IAP_ENABLED">
       <!-- 套餐选择 -->
       <div class="space-y-2.5">
         <button
@@ -325,6 +347,50 @@ async function startScanPay() {
           </div>
         </button>
       </div>
+      </template>
+
+      <!-- 当前：加作者微信开通会员 -->
+      <template v-else>
+        <section class="rounded-3xl border border-line-soft bg-card p-5">
+          <h2 class="text-[16px] font-semibold text-ink">加作者微信开通会员：</h2>
+
+          <div class="mt-3 flex items-center gap-2">
+            <span
+              class="min-w-0 flex-1 truncate text-[20px] font-bold tracking-wide text-ink"
+            >
+              {{ AUTHOR_WECHAT_ID }}
+            </span>
+            <button
+              type="button"
+              class="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-ink px-3 py-2 text-[13px] font-semibold text-ink-inverse transition active:scale-95"
+              @click="copyAuthorWechat"
+            >
+              <AppIcon
+                :name="copiedWechat ? 'check-xs' : 'clipboard'"
+                class="h-4 w-4"
+              />
+              {{ copiedWechat ? '已复制' : '复制' }}
+            </button>
+          </div>
+
+          <div class="mt-4 flex justify-center">
+            <img
+              :src="AUTHOR_QR"
+              alt="作者微信二维码"
+              class="h-32 w-32 rounded-xl bg-white p-1.5 object-contain"
+            />
+          </div>
+
+          <div class="mt-4 space-y-1.5 border-t border-line-soft pt-3">
+            <p class="text-[11px] leading-relaxed text-ink-faint">
+              添加好友请备注「开通会员 + 登录邮箱」，通过后把付款截图和登录邮箱发给作者，方便快速核对开通。
+            </p>
+            <p class="text-[11px] leading-relaxed text-ink-faint">
+              iOS 版暂未开放 App 内购买，先加作者微信开通；会员权益与正式上架后的 App 内购买完全一致。
+            </p>
+          </div>
+        </section>
+      </template>
 
       <!-- 权益明细 -->
       <ul class="space-y-2.5 rounded-2xl border border-line-soft bg-card p-4">
@@ -338,6 +404,7 @@ async function startScanPay() {
         </li>
       </ul>
 
+      <template v-if="IOS_APPLE_IAP_ENABLED">
       <p
         v-if="appleError"
         class="rounded-xl bg-danger/10 px-3 py-2 text-[12.5px] text-danger"
@@ -373,10 +440,12 @@ async function startScanPay() {
       <p class="pt-1 text-center text-[11px] leading-relaxed text-ink-faint">
         通过 Apple ID 安全支付，可随时在 App Store 的「订阅」中管理或取消。
       </p>
+      </template>
     </div>
 
-    <!-- 底部固定支付栏 -->
+    <!-- 底部固定支付栏（仅 App 内购买开启时显示） -->
     <div
+      v-if="IOS_APPLE_IAP_ENABLED"
       class="fixed inset-x-0 bottom-0 z-20 border-t border-line-soft bg-card-glass px-4 pt-3 backdrop-blur-md pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]"
     >
       <div class="mx-auto flex max-w-xl items-center gap-3">
