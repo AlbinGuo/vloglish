@@ -188,10 +188,12 @@ def _activate_order_user(db: Session, order: MembershipOrder, code: ActivationCo
         return False
 
     now = datetime.utcnow()
-    if not user.is_member:
-        from .membership import apply_membership
+    # 注意：不能以 user.is_member 作为跳过条件——旧试用会员过期后 is_member
+    # 仍可能为 True 但 member_until 已过期，会导致付款后不发放会员。
+    # 这里始终按“永久会员”重新开通，对已是会员的账号也是幂等/升级正确。
+    from .membership import apply_membership
 
-        apply_membership(user, None, plan="forever")
+    apply_membership(user, None, plan="forever")
     if code.used_by_user_id is None:
         code.used_by_user_id = user.id
         code.used_at = now

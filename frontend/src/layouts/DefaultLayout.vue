@@ -172,7 +172,11 @@ async function sendHeartbeat(pageKey?: string | null) {
 
 function onVisibilityChange() {
   if (typeof document === 'undefined' || document.hidden) return
-  if (auth.isLoggedIn) void sendHeartbeat()
+  if (auth.isLoggedIn) {
+    void sendHeartbeat()
+    // 回到前台时刷新一次账号信息，确保在微信/外部完成支付后会员状态及时更新
+    void auth.fetchMe().catch(() => {})
+  }
 }
 
 async function refreshUnreadCount() {

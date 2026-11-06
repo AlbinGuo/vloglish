@@ -34,7 +34,11 @@ if (isNativePlatform()) {
   void import('@capacitor/app')
     .then(({ App }) => {
       void App.addListener('resume', () => {
-        if (auth.isLoggedIn) void syncPushToken()
+        if (auth.isLoggedIn) {
+          void syncPushToken()
+          // 从后台回到 App（例如在微信里完成支付后）刷新账号，及时同步会员状态
+          void auth.fetchMe().catch(() => {})
+        }
       })
     })
     .catch(() => {})

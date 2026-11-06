@@ -93,6 +93,8 @@ const summary = ref<Awaited<ReturnType<typeof getLearningSummary>> | null>(null)
 const calendar = ref<{ date: string; watch_time_sec: number; sessions: number }[]>([])
 
 onMounted(async () => {
+  // 进入「我的」时刷新账号信息，确保支付后会员状态立即反映
+  if (auth.isLoggedIn) void auth.fetchMe().catch(() => {})
   let version = ''
   let build = ''
   if (isNativePlatform()) {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import secrets
+import time
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -83,9 +84,45 @@ def _plan_public(plan: str) -> tuple[str, int]:
     return str(meta["name"]), int(meta["price_cent"])
 
 
+_pc_remote_query_at: dict[str, float] = {}
+
+
+def _confirm_paid_via_wechat(db: Session, sess: PcPaySession) -> None:
+    """会话待支付且有订单时，主动向微信查单并触发发货（节流约 5 秒/会话）。
+
+    避免「发货回调未到达 / 小程序查单失败」时，网页或 App 端轮询始终停在
+    待支付、会员一直不开通的问题。
+    """
+    if not sess.order_no or sess.status == "paid":
+        return
+    now_ts = time.time()
+    if now_ts - _pc_remote_query_at.get(sess.token, 0.0) < 5:
+        return
+    _pc_remote_query_at[sess.token] = now_ts
+    order = db.query(MembershipOrder).filter(MembershipOrder.order_no == sess.order_no).first()
+    if not order or order.status == "paid":
+        return
+    try:
+        xpay.sync_order_from_wechat(db, order)
+    except Exception:
+        db.rollback()
+
+
 def _refresh_pc_session(db: Session, sess: PcPaySession) -> PcPaySession:
     if sess.status == "paid":
         return sess
+    now = datetime.utcnow()
+    if sess.order_no and sess.expires_at > now:
+        token = sess.token
+        _confirm_paid_via_wechat(db, sess)
+        try:
+            db.refresh(sess)
+        except Exception:
+            reloaded = db.query(PcPaySession).filter(PcPaySession.token == token).first()
+            if reloaded is not None:
+                sess = reloaded
+        if sess.status == "paid":
+            return sess
     if sess.order_no:
         order = db.query(MembershipOrder).filter(MembershipOrder.order_no == sess.order_no).first()
         if order and order.status == "paid":
@@ -93,7 +130,8 @@ def _refresh_pc_session(db: Session, sess: PcPaySession) -> PcPaySession:
             sess.paid_at = order.paid_at or datetime.utcnow()
             db.commit()
             db.refresh(sess)
-    if sess.status != "paid" and sess.expires_at <= datetime.utcnow():
+            return sess
+    if sess.status != "paid" and sess.expires_at <= now:
         sess.status = "expired"
         db.commit()
         db.refresh(sess)
