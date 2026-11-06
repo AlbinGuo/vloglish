@@ -351,6 +351,42 @@ async function startScanPay() {
 
       <!-- 当前：加作者微信开通会员 -->
       <template v-else>
+        <!-- 会员套餐（仅展示，便于用户向作者声明所选套餐） -->
+        <section class="rounded-3xl border border-line-soft bg-card p-5">
+          <div class="flex items-baseline justify-between gap-2">
+            <h2 class="text-[16px] font-semibold text-ink">会员套餐</h2>
+            <span class="text-[11px] text-ink-faint">加微信时告知作者你的选择</span>
+          </div>
+          <div class="mt-3 space-y-2.5">
+            <div
+              v-for="p in plans"
+              :key="p.id"
+              class="rounded-2xl border border-line-soft bg-canvas p-3.5"
+            >
+              <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[15px] font-semibold text-ink">{{ p.name }}</span>
+                    <span
+                      v-if="p.id === 'year'"
+                      class="rounded-full bg-warning-soft px-2 py-0.5 text-[10px] font-semibold text-warning"
+                    >
+                      最受欢迎
+                    </span>
+                  </div>
+                  <p class="mt-1 text-[12px] text-ink-faint">{{ p.period }} · {{ p.note }}</p>
+                </div>
+                <div class="shrink-0 text-right">
+                  <span class="text-xl font-bold tabular-nums text-ink">¥{{ p.id === 'forever' ? '98' : p.price }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="mt-3 text-[11px] leading-relaxed text-ink-faint">
+            以上套餐仅作展示，实际开通请添加下方作者微信，并告知你想开通的套餐。
+          </p>
+        </section>
+
         <section class="rounded-3xl border border-line-soft bg-card p-5">
           <h2 class="text-[16px] font-semibold text-ink">加作者微信开通会员：</h2>
 

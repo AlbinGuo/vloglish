@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import SubtitleBlock from '@/components/SubtitleBlock.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import type { Subtitle } from '@/types'
@@ -24,6 +24,7 @@ const emit = defineEmits<{
 }>()
 
 const DRAG_STORAGE_KEY = 'teco-player-subtitle-drag-offset'
+const HINT_STORAGE_KEY = 'teco-player-subtitle-handle-hint'
 
 function loadDragOffset(): { x: number; y: number } {
   try {
@@ -44,17 +45,11 @@ let dragPointerId: number | null = null
 let dragStart = { x: 0, y: 0 }
 let dragOrigin = { x: 0, y: 0 }
 
-watch(
-  dragOffset,
-  (v) => {
-    try {
-      localStorage.setItem(DRAG_STORAGE_KEY, JSON.stringify(v))
-    } catch {
-      /* ignore */
-    }
-  },
-  { deep: true },
-)
+const controlsActive = ref(false)
+let controlsHideTimer: ReturnType<typeof setTimeout> | null = null
+let hintTimer: ReturnType<typeof setTimeout> | null = null
+
+const showControls = computed(() => controlsActive.value || dragging.value)
 
 const en = computed(() => (props.sub?.english || '').trim())
 const zh = computed(() => (props.sub?.chinese || '').trim())
@@ -87,15 +82,56 @@ const dragStyle = computed(() => ({
 }))
 
 watch(
+  dragOffset,
+  (v) => {
+    try {
+      localStorage.setItem(DRAG_STORAGE_KEY, JSON.stringify(v))
+    } catch {
+      /* ignore */
+    }
+  },
+  { deep: true },
+)
+
+watch(
   () => props.position,
   () => {
     dragOffset.value = { x: 0, y: 0 }
   },
 )
 
+function clearControlsHideTimer() {
+  if (controlsHideTimer) {
+    clearTimeout(controlsHideTimer)
+    controlsHideTimer = null
+  }
+}
+
+function revealControls() {
+  clearControlsHideTimer()
+  controlsActive.value = true
+}
+
+function scheduleHideControls(delay = 700) {
+  clearControlsHideTimer()
+  controlsHideTimer = setTimeout(() => {
+    controlsHideTimer = null
+    if (!dragging.value) controlsActive.value = false
+  }, delay)
+}
+
+function onBoxPointerMove() {
+  if (!dragging.value) revealControls()
+}
+
+function onBoxPointerUp() {
+  if (!dragging.value) scheduleHideControls(1200)
+}
+
 function onDragStart(e: PointerEvent) {
-  if (e.button !== 0 || (e.target instanceof Element && e.target.closest('button, .subtitle-english, .subtitle-chinese, .subtitle-ipa'))) return
+  if (e.button !== 0) return
   dragging.value = true
+  revealControls()
   dragPointerId = e.pointerId
   dragStart = { x: e.clientX, y: e.clientY }
   dragOrigin = { ...dragOffset.value }
@@ -115,11 +151,38 @@ function onDragEnd(e: PointerEvent) {
   if (e.pointerId !== dragPointerId) return
   dragging.value = false
   dragPointerId = null
+  scheduleHideControls(900)
 }
+
+onMounted(() => {
+  // 触屏设备首次出现时短暂显示一下拖拽横杠作为提示，之后不再常驻
+  try {
+    const touchDevice = window.matchMedia?.('(hover: none)').matches
+    if (touchDevice && !sessionStorage.getItem(HINT_STORAGE_KEY)) {
+      controlsActive.value = true
+      hintTimer = setTimeout(() => {
+        hintTimer = null
+        if (!dragging.value) controlsActive.value = false
+        try {
+          sessionStorage.setItem(HINT_STORAGE_KEY, '1')
+        } catch {
+          /* ignore */
+        }
+      }, 1600)
+    }
+  } catch {
+    /* ignore */
+  }
+})
 
 onUnmounted(() => {
   dragging.value = false
   dragPointerId = null
+  clearControlsHideTimer()
+  if (hintTimer) {
+    clearTimeout(hintTimer)
+    hintTimer = null
+  }
 })
 </script>
 
@@ -131,18 +194,27 @@ onUnmounted(() => {
   >
     <div
       class="psub-box"
-      :class="[sizeClass, { 'is-dragging': dragging }]"
+      :class="[sizeClass, { 'is-dragging': dragging, 'is-controls': showControls }]"
       :style="dragStyle"
       :data-subtitle-context="sub.english"
+      @pointerenter="revealControls"
+      @pointerleave="scheduleHideControls()"
+      @pointerdown="revealControls"
+      @pointermove="onBoxPointerMove"
+      @pointerup="onBoxPointerUp"
+      @pointercancel="onBoxPointerUp"
     >
       <div
         class="psub-drag-handle"
         title="拖动字幕"
-        @pointerdown="onDragStart"
+        aria-hidden="true"
+        @pointerdown.stop="onDragStart"
         @pointermove="onDragMove"
         @pointerup="onDragEnd"
         @pointercancel="onDragEnd"
-      />
+      >
+        <span class="psub-drag-grip" />
+      </div>
       <button
         type="button"
         class="psub-close"
@@ -151,7 +223,8 @@ onUnmounted(() => {
         @pointerdown.stop
         @click.stop="emit('close')"
       >
-        <AppIcon name="close" :size="12" />
+        <span class="psub-close-dot" aria-hidden="true" />
+        <AppIcon name="close" :size="11" />
       </button>
       <SubtitleBlock
         :english-html="englishHtml"
@@ -169,71 +242,107 @@ onUnmounted(() => {
 
 <style scoped>
 .psub-box {
-  /* 空白处点击穿透到播放器分区（单词 span 自带 pointer-events-auto 仍可点击查词） */
-  pointer-events: none;
+  pointer-events: auto;
   max-width: min(94%, 60rem);
   background: rgba(0, 0, 0, 0.55);
   border-radius: 10px;
   padding: 0.3em 0.85em;
   position: relative;
   transform: translate(var(--subtitle-drag-x, 0px), var(--subtitle-drag-y, 0px));
-  touch-action: none;
-  cursor: grab;
   user-select: none;
   text-align: center;
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
+  transition: box-shadow 160ms ease;
 }
 
 .psub-box.is-dragging {
-  cursor: grabbing;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
 }
 
+/* 顶部拖拽横杠：默认隐藏，悬停/触摸/拖动时才淡入 */
 .psub-drag-handle {
   position: absolute;
   top: 0;
   left: 50%;
   z-index: 1;
-  width: 3.5rem;
-  height: 0.7rem;
+  display: flex;
+  justify-content: center;
+  width: 3rem;
+  height: 0.9rem;
+  padding-top: 3px;
   transform: translateX(-50%);
   cursor: grab;
-  pointer-events: auto;
+  touch-action: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
 }
 
-.psub-drag-handle::after {
-  content: '';
-  position: absolute;
-  top: 3px;
-  left: 50%;
-  width: 1.8rem;
+.psub-box.is-controls .psub-drag-handle {
+  opacity: 0.55;
+}
+
+.psub-box.is-dragging .psub-drag-handle {
+  opacity: 0.95;
+  cursor: grabbing;
+}
+
+.psub-drag-grip {
+  width: 1.6rem;
   height: 2px;
-  transform: translateX(-50%);
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.6);
+  transition: width 160ms ease, height 160ms ease;
 }
 
+.psub-box.is-dragging .psub-drag-grip {
+  width: 2rem;
+  height: 3px;
+}
+
+/* 关闭按钮：视觉图标很小、极淡，点击热区仍较大 */
 .psub-close {
   position: absolute;
+  top: 1px;
+  right: 2px;
   z-index: 2;
-  top: 2px;
-  right: 3px;
   display: inline-flex;
-  width: 19px;
-  height: 19px;
   align-items: center;
   justify-content: center;
+  width: 30px;
+  height: 30px;
   border-radius: 9999px;
-  color: rgba(255, 255, 255, 0.58);
-  background: rgba(0, 0, 0, 0.16);
+  color: rgba(255, 255, 255, 0.9);
+  background: transparent;
   pointer-events: auto;
-  opacity: 0.72;
-  transition: opacity 120ms ease, background-color 120ms ease;
+  opacity: 0.3;
+  transition: opacity 160ms ease;
+}
+
+.psub-close-dot {
+  position: absolute;
+  inset: 6px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.32);
+  opacity: 0;
+  transition: opacity 160ms ease, background-color 160ms ease;
+}
+
+.psub-box.is-controls .psub-close {
+  opacity: 0.9;
+}
+
+.psub-box.is-controls .psub-close-dot {
+  opacity: 1;
 }
 
 .psub-close:hover {
   opacity: 1;
-  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+}
+
+.psub-close:hover .psub-close-dot {
+  background: rgba(0, 0, 0, 0.5);
 }
 
 .psub-box :deep(.subtitle-english) {
