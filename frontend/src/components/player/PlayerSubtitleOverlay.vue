@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import SubtitleBlock from '@/components/SubtitleBlock.vue'
-import AppIcon from '@/components/AppIcon.vue'
 import type { Subtitle } from '@/types'
 import type { PlayerSubtitlePosition } from '@/composables/useSubtitleOverlayPosition'
 import type { PlayerSubtitleSize } from '@/composables/usePlayerSubtitlePrefs'
@@ -20,7 +19,6 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   click: [event: MouseEvent]
-  close: []
 }>()
 
 const DRAG_STORAGE_KEY = 'teco-player-subtitle-drag-offset'
@@ -215,17 +213,6 @@ onUnmounted(() => {
       >
         <span class="psub-drag-grip" />
       </div>
-      <button
-        type="button"
-        class="psub-close"
-        aria-label="关闭字幕"
-        title="关闭字幕"
-        @pointerdown.stop
-        @click.stop="emit('close')"
-      >
-        <span class="psub-close-dot" aria-hidden="true" />
-        <AppIcon name="close" :size="11" />
-      </button>
       <SubtitleBlock
         :english-html="englishHtml"
         :chinese="sub.chinese"
@@ -298,51 +285,6 @@ onUnmounted(() => {
 .psub-box.is-dragging .psub-drag-grip {
   width: 2rem;
   height: 3px;
-}
-
-/* 关闭按钮：视觉图标很小、极淡，点击热区仍较大 */
-.psub-close {
-  position: absolute;
-  top: 1px;
-  right: 2px;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 9999px;
-  color: rgba(255, 255, 255, 0.9);
-  background: transparent;
-  pointer-events: auto;
-  opacity: 0.3;
-  transition: opacity 160ms ease;
-}
-
-.psub-close-dot {
-  position: absolute;
-  inset: 6px;
-  border-radius: 9999px;
-  background: rgba(0, 0, 0, 0.32);
-  opacity: 0;
-  transition: opacity 160ms ease, background-color 160ms ease;
-}
-
-.psub-box.is-controls .psub-close {
-  opacity: 0.9;
-}
-
-.psub-box.is-controls .psub-close-dot {
-  opacity: 1;
-}
-
-.psub-close:hover {
-  opacity: 1;
-  color: #fff;
-}
-
-.psub-close:hover .psub-close-dot {
-  background: rgba(0, 0, 0, 0.5);
 }
 
 .psub-box :deep(.subtitle-english) {

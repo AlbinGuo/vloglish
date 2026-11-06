@@ -663,8 +663,6 @@ const SUBTITLES_HIDDEN_KEY = 'teco-subtitles-hidden'
 /** 仅这些视频进入时默认隐藏字幕；其余视频一律显示字幕 */
 const FORCE_SUBTITLES_HIDDEN_VIDEO_IDS = new Set(['S26GSrESWWCCKRw'])
 const subtitlesHidden = ref(false)
-/** 仅隐藏播放器内的字幕叠加层，不影响下方字幕列表 */
-const overlaySubtitleHidden = ref(false)
 const skipSubtitlesHiddenPersist = ref(false)
 
 watch(subtitlesHidden, (hidden) => {
@@ -676,18 +674,12 @@ watch(subtitlesHidden, (hidden) => {
   }
 })
 
-// 全局重新显示字幕时，叠加层也一并恢复
-watch(subtitlesHidden, (hidden) => {
-  if (!hidden) overlaySubtitleHidden.value = false
-})
-
 function syncSubtitlesHiddenForVideo(videoId: string) {
   const hide =
     !props.adminPreview && FORCE_SUBTITLES_HIDDEN_VIDEO_IDS.has(videoId)
   skipSubtitlesHiddenPersist.value = true
   subtitlesHidden.value = hide
   skipSubtitlesHiddenPersist.value = false
-  overlaySubtitleHidden.value = false
 }
 const listRef = ref<HTMLElement | null>(null)
 const isPhone = useIsPhone()
@@ -3066,24 +3058,14 @@ function subtitleRowClass(index: number) {
           />
           <!-- 播放器上的中英字幕叠加（英文青蓝 / 中文白色，可点词查词） -->
           <PlayerSubtitleOverlay
-            v-if="!isVideoPanelFullscreen && !videoHidden && !subtitlesHidden && !overlaySubtitleHidden && displaySub"
+            v-if="!isVideoPanelFullscreen && !videoHidden && !subtitlesHidden && displaySub"
             :sub="displaySub"
             :english-html="captionEnglishHtml"
             :position="playerSubtitlePosition"
             :mode="fullscreenCaptionMode"
             :size="subtitleSize"
             @click="onSubtitleClick"
-            @close="overlaySubtitleHidden = true"
           />
-          <!-- 仅关闭播放器叠加层时的恢复入口（不影响下方字幕列表） -->
-          <button
-            v-if="!isVideoPanelFullscreen && !videoHidden && !subtitlesHidden && overlaySubtitleHidden && displaySub"
-            type="button"
-            class="absolute bottom-4 left-1/2 z-[16] -translate-x-1/2 rounded-full bg-black/45 px-3 py-1 text-xs font-medium text-white/90 shadow-sm ring-1 ring-white/10 backdrop-blur-sm transition hover:bg-black/60 active:scale-95"
-            @click="overlaySubtitleHidden = false"
-          >
-            显示字幕
-          </button>
           <!-- 遮挡板：可拖动 / 四角缩放 -->
           <PlayerMaskBoard v-if="maskBoardVisible && !videoHidden" @close="maskBoardVisible = false" />
           <VocabDanmakuOverlay
