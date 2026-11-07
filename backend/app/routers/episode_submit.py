@@ -26,6 +26,7 @@ from ..services.local_submit import (
     ALLOWED_VIDEO_SUFFIXES,
     ingest_from_local_file,
     ingest_from_remote_url,
+    parse_subtitle_upload,
 )
 from ..services.yt_dlp_fetch import is_supported_source_url
 
@@ -118,7 +119,7 @@ def mark_my_corpus_seen(
 
 @router.post("/import/", response_model=UserEpisodeSubmitOut)
 def import_self_episode(
-    subtitle: UploadFile = File(...),
+    subtitle: UploadFile | None = File(None),
     url: str = Form(""),
     video: UploadFile | None = File(None),
     accent: str = Form("美国"),
@@ -126,7 +127,7 @@ def import_self_episode(
     user: User = Depends(get_current_member),
     db: Session = Depends(get_db),
 ):
-    """用户自助导入：B 站链接或本地视频 + 自带 SRT/VTT，导入即发布、仅本人可见。"""
+    """用户自助导入：B 站链接或本地视频（字幕可选），导入即发布、仅本人可见。"""
     accent = (accent or "美国").strip()
     if accent not in VALID_USER_ACCENTS:
         raise HTTPException(status_code=400, detail="请选择美式或英式口音")
@@ -138,10 +139,12 @@ def import_self_episode(
     if not url and not has_video:
         raise HTTPException(status_code=400, detail="请提供 B 站视频链接或本地视频文件")
 
-    subtitle_suffix = Path(subtitle.filename or "").suffix.lower()
-    if subtitle_suffix not in ALLOWED_SUBTITLE_SUFFIXES:
-        raise HTTPException(status_code=400, detail="请上传 SRT 或 VTT 字幕文件")
-    subtitle_text = subtitle.file.read().decode("utf-8", errors="replace")
+    subtitle_text = ""
+    if subtitle is not None and (subtitle.filename or "").strip():
+        subtitle_suffix = Path(subtitle.filename or "").suffix.lower()
+        if subtitle_suffix not in ALLOWED_SUBTITLE_SUFFIXES:
+            raise HTTPException(status_code=400, detail="请上传 SRT 或 VTT 字幕文件")
+        subtitle_text = subtitle.file.read().decode("utf-8", errors="replace")
 
     if url:
         if not is_supported_source_url(url):
@@ -216,7 +219,7 @@ def import_self_episode(
         "remark": " | ".join(remark_parts),
         "stars": 3,
         "voca_size": 0,
-        "cover": "",
+        "cover": result.get("cover_url", ""),
         "video_url": result["video_url"],
         "audio_url": result["audio_url"],
         "thumbnail_url": "",
@@ -239,9 +242,52 @@ def import_self_episode(
     db.commit()
     db.refresh(ep)
 
+    if result["subtitles"]:
+        message = "导入成功，已加入你的个人语料库（仅你可见）。"
+    else:
+        message = "视频导入成功！你还未上传字幕，可在视频详情页点击「导入字幕」补充。"
+
     return UserEpisodeSubmitOut(
         video_id=ep.video_id,
         short_title=ep.short_title,
         status=ep.status,
-        message="导入成功，已加入你的个人语料库（仅你可见）。",
+        message=message,
     )
+
+
+@router.post("/{video_id}/subtitle/")
+def add_episode_subtitle(
+    video_id: str,
+    subtitle: UploadFile = File(...),
+    user: User = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """给已导入的视频补传 / 替换字幕（仅创建者本人可操作）。"""
+    episode = (
+        db.query(Episode)
+        .filter(
+            Episode.video_id == video_id,
+            Episode.submitted_by_user_id == user.id,
+        )
+        .first()
+    )
+    if not episode:
+        raise HTTPException(status_code=404, detail="视频不存在或不是你导入的")
+
+    subtitle_suffix = Path(subtitle.filename or "").suffix.lower()
+    if subtitle_suffix not in ALLOWED_SUBTITLE_SUFFIXES:
+        raise HTTPException(status_code=400, detail="请上传 SRT 或 VTT 字幕文件")
+
+    subtitle_text = subtitle.file.read().decode("utf-8", errors="replace")
+    try:
+        subtitles, clip_length = parse_subtitle_upload(subtitle_text)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    replace_subtitles(db, episode.id, subtitles)
+    episode.subtitle_count = len(subtitles)
+    episode.clip_length = clip_length
+    db.commit()
+    db.refresh(episode)
+
+    return {"success": True, "subtitle_count": episode.subtitle_count}

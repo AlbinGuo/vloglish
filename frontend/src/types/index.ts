@@ -122,6 +122,8 @@ export interface EpisodeDetail {
   video_context?: string
   glossary?: { en: string; zh: string }[]
   is_favorite?: boolean
+  /** 当前登录用户是否是该视频的导入者（可补传字幕等） */
+  is_owner?: boolean
   audience_notes?: AudienceNote[]
 }
 

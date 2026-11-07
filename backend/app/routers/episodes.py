@@ -25,7 +25,7 @@ from ..services.author_subscribe import (
 )
 from ..services.episode_stats import learner_count_map_for_episodes
 from ..services.learning import learned_episode_ids, progress_map_for_episodes
-from ..media import find_episode_audio_file, find_episode_video_file, resolve_cover_url
+from ..media import find_episode_audio_file, find_episode_cover_file, find_episode_video_file, resolve_cover_url
 from ..models import (
     Author,
     Episode,
@@ -480,6 +480,9 @@ def get_episode_detail(
         episode.author_id,
         user.id if user else None,
     )
+    payload["episode"]["is_owner"] = bool(
+        user is not None and episode.submitted_by_user_id == user.id
+    )
     return payload
 
 
@@ -626,6 +629,22 @@ def get_episode_video(
         status_code=404,
         detail="Video file not found. Run: python scripts/download_episode_audio.py 26PrgjTboVQ",
     )
+
+
+@router.get("/episode/{video_id}/cover/")
+def get_episode_cover(
+    video_id: str,
+    db: Session = Depends(get_db),
+):
+    """本地封面（B 站导入用缩略图、本地视频用首帧）。封面非敏感内容，公开可取。"""
+    episode = db.query(Episode).filter(Episode.video_id == video_id, Episode.status == "published").first()
+    if not episode:
+        raise HTTPException(status_code=404, detail="Episode not found")
+    found = find_episode_cover_file(video_id)
+    if found:
+        cover_path, media_type = found
+        return FileResponse(cover_path, media_type=media_type)
+    raise HTTPException(status_code=404, detail="Cover not found")
 
 
 @router.get("/episode-tags/")

@@ -88,6 +88,29 @@ def episode_video_api_url(video_id: str) -> str:
     return f"/api/episode/{video_id}/video/"
 
 
+COVER_EXTENSIONS = (
+    (".jpg", "image/jpeg"),
+    (".jpeg", "image/jpeg"),
+    (".webp", "image/webp"),
+    (".png", "image/png"),
+)
+
+
+def find_episode_cover_file(video_id: str) -> tuple[Path, str] | None:
+    media_dir = episode_audio_dir(video_id)
+    if not media_dir.is_dir():
+        return None
+    for ext, media_type in COVER_EXTENSIONS:
+        path = media_dir / f"cover{ext}"
+        if path.is_file():
+            return path, media_type
+    return None
+
+
+def episode_cover_api_url(video_id: str) -> str:
+    return f"/api/episode/{video_id}/cover/"
+
+
 def is_remote_media_url(url: str) -> bool:
     return url.startswith("http://") or url.startswith("https://")
 

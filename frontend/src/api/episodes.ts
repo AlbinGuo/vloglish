@@ -226,7 +226,7 @@ export async function lookupWord(
 export interface ImportSelfEpisodePayload {
   url?: string
   video?: File
-  subtitle: File
+  subtitle?: File
   accent?: string
   note?: string
 }
@@ -254,7 +254,7 @@ export async function importSelfEpisode(payload: ImportSelfEpisodePayload) {
   const form = new FormData()
   if (payload.url) form.append('url', payload.url)
   if (payload.video) form.append('video', payload.video)
-  form.append('subtitle', payload.subtitle)
+  if (payload.subtitle) form.append('subtitle', payload.subtitle)
   if (payload.accent) form.append('accent', payload.accent)
   if (payload.note) form.append('note', payload.note)
   // B 站下载/转码或本地转码可能耗时，这里不设超时
@@ -265,6 +265,17 @@ export async function importSelfEpisode(payload: ImportSelfEpisodePayload) {
 }
 
 
+
+export async function addEpisodeSubtitle(videoId: string, subtitle: File) {
+  const form = new FormData()
+  form.append('subtitle', subtitle)
+  const { data } = await api.post<{ success: boolean; subtitle_count: number }>(
+    `/api/episodes/submit/${encodeURIComponent(videoId)}/subtitle/`,
+    form,
+    { timeout: 0 },
+  )
+  return data
+}
 
 export async function listMySubmissions() {
   const { data } = await api.get<{ count: number; results: UserSubmissionItem[] }>(

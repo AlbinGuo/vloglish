@@ -106,8 +106,58 @@ def _extract_audio_mp3(video: Path, out: Path) -> None:
         raise RuntimeError("音频提取失败")
 
 
-def _finalize_video_dir(video_id: str, source_video: Path) -> None:
-    """把来源视频转成 video.mp4 并抽 audio.mp3，落到 media/<video_id>/。"""
+def _image_to_jpg(src: Path, out: Path) -> bool:
+    try:
+        ffmpeg = _ffmpeg_path()
+        _run_ffmpeg([ffmpeg, "-y", "-i", str(src), "-frames:v", "1", "-q:v", "3", str(out)])
+    except Exception:
+        return False
+    return out.is_file()
+
+
+def _extract_cover_from_video(video: Path, out: Path) -> bool:
+    try:
+        ffmpeg = _ffmpeg_path()
+        _run_ffmpeg(
+            [
+                ffmpeg,
+                "-y",
+                "-ss",
+                "0",
+                "-i",
+                str(video),
+                "-frames:v",
+                "1",
+                "-vf",
+                "scale=640:-2",
+                "-q:v",
+                "3",
+                str(out),
+            ]
+        )
+    except Exception:
+        return False
+    return out.is_file()
+
+
+def _write_cover(target_dir: Path, video: Path, thumbnail_src: Path | None) -> None:
+    """封面：优先用 B 站缩略图，其次用视频首帧（均尽力而为，失败不影响导入）。"""
+    out = target_dir / "cover.jpg"
+    if thumbnail_src is not None and thumbnail_src.is_file() and _image_to_jpg(thumbnail_src, out):
+        return
+    _extract_cover_from_video(video, out)
+
+
+def _cover_url_if_exists(video_id: str) -> str:
+    if (DATA_DIR / "media" / video_id / "cover.jpg").is_file():
+        return f"/api/episode/{video_id}/cover/"
+    return ""
+
+
+def _finalize_video_dir(
+    video_id: str, source_video: Path, *, thumbnail_src: Path | None = None
+) -> Path:
+    """把来源视频转成 video.mp4、抽 audio.mp3、生成 cover.jpg，落到 media/<video_id>/。"""
     target_dir = DATA_DIR / "media" / video_id
     target_dir.mkdir(parents=True, exist_ok=True)
     video_out = target_dir / "video.mp4"
@@ -117,15 +167,28 @@ def _finalize_video_dir(video_id: str, source_video: Path) -> None:
     except Exception:
         shutil.rmtree(target_dir, ignore_errors=True)
         raise
+    _write_cover(target_dir, video_out, thumbnail_src)
+    return target_dir
 
 
-def _parse_subtitles(subtitle_text: str) -> tuple[list[dict], bool, float]:
-    subtitles = subtitle_text_to_dicts(subtitle_text)
+def _parse_subtitles(subtitle_text: str | None) -> tuple[list[dict], bool, float]:
+    text = (subtitle_text or "").strip()
+    if not text:
+        return [], False, 0.0
+    subtitles = subtitle_text_to_dicts(text)
     if not subtitles:
         raise RuntimeError("未能从字幕文件中解析出任何字幕，请检查 SRT/VTT 内容")
     had_chinese = any((s.get("chinese") or "").strip() for s in subtitles)
     clip_length = float(max((s["end"] for s in subtitles), default=0.0))
     return subtitles, had_chinese, clip_length
+
+
+def parse_subtitle_upload(subtitle_text: str) -> tuple[list[dict], float]:
+    """给“先导视频、后补字幕”接口用：必须能解析出至少一条字幕。"""
+    subtitles, _, clip_length = _parse_subtitles(subtitle_text)
+    if not subtitles:
+        raise RuntimeError("未能从字幕文件中解析出任何字幕，请检查 SRT/VTT 内容")
+    return subtitles, clip_length
 
 
 def _clean_title(text: str) -> str:
@@ -147,7 +210,7 @@ def ingest_from_local_file(
     video_id: str,
     video_src: Path,
     video_suffix: str,
-    subtitle_text: str,
+    subtitle_text: str | None,
     title_hint: str = "",
 ) -> dict:
     suffix = (video_suffix or "").lower()
@@ -165,6 +228,7 @@ def ingest_from_local_file(
         "subtitles": subtitles,
         "had_chinese": had_chinese,
         "clip_length": clip_length,
+        "cover_url": _cover_url_if_exists(video_id),
         **_media_urls(video_id),
     }
 
@@ -173,13 +237,15 @@ def ingest_from_remote_url(
     *,
     video_id: str,
     url: str,
-    subtitle_text: str,
+    subtitle_text: str | None,
 ) -> dict:
     subtitles, had_chinese, clip_length = _parse_subtitles(subtitle_text)
 
     fetched = download_source_media(url, write_subtitles=False, quality="720")
     try:
-        _finalize_video_dir(video_id, fetched.video_path)
+        _finalize_video_dir(
+            video_id, fetched.video_path, thumbnail_src=fetched.thumbnail_path
+        )
         return {
             "short_title": _clean_title(fetched.title or ""),
             "summary": (fetched.summary or "")[:2000],
@@ -188,6 +254,7 @@ def ingest_from_remote_url(
             "subtitles": subtitles,
             "had_chinese": had_chinese,
             "clip_length": clip_length,
+            "cover_url": _cover_url_if_exists(video_id),
             **_media_urls(video_id),
         }
     finally:

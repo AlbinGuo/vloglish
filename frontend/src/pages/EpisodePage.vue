@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'v
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
 import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, completeDailySentence, recordEpisodeView, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
-import { generateSubtitleLiteral, getEpisodeList, setAuthorSubscribe, setEpisodeFavorite, warmEpisodeWordLookups } from '@/api/episodes'
+import { generateSubtitleLiteral, getEpisodeList, setAuthorSubscribe, setEpisodeFavorite, warmEpisodeWordLookups, addEpisodeSubtitle } from '@/api/episodes'
 import { useFavoriteToastStore } from '@/stores/favoriteToast'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
@@ -491,6 +491,35 @@ const {
 } = useSourceFocusPulse(5000)
 
 const episode = ref<EpisodeDetail | null>(null)
+const subtitleUploadInput = ref<HTMLInputElement | null>(null)
+const subtitleUploading = ref(false)
+const subtitleUploadError = ref('')
+
+function triggerSubtitleUpload() {
+  if (subtitleUploading.value) return
+  subtitleUploadError.value = ''
+  subtitleUploadInput.value?.click()
+}
+
+async function onSubtitleFileChange(evt: Event) {
+  const input = evt.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || !props.videoId) return
+  subtitleUploading.value = true
+  subtitleUploadError.value = ''
+  try {
+    await addEpisodeSubtitle(props.videoId, file)
+    await load()
+  } catch (e: unknown) {
+    const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+    subtitleUploadError.value =
+      typeof detail === 'string' && detail ? detail : '字幕导入失败，请检查文件格式'
+  } finally {
+    subtitleUploading.value = false
+  }
+}
+
 const literalLoadingId = ref<number | null>(null)
 const episodeGlossary = computed(() => episode.value?.glossary || [])
 
@@ -3555,6 +3584,36 @@ function subtitleRowClass(index: number) {
           class="subtitle-scroll-hide flex-1 min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] px-3 pt-2 lg:p-4 lg:pb-4"
           :class="[mobileListBottomPad, clipSelectMode ? '' : 'touch-pan-y']"
         >
+          <div
+            v-if="sortedSubs.length === 0"
+            class="flex flex-col items-center justify-center gap-3 py-14 px-4 text-center"
+          >
+            <div class="text-sm text-neutral-500 dark:text-neutral-400">这个视频还没有字幕</div>
+            <template v-if="episode?.is_owner && !adminPreview">
+              <p class="text-xs text-ink-faint max-w-sm">
+                上传该视频对应的 SRT / VTT 字幕，导入后即可逐句精听、查词与跟读。
+              </p>
+              <button
+                type="button"
+                class="text-sm px-4 py-2 rounded-xl bg-amber-500 text-white font-medium hover:bg-amber-600 transition shadow-sm disabled:opacity-50"
+                :disabled="subtitleUploading"
+                @click="triggerSubtitleUpload"
+              >
+                {{ subtitleUploading ? '字幕解析中...' : '导入字幕' }}
+              </button>
+              <input
+                ref="subtitleUploadInput"
+                type="file"
+                accept=".srt,.vtt,.txt"
+                class="hidden"
+                @change="onSubtitleFileChange"
+              />
+              <p v-if="subtitleUploadError" class="text-xs text-red-600 dark:text-red-400">
+                {{ subtitleUploadError }}
+              </p>
+            </template>
+            <p v-else class="text-xs text-ink-faint">字幕还未添加</p>
+          </div>
           <div
             class="flex flex-col gap-2"
             :style="{
