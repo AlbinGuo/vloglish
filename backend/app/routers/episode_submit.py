@@ -28,7 +28,7 @@ from ..services.local_submit import (
     ingest_from_remote_url,
     parse_subtitle_upload,
 )
-from ..services.yt_dlp_fetch import is_supported_source_url
+from ..services.yt_dlp_fetch import is_supported_source_url, resolve_bilibili_short_url
 
 router = APIRouter(prefix="/api/episodes/submit", tags=["episode-submit"])
 
@@ -147,6 +147,8 @@ def import_self_episode(
         subtitle_text = subtitle.file.read().decode("utf-8", errors="replace")
 
     if url:
+        # b23.tv 短链先解析成完整链接：既提升抓取成功率，也让去重更准确
+        url = resolve_bilibili_short_url(url)
         if not is_supported_source_url(url):
             raise HTTPException(status_code=400, detail="请粘贴有效的 Bilibili 视频链接")
         existing = (

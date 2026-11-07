@@ -9,6 +9,7 @@ import socket
 import subprocess
 import tempfile
 import time
+import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -243,6 +244,52 @@ _BILIBILI_USER_AGENT = (
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
 _BILIBILI_REFERER = "https://www.bilibili.com/"
+_BILIBILI_SHORT_HOSTS = frozenset({"b23.tv", "bili2233.cn", "b23.wtf"})
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def resolve_bilibili_short_url(url: str) -> str:
+    """把 b23.tv 等短链解析成完整 bilibili.com 链接。
+
+    短链会被 yt-dlp 当成 [generic] 用抓 HTML 的方式处理（极易 412）；
+    解析成完整链接后使用 [BiliBili] 提取器（走 API，命中率更高）。
+    """
+    raw = (url or "").strip()
+    if not raw:
+        return raw
+    host = (urlparse(raw).hostname or "").lower()
+    if host not in _BILIBILI_SHORT_HOSTS:
+        return raw
+    candidate = ""
+    body = ""
+    try:
+        req = urllib.request.Request(
+            raw,
+            headers={"User-Agent": _BILIBILI_USER_AGENT, "Referer": _BILIBILI_REFERER},
+        )
+        opener = urllib.request.build_opener(_NoRedirect())
+        try:
+            with opener.open(req, timeout=10) as resp:
+                candidate = (resp.headers.get("Location") or resp.geturl() or "").strip()
+        except urllib.error.HTTPError as exc:
+            if exc.headers is not None:
+                candidate = (exc.headers.get("Location") or "").strip()
+            try:
+                body = exc.read(2048).decode("utf-8", "ignore")
+            except Exception:
+                body = ""
+    except Exception:
+        return raw
+    if candidate and "bilibili.com" in candidate:
+        return candidate
+    m = re.search(r"https?://(?:www\.)?bilibili\.com/video/[A-Za-z0-9]+", body or "")
+    if m:
+        return m.group(0)
+    return raw
 
 
 def _bilibili_cookies_file() -> Path | None:
@@ -612,6 +659,12 @@ def _format_ytdlp_error(detail: str, url: str) -> str:
         platform = "Bilibili"
 
     if "412" in detail and ("precondition" in lower or _is_bilibili_url(url)):
+        short_hint = ""
+        if "b23.tv" in url.lower() or "[generic]" in lower:
+            short_hint = (
+                "⚠ 检测到这是 b23.tv 短链且被 [generic] 抓取（短链解析失败）。"
+                "请在浏览器打开该链接，复制地址栏里的完整 https://www.bilibili.com/video/BV... 再重试。\n\n"
+            )
         return (
             "Bilibili 风控拦截（HTTP 412 Precondition Failed），通常是服务器出口 IP 或请求指纹被判为异常访问。\n"
             "按顺序尝试：\n"
@@ -621,6 +674,7 @@ def _format_ytdlp_error(detail: str, url: str) -> str:
             "YT_DLP_BILIBILI_COOKIES=/app/backend/data/bilibili_cookies.txt 后重启后端；\n"
             "③ 若仍 412，说明服务器 IP 被风控，需要给 YT_DLP_PROXY 配一个可用的国内代理（B 站会走该代理）；\n"
             "④ 实在不行，可改用「本地视频」导入该视频（配合你的 SRT），完全绕过 B 站抓取。\n\n"
+            f"{short_hint}"
             f"原始错误：{detail[-800:]}"
         )
 
@@ -838,7 +892,7 @@ def download_source_media(
     write_subtitles: bool = True,
     quality: str = "720",
 ) -> FetchedMedia:
-    url = url.strip()
+    url = resolve_bilibili_short_url(url.strip())
     if not is_supported_source_url(url):
         raise RuntimeError("仅支持 YouTube / TikTok / Bilibili 链接")
 
