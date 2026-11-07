@@ -12,7 +12,12 @@ from ..demo_access import (
     get_episode_limit,
     user_is_member,
 )
-from ..deps import get_current_user, get_current_user_optional, get_device_id
+from ..deps import (
+    get_current_user,
+    get_current_user_optional,
+    get_device_id,
+    get_optional_user_from_token,
+)
 from ..favorites import favorite_video_ids
 from ..services.author_subscribe import (
     attach_author_subscribe_fields,
@@ -572,12 +577,16 @@ def get_episode_word_cards(
 @router.get("/episode/{video_id}/audio/")
 def get_episode_audio(
     video_id: str,
+    token: str | None = Query(default=None),
     db: Session = Depends(get_db),
     user: User | None = Depends(get_current_user_optional),
 ):
     episode = db.query(Episode).filter(Episode.video_id == video_id, Episode.status == "published").first()
     if not episode:
         raise HTTPException(status_code=404, detail="Episode not found")
+    # <audio>/<video> 标签无法带 Authorization 头，允许用 ?token= 鉴权
+    if user is None and token:
+        user = get_optional_user_from_token(db, token)
     if not can_access_episode(db, episode, user):
         raise HTTPException(status_code=403, detail="无权访问该内容")
 
@@ -595,12 +604,16 @@ def get_episode_audio(
 @router.get("/episode/{video_id}/video/")
 def get_episode_video(
     video_id: str,
+    token: str | None = Query(default=None),
     db: Session = Depends(get_db),
     user: User | None = Depends(get_current_user_optional),
 ):
     episode = db.query(Episode).filter(Episode.video_id == video_id, Episode.status == "published").first()
     if not episode:
         raise HTTPException(status_code=404, detail="Episode not found")
+    # <video> 标签无法带 Authorization 头，允许用 ?token= 鉴权
+    if user is None and token:
+        user = get_optional_user_from_token(db, token)
     if not can_access_episode(db, episode, user):
         raise HTTPException(status_code=403, detail="无权访问该内容")
 

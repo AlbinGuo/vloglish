@@ -8,6 +8,8 @@ import shutil
 import socket
 import subprocess
 import tempfile
+import time
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -233,6 +235,91 @@ def _is_youtube_url(url: str) -> bool:
 def _is_bilibili_url(url: str) -> bool:
     u = (url or "").lower()
     return "bilibili.com" in u or "b23.tv" in u
+
+
+# B 站反爬（HTTP 412）对 UA/Referer 很敏感，用桌面浏览器标识更稳
+_BILIBILI_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+_BILIBILI_REFERER = "https://www.bilibili.com/"
+
+
+def _bilibili_cookies_file() -> Path | None:
+    """B 站专用 cookies（与 YouTube 的 cookies.txt 分开）。"""
+    explicit = os.getenv("YT_DLP_BILIBILI_COOKIES", "").strip()
+    if explicit:
+        path = Path(explicit)
+        return path if path.is_file() else None
+    tools_dir = Path(os.getenv("VLOGISH_TOOLS_DIR", r"E:\vloglish"))
+    for name in ("bilibili_cookies.txt", "cookies.txt"):
+        candidate = tools_dir / name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+_BILIBILI_SPI_URL = "https://api.bilibili.com/x/frontend/finger/spi"
+_bilibili_buvid_cache: tuple[float, tuple[str, str]] | None = None
+
+
+def _fetch_bilibili_buvid() -> tuple[str, str] | None:
+    """匿名获取 buvid3 / buvid4（B 站官方指纹接口，无需登录）。"""
+    req = urllib.request.Request(
+        _BILIBILI_SPI_URL,
+        headers={
+            "User-Agent": _BILIBILI_USER_AGENT,
+            "Referer": _BILIBILI_REFERER,
+            "Accept": "application/json, text/plain, */*",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            payload = json.loads(resp.read().decode("utf-8", errors="replace"))
+    except Exception:
+        return None
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(data, dict):
+        return None
+    b3 = str(data.get("b_3") or "").strip()
+    b4 = str(data.get("b_4") or "").strip()
+    if not b3:
+        return None
+    return b3, b4
+
+
+def _bilibili_buvid_ids() -> tuple[str, str] | None:
+    global _bilibili_buvid_cache
+    now = time.time()
+    if _bilibili_buvid_cache and now - _bilibili_buvid_cache[0] < 3600:
+        return _bilibili_buvid_cache[1]
+    ids = _fetch_bilibili_buvid()
+    if ids:
+        _bilibili_buvid_cache = (now, ids)
+    return ids
+
+
+def _write_bilibili_temp_cookies(path: Path) -> bool:
+    """没有专用 cookies 时，写一份含 buvid3 的临时 cookies，缓解 412 风控。"""
+    ids = _bilibili_buvid_ids()
+    if not ids:
+        return False
+    b3, b4 = ids
+    expiry = str(int(time.time()) + 30 * 24 * 3600)
+    rows = [
+        "# Netscape HTTP Cookie File",
+        "# Auto-generated buvid cookies for bilibili",
+        "",
+        f".bilibili.com\tTRUE\t/\tFALSE\t{expiry}\tbuvid3\t{b3}",
+        f".bilibili.com\tTRUE\t/\tFALSE\t{expiry}\tb_nut\t{int(time.time())}",
+    ]
+    if b4:
+        rows.append(f".bilibili.com\tTRUE\t/\tFALSE\t{expiry}\tbuvid4\t{b4}")
+    try:
+        path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    except OSError:
+        return False
+    return True
 
 
 def _looks_like_http_403(detail: str) -> bool:
@@ -473,6 +560,18 @@ def _yt_dlp_cli_extras(
     browser = _cookies_from_browser() if use_browser_cookies else ""
     if browser:
         args.extend(["--cookies-from-browser", browser])
+    if _is_bilibili_url(url):
+        # B 站对缺少浏览器标识/来源的请求会直接 412
+        args.extend(
+            [
+                "--user-agent",
+                _BILIBILI_USER_AGENT,
+                "--referer",
+                _BILIBILI_REFERER,
+                "--add-header",
+                f"Origin:{_BILIBILI_REFERER.rstrip('/')}",
+            ]
+        )
     if _is_youtube_url(url):
         client = (player_client or os.getenv("YT_DLP_PLAYER_CLIENT", "").strip())
         if not client:
@@ -511,6 +610,19 @@ def _format_ytdlp_error(detail: str, url: str) -> str:
         platform = "YouTube"
     elif _is_bilibili_url(url):
         platform = "Bilibili"
+
+    if "412" in detail and ("precondition" in lower or _is_bilibili_url(url)):
+        return (
+            "Bilibili 风控拦截（HTTP 412 Precondition Failed），通常是服务器出口 IP 或请求指纹被判为异常访问。\n"
+            "按顺序尝试：\n"
+            "① 把 yt-dlp 更新到最新（重建后端镜像，或容器内执行 pip install -U yt-dlp）；\n"
+            "② 配置 B 站登录 cookies：用浏览器插件导出 bilibili.com 的 cookies 存成 cookies.txt，"
+            "放到 /app/backend/data/bilibili_cookies.txt，并在 backend/.env 设置 "
+            "YT_DLP_BILIBILI_COOKIES=/app/backend/data/bilibili_cookies.txt 后重启后端；\n"
+            "③ 若仍 412，说明服务器 IP 被风控，需要给 YT_DLP_PROXY 配一个可用的国内代理（B 站会走该代理）；\n"
+            "④ 实在不行，可改用「本地视频」导入该视频（配合你的 SRT），完全绕过 B 站抓取。\n\n"
+            f"原始错误：{detail[-800:]}"
+        )
 
     if (
         "curl: (7)" in lower
@@ -656,14 +768,25 @@ def _run_yt_dlp(
                 "vtt",
             ]
         )
-    allow_any_cookies = (
-        use_cookies
-        and not _is_bilibili_url(url)
-        and (not _is_youtube_url(url) or _youtube_cookies_opt_in())
-    )
-    browser_cookies = bool(_cookies_from_browser()) if allow_any_cookies else False
-    if allow_any_cookies and tools.cookies and not browser_cookies:
-        cmd.extend(["--cookies", str(tools.cookies)])
+    browser_cookies = False
+    if _is_bilibili_url(url):
+        # B 站用专用 cookies（buvid3 / 登录态），避免 412 风控
+        if use_cookies:
+            bil_cookies = _bilibili_cookies_file()
+            if bil_cookies:
+                cmd.extend(["--cookies", str(bil_cookies)])
+            else:
+                # 没有登录 cookies 时，自动生成含 buvid3 的临时 cookies
+                temp_cookies = work_dir / f"__bilibili_cookies_{stem}.txt"
+                if _write_bilibili_temp_cookies(temp_cookies):
+                    cmd.extend(["--cookies", str(temp_cookies)])
+    else:
+        allow_any_cookies = use_cookies and (
+            not _is_youtube_url(url) or _youtube_cookies_opt_in()
+        )
+        browser_cookies = bool(_cookies_from_browser()) if allow_any_cookies else False
+        if allow_any_cookies and tools.cookies and not browser_cookies:
+            cmd.extend(["--cookies", str(tools.cookies)])
     cmd.extend(
         _yt_dlp_cli_extras(
             url=url,

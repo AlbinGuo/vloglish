@@ -66,6 +66,36 @@ def get_current_user_optional(
     return user
 
 
+def get_optional_user_from_token(db: Session, token: str | None) -> User | None:
+    """给 <video>/<audio> 等无法携带 Authorization 头的请求用：从查询参数 token 解析用户。"""
+    if not token:
+        return None
+    claims = decode_access_claims(token)
+    if claims is None:
+        return None
+    user = (
+        db.query(User)
+        .filter(User.id == claims["user_id"], User.is_active.is_(True))
+        .first()
+    )
+    if not user:
+        return None
+    if user.session_version != claims["session_version"]:
+        return None
+    session = (
+        db.query(RefreshToken)
+        .filter(
+            RefreshToken.user_id == user.id,
+            RefreshToken.session_key == claims["session_key"],
+            RefreshToken.expires_at > datetime.utcnow(),
+        )
+        .first()
+    )
+    if not session:
+        return None
+    return user
+
+
 def get_current_user(user: User | None = Depends(get_current_user_optional)) -> User:
     if not user:
         raise HTTPException(status_code=401, detail="未登录")
