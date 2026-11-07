@@ -729,7 +729,7 @@ function adminRequestErrorMessage(e: unknown, fallback: string): string {
 async function fetchFromSourceUrl() {
   const url = sourceUrl.value.trim()
   if (!url) {
-    error.value = '请粘贴 YouTube 或 TikTok 链接'
+    error.value = '请粘贴 Bilibili / YouTube / TikTok 链接'
     return
   }
   fetching.value = true
@@ -1117,7 +1117,7 @@ watch(
       </section>
 
       <section class="rounded-xl border border-black/5 bg-white p-5 space-y-4">
-        <h2 class="font-medium">从 YouTube / TikTok 抓取</h2>
+        <h2 class="font-medium">从 Bilibili / YouTube / TikTok 抓取</h2>
         <p class="text-sm text-neutral-600">
           默认抓 720p，音视频并行下载（不再整片抽 mp3）。封面、标题、摘要、作者会回填。不抓字幕，请在下方手动导入 SRT/VTT。
         </p>
@@ -1126,7 +1126,7 @@ watch(
             <span class="text-neutral-500">页面链接 *</span>
             <input
               v-model="sourceUrl"
-              placeholder="https://www.youtube.com/watch?v=... 或 https://www.tiktok.com/@.../video/..."
+              placeholder="https://www.bilibili.com/video/BV... 或 YouTube / TikTok 链接"
               class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2"
             />
           </label>

@@ -103,7 +103,15 @@ def _extract_video_metadata(info: dict) -> dict[str, str]:
 
 def is_supported_source_url(url: str) -> bool:
     url = url.strip().lower()
-    return bool(url and ("youtube.com" in url or "youtu.be" in url or "tiktok.com" in url))
+    if not url:
+        return False
+    return (
+        "youtube.com" in url
+        or "youtu.be" in url
+        or "tiktok.com" in url
+        or "bilibili.com" in url
+        or "b23.tv" in url
+    )
 
 
 def sanitize_slug(value: str) -> str:
@@ -220,6 +228,11 @@ def _extract_audio_mp3(video_path: Path, ffmpeg_dir: Path) -> Path:
 def _is_youtube_url(url: str) -> bool:
     u = (url or "").lower()
     return "youtube.com" in u or "youtu.be" in u
+
+
+def _is_bilibili_url(url: str) -> bool:
+    u = (url or "").lower()
+    return "bilibili.com" in u or "b23.tv" in u
 
 
 def _looks_like_http_403(detail: str) -> bool:
@@ -496,6 +509,8 @@ def _format_ytdlp_error(detail: str, url: str) -> str:
         platform = "TikTok"
     elif "youtube.com" in url.lower() or "youtu.be" in url.lower():
         platform = "YouTube"
+    elif _is_bilibili_url(url):
+        platform = "Bilibili"
 
     if (
         "curl: (7)" in lower
@@ -641,7 +656,11 @@ def _run_yt_dlp(
                 "vtt",
             ]
         )
-    allow_any_cookies = use_cookies and (not _is_youtube_url(url) or _youtube_cookies_opt_in())
+    allow_any_cookies = (
+        use_cookies
+        and not _is_bilibili_url(url)
+        and (not _is_youtube_url(url) or _youtube_cookies_opt_in())
+    )
     browser_cookies = bool(_cookies_from_browser()) if allow_any_cookies else False
     if allow_any_cookies and tools.cookies and not browser_cookies:
         cmd.extend(["--cookies", str(tools.cookies)])
@@ -698,7 +717,7 @@ def download_source_media(
 ) -> FetchedMedia:
     url = url.strip()
     if not is_supported_source_url(url):
-        raise RuntimeError("仅支持 YouTube 或 TikTok 链接")
+        raise RuntimeError("仅支持 YouTube / TikTok / Bilibili 链接")
 
     tools = YtDlpTools.from_env()
     _assert_local_proxy_ready()

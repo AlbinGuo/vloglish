@@ -188,7 +188,7 @@ watch(
 
     <template v-else-if="tab === 'videos'">
       <section v-if="publishedVideos.length" class="mb-8">
-        <h2 class="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-3">已通过</h2>
+        <h2 class="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-3">已发布</h2>
         <ul class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
           <li v-for="row in publishedVideos" :key="row.video_id">
             <RouterLink :to="`/english/episode/${row.video_id}`" class="block group h-full">
@@ -236,7 +236,7 @@ watch(
       </section>
 
       <section v-if="pendingVideos.length">
-        <h2 class="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-3">审核中 / 其他</h2>
+        <h2 class="text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-3">其他</h2>
         <ul class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           <li
             v-for="row in pendingVideos"
@@ -255,6 +255,7 @@ watch(
               </span>
             </div>
             <a
+              v-if="row.original_video_url"
               :href="row.original_video_url"
               target="_blank"
               rel="noopener noreferrer"
@@ -262,6 +263,7 @@ watch(
             >
               {{ row.original_video_url }}
             </a>
+            <p v-else class="text-xs text-neutral-500">本地上传视频</p>
             <p class="text-[11px] text-neutral-400 mt-2">
               {{ formatDate(row.created_at) }}
               <span v-if="row.accent"> · {{ row.accent }}</span>

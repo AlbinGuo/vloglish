@@ -1,21 +1,32 @@
 from datetime import datetime
+import shutil
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session, joinedload
 
-from ..database import get_db
+from ..database import DATA_DIR, get_db
 from ..deps import get_current_member
 from ..media import resolve_cover_url
 from ..models import Article, Episode, User, UserEpisodeFavorite
 from ..schemas import (
     UserCorpusBadgeOut,
-    UserEpisodeSubmitIn,
     UserEpisodeSubmitOut,
     UserSubmissionItemOut,
     UserSubmissionListOut,
 )
-from ..services.episode_admin import apply_episode_fields, generate_video_id, get_or_create_author
-from ..services.user_notifications import notify_staff_episode_submitted
+from ..services.episode_admin import (
+    apply_episode_fields,
+    generate_video_id,
+    get_or_create_author,
+    replace_subtitles,
+)
+from ..services.local_submit import (
+    ALLOWED_SUBTITLE_SUFFIXES,
+    ALLOWED_VIDEO_SUFFIXES,
+    ingest_from_local_file,
+    ingest_from_remote_url,
+)
 from ..services.yt_dlp_fetch import is_supported_source_url
 
 router = APIRouter(prefix="/api/episodes/submit", tags=["episode-submit"])
@@ -26,13 +37,6 @@ ACCENT_NATIONALITY = {"美国": "🇺🇸", "英国": "🇬🇧"}
 
 def _fmt_dt(dt) -> str:
     return dt.isoformat() + "Z" if dt else ""
-
-
-def _placeholder_title(url: str) -> str:
-    cleaned = url.strip()
-    if len(cleaned) > 72:
-        cleaned = cleaned[:69] + "..."
-    return f"待补充 · {cleaned}"
 
 
 @router.get("/", response_model=UserSubmissionListOut)
@@ -112,63 +116,126 @@ def mark_my_corpus_seen(
     return {"success": True}
 
 
-@router.post("/", response_model=UserEpisodeSubmitOut)
-def submit_episode(
-    body: UserEpisodeSubmitIn,
+@router.post("/import/", response_model=UserEpisodeSubmitOut)
+def import_self_episode(
+    subtitle: UploadFile = File(...),
+    url: str = Form(""),
+    video: UploadFile | None = File(None),
+    accent: str = Form("美国"),
+    note: str = Form(""),
     user: User = Depends(get_current_member),
     db: Session = Depends(get_db),
 ):
-    accent = (body.accent or "美国").strip()
+    """用户自助导入：B 站链接或本地视频 + 自带 SRT/VTT，导入即发布、仅本人可见。"""
+    accent = (accent or "美国").strip()
     if accent not in VALID_USER_ACCENTS:
         raise HTTPException(status_code=400, detail="请选择美式或英式口音")
 
-    url = body.original_video_url.strip()
-    if not is_supported_source_url(url):
-        raise HTTPException(status_code=400, detail="仅支持 YouTube 或 TikTok 链接")
+    url = (url or "").strip()
+    has_video = video is not None and bool((video.filename or "").strip())
+    if url and has_video:
+        raise HTTPException(status_code=400, detail="B 站链接和本地视频只能二选一")
+    if not url and not has_video:
+        raise HTTPException(status_code=400, detail="请提供 B 站视频链接或本地视频文件")
 
-    existing = db.query(Episode).filter(Episode.original_video_url == url).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="该视频已收录或已在审核中，请勿重复提交")
+    subtitle_suffix = Path(subtitle.filename or "").suffix.lower()
+    if subtitle_suffix not in ALLOWED_SUBTITLE_SUFFIXES:
+        raise HTTPException(status_code=400, detail="请上传 SRT 或 VTT 字幕文件")
+    subtitle_text = subtitle.file.read().decode("utf-8", errors="replace")
 
-    note = (body.note or "").strip()
-    remark_parts = [f"用户投稿 (user #{user.id})", f"邮箱 {user.email}"]
+    if url:
+        if not is_supported_source_url(url):
+            raise HTTPException(status_code=400, detail="请粘贴有效的 Bilibili 视频链接")
+        existing = (
+            db.query(Episode)
+            .filter(
+                Episode.original_video_url == url,
+                Episode.submitted_by_user_id == user.id,
+            )
+            .first()
+        )
+        if existing:
+            raise HTTPException(status_code=400, detail="你已经导入过这个视频了")
+
+    video_id = generate_video_id()
+    while db.query(Episode).filter(Episode.video_id == video_id).first():
+        video_id = generate_video_id()
+
+    try:
+        if url:
+            result = ingest_from_remote_url(
+                video_id=video_id,
+                url=url,
+                subtitle_text=subtitle_text,
+            )
+        else:
+            video_suffix = Path(video.filename or "").suffix.lower()  # type: ignore[union-attr]
+            if video_suffix not in ALLOWED_VIDEO_SUFFIXES:
+                raise RuntimeError("请上传 mp4 / mov / webm / mkv 等常见视频格式")
+            uploads_dir = DATA_DIR / "uploads" / video_id
+            uploads_dir.mkdir(parents=True, exist_ok=True)
+            video_tmp = uploads_dir / f"upload{video_suffix}"
+            try:
+                with video_tmp.open("wb") as out:
+                    shutil.copyfileobj(video.file, out)  # type: ignore[union-attr]
+                result = ingest_from_local_file(
+                    video_id=video_id,
+                    video_src=video_tmp,
+                    video_suffix=video_suffix,
+                    subtitle_text=subtitle_text,
+                    title_hint=Path(video.filename or "").stem,  # type: ignore[union-attr]
+                )
+            finally:
+                shutil.rmtree(uploads_dir, ignore_errors=True)
+    except HTTPException:
+        shutil.rmtree(DATA_DIR / "media" / video_id, ignore_errors=True)
+        raise
+    except Exception as exc:
+        shutil.rmtree(DATA_DIR / "media" / video_id, ignore_errors=True)
+        raise HTTPException(status_code=400, detail=str(exc) or "视频导入失败") from exc
+
+    note = (note or "").strip()
+    remark_parts = [f"用户自助导入 (user #{user.id})", f"邮箱 {user.email}"]
     if note:
-        remark_parts.append(f"用户备注：{note}")
+        remark_parts.append(f"备注：{note}")
 
+    author_name = (result.get("author_name") or "").strip() or "我"
     author = get_or_create_author(
         db,
         {
-            "name": "待定",
+            "name": author_name,
             "gender": "m",
             "nationality": ACCENT_NATIONALITY.get(accent, ""),
             "accent": accent,
         },
     )
 
-    video_id = generate_video_id()
-    while db.query(Episode).filter(Episode.video_id == video_id).first():
-        video_id = generate_video_id()
-
     payload = {
-        "short_title": _placeholder_title(url),
-        "summary": "",
+        "short_title": result["short_title"],
+        "summary": result.get("summary", ""),
         "remark": " | ".join(remark_parts),
         "stars": 3,
         "voca_size": 0,
         "cover": "",
-        "video_url": "",
-        "audio_url": "",
+        "video_url": result["video_url"],
+        "audio_url": result["audio_url"],
         "thumbnail_url": "",
-        "original_video_url": url,
+        "original_video_url": result.get("original_video_url", ""),
         "is_demo": False,
-        "status": "draft",
+        "status": "published",
+        "subtitles": result["subtitles"],
     }
 
-    ep = Episode(video_id=video_id, status="draft", submitted_by_user_id=user.id)
+    ep = Episode(
+        video_id=video_id,
+        status="published",
+        submitted_by_user_id=user.id,
+        is_catalog_public=False,
+    )
     apply_episode_fields(ep, payload, author=author, tags=[])
     db.add(ep)
     db.flush()
-    notify_staff_episode_submitted(db, ep, user)
+    replace_subtitles(db, ep.id, result["subtitles"])
     db.commit()
     db.refresh(ep)
 
@@ -176,5 +243,5 @@ def submit_episode(
         video_id=ep.video_id,
         short_title=ep.short_title,
         status=ep.status,
-        message="提交成功，视频将在管理员审核通过后上传语料，预计1-2个小时出审核结果~",
+        message="导入成功，已加入你的个人语料库（仅你可见）。",
     )
