@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from qiniu import Auth, put_file
+from qiniu import Auth, BucketManager, put_file
 from qiniu.config import get_default, set_default
 
 logger = logging.getLogger(__name__)
@@ -255,3 +255,14 @@ def upload_file(cfg: QiniuConfig, local_path: Path, key: str) -> str:
 
     # DB / manifest 只存无签名基址
     return cfg.public_url(key)
+
+
+def delete_object(cfg: QiniuConfig, key: str) -> None:
+    """删除七牛对象（临时文件清理用，失败不抛出）。"""
+    try:
+        auth = Auth(cfg.access_key, cfg.secret_key)
+        bucket = BucketManager(auth)
+        with _qiniu_upload_context():
+            bucket.delete(cfg.bucket, key)
+    except Exception:
+        logger.warning("qiniu delete failed key=%s", key, exc_info=True)

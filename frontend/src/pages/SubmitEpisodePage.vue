@@ -11,6 +11,7 @@ const sourceKind = ref<SourceKind>('link')
 const sourceUrl = ref('')
 const videoFile = ref<File | null>(null)
 const subtitleFile = ref<File | null>(null)
+const aiGenerate = ref(false)
 
 const submitting = ref(false)
 const error = ref('')
@@ -87,6 +88,7 @@ async function submit() {
       url: url || undefined,
       video: sourceKind.value === 'local' ? videoFile.value ?? undefined : undefined,
       subtitle: subtitleFile.value ?? undefined,
+      aiGenerate: aiGenerate.value,
     })
     await router.push(`/english/episode/${result.video_id}`)
   } catch (e: unknown) {
@@ -303,6 +305,37 @@ const sourceLabel = computed(() =>
             <p class="text-xs text-ink-faint leading-relaxed">
               先不上传也没关系：导入后在视频详情页的字幕区域，点击「导入字幕」即可补传。
             </p>
+          </section>
+
+          <!-- 第三步：AI 增强（可选） -->
+          <section class="rounded-2xl border border-line-soft bg-card p-5 sm:p-6 space-y-3">
+            <div class="flex items-center gap-2.5">
+              <span
+                class="w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center"
+              >
+                3
+              </span>
+              <h2 class="text-sm font-semibold">AI 增强</h2>
+              <span class="text-[11px] font-medium rounded-full bg-sunken text-ink-faint px-2 py-0.5">
+                可选
+              </span>
+            </div>
+            <label
+              class="flex items-start gap-3 cursor-pointer rounded-xl border border-line px-4 py-3 transition hover:border-amber-400"
+            >
+              <input
+                v-model="aiGenerate"
+                type="checkbox"
+                class="mt-0.5 accent-amber-500"
+                :disabled="submitting"
+              />
+              <span class="min-w-0">
+                <span class="block text-sm font-medium text-ink">AI 生成字幕与重点词高亮</span>
+                <span class="block text-xs text-ink-faint leading-relaxed mt-0.5">
+                  后台自动生成中文翻译、音标，并高亮生词/重点短语（视频无字幕时会先语音识别生成英文字幕）。生成需要几分钟，导入后可离开页面，稍后回详情页查看进度。
+                </span>
+              </span>
+            </label>
           </section>
 
           <p v-if="fieldError" class="text-xs text-red-600 dark:text-red-400">{{ fieldError }}</p>

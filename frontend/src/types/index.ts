@@ -124,6 +124,9 @@ export interface EpisodeDetail {
   is_favorite?: boolean
   /** 当前登录用户是否是该视频的导入者（可补传字幕等） */
   is_owner?: boolean
+  /** AI 字幕/高亮生成状态：none | pending | processing | done | failed */
+  ai_status?: string
+  ai_error?: string
   audience_notes?: AudienceNote[]
 }
 

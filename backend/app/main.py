@@ -547,6 +547,16 @@ def _migrate_schema():
                 conn.execute(
                     text(f"ALTER TABLE episodes ADD COLUMN release_notified_at {datetime_type}")
                 )
+        if "ai_status" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE episodes ADD COLUMN ai_status VARCHAR(16) NOT NULL DEFAULT 'none'")
+                )
+        if "ai_error" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE episodes ADD COLUMN ai_error TEXT NOT NULL DEFAULT ''")
+                )
     if "subtitles" in insp.get_table_names():
         sub_cols = {c["name"] for c in insp.get_columns("subtitles")}
         if "chinese_literal" not in sub_cols:

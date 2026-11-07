@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'v
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
 import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, completeDailySentence, recordEpisodeView, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
-import { generateSubtitleLiteral, getEpisodeList, setAuthorSubscribe, setEpisodeFavorite, warmEpisodeWordLookups, addEpisodeSubtitle } from '@/api/episodes'
+import { generateSubtitleLiteral, getEpisodeList, setAuthorSubscribe, setEpisodeFavorite, warmEpisodeWordLookups, addEpisodeSubtitle, aiEnrichEpisode } from '@/api/episodes'
 import { useFavoriteToastStore } from '@/stores/favoriteToast'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 import EpisodeSidePanel from '@/components/episode/EpisodeSidePanel.vue'
@@ -519,6 +519,71 @@ async function onSubtitleFileChange(evt: Event) {
     subtitleUploading.value = false
   }
 }
+
+const aiBusy = ref(false)
+const aiPollTimer = ref<ReturnType<typeof setInterval> | null>(null)
+const aiTriggerError = ref('')
+
+const aiRunning = computed(() => {
+  const s = episode.value?.ai_status
+  return s === 'pending' || s === 'processing'
+})
+
+function stopAiPolling() {
+  if (aiPollTimer.value) {
+    clearInterval(aiPollTimer.value)
+    aiPollTimer.value = null
+  }
+}
+
+async function triggerAiEnrich(forceAsr = false) {
+  if (aiBusy.value || !props.videoId) return
+  aiBusy.value = true
+  aiTriggerError.value = ''
+  try {
+    await aiEnrichEpisode(props.videoId, forceAsr)
+    if (episode.value) {
+      episode.value.ai_status = 'pending'
+      episode.value.ai_error = ''
+    }
+    startAiPolling()
+  } catch (e: unknown) {
+    const detail = (e as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+    aiTriggerError.value = typeof detail === 'string' && detail ? detail : 'AI 生成启动失败'
+  } finally {
+    aiBusy.value = false
+  }
+}
+
+function startAiPolling() {
+  stopAiPolling()
+  aiPollTimer.value = setInterval(async () => {
+    try {
+      const data = await getEpisodeDetail(props.videoId)
+      const st = data.episode.ai_status
+      if (episode.value) {
+        episode.value.ai_status = st
+        episode.value.ai_error = data.episode.ai_error
+      }
+      if (st !== 'pending' && st !== 'processing') {
+        stopAiPolling()
+        await load()
+      }
+    } catch {
+      /* transient, keep polling */
+    }
+  }, 4000)
+}
+
+function maybeStartAiPolling() {
+  const st = episode.value?.ai_status
+  if (st === 'pending' || st === 'processing') startAiPolling()
+  else stopAiPolling()
+}
+
+onUnmounted(() => {
+  stopAiPolling()
+})
 
 const literalLoadingId = ref<number | null>(null)
 const episodeGlossary = computed(() => episode.value?.glossary || [])
@@ -2186,6 +2251,7 @@ async function load() {
       ? await (await import('@/api/admin')).adminGetEpisodePreview(props.videoId)
       : await getEpisodeDetail(props.videoId)
     episode.value = data.episode
+    maybeStartAiPolling()
     isFavorite.value = Boolean(data.episode.is_favorite)
     preloadPoster(data.episode.media?.thumbnail_url ?? '')
     currentIndex.value = 0
@@ -3585,34 +3651,75 @@ function subtitleRowClass(index: number) {
           :class="[mobileListBottomPad, clipSelectMode ? '' : 'touch-pan-y']"
         >
           <div
+            v-if="aiRunning && sortedSubs.length > 0"
+            class="mb-2 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300"
+          >
+            <span
+              class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-amber-300 border-t-transparent"
+            ></span>
+            AI 正在生成翻译与重点词高亮…
+          </div>
+          <div
             v-if="sortedSubs.length === 0"
             class="flex flex-col items-center justify-center gap-3 py-14 px-4 text-center"
           >
-            <div class="text-sm text-neutral-500 dark:text-neutral-400">这个视频还没有字幕</div>
-            <template v-if="episode?.is_owner && !adminPreview">
+            <template v-if="aiRunning">
+              <span
+                class="inline-block h-6 w-6 animate-spin rounded-full border-2 border-amber-300 border-t-transparent"
+              ></span>
+              <div class="text-sm text-neutral-600 dark:text-neutral-300">
+                AI 正在生成字幕与重点词高亮…
+              </div>
               <p class="text-xs text-ink-faint max-w-sm">
-                上传该视频对应的 SRT / VTT 字幕，导入后即可逐句精听、查词与跟读。
-              </p>
-              <button
-                type="button"
-                class="text-sm px-4 py-2 rounded-xl bg-amber-500 text-white font-medium hover:bg-amber-600 transition shadow-sm disabled:opacity-50"
-                :disabled="subtitleUploading"
-                @click="triggerSubtitleUpload"
-              >
-                {{ subtitleUploading ? '字幕解析中...' : '导入字幕' }}
-              </button>
-              <input
-                ref="subtitleUploadInput"
-                type="file"
-                accept=".srt,.vtt,.txt"
-                class="hidden"
-                @change="onSubtitleFileChange"
-              />
-              <p v-if="subtitleUploadError" class="text-xs text-red-600 dark:text-red-400">
-                {{ subtitleUploadError }}
+                视频较长时需要几分钟，完成后会自动出现；可先离开页面，稍后再回来查看。
               </p>
             </template>
-            <p v-else class="text-xs text-ink-faint">字幕还未添加</p>
+            <template v-else>
+              <div class="text-sm text-neutral-500 dark:text-neutral-400">这个视频还没有字幕</div>
+              <template v-if="episode?.is_owner && !adminPreview">
+                <p class="text-xs text-ink-faint max-w-sm">
+                  上传该视频对应的 SRT / VTT 字幕，或用 AI 从视频语音自动生成。
+                </p>
+                <div class="flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    class="text-sm px-4 py-2 rounded-xl bg-amber-500 text-white font-medium hover:bg-amber-600 transition shadow-sm disabled:opacity-50"
+                    :disabled="subtitleUploading"
+                    @click="triggerSubtitleUpload"
+                  >
+                    {{ subtitleUploading ? '字幕解析中...' : '导入字幕' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="text-sm px-4 py-2 rounded-xl border border-amber-400 text-amber-700 dark:text-amber-300 font-medium hover:bg-amber-50 dark:hover:bg-amber-950/30 transition disabled:opacity-50"
+                    :disabled="aiBusy"
+                    @click="triggerAiEnrich(true)"
+                  >
+                    {{ aiBusy ? '启动中...' : 'AI 生成字幕' }}
+                  </button>
+                </div>
+                <input
+                  ref="subtitleUploadInput"
+                  type="file"
+                  accept=".srt,.vtt,.txt"
+                  class="hidden"
+                  @change="onSubtitleFileChange"
+                />
+                <p v-if="subtitleUploadError" class="text-xs text-red-600 dark:text-red-400">
+                  {{ subtitleUploadError }}
+                </p>
+                <p v-if="aiTriggerError" class="text-xs text-red-600 dark:text-red-400">
+                  {{ aiTriggerError }}
+                </p>
+                <p
+                  v-if="episode?.ai_status === 'failed' && episode?.ai_error"
+                  class="text-xs text-red-600 dark:text-red-400 max-w-md"
+                >
+                  AI 生成失败：{{ episode.ai_error }}
+                </p>
+              </template>
+              <p v-else class="text-xs text-ink-faint">字幕还未添加</p>
+            </template>
           </div>
           <div
             class="flex flex-col gap-2"

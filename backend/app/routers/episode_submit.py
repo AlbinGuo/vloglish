@@ -29,6 +29,8 @@ from ..services.local_submit import (
     parse_subtitle_upload,
 )
 from ..services.yt_dlp_fetch import is_supported_source_url, resolve_bilibili_short_url
+from ..services.asr_dashscope import dashscope_asr_configured
+from ..services.episode_ai_enrich import ai_enrich_configured, schedule_ai_enrich
 
 router = APIRouter(prefix="/api/episodes/submit", tags=["episode-submit"])
 
@@ -124,6 +126,7 @@ def import_self_episode(
     video: UploadFile | None = File(None),
     accent: str = Form("美国"),
     note: str = Form(""),
+    ai_generate: bool = Form(False),
     user: User = Depends(get_current_member),
     db: Session = Depends(get_db),
 ):
@@ -244,10 +247,22 @@ def import_self_episode(
     db.commit()
     db.refresh(ep)
 
-    if result["subtitles"]:
+    if ai_generate:
+        if not ai_enrich_configured():
+            message = "导入成功，但未配置 DeepSeek（AI 翻译/高亮暂不可用）。"
+        else:
+            if do_asr and not dashscope_asr_configured():
+                message = "导入成功；未配置语音识别，无法从视频生成字幕，AI 仅处理已有字幕（如有）。"
+            else:
+                ep.ai_status = "pending"
+                ep.ai_error = ""
+                db.commit()
+                schedule_ai_enrich(video_id, do_asr=not bool(result["subtitles"]))
+                message = "导入成功，AI 正在后台生成字幕与重点词高亮，稍后自动出现在视频详情页。"
+    elif result["subtitles"]:
         message = "导入成功，已加入你的个人语料库（仅你可见）。"
     else:
-        message = "视频导入成功！你还未上传字幕，可在视频详情页点击「导入字幕」补充。"
+        message = "视频导入成功！你还未上传字幕，可在视频详情页点击「导入字幕」或「AI 生成字幕」补充。"
 
     return UserEpisodeSubmitOut(
         video_id=ep.video_id,
@@ -255,6 +270,39 @@ def import_self_episode(
         status=ep.status,
         message=message,
     )
+
+
+@router.post("/{video_id}/ai-enrich/")
+def trigger_ai_enrich(
+    video_id: str,
+    force_asr: bool = Form(False),
+    user: User = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """触发/重试 AI 生成字幕与重点词高亮（仅创建者本人可操作）。"""
+    episode = (
+        db.query(Episode)
+        .filter(
+            Episode.video_id == video_id,
+            Episode.submitted_by_user_id == user.id,
+        )
+        .first()
+    )
+    if not episode:
+        raise HTTPException(status_code=404, detail="视频不存在或不是你导入的")
+    if not ai_enrich_configured():
+        raise HTTPException(status_code=400, detail="未配置 DeepSeek（AI 翻译/高亮暂不可用）")
+    do_asr = bool(force_asr) or int(episode.subtitle_count or 0) == 0
+    if do_asr and not dashscope_asr_configured():
+        raise HTTPException(
+            status_code=400,
+            detail="未配置语音识别（DASHSCOPE_API_KEY），无法从视频生成字幕；请上传字幕或配置 Key",
+        )
+    episode.ai_status = "pending"
+    episode.ai_error = ""
+    db.commit()
+    schedule_ai_enrich(video_id, do_asr=do_asr)
+    return {"success": True, "ai_status": "pending"}
 
 
 @router.post("/{video_id}/subtitle/")

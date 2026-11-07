@@ -88,6 +88,8 @@ def episode_detail(
             "voca_size": episode.voca_size,
             "subtitle_count": episode.subtitle_count,
             "clip_length": episode.clip_length,
+            "ai_status": getattr(episode, "ai_status", None) or "none",
+            "ai_error": getattr(episode, "ai_error", None) or "",
             # 用户端不暴露源站/投稿原链，仅管理端预览可带
             "original_video_url": episode.original_video_url if include_source_url else "",
             "author": author_dict(episode.author),

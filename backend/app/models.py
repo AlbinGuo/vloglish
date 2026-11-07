@@ -84,6 +84,9 @@ class Episode(Base):
     # 用户投稿默认 False（仅投稿者可见）；管理员「转为全站可见」后为 True（公共目录 + 仍留在我的语料库）
     is_catalog_public: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # AI 字幕/高亮后台生成状态：none | pending | processing | done | failed
+    ai_status: Mapped[str] = mapped_column(String(16), default="none")
+    ai_error: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, index=True)

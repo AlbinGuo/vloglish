@@ -229,6 +229,7 @@ export interface ImportSelfEpisodePayload {
   subtitle?: File
   accent?: string
   note?: string
+  aiGenerate?: boolean
 }
 
 export interface SubmitEpisodeResult {
@@ -257,6 +258,7 @@ export async function importSelfEpisode(payload: ImportSelfEpisodePayload) {
   if (payload.subtitle) form.append('subtitle', payload.subtitle)
   if (payload.accent) form.append('accent', payload.accent)
   if (payload.note) form.append('note', payload.note)
+  form.append('ai_generate', payload.aiGenerate ? 'true' : 'false')
   // B 站下载/转码或本地转码可能耗时，这里不设超时
   const { data } = await api.post<SubmitEpisodeResult>('/api/episodes/submit/import/', form, {
     timeout: 0,
@@ -273,6 +275,16 @@ export async function addEpisodeSubtitle(videoId: string, subtitle: File) {
     `/api/episodes/submit/${encodeURIComponent(videoId)}/subtitle/`,
     form,
     { timeout: 0 },
+  )
+  return data
+}
+
+export async function aiEnrichEpisode(videoId: string, forceAsr = false) {
+  const form = new FormData()
+  form.append('force_asr', forceAsr ? 'true' : 'false')
+  const { data } = await api.post<{ success: boolean; ai_status: string }>(
+    `/api/episodes/submit/${encodeURIComponent(videoId)}/ai-enrich/`,
+    form,
   )
   return data
 }
