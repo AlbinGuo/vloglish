@@ -228,6 +228,229 @@ def _extract_audio_mp3(video_path: Path, ffmpeg_dir: Path) -> Path:
     return output
 
 
+def _ffmpeg_bin(ffmpeg_dir: Path) -> str:
+    ff = ffmpeg_dir / "ffmpeg.exe"
+    if ff.is_file():
+        return str(ff)
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    raise RuntimeError("未找到 ffmpeg，无法处理 B 站视频")
+
+
+def _run_ffmpeg_simple(cmd: list[str], label: str) -> None:
+    proc = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=int(os.getenv("FFMPEG_TRANSCODE_TIMEOUT", "14400")),
+    )
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()
+        raise RuntimeError(detail[-2000:] if detail else label)
+
+
+def _bili_bvid_from_url(url: str) -> str:
+    m = re.search(r"/video/(BV[0-9A-Za-z]+)", url)
+    return m.group(1) if m else ""
+
+
+def _bili_page_from_url(url: str) -> int:
+    m = re.search(r"[?&]p=(\d+)", url)
+    try:
+        return int(m.group(1)) if m else 1
+    except ValueError:
+        return 1
+
+
+def _bili_cookie_header() -> str:
+    """优先用用户提供的 B 站 cookies，否则用自动生成的 buvid3/buvid4。"""
+    pairs: list[str] = []
+    ck_file = _bilibili_cookies_file()
+    if ck_file:
+        try:
+            for line in ck_file.read_text(encoding="utf-8", errors="ignore").splitlines():
+                raw = line
+                if raw.startswith("#HttpOnly_"):
+                    raw = raw[len("#HttpOnly_") :]
+                elif raw.startswith("#") or not raw.strip():
+                    continue
+                parts = raw.split("\t")
+                if len(parts) >= 7 and "bilibili.com" in parts[0]:
+                    pairs.append(f"{parts[5]}={parts[6]}")
+        except Exception:
+            pairs = []
+    if not pairs:
+        ids = _bilibili_buvid_ids()
+        if ids:
+            pairs.append(f"buvid3={ids[0]}")
+            if ids[1]:
+                pairs.append(f"buvid4={ids[1]}")
+    return "; ".join(pairs)
+
+
+def _bili_read(
+    url: str, cookie: str, *, referer: str | None = None, extra: dict | None = None
+) -> bytes:
+    headers = {
+        "User-Agent": _BILIBILI_USER_AGENT,
+        "Referer": referer or _BILIBILI_REFERER,
+        "Origin": "https://www.bilibili.com",
+    }
+    if cookie:
+        headers["Cookie"] = cookie
+    if extra:
+        headers.update(extra)
+    proxy = _effective_yt_dlp_proxy()
+    handlers = []
+    if proxy:
+        handlers.append(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
+    opener = urllib.request.build_opener(*handlers)
+    with opener.open(urllib.request.Request(url, headers=headers), timeout=60) as resp:
+        return resp.read()
+
+
+def _bili_get_json(url: str, cookie: str) -> dict:
+    return json.loads(_bili_read(url, cookie).decode("utf-8", "ignore"))
+
+
+def _bili_download(url: str, path: Path, cookie: str) -> None:
+    data = _bili_read(url, cookie, referer=_BILIBILI_REFERER)
+    if not data:
+        raise RuntimeError("B 站分片下载为空")
+    path.write_bytes(data)
+
+
+def _bili_stream_urls(stream: dict) -> list[str]:
+    urls = [stream.get("baseUrl") or ""]
+    urls.extend(stream.get("backupUrl") or [])
+    return [u for u in urls if u]
+
+
+def _bili_download_stream(stream: dict, path: Path, cookie: str) -> None:
+    """按主地址 + 备用地址 + Range 重试，尽量避开 CDN 567/403。"""
+    last_exc: Exception | None = None
+    for url in _bili_stream_urls(stream):
+        for range_header in (None, "bytes=0-"):
+            try:
+                data = _bili_read(url, cookie, referer=_BILIBILI_REFERER, extra={"Range": range_header} if range_header else None)
+                if data:
+                    path.write_bytes(data)
+                    return
+            except Exception as exc:  # noqa: BLE001
+                last_exc = exc
+    raise RuntimeError(f"B 站分片下载失败：{last_exc}")
+
+
+def _pick_bili_video_stream(streams: list[dict], max_height: int) -> dict:
+    candidates = [s for s in streams if int(s.get("height") or 0) <= max_height] or streams
+    h264 = [s for s in candidates if int(s.get("codecid") or 0) == 7]
+    pool = h264 or candidates
+    return max(pool, key=lambda s: (int(s.get("height") or 0), int(s.get("bandwidth") or 0)))
+
+
+def _download_bilibili_via_api(url: str, max_height: int, ffmpeg_dir: Path) -> "FetchedMedia":
+    """直接调用 B 站 API 下载（绕过被 412 风控的网页请求，并带走官方封面）。"""
+    bvid = _bili_bvid_from_url(url)
+    if not bvid:
+        raise RuntimeError("无法从链接中识别 BV 号")
+    cookie = _bili_cookie_header()
+
+    view = _bili_get_json(
+        f"https://api.bilibili.com/x/web-interface/view?bvid={bvid}", cookie
+    )
+    if view.get("code") != 0:
+        raise RuntimeError(f"B站接口返回 {view.get('code')}: {view.get('message')}")
+    data = view["data"]
+    pages = data.get("pages") or []
+    cid = data.get("cid")
+    page = _bili_page_from_url(url)
+    duration = float(data.get("duration") or 0)
+    if pages and 1 <= page <= len(pages):
+        cid = pages[page - 1]["cid"]
+        duration = float(pages[page - 1].get("duration") or duration)
+    if not cid:
+        raise RuntimeError("B站接口未返回 cid")
+
+    play = _bili_get_json(
+        "https://api.bilibili.com/x/player/playurl"
+        f"?bvid={bvid}&cid={cid}&qn=64&fnval=16&fourk=1",
+        cookie,
+    )
+    if play.get("code") != 0:
+        raise RuntimeError(f"B站播放接口返回 {play.get('code')}: {play.get('message')}")
+    pdata = play.get("data") or {}
+    dash = pdata.get("dash")
+    if not dash or not dash.get("video") or not dash.get("audio"):
+        raise RuntimeError("B站未返回可用的 DASH 流")
+
+    vstream = _pick_bili_video_stream(dash["video"], max_height)
+    astream = max(dash["audio"], key=lambda s: int(s.get("bandwidth") or 0))
+    if not _bili_stream_urls(vstream) or not _bili_stream_urls(astream):
+        raise RuntimeError("B站未返回有效的播放直链")
+
+    work_dir = Path(tempfile.mkdtemp(prefix="vloglish-bili-", dir=DATA_DIR))
+    try:
+        vpath = work_dir / "media_v.m4s"
+        apath = work_dir / "media_a.m4s"
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            fv = pool.submit(_bili_download_stream, vstream, vpath, cookie)
+            fa = pool.submit(_bili_download_stream, astream, apath, cookie)
+            fv.result()
+            fa.result()
+
+        muxed = work_dir / "media.mp4"
+        _run_ffmpeg_simple(
+            [
+                _ffmpeg_bin(ffmpeg_dir),
+                "-y",
+                "-i",
+                str(vpath),
+                "-i",
+                str(apath),
+                "-c",
+                "copy",
+                "-movflags",
+                "+faststart",
+                str(muxed),
+            ],
+            "B站音视频混流失败",
+        )
+        if not muxed.is_file():
+            raise RuntimeError("B站音视频混流后未生成文件")
+        audio_mp3 = _extract_audio_mp3(muxed, ffmpeg_dir)
+
+        thumbnail = Path()
+        pic = str(data.get("pic") or "").strip()
+        if pic:
+            try:
+                thumb = work_dir / "media.jpg"
+                _bili_download(pic, thumb, cookie)
+                if thumb.is_file() and thumb.stat().st_size > 0:
+                    thumbnail = thumb
+            except Exception:
+                thumbnail = Path()
+
+        return FetchedMedia(
+            title=str(data.get("title") or bvid),
+            summary=str(data.get("desc") or "")[:2000],
+            author_name=str((data.get("owner") or {}).get("name") or ""),
+            duration=duration,
+            source_id=bvid,
+            webpage_url=url,
+            work_dir=work_dir,
+            video_path=muxed,
+            audio_path=audio_mp3,
+            thumbnail_path=thumbnail,
+            vtt_path=None,
+        )
+    except Exception:
+        shutil.rmtree(work_dir, ignore_errors=True)
+        raise
+
+
 def _is_youtube_url(url: str) -> bool:
     u = (url or "").lower()
     return "youtube.com" in u or "youtu.be" in u
@@ -898,8 +1121,16 @@ def download_source_media(
 
     tools = YtDlpTools.from_env()
     _assert_local_proxy_ready()
-    work_dir = Path(tempfile.mkdtemp(prefix="vloglish-ytdlp-", dir=DATA_DIR))
     max_height = normalize_fetch_quality(quality)
+
+    # B 站优先走 API 直连下载（绕开易被 412 风控的网页请求，并带走官方封面）
+    if _is_bilibili_url(url):
+        try:
+            return _download_bilibili_via_api(url, max_height, tools.ffmpeg_dir)
+        except Exception:
+            pass
+
+    work_dir = Path(tempfile.mkdtemp(prefix="vloglish-ytdlp-", dir=DATA_DIR))
     video_err: Exception | None = None
     audio_err: Exception | None = None
 
