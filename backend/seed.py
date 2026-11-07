@@ -284,6 +284,10 @@ def main(fetch_remote: bool = False, force_fetch: bool = False):
 
     sample = json.loads(SAMPLE.read_text(encoding="utf-8"))
     Base.metadata.create_all(bind=engine)
+    # 与应用启动同一套增量迁移：ensure 新列（如 episodes.ai_status/ai_error）在写库前已存在
+    from app.main import _migrate_schema
+
+    _migrate_schema()
     db = SessionLocal()
 
     try:
