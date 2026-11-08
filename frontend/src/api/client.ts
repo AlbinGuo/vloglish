@@ -98,6 +98,11 @@ function isBinaryBody(data: unknown): boolean {
 /** App WebView 为 https，把接口里的 http 媒体链升级为 https，避免图片/视频被混合内容拦截 */
 function upgradeMediaUrlsInData(data: unknown): unknown {
   if (typeof data === 'string') {
+    // App WebView 原点是 capacitor://，根相对的本地媒体端点需补成后端绝对地址，
+    // 否则 <video>/<img> 会指向本地源导致打不开（播放器随后会再拼 ?token= 鉴权）。
+    if (useAbsoluteApi && data.startsWith('/api/episode/')) {
+      return resolveMediaUrl(`${API_BASE_URL}${data}`)
+    }
     if (data.startsWith('http://') || data.startsWith('//')) return resolveMediaUrl(data)
     return data
   }

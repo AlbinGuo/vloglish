@@ -123,9 +123,7 @@ JSON 结构：
   "definitions": [
     {
       "pos": "词性（英文，如 noun / verb / adjective / phrase）",
-      "definition_en": "英文释义",
-      "definition_cn": "中文释义",
-      "usage_pattern": "常见搭配（可空字符串）",
+      "definition_cn": "中文释义（简洁）",
       "note": "结合上下文的释义说明（必填，说明该词在句中的含义）",
       "examples": [
         {"example_en": "英文例句", "example_cn": "中文例句"}
@@ -136,7 +134,7 @@ JSON 结构：
 }
 
 要求：
-1. definitions 至少 1 条，examples 每条释义 1-2 个
+1. definitions 至少 1 条；每条 examples 恰好 1 个；不要输出英文释义（definition_en）或常见用法（usage_pattern）
 2. 短语(type=2)时 headword 为完整短语，category 为「短语」
 3. pronunciations 至少 1 条美式 IPA；audio_url 留空字符串
 4. exam_tags 标注词汇所属考试难度，从以下枚举选 0～3 个（仅选确实符合的）：

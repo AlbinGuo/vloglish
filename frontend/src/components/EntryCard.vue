@@ -243,19 +243,11 @@ function onToggleVocabulary() {
               {{ posLabel(def.pos) }}
             </span>
 
-            <p class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 leading-snug mb-1">
+            <p class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 leading-snug mb-3">
               {{ def.definition_cn }}
             </p>
-            <p class="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed mb-3">
-              {{ def.definition_en }}
-            </p>
 
-            <div v-if="def.usage_pattern" class="mb-3">
-              <p class="text-xs text-neutral-400 mb-1">用法</p>
-              <p class="text-sm text-neutral-700 dark:text-neutral-300">{{ def.usage_pattern }}</p>
-            </div>
-
-            <div v-for="ex in def.examples" :key="ex.order" class="mt-3">
+            <div v-for="ex in def.examples.slice(0, 1)" :key="ex.order" class="mt-3">
               <p class="text-xs text-neutral-400 mb-1">例句</p>
               <p class="text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed">{{ ex.example_en }}</p>
               <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed">{{ ex.example_cn }}</p>
