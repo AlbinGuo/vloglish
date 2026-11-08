@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import type { EpisodeDetail, EpisodeSummary, Subtitle } from '@/types'
 import { resolveDisplaySub } from '@/utils/subtitleHtml'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
+import { withLocalMediaAuth } from '@/utils/mediaAuth'
 import { pauseMedia, resumeMedia, seekMedia, silenceMedia } from '@/utils/playMedia'
 
 export type ListenViewMode = 'video' | 'subtitles'
@@ -124,12 +125,12 @@ export const useListenPlayerStore = defineStore('listenPlayer', () => {
   const mediaSrc = computed(() => {
     const media = episode.value?.media
     if (!media) return ''
-    return resolveMediaUrl(media.video_url || media.audio_url || '')
+    return withLocalMediaAuth(resolveMediaUrl(media.video_url || media.audio_url || ''))
   })
   const audioSrc = computed(() => {
     const media = episode.value?.media
     if (!media) return ''
-    return resolveMediaUrl(media.audio_url || media.video_url || '')
+    return withLocalMediaAuth(resolveMediaUrl(media.audio_url || media.video_url || ''))
   })
   const sleepLeftSec = computed(() => {
     if (!sleepEndsAt.value) return 0

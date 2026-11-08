@@ -51,8 +51,7 @@ import { useClipsStore } from '@/stores/clips'
 import { useVoiceCloneStore } from '@/stores/voiceClone'
 import type { EntryDetail, EpisodeDetail, EpisodeSummary, Subtitle } from '@/types'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
-import { getAccessToken } from '@/api/tokens'
-import { API_BASE_URL } from '@/api/client'
+import { withLocalMediaAuth } from '@/utils/mediaAuth'
 import { playWordPronunciation } from '@/utils/speakWord'
 import EntryCard from '@/components/EntryCard.vue'
 import StarIcon from '@/components/icons/StarIcon.vue'
@@ -1550,21 +1549,7 @@ learningBridge.tickWatchTime = (delta) => {
   tickLearningWatchTime(delta)
 }
 
-const LOCAL_MEDIA_PREFIX = '/api/episode/'
-
-/** <video>/<audio> 无法带 Authorization 头，本地媒体端点用 ?token= 鉴权。 */
-function withMediaAuth(url: string): string {
-  const cleaned = (url || '').trim()
-  if (!cleaned) return ''
-  const normalized = cleaned.startsWith('/') ? cleaned : `/${cleaned}`
-  if (!normalized.startsWith(LOCAL_MEDIA_PREFIX)) return cleaned
-  let out = API_BASE_URL ? `${API_BASE_URL}${normalized}` : normalized
-  const token = getAccessToken()
-  if (token) {
-    out += `${out.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`
-  }
-  return out
-}
+const withMediaAuth = withLocalMediaAuth
 
 const playbackSrc = computed(() => {
   const media = episode.value?.media
