@@ -935,6 +935,9 @@ def lookup_with_deepseek(word: str, token_type: int, context: str, entry_id: int
         user=json.dumps(user_payload, ensure_ascii=False),
         response_format={"type": "json_object"},
         temperature=0.3,
+        max_tokens=1200,
+        # 结构化短任务关闭思考，显著降低首字/整体延迟（V4 默认开启 thinking）
+        thinking=False,
     )
     raw = _extract_json(content)
     result = _normalize_entry(raw, entry_id)

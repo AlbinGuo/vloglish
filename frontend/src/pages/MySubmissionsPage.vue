@@ -22,13 +22,12 @@ const articleRows = ref<UserArticleSubmissionItem[]>([])
 const favoriteEpisodes = ref<EpisodeSummary[]>([])
 const corpusBadge = useMyCorpusBadgeStore()
 
-const hideUploads = isMobileAppBuild()
+const isApp = isMobileAppBuild()
 
 const tab = computed<CorpusTab>(() => {
-  // App MVP 不含投稿：仅保留「收藏」
-  if (hideUploads) return 'favorites'
   const raw = String(route.query.tab || '')
-  if (raw === 'articles') return 'articles'
+  // App 不含「文章投稿」创建，但保留收藏 + 我上传的视频（管理）
+  if (raw === 'articles' && !isApp) return 'articles'
   if (raw === 'videos') return 'videos'
   return 'favorites'
 })
@@ -112,7 +111,7 @@ watch(
       <span class="font-medium">我的语料库</span>
       <span class="flex-1" />
       <RouterLink
-        v-if="tab === 'videos'"
+        v-if="tab === 'videos' && !isApp"
         to="/english/submit"
         class="rounded-lg bg-amber-500 text-white px-3 py-1.5 text-sm hover:bg-amber-600"
       >
@@ -140,7 +139,6 @@ watch(
         <span v-if="favoriteEpisodes.length" class="text-xs text-neutral-400 ml-1">{{ favoriteEpisodes.length }}</span>
       </button>
       <button
-        v-if="!hideUploads"
         type="button"
         class="px-3.5 py-1.5 text-sm rounded-lg transition"
         :class="tab === 'videos'
@@ -152,7 +150,7 @@ watch(
         <span v-if="videoRows.length" class="text-xs text-neutral-400 ml-1">{{ videoRows.length }}</span>
       </button>
       <button
-        v-if="!hideUploads"
+        v-if="!isApp"
         type="button"
         class="px-3.5 py-1.5 text-sm rounded-lg transition"
         :class="tab === 'articles'
@@ -280,7 +278,13 @@ watch(
         class="rounded-xl border border-dashed border-black/10 dark:border-white/10 p-12 text-center text-sm text-neutral-500"
       >
         暂无视频语料。
-        <RouterLink to="/english/submit" class="text-amber-600 hover:underline ml-1">去上传视频</RouterLink>
+        <RouterLink
+          v-if="!isApp"
+          to="/english/submit"
+          class="text-amber-600 hover:underline ml-1"
+        >
+          去上传视频
+        </RouterLink>
       </div>
     </template>
 
