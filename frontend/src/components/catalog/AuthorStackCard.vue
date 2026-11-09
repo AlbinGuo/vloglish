@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import CoverStack from '@/components/catalog/CoverStack.vue'
 import { accentIconFor } from '@/constants/accentOptions'
+import AuthorAvatar from '@/components/AuthorAvatar.vue'
 import type { AuthorCatalogItem } from '@/types'
 
 const props = defineProps<{
@@ -31,6 +32,9 @@ const stackActive = ref(false)
     />
 
     <div class="min-w-0 text-center">
+      <div class="mb-1 flex justify-center">
+        <AuthorAvatar :src="author.avatar" :name="author.name" :size="40" />
+      </div>
       <h3 class="font-semibold text-sm sm:text-base truncate group-hover:text-amber-800 dark:group-hover:text-amber-400 transition-colors">
         {{ author.name }}
       </h3>

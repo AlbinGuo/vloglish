@@ -12,6 +12,7 @@ import { formatListenTime } from '@/utils/formatListenTime'
 import { isOpenToFreeUsers } from '@/utils/episodeAccess'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
 import AppIcon from '@/components/AppIcon.vue'
+import AuthorAvatar from '@/components/AuthorAvatar.vue'
 
 defineOptions({ name: 'ListenHomePage' })
 
@@ -138,7 +139,10 @@ watch(
           </div>
           <div class="min-w-0 flex-1">
             <p class="text-sm font-medium leading-snug line-clamp-2">{{ ep.short_title }}</p>
-            <p class="mt-1 text-xs text-neutral-500 truncate">{{ ep.author.name }}</p>
+            <p class="mt-1 text-xs text-neutral-500 truncate flex items-center gap-1.5">
+              <AuthorAvatar :src="ep.author.avatar" :name="ep.author.name" :size="16" />
+              <span class="truncate">{{ ep.author.name }}</span>
+            </p>
           </div>
           <span class="shrink-0 w-9 h-9 rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 flex items-center justify-center">
             <AppIcon name="play" class="w-4 h-4 ml-0.5" />

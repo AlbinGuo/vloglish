@@ -215,6 +215,7 @@ def import_self_episode(
             "gender": "m",
             "nationality": ACCENT_NATIONALITY.get(accent, ""),
             "accent": accent,
+            "avatar": result.get("author_avatar", ""),
         },
     )
 

@@ -13,6 +13,8 @@ class UserOut(BaseModel):
     phone: str | None = None
     is_member: bool
     avatar_key: str | None = None
+    # 用户自定义头像（七牛 URL），优先于 avatar_key
+    avatar_url: str | None = None
     member_until: str | None = None
     wx_bound: bool = False
     wechat_only: bool = False
@@ -23,6 +25,13 @@ class UserOut(BaseModel):
 class SetAvatarIn(BaseModel):
     avatar_key: str | None = Field(default=None, max_length=32)
     cycle: bool = False
+
+
+class ProfileUpdateIn(BaseModel):
+    """用户自助修改昵称 / 头像（App 与 Web 通用）。"""
+
+    nickname: str | None = Field(default=None, max_length=64)
+    avatar_key: str | None = Field(default=None, max_length=32)
 
 
 class AuthTokensOut(BaseModel):
@@ -393,6 +402,7 @@ class AdminAuthorIn(BaseModel):
     gender: str = Field(default="m", max_length=1)
     nationality: str = Field(default="", max_length=16)
     accent: str = Field(default="", max_length=32)
+    avatar: str = Field(default="", max_length=2048)
 
 
 class AdminSubtitleIn(BaseModel):
@@ -646,6 +656,7 @@ class AdminFetchMediaOut(BaseModel):
     title: str
     summary: str = ""
     author_name: str = ""
+    author_avatar: str = ""
     original_video_url: str
     cover: str
     thumbnail_url: str
@@ -758,6 +769,7 @@ class AdminAuthorOut(BaseModel):
     gender: str
     nationality: str
     accent: str
+    avatar: str = ""
     episode_count: int = 0
 
 
@@ -766,6 +778,7 @@ class AdminAuthorCreateIn(BaseModel):
     gender: str = Field(default="m", max_length=1)
     nationality: str = Field(default="", max_length=16)
     accent: str = Field(default="", max_length=32)
+    avatar: str = Field(default="", max_length=2048)
 
 
 class AdminAuthorUpdateIn(BaseModel):
@@ -773,6 +786,7 @@ class AdminAuthorUpdateIn(BaseModel):
     gender: str | None = Field(default=None, max_length=1)
     nationality: str | None = Field(default=None, max_length=16)
     accent: str | None = Field(default=None, max_length=32)
+    avatar: str | None = Field(default=None, max_length=2048)
 
 
 class AdminAuthorMergeIn(BaseModel):
@@ -785,6 +799,7 @@ class AuthorOut(BaseModel):
     gender: str
     nationality: str
     accent: str
+    avatar: str = ""
     is_subscribed: bool = False
     subscriber_count: int = 0
 
@@ -795,6 +810,7 @@ class AuthorCatalogOut(BaseModel):
     gender: str
     nationality: str
     accent: str
+    avatar: str = ""
     episode_count: int
     covers: list[str] = []
     is_subscribed: bool = False

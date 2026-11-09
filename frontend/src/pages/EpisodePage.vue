@@ -55,6 +55,7 @@ import { withLocalMediaAuth } from '@/utils/mediaAuth'
 import { playWordPronunciation } from '@/utils/speakWord'
 import EntryCard from '@/components/EntryCard.vue'
 import StarIcon from '@/components/icons/StarIcon.vue'
+import AuthorAvatar from '@/components/AuthorAvatar.vue'
 import PlayerControls from '@/components/PlayerControls.vue'
 import VideoPlayer from '@/components/player/VideoPlayer.vue'
 import PlayerSubtitleOverlay from '@/components/player/PlayerSubtitleOverlay.vue'
@@ -3009,6 +3010,12 @@ function subtitleRowClass(index: number) {
           </span>
         </p>
         <p class="text-xs text-neutral-500 dark:text-neutral-400 max-lg:hidden flex items-center gap-1.5 min-w-0">
+          <AuthorAvatar
+            v-if="!episode.series"
+            :src="episode.author.avatar"
+            :name="episode.author.name"
+            :size="18"
+          />
           <template v-if="!episode.series">
             <RouterLink
               v-if="episode.author.id"

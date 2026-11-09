@@ -4,6 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import { getAuthorDetail, getEpisodeList } from '@/api/episodes'
 import AuthorSubscribeButton from '@/components/AuthorSubscribeButton.vue'
 import EpisodeCard from '@/components/EpisodeCard.vue'
+import AuthorAvatar from '@/components/AuthorAvatar.vue'
 import { accentIconFor } from '@/constants/accentOptions'
 import { useAuthStore } from '@/stores/auth'
 import type { AuthorCatalogItem, EpisodeSummary } from '@/types'
@@ -74,7 +75,10 @@ watch(authorId, load)
         >
           ← 返回视频
         </RouterLink>
-        <h1 class="mt-2 text-2xl font-semibold tracking-tight">{{ author.name }}</h1>
+        <div class="mt-2 flex items-center gap-3 min-w-0">
+          <AuthorAvatar :src="author.avatar" :name="author.name" :size="56" />
+          <h1 class="text-2xl font-semibold tracking-tight truncate">{{ author.name }}</h1>
+        </div>
         <div class="mt-3 flex flex-wrap items-center gap-3">
           <AuthorSubscribeButton
             :author-id="author.id"

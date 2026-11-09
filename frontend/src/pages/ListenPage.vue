@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AuthorSubscribeButton from '@/components/AuthorSubscribeButton.vue'
+import AuthorAvatar from '@/components/AuthorAvatar.vue'
 import ListenCue from '@/components/listen/ListenCue.vue'
 import ListenEpisodePeek from '@/components/listen/ListenEpisodePeek.vue'
 import ListenMoreSheet from '@/components/listen/ListenMoreSheet.vue'
@@ -537,6 +538,11 @@ const backdropTint = computed(() => {
                 {{ listen.episode?.short_title }}
               </h1>
               <div class="mt-1.5 flex items-center gap-2 text-sm text-white/80">
+                <AuthorAvatar
+                  :src="listen.episode?.author?.avatar"
+                  :name="listen.episode?.author?.name"
+                  :size="18"
+                />
                 <span class="truncate">{{ listen.episode?.author?.name }}</span>
                 <AuthorSubscribeButton
                   v-if="listen.episode?.author?.id"

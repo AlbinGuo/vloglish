@@ -5,6 +5,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import ContactAuthorDialog from '@/components/ContactAuthorDialog.vue'
 import FeedbackModal from '@/components/FeedbackModal.vue'
+import ProfileEditSheet from '@/components/ProfileEditSheet.vue'
 import LearningHeatmapChart from '@/components/charts/LearningHeatmapChart.vue'
 import LearningStatCard from '@/components/learning/LearningStatCard.vue'
 import { getLearningCalendar, getLearningSummary } from '@/api/learning'
@@ -51,7 +52,7 @@ const isPhone = useIsPhone()
 
 const contactAuthorOpen = ref(false)
 const feedbackOpen = ref(false)
-const cycling = ref(false)
+const profileEditOpen = ref(false)
 
 const idCopied = ref(false)
 let copyTimer: ReturnType<typeof setTimeout> | undefined
@@ -188,18 +189,6 @@ const statCards = computed(() => {
   return cards
 })
 
-async function changeAvatar() {
-  if (cycling.value) return
-  cycling.value = true
-  try {
-    await auth.cycleAvatar()
-  } catch {
-    /* 忽略 */
-  } finally {
-    cycling.value = false
-  }
-}
-
 async function handleLogout() {
   await auth.logout()
   notifications.clear()
@@ -328,11 +317,11 @@ async function submitCredentials() {
         <button
           type="button"
           class="group relative shrink-0 rounded-full ring-2 ring-brand transition active:scale-95"
-          :disabled="cycling"
           aria-label="更换头像"
-          @click="changeAvatar"
+          @click="profileEditOpen = true"
         >
           <UserAvatar
+            :avatar-url="auth.user?.avatar_url"
             :avatar-key="auth.user?.avatar_key"
             :user-id="auth.user?.id"
             size-class="w-16 h-16"
@@ -611,6 +600,15 @@ async function submitCredentials() {
       <button
         type="button"
         class="flex w-full items-center gap-3 border-t border-line-soft px-4 py-3.5 text-left text-ink-soft transition hover:bg-sunken"
+        @click="profileEditOpen = true"
+      >
+        <AppIcon name="user" class="h-5 w-5 shrink-0" />
+        <span class="flex-1 text-[14px]">编辑昵称与头像</span>
+        <AppIcon name="chevron-right" class="h-4 w-4 text-ink-faint" />
+      </button>
+      <button
+        type="button"
+        class="flex w-full items-center gap-3 border-t border-line-soft px-4 py-3.5 text-left text-ink-soft transition hover:bg-sunken"
         @click="feedbackOpen = true"
       >
         <AppIcon name="inbox" class="h-5 w-5 shrink-0" />
@@ -677,6 +675,7 @@ async function submitCredentials() {
 
     <ContactAuthorDialog v-model:open="contactAuthorOpen" />
     <FeedbackModal v-model:open="feedbackOpen" />
+    <ProfileEditSheet v-model:open="profileEditOpen" />
 
     <!-- 绑定邮箱弹窗 -->
     <div

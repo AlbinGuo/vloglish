@@ -15,6 +15,7 @@ def author_dict(author: Author) -> dict:
         "gender": author.gender,
         "nationality": author.nationality,
         "accent": author.accent,
+        "avatar": resolve_cover_url(getattr(author, "avatar_url", "") or ""),
     }
 
 

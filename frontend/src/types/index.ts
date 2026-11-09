@@ -6,6 +6,8 @@ export interface User {
   phone: string | null
   is_member: boolean
   avatar_key?: string | null
+  /** 用户自定义头像（七牛 URL），优先于 avatar_key */
+  avatar_url?: string | null
   member_until?: string | null
   member_plan?: string | null
   wx_bound?: boolean
@@ -19,6 +21,8 @@ export interface Author {
   gender: 'm' | 'f'
   nationality: string
   accent: string
+  /** 作者头像 URL；空则前端展示默认头像 */
+  avatar?: string
   is_subscribed?: boolean
   subscriber_count?: number
 }
@@ -30,6 +34,7 @@ export interface AuthorCatalogItem {
   gender: 'm' | 'f' | string
   nationality: string
   accent: string
+  avatar?: string
   episode_count: number
   covers: string[]
   is_subscribed?: boolean

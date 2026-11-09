@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import DifficultyStarsInput from '@/components/admin/DifficultyStarsInput.vue'
 import SubtitleHighlightEditor from '@/components/admin/SubtitleHighlightEditor.vue'
+import AuthorAvatar from '@/components/AuthorAvatar.vue'
 import {
   adminCreateEpisode,
   adminCurateAudienceNotes,
@@ -89,7 +90,7 @@ const form = ref<AdminEpisodePayload>({
   rejection_reason: '',
   series_id: null,
   series_index: null,
-  author: { name: '', gender: 'm', nationality: '', accent: '美国' },
+  author: { name: '', gender: 'm', nationality: '', accent: '美国', avatar: '' },
   tag_names: [],
   subtitles: [],
   vocab_summary: '',
@@ -749,6 +750,9 @@ async function fetchFromSourceUrl() {
     if (data.author_name) {
       form.value.author.name = data.author_name
     }
+    if (data.author_avatar) {
+      form.value.author.avatar = data.author_avatar
+    }
     form.value.original_video_url = data.original_video_url
     form.value.cover = data.cover
     form.value.thumbnail_url = data.thumbnail_url
@@ -1067,6 +1071,17 @@ watch(
           <label class="block text-sm">
             <span class="text-neutral-500">姓名 *</span>
             <input v-model="form.author.name" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2" />
+          </label>
+          <label class="block text-sm">
+            <span class="text-neutral-500">头像 URL（留空则显示默认头像）</span>
+            <div class="mt-1 flex items-center gap-2">
+              <AuthorAvatar :src="form.author.avatar" :name="form.author.name" :size="36" />
+              <input
+                v-model="form.author.avatar"
+                placeholder="https://..."
+                class="w-full rounded-lg border border-black/10 px-3 py-2"
+              />
+            </div>
           </label>
           <div class="block text-sm">
             <span class="text-neutral-500">口音</span>

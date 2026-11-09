@@ -11,6 +11,7 @@ import { displayLearnerCount } from '@/utils/displayLearnerCount'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
 import { isOpenToFreeUsers } from '@/utils/episodeAccess'
 import EpisodeAccessBadge from '@/components/EpisodeAccessBadge.vue'
+import AuthorAvatar from '@/components/AuthorAvatar.vue'
 
 const props = defineProps<{ episode: EpisodeSummary; to: string }>()
 
@@ -43,6 +44,7 @@ function learnerLabel() {
         />
         <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2.5 pb-2 pt-7">
           <div class="flex items-center gap-1.5 min-w-0 pr-14">
+            <AuthorAvatar :src="episode.author.avatar" :name="episode.author.name" :size="16" />
             <span class="text-white text-xs font-medium truncate">@{{ episode.author.name }}</span>
             <img
               v-if="accentIcon"

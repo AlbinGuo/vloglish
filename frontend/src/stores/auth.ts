@@ -6,6 +6,8 @@ import {
   deleteAccount as deleteAccountApi,
   fetchCurrentUser,
   setUserAvatar,
+  updateProfile as updateProfileApi,
+  uploadUserAvatar as uploadUserAvatarApi,
   login as loginApi,
   logout as logoutApi,
   refreshAuthToken,
@@ -90,6 +92,18 @@ export const useAuthStore = defineStore('auth', () => {
     return me
   }
 
+  async function updateProfile(payload: { nickname?: string | null; avatar_key?: string | null }) {
+    const me = await updateProfileApi(payload)
+    user.value = me
+    return me
+  }
+
+  async function uploadAvatar(file: File | Blob, filename?: string) {
+    const me = await uploadUserAvatarApi(file, filename)
+    user.value = me
+    return me
+  }
+
   async function setCredentials(email: string, password: string, currentPassword?: string) {
     const me = await setAccountCredentialsApi({ email, password, current_password: currentPassword })
     user.value = me
@@ -146,6 +160,8 @@ export const useAuthStore = defineStore('auth', () => {
     fetchMe,
     activateMembership,
     cycleAvatar,
+    updateProfile,
+    uploadAvatar,
     setCredentials,
     logout,
     deleteAccount,

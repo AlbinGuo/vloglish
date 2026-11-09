@@ -120,6 +120,10 @@ jobs:
         working-directory: app
         run: python3 scripts/add-speech-permissions.py ios/App
 
+      - name: 注入相册/相机权限（Info.plist）
+        working-directory: app
+        run: python3 scripts/add-photo-permissions.py ios/App
+
       - name: 开启 iOS 后台播放（音频后台模式）
         working-directory: app
         run: python3 scripts/add-background-audio.py ios/App

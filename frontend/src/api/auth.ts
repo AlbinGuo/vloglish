@@ -57,6 +57,22 @@ export async function setUserAvatar(payload: { avatar_key?: string; cycle?: bool
   return data
 }
 
+export async function updateProfile(payload: {
+  nickname?: string | null
+  avatar_key?: string | null
+}) {
+  const { data } = await api.post<User>('/api/auth/profile/', payload)
+  return data
+}
+
+/** 上传自定义头像照片（服务端代理存储到七牛） */
+export async function uploadUserAvatar(file: File | Blob, filename = 'avatar.jpg') {
+  const form = new FormData()
+  form.append('file', file, filename)
+  const { data } = await api.post<User>('/api/auth/avatar/upload/', form, { timeout: 120_000 })
+  return data
+}
+
 export async function activateMembership(activationCode: string) {
   const { data } = await api.post<User>('/api/auth/activate/', {
     activation_code: activationCode.trim(),

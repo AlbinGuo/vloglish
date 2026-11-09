@@ -145,6 +145,7 @@ watch(
       @click.stop="toggle"
     >
       <UserAvatar
+        :avatar-url="auth.user?.avatar_url"
         :avatar-key="auth.user?.avatar_key"
         :user-id="auth.user?.id"
         size-class="w-9 h-9"
@@ -163,6 +164,7 @@ watch(
       >
         <div class="flex items-center gap-2.5 px-3 py-3 border-b border-black/5 dark:border-white/10">
           <UserAvatar
+            :avatar-url="auth.user?.avatar_url"
             :avatar-key="auth.user?.avatar_key"
             :user-id="auth.user?.id"
             size-class="w-10 h-10"

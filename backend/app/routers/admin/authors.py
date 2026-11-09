@@ -22,6 +22,7 @@ def _author_out(author: Author, episode_count: int) -> AdminAuthorOut:
         gender=author.gender,
         nationality=author.nationality,
         accent=author.accent,
+        avatar=author.avatar_url or "",
         episode_count=episode_count,
     )
 
@@ -61,6 +62,7 @@ def create_author(
         gender=body.gender,
         nationality=body.nationality.strip(),
         accent=accent,
+        avatar_url=(body.avatar or "").strip(),
     )
     db.add(author)
     db.commit()
@@ -98,6 +100,8 @@ def update_author(
         author.nationality = data["nationality"].strip()
     if "accent" in data:
         author.accent = new_accent
+    if "avatar" in data:
+        author.avatar_url = (data["avatar"] or "").strip()
 
     db.commit()
     db.refresh(author)
@@ -141,6 +145,9 @@ def merge_author(
         raise HTTPException(status_code=404, detail="源作者不存在")
     if not target:
         raise HTTPException(status_code=404, detail="目标作者不存在")
+
+    if (source.avatar_url or "").strip() and not (target.avatar_url or "").strip():
+        target.avatar_url = source.avatar_url
 
     db.query(Episode).filter(Episode.author_id == source.id).update(
         {Episode.author_id: target.id},

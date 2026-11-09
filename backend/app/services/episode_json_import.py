@@ -244,6 +244,7 @@ def export_episodes_json(
                         "gender": ep.author.gender,
                         "nationality": ep.author.nationality,
                         "accent": ep.author.accent,
+                        "avatar": ep.author.avatar_url or "",
                     },
                     "tags": [{"id": t.id, "name": t.name} for t in ep.tags],
                     "media": {

@@ -52,6 +52,7 @@ class FetchedMedia:
     title: str
     summary: str
     author_name: str
+    author_avatar: str
     duration: float
     source_id: str
     webpage_url: str
@@ -94,6 +95,13 @@ def _extract_video_metadata(info: dict) -> dict[str, str]:
             author_name = val
             break
 
+    author_avatar = ""
+    for key in ("uploader_avatar", "channel_avatar", "creator_avatar", "uploader_thumbnail"):
+        val = str(info.get(key) or "").strip()
+        if val.startswith(("http://", "https://")):
+            author_avatar = val
+            break
+
     if len(summary) > 2000:
         summary = summary[:1997].rstrip() + "..."
 
@@ -101,6 +109,7 @@ def _extract_video_metadata(info: dict) -> dict[str, str]:
         "title": title or "Untitled",
         "summary": summary,
         "author_name": author_name,
+        "author_avatar": author_avatar,
     }
 
 
@@ -437,6 +446,7 @@ def _download_bilibili_via_api(url: str, max_height: int, ffmpeg_dir: Path) -> "
             title=str(data.get("title") or bvid),
             summary=str(data.get("desc") or "")[:2000],
             author_name=str((data.get("owner") or {}).get("name") or ""),
+            author_avatar=str((data.get("owner") or {}).get("face") or ""),
             duration=duration,
             source_id=bvid,
             webpage_url=url,
@@ -1109,6 +1119,70 @@ def _load_info_json(work_dir: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def _fetch_youtube_channel_avatar(tools: YtDlpTools, channel_url: str) -> str:
+    """最佳努力地抓取 YouTube 频道头像；失败/超时返回空字符串，不阻断主流程。"""
+    if not channel_url or os.getenv("YT_DLP_FETCH_CHANNEL_AVATAR", "1").strip().lower() in {
+        "0", "false", "no", "off"
+    }:
+        return ""
+    timeout_sec = int(os.getenv("YT_DLP_CHANNEL_AVATAR_TIMEOUT", "20"))
+    try:
+        cmd = [
+            str(tools.yt_dlp),
+            "--skip-download",
+            "--playlist-items",
+            "0",
+            "--dump-single-json",
+            "--quiet",
+            "--no-warnings",
+            "--no-progress",
+        ]
+        cmd.extend(_yt_dlp_cli_extras(url=channel_url))
+        cmd.append(channel_url)
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout_sec,
+            env=_yt_dlp_subprocess_env(),
+        )
+        if proc.returncode != 0 or not (proc.stdout or "").strip():
+            return ""
+        try:
+            data = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            return ""
+        if not isinstance(data, dict):
+            return ""
+        for key in ("uploader_avatar", "channel_avatar", "avatar", "thumbnail"):
+            val = str(data.get(key) or "").strip()
+            if val.startswith(("http://", "https://")):
+                return val
+        thumbs = data.get("thumbnails")
+        if isinstance(thumbs, list) and thumbs:
+            best_url = ""
+            best_score = -1
+            for t in thumbs:
+                if not isinstance(t, dict):
+                    continue
+                u = str(t.get("url") or "").strip()
+                if not u.startswith(("http://", "https://")):
+                    continue
+                w = int(t.get("width") or 0)
+                h = int(t.get("height") or 0)
+                score = w * h if (w and h) else int(t.get("preference") or 0)
+                if score > best_score:
+                    best_score = score
+                    best_url = u
+            if best_url:
+                return best_url
+    except Exception:
+        return ""
+    return ""
+
+
 def download_source_media(
     url: str,
     *,
@@ -1259,6 +1333,10 @@ def download_source_media(
 
     info = _load_info_json(work_dir)
     meta = _extract_video_metadata(info)
+    if not (meta.get("author_avatar") or "").strip():
+        channel_url = str(info.get("channel_url") or info.get("uploader_url") or "").strip()
+        if channel_url:
+            meta["author_avatar"] = _fetch_youtube_channel_avatar(tools, channel_url)
     video_path = _find_media_file(work_dir, "media", (".mp4", ".webm", ".mkv", ".ts"))
     if not video_path:
         shutil.rmtree(work_dir, ignore_errors=True)
@@ -1287,6 +1365,7 @@ def download_source_media(
         title=title,
         summary=meta["summary"],
         author_name=meta["author_name"],
+        author_avatar=meta.get("author_avatar", ""),
         duration=duration,
         source_id=source_id,
         webpage_url=webpage_url,
@@ -1365,6 +1444,7 @@ def upload_fetched_media(
             "title": display_title,
             "summary": display_summary,
             "author_name": fetched.author_name,
+            "author_avatar": fetched.author_avatar,
             "original_video_url": fetched.webpage_url,
             "cover": uploads.get("cover", ""),
             "thumbnail_url": uploads.get("thumbnail_url", ""),
@@ -1457,6 +1537,7 @@ def upload_fetched_media(
         "title": display_title,
         "summary": display_summary,
         "author_name": fetched.author_name,
+        "author_avatar": fetched.author_avatar,
         "original_video_url": fetched.webpage_url,
         "cover": uploads.get("cover", ""),
         "thumbnail_url": uploads.get("thumbnail_url", ""),

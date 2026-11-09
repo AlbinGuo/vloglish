@@ -36,6 +36,7 @@ class Author(Base):
     gender: Mapped[str] = mapped_column(String(1), default="m")
     nationality: Mapped[str] = mapped_column(String(16), default="")
     accent: Mapped[str] = mapped_column(String(32), default="")
+    avatar_url: Mapped[str] = mapped_column(Text, default="")
 
 
 class EpisodeSeries(Base):
@@ -263,6 +264,8 @@ class User(Base):
     wx_unionid: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     # 默认头像编号，如 fox / owl；注册或首次登录写入
     avatar_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # 用户自定义头像（七牛 URL），优先级高于 avatar_key；空则展示预设头像
+    avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_member: Mapped[bool] = mapped_column(Boolean, default=False)
     is_staff: Mapped[bool] = mapped_column(Boolean, default=False)

@@ -613,6 +613,7 @@ watch(
           >
             <UserAvatar
               v-if="auth.isLoggedIn"
+              :avatar-url="auth.user?.avatar_url"
               :avatar-key="auth.user?.avatar_key"
               :user-id="auth.user?.id"
               size-class="w-7 h-7"

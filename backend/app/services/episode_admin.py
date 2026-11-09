@@ -38,18 +38,22 @@ def next_episode_index(db: Session) -> int:
 
 
 def get_or_create_author(db: Session, data: dict) -> Author:
+    avatar = (data.get("avatar") or "").strip()
     author = (
         db.query(Author)
         .filter(Author.name == data["name"], Author.accent == data.get("accent", ""))
         .first()
     )
     if author:
+        if avatar and not (author.avatar_url or "").strip():
+            author.avatar_url = avatar
         return author
     author = Author(
         name=data["name"],
         gender=data.get("gender", "m"),
         nationality=data.get("nationality", ""),
         accent=data.get("accent", ""),
+        avatar_url=avatar,
     )
     db.add(author)
     db.flush()

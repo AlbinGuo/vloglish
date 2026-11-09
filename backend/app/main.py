@@ -407,6 +407,15 @@ def _migrate_schema():
     if "avatar_key" not in cols:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN avatar_key VARCHAR(32)"))
+    if "avatar_url" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url TEXT"))
+        print("[vloglish] migrated users.avatar_url")
+    author_cols = {c["name"] for c in insp.get_columns("authors")}
+    if "avatar_url" not in author_cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE authors ADD COLUMN avatar_url TEXT NOT NULL DEFAULT ''"))
+        print("[vloglish] migrated authors.avatar_url")
     if "my_corpus_seen_at" not in cols:
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE users ADD COLUMN my_corpus_seen_at {datetime_type}"))

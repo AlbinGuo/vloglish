@@ -11,6 +11,7 @@ import { displayLearnerCount } from '@/utils/displayLearnerCount'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
 import { isOpenToFreeUsers } from '@/utils/episodeAccess'
 import EpisodeAccessBadge from '@/components/EpisodeAccessBadge.vue'
+import AuthorAvatar from '@/components/AuthorAvatar.vue'
 
 const props = defineProps<{
   episode: EpisodeSummary
@@ -100,6 +101,7 @@ function learnerLabel() {
         <h3 class="font-semibold text-sm leading-snug line-clamp-1">{{ episode.short_title }}</h3>
         <p class="text-xs text-neutral-500 line-clamp-1">{{ episode.summary }}</p>
         <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-neutral-400">
+          <AuthorAvatar :src="episode.author.avatar" :name="episode.author.name" :size="16" />
           <span>{{ episode.voca_size }} 词 · {{ episode.subtitle_count }} 句 · {{ episode.author.name }}</span>
           <img
             v-if="accentIcon"

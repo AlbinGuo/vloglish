@@ -499,6 +499,7 @@ export interface AdminAuthor {
   gender: string
   nationality: string
   accent: string
+  avatar: string
   episode_count: number
 }
 
@@ -862,6 +863,7 @@ export interface AdminFetchMediaResult {
   title: string
   summary: string
   author_name: string
+  author_avatar?: string
   original_video_url: string
   cover: string
   thumbnail_url: string

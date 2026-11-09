@@ -9,6 +9,7 @@ import {
   type AdminAuthor,
   type AdminAuthorInput,
 } from '@/api/admin'
+import AuthorAvatar from '@/components/AuthorAvatar.vue'
 
 const loading = ref(true)
 const saving = ref(false)
@@ -18,10 +19,10 @@ const rows = ref<AdminAuthor[]>([])
 const search = ref('')
 
 const showCreate = ref(false)
-const form = ref<AdminAuthorInput>({ name: '', gender: 'm', nationality: '', accent: '' })
+const form = ref<AdminAuthorInput>({ name: '', gender: 'm', nationality: '', accent: '', avatar: '' })
 
 const editing = ref<AdminAuthor | null>(null)
-const editForm = ref<AdminAuthorInput>({ name: '', gender: 'm', nationality: '', accent: '' })
+const editForm = ref<AdminAuthorInput>({ name: '', gender: 'm', nationality: '', accent: '', avatar: '' })
 
 const merging = ref<AdminAuthor | null>(null)
 const mergeTargetId = ref<number | null>(null)
@@ -65,9 +66,10 @@ async function createAuthor() {
       gender: form.value.gender,
       nationality: form.value.nationality.trim(),
       accent: form.value.accent.trim(),
+      avatar: form.value.avatar.trim(),
     })
     showCreate.value = false
-    form.value = { name: '', gender: 'm', nationality: '', accent: '' }
+    form.value = { name: '', gender: 'm', nationality: '', accent: '', avatar: '' }
     success.value = '作者已创建'
     await load()
   } catch (e: unknown) {
@@ -85,6 +87,7 @@ function openEdit(row: AdminAuthor) {
     gender: row.gender,
     nationality: row.nationality,
     accent: row.accent,
+    avatar: row.avatar || '',
   }
   error.value = ''
   success.value = ''
@@ -100,6 +103,7 @@ async function saveEdit() {
       gender: editForm.value.gender,
       nationality: editForm.value.nationality.trim(),
       accent: editForm.value.accent.trim(),
+      avatar: editForm.value.avatar.trim(),
     })
     editing.value = null
     success.value = '已保存'
@@ -191,7 +195,12 @@ onMounted(load)
         </thead>
         <tbody>
           <tr v-for="row in filtered" :key="row.id" class="border-t border-black/5">
-            <td class="px-4 py-3 font-medium">{{ row.name }}</td>
+            <td class="px-4 py-3 font-medium">
+              <div class="flex items-center gap-2">
+                <AuthorAvatar :src="row.avatar" :name="row.name" :size="28" />
+                <span>{{ row.name }}</span>
+              </div>
+            </td>
             <td class="px-4 py-3">{{ row.accent || '-' }}</td>
             <td class="px-4 py-3">{{ row.nationality || '-' }}</td>
             <td class="px-4 py-3">{{ row.gender === 'f' ? '女' : '男' }}</td>
@@ -216,6 +225,10 @@ onMounted(load)
         <input v-model="form.name" class="w-full rounded-lg border px-3 py-2 text-sm" placeholder="姓名 *" />
         <input v-model="form.accent" class="w-full rounded-lg border px-3 py-2 text-sm" placeholder="口音，如：美国 / 英国" />
         <input v-model="form.nationality" class="w-full rounded-lg border px-3 py-2 text-sm" placeholder="国籍 emoji，如 🇺🇸" />
+        <div class="flex items-center gap-2">
+          <AuthorAvatar :src="form.avatar" :name="form.name" :size="32" />
+          <input v-model="form.avatar" class="w-full rounded-lg border px-3 py-2 text-sm" placeholder="头像 URL（可留空，显示默认头像）" />
+        </div>
         <select v-model="form.gender" class="w-full rounded-lg border px-3 py-2 text-sm">
           <option value="m">男</option>
           <option value="f">女</option>
@@ -236,6 +249,10 @@ onMounted(load)
         <input v-model="editForm.name" class="w-full rounded-lg border px-3 py-2 text-sm" />
         <input v-model="editForm.accent" class="w-full rounded-lg border px-3 py-2 text-sm" />
         <input v-model="editForm.nationality" class="w-full rounded-lg border px-3 py-2 text-sm" />
+        <div class="flex items-center gap-2">
+          <AuthorAvatar :src="editForm.avatar" :name="editForm.name" :size="32" />
+          <input v-model="editForm.avatar" class="w-full rounded-lg border px-3 py-2 text-sm" placeholder="头像 URL（可留空，显示默认头像）" />
+        </div>
         <select v-model="editForm.gender" class="w-full rounded-lg border px-3 py-2 text-sm">
           <option value="m">男</option>
           <option value="f">女</option>

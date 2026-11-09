@@ -787,6 +787,7 @@ def authors_catalog(
                 "gender": author.gender,
                 "nationality": author.nationality or "",
                 "accent": author.accent or "",
+                "avatar": resolve_cover_url(author.avatar_url or ""),
                 "episode_count": 0,
                 "covers": [],
             }
@@ -836,6 +837,7 @@ def author_detail(
             "gender": author.gender,
             "nationality": author.nationality or "",
             "accent": author.accent or "",
+            "avatar": resolve_cover_url(author.avatar_url or ""),
             "episode_count": len(episodes),
             "covers": covers,
         },

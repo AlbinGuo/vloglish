@@ -1,7 +1,10 @@
 import secrets
+import tempfile
+import uuid
 from datetime import datetime
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -40,6 +43,7 @@ from ..schemas import (
     ResetPasswordByEmailIn,
     SetAvatarIn,
     SetCredentialsIn,
+    ProfileUpdateIn,
     UserOut,
 )
 from ..services.daily_visits import record_daily_visit
@@ -53,6 +57,8 @@ from ..services.user_avatar import (
 )
 from ..services.user_geo import apply_signup_geo, backfill_signup_geo
 from ..services.account_merge import is_wechat_only, is_wechat_placeholder_email, wechat_placeholder_email
+from ..media import resolve_cover_url
+from ..qiniu_storage import QiniuConfig, delete_object, upload_file
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -68,6 +74,7 @@ def user_out(user: User) -> UserOut:
         phone=user.phone,
         is_member=user_is_member(user),
         avatar_key=user.avatar_key,
+        avatar_url=resolve_cover_url(user.avatar_url or "") or None,
         member_until=until,
         wx_bound=bool((user.wx_openid or "").strip()),
         wechat_only=is_wechat_only(user),
@@ -473,8 +480,104 @@ def set_avatar(
         if key not in DEFAULT_AVATAR_KEYS:
             raise HTTPException(status_code=400, detail="无效的头像")
         user.avatar_key = key
+    # 选择预设头像即清除自定义照片
+    user.avatar_url = None
     db.commit()
     db.refresh(user)
+    return user_out(user)
+
+
+@router.post("/profile/", response_model=UserOut)
+def update_profile(
+    body: ProfileUpdateIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """用户自助修改昵称 / 头像（App、Web 通用）。"""
+    if body.nickname is not None:
+        nick = body.nickname.strip()[:64]
+        user.nickname = nick or None
+    if body.avatar_key is not None:
+        key = body.avatar_key.strip()
+        if key:
+            if key not in DEFAULT_AVATAR_KEYS:
+                raise HTTPException(status_code=400, detail="无效的头像")
+            user.avatar_key = key
+            # 选择预设头像即清除自定义照片
+            user.avatar_url = None
+    ensure_user_avatar(user)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user_out(user)
+
+
+AVATAR_MAX_BYTES = 5 * 1024 * 1024
+_AVATAR_CONTENT_TYPES = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
+
+
+def _avatar_object_key(cfg: QiniuConfig, url: str) -> str:
+    """从自定义头像 URL 反解出七牛 object key（用于清理旧文件）。"""
+    base = (url or "").strip()
+    if not base:
+        return ""
+    prefix = cfg.domain.rstrip("/") + "/"
+    if base.startswith(prefix):
+        return base[len(prefix):]
+    return ""
+
+
+@router.post("/avatar/upload/", response_model=UserOut)
+def upload_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """用户上传自定义头像：后端代理上传到七牛，成功后存 users.avatar_url。"""
+    content_type = (file.content_type or "").lower().split(";")[0].strip()
+    ext = _AVATAR_CONTENT_TYPES.get(content_type)
+    if not ext:
+        raise HTTPException(status_code=400, detail="仅支持 JPG / PNG / WebP / GIF 图片")
+
+    content = file.file.read(AVATAR_MAX_BYTES + 1)
+    if not content:
+        raise HTTPException(status_code=400, detail="图片内容为空")
+    if len(content) > AVATAR_MAX_BYTES:
+        raise HTTPException(status_code=400, detail="图片不能超过 5MB")
+
+    try:
+        cfg = QiniuConfig.from_env()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    key = cfg.object_key("avatars", str(user.id), f"{uuid.uuid4().hex}{ext}")
+    tmp_path = Path(tempfile.gettempdir()) / f"avatar_{uuid.uuid4().hex}{ext}"
+    old_url = user.avatar_url or ""
+    try:
+        tmp_path.write_bytes(content)
+        new_url = upload_file(cfg, tmp_path, key)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"头像上传失败：{exc}") from exc
+    finally:
+        try:
+            tmp_path.unlink()
+        except OSError:
+            pass
+
+    user.avatar_url = new_url
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    old_key = _avatar_object_key(cfg, old_url)
+    if old_key and old_key != key:
+        delete_object(cfg, old_key)
     return user_out(user)
 
 
@@ -527,6 +630,7 @@ def delete_account(
     user.wx_unionid = None
     user.wx_session_key = None
     user.avatar_key = None
+    user.avatar_url = None
     user.is_active = False
     user.is_member = False
     user.member_until = None
