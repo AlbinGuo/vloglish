@@ -20,6 +20,7 @@ import {
   adminListSeries,
   adminListTags,
   adminUpdateEpisode,
+  adminUploadAuthorAvatar,
   type AdminAudienceNote,
   type AdminEpisodePayload,
   type AdminReleasePopupStats,
@@ -46,6 +47,8 @@ const saving = ref(false)
 const importing = ref(false)
 const enriching = ref(false)
 const fetching = ref(false)
+const uploadingAuthorAvatar = ref(false)
+const authorAvatarInput = ref<HTMLInputElement | null>(null)
 const curatingNotes = ref(false)
 const publishingNotes = ref(false)
 const audienceNotes = ref<AdminAudienceNote[]>([])
@@ -96,6 +99,38 @@ const form = ref<AdminEpisodePayload>({
   vocab_summary: '',
   video_context: '',
 })
+
+function pickAuthorAvatar() {
+  if (uploadingAuthorAvatar.value) return
+  authorAvatarInput.value?.click()
+}
+
+async function handleAuthorAvatarFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    error.value = '请选择图片文件'
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    error.value = '图片不能超过 5MB'
+    return
+  }
+  uploadingAuthorAvatar.value = true
+  error.value = ''
+  try {
+    const res = await adminUploadAuthorAvatar(file)
+    form.value.author.avatar = res.url
+    success.value = '作者头像已上传，保存后生效'
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+    error.value = msg || '上传失败'
+  } finally {
+    uploadingAuthorAvatar.value = false
+  }
+}
 
 const tagsInput = ref('')
 const seriesOptions = ref<AdminSeries[]>([])
@@ -1080,6 +1115,21 @@ watch(
                 v-model="form.author.avatar"
                 placeholder="https://..."
                 class="w-full rounded-lg border border-black/10 px-3 py-2"
+              />
+              <button
+                type="button"
+                class="shrink-0 rounded-lg border border-black/10 px-3 py-2 text-sm whitespace-nowrap disabled:opacity-50"
+                :disabled="uploadingAuthorAvatar"
+                @click="pickAuthorAvatar"
+              >
+                {{ uploadingAuthorAvatar ? '上传中…' : '上传' }}
+              </button>
+              <input
+                ref="authorAvatarInput"
+                type="file"
+                accept="image/*"
+                class="hidden"
+                @change="handleAuthorAvatarFile"
               />
             </div>
           </label>

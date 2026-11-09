@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ...database import get_db
 from ...deps import get_current_admin
+from ...media import resolve_cover_url
 from ...models import Episode, EpisodeAudienceNote, User, UserNotification
 from ...schemas import (
     AdminEpisodeCreateIn,
@@ -115,7 +116,7 @@ def _episode_detail(ep: Episode, submitter: User | None = None) -> AdminEpisodeD
             "gender": ep.author.gender,
             "nationality": ep.author.nationality,
             "accent": ep.author.accent,
-            "avatar": ep.author.avatar_url or "",
+            "avatar": resolve_cover_url(ep.author.avatar_url or ""),
         },
         tag_names=[t.name for t in ep.tags],
         subtitles=[_subtitle_out(s) for s in sorted(ep.subtitles, key=lambda x: x.index)],
@@ -272,7 +273,7 @@ def fetch_media(
             title=result["title"],
             summary=result.get("summary", ""),
             author_name=result.get("author_name", ""),
-            author_avatar=result.get("author_avatar", ""),
+            author_avatar=resolve_cover_url(result.get("author_avatar", "")),
             original_video_url=result["original_video_url"],
             cover=result["cover"],
             thumbnail_url=result["thumbnail_url"],

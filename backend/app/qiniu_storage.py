@@ -157,6 +157,14 @@ def strip_qiniu_download_token(url: str) -> str:
     return urllib.parse.urlunparse(parsed._replace(query=urllib.parse.urlencode(kept)))
 
 
+def strip_own_signature(url: str) -> str:
+    """把本域七牛资源的签名 URL 还原成可持久化的 public URL（去掉 e/token）。"""
+    raw = (url or "").strip()
+    if raw and is_our_qiniu_url(raw):
+        return strip_qiniu_download_token(raw)
+    return raw
+
+
 def is_our_qiniu_url(url: str, cfg: QiniuConfig | None = None) -> bool:
     raw = (url or "").strip()
     if not raw.startswith(("http://", "https://")):

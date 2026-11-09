@@ -1119,68 +1119,203 @@ def _load_info_json(work_dir: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def _fetch_youtube_channel_avatar(tools: YtDlpTools, channel_url: str) -> str:
-    """最佳努力地抓取 YouTube 频道头像；失败/超时返回空字符串，不阻断主流程。"""
-    if not channel_url or os.getenv("YT_DLP_FETCH_CHANNEL_AVATAR", "1").strip().lower() in {
+_YOUTUBE_AVATAR_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+
+
+def _youtube_http_get(url: str, *, timeout: int = 20, want_bytes: bool = False):
+    """带 UA / 代理请求 YouTube 资源；失败返回 None。"""
+    if not url:
+        return None
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": _YOUTUBE_AVATAR_UA,
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://www.youtube.com/",
+            # 跳过欧洲地区 consent 拦截页
+            "Cookie": "SOCS=CAI; CONSENT=YES+cb",
+        },
+    )
+    proxy = _effective_yt_dlp_proxy()
+    try:
+        if proxy:
+            opener = urllib.request.build_opener(
+                urllib.request.ProxyHandler({"http": proxy, "https": proxy})
+            )
+            resp = opener.open(req, timeout=timeout)
+        else:
+            resp = urllib.request.urlopen(req, timeout=timeout)
+        try:
+            data = resp.read()
+        finally:
+            resp.close()
+    except Exception:
+        return None
+    return data if want_bytes else data.decode("utf-8", "replace")
+
+
+def _normalize_avatar_url(raw: str) -> str:
+    url = (raw or "").strip().replace("\\/", "/").replace("&amp;", "&")
+    if url.startswith("//"):
+        url = f"https:{url}"
+    if url.startswith("http://"):
+        url = "https://" + url[len("http://"):]
+    return url if url.startswith("https://") else ""
+
+
+def _best_avatar_from_thumbnails(thumbs) -> str:
+    best_url = ""
+    best_area = -1
+    if not isinstance(thumbs, list):
+        return ""
+    for item in thumbs:
+        if not isinstance(item, dict):
+            continue
+        url = _normalize_avatar_url(str(item.get("url") or ""))
+        if not url:
+            continue
+        w = int(item.get("width") or 0)
+        h = int(item.get("height") or 0)
+        area = w * h if (w and h) else 0
+        if area >= best_area:
+            best_area = area
+            best_url = url
+    return best_url
+
+
+def _avatar_from_html(html: str) -> str:
+    """优先取 <yt-avatar-shape> 里的 <img src>（真正的频道头像）。"""
+    if not html:
+        return ""
+    m = re.search(r"<yt-avatar-shape\b[^>]*>(.*?)</yt-avatar-shape>", html, re.S)
+    if m:
+        img = re.search(r"<img\b[^>]*\bsrc=\"([^\"]+)\"", m.group(1), re.S)
+        if img:
+            url = _normalize_avatar_url(img.group(1))
+            if url:
+                return url
+    # 回退：页面里 yt3.* 且带 =sNN（头像尺寸）的图片，banner 一般是 =wNNNN
+    for img in re.finditer(r"<img\b[^>]*\bsrc=\"([^\"]+)\"", html, re.S):
+        url = _normalize_avatar_url(img.group(1))
+        if "yt3." in url and re.search(r"=s\d+", url):
+            return url
+    return ""
+
+
+def _avatar_from_yt_initial_data(html: str) -> str:
+    m = re.search(r"var ytInitialData\s*=\s*(\{.*?\});\s*</script>", html, re.S)
+    if not m:
+        return ""
+    try:
+        data = json.loads(m.group(1))
+    except json.JSONDecodeError:
+        return ""
+
+    found: list[str] = []
+
+    def walk(node, depth: int = 0) -> None:
+        if depth > 40:
+            return
+        if isinstance(node, dict):
+            for key, val in node.items():
+                if key == "avatar" and isinstance(val, dict):
+                    url = _best_avatar_from_thumbnails(val.get("thumbnails"))
+                    if not url:
+                        image = val.get("image")
+                        if isinstance(image, dict):
+                            url = _best_avatar_from_thumbnails(image.get("sources"))
+                            if not url and isinstance(image.get("source"), dict):
+                                url = _normalize_avatar_url(str(image["source"].get("url") or ""))
+                    if url:
+                        found.append(url)
+                walk(val, depth + 1)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item, depth + 1)
+
+    walk(data)
+    return found[0] if found else ""
+
+
+def _avatar_object_stem(info: dict) -> str:
+    channel_id = str(info.get("channel_id") or "").strip()
+    if channel_id:
+        cleaned = re.sub(r"[^A-Za-z0-9_-]+", "", channel_id)[:48]
+        if cleaned:
+            return cleaned
+    handle = sanitize_slug(
+        str(info.get("uploader_id") or info.get("channel") or info.get("uploader") or "")
+    )
+    return handle or "channel"
+
+
+def _store_avatar_to_qiniu(image_url: str, info: dict, work_dir: Path) -> str:
+    """下载频道头像并上传七牛，返回七牛公开 URL；未配置七牛/失败返回空。"""
+    try:
+        cfg = QiniuConfig.from_env()
+    except RuntimeError:
+        return ""
+    data = _youtube_http_get(image_url, timeout=20, want_bytes=True)
+    if not isinstance(data, (bytes, bytearray)) or not data:
+        return ""
+    ext = ".jpg"
+    if bytes(data[:8]) == b"\x89PNG\r\n\x1a\n":
+        ext = ".png"
+    elif bytes(data[:6]) in (b"GIF87a", b"GIF89a"):
+        ext = ".gif"
+    elif bytes(data[:4]) == b"RIFF" and bytes(data[8:12]) == b"WEBP":
+        ext = ".webp"
+    stem = _avatar_object_stem(info)
+    try:
+        key = cfg.object_key("authors", "avatars", f"{stem}{ext}")
+    except Exception:
+        return ""
+    tmp = Path(work_dir) / f"__author_avatar_{stem}{ext}"
+    try:
+        tmp.write_bytes(data)
+        return upload_file(cfg, tmp, key)
+    except Exception:
+        return ""
+    finally:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+
+
+def _fetch_youtube_channel_avatar(tools: YtDlpTools, info: dict, work_dir: Path) -> str:
+    """抓取 YouTube 频道头像并上传七牛：优先解析频道页 <yt-avatar-shape> 的 img.src。
+
+    返回七牛 URL；未配置七牛时回退原始头像 URL；完全失败返回空字符串，不阻断主流程。
+    """
+    if os.getenv("YT_DLP_FETCH_CHANNEL_AVATAR", "1").strip().lower() in {
         "0", "false", "no", "off"
     }:
         return ""
-    timeout_sec = int(os.getenv("YT_DLP_CHANNEL_AVATAR_TIMEOUT", "20"))
-    try:
-        cmd = [
-            str(tools.yt_dlp),
-            "--skip-download",
-            "--playlist-items",
-            "0",
-            "--dump-single-json",
-            "--quiet",
-            "--no-warnings",
-            "--no-progress",
-        ]
-        cmd.extend(_yt_dlp_cli_extras(url=channel_url))
-        cmd.append(channel_url)
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout_sec,
-            env=_yt_dlp_subprocess_env(),
-        )
-        if proc.returncode != 0 or not (proc.stdout or "").strip():
-            return ""
-        try:
-            data = json.loads(proc.stdout)
-        except json.JSONDecodeError:
-            return ""
-        if not isinstance(data, dict):
-            return ""
-        for key in ("uploader_avatar", "channel_avatar", "avatar", "thumbnail"):
-            val = str(data.get(key) or "").strip()
-            if val.startswith(("http://", "https://")):
-                return val
-        thumbs = data.get("thumbnails")
-        if isinstance(thumbs, list) and thumbs:
-            best_url = ""
-            best_score = -1
-            for t in thumbs:
-                if not isinstance(t, dict):
-                    continue
-                u = str(t.get("url") or "").strip()
-                if not u.startswith(("http://", "https://")):
-                    continue
-                w = int(t.get("width") or 0)
-                h = int(t.get("height") or 0)
-                score = w * h if (w and h) else int(t.get("preference") or 0)
-                if score > best_score:
-                    best_score = score
-                    best_url = u
-            if best_url:
-                return best_url
-    except Exception:
+
+    avatar_url = ""
+    channel_url = str(info.get("channel_url") or info.get("uploader_url") or "").strip()
+    if channel_url:
+        html = _youtube_http_get(channel_url, timeout=int(os.getenv("YT_DLP_CHANNEL_AVATAR_TIMEOUT", "20")))
+        if isinstance(html, str) and html:
+            avatar_url = _avatar_from_html(html) or _avatar_from_yt_initial_data(html)
+
+    if not avatar_url:
+        # yt-dlp 偶发会带 uploader_avatar（真头像），仅作兜底；不使用频道 JSON 的 thumbnails（那是 banner）
+        for key in ("uploader_avatar", "channel_avatar", "creator_avatar"):
+            candidate = _normalize_avatar_url(str(info.get(key) or ""))
+            if candidate:
+                avatar_url = candidate
+                break
+
+    if not avatar_url:
         return ""
-    return ""
+
+    stored = _store_avatar_to_qiniu(avatar_url, info, work_dir)
+    return stored or avatar_url
 
 
 def download_source_media(
@@ -1333,10 +1468,13 @@ def download_source_media(
 
     info = _load_info_json(work_dir)
     meta = _extract_video_metadata(info)
-    if not (meta.get("author_avatar") or "").strip():
-        channel_url = str(info.get("channel_url") or info.get("uploader_url") or "").strip()
-        if channel_url:
-            meta["author_avatar"] = _fetch_youtube_channel_avatar(tools, channel_url)
+    if _is_youtube_url(url):
+        try:
+            channel_avatar = _fetch_youtube_channel_avatar(tools, info, work_dir)
+        except Exception:
+            channel_avatar = ""
+        if channel_avatar:
+            meta["author_avatar"] = channel_avatar
     video_path = _find_media_file(work_dir, "media", (".mp4", ".webm", ".mkv", ".ts"))
     if not video_path:
         shutil.rmtree(work_dir, ignore_errors=True)

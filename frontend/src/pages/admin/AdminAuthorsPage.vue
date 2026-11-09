@@ -6,6 +6,7 @@ import {
   adminListAuthors,
   adminMergeAuthor,
   adminUpdateAuthor,
+  adminUploadAuthorAvatar,
   type AdminAuthor,
   type AdminAuthorInput,
 } from '@/api/admin'
@@ -13,10 +14,14 @@ import AuthorAvatar from '@/components/AuthorAvatar.vue'
 
 const loading = ref(true)
 const saving = ref(false)
+const uploading = ref(false)
 const error = ref('')
 const success = ref('')
 const rows = ref<AdminAuthor[]>([])
 const search = ref('')
+
+const createAvatarInput = ref<HTMLInputElement | null>(null)
+const editAvatarInput = ref<HTMLInputElement | null>(null)
 
 const showCreate = ref(false)
 const form = ref<AdminAuthorInput>({ name: '', gender: 'm', nationality: '', accent: '', avatar: '' })
@@ -156,6 +161,41 @@ async function confirmMerge() {
   }
 }
 
+function pickAvatar(target: 'create' | 'edit') {
+  if (uploading.value) return
+  const input = target === 'create' ? createAvatarInput.value : editAvatarInput.value
+  input?.click()
+}
+
+async function handleAvatarFile(event: Event, target: 'create' | 'edit') {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    error.value = '请选择图片文件'
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    error.value = '图片不能超过 5MB'
+    return
+  }
+  uploading.value = true
+  error.value = ''
+  success.value = ''
+  try {
+    const res = await adminUploadAuthorAvatar(file)
+    if (target === 'create') form.value.avatar = res.url
+    else editForm.value.avatar = res.url
+    success.value = '头像已上传，点击保存生效'
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+    error.value = msg || '上传失败'
+  } finally {
+    uploading.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -228,6 +268,15 @@ onMounted(load)
         <div class="flex items-center gap-2">
           <AuthorAvatar :src="form.avatar" :name="form.name" :size="32" />
           <input v-model="form.avatar" class="w-full rounded-lg border px-3 py-2 text-sm" placeholder="头像 URL（可留空，显示默认头像）" />
+          <button
+            type="button"
+            class="shrink-0 rounded-lg border px-3 py-2 text-sm whitespace-nowrap disabled:opacity-50"
+            :disabled="uploading"
+            @click="pickAvatar('create')"
+          >
+            {{ uploading ? '上传中…' : '上传' }}
+          </button>
+          <input ref="createAvatarInput" type="file" accept="image/*" class="hidden" @change="handleAvatarFile($event, 'create')" />
         </div>
         <select v-model="form.gender" class="w-full rounded-lg border px-3 py-2 text-sm">
           <option value="m">男</option>
@@ -252,6 +301,15 @@ onMounted(load)
         <div class="flex items-center gap-2">
           <AuthorAvatar :src="editForm.avatar" :name="editForm.name" :size="32" />
           <input v-model="editForm.avatar" class="w-full rounded-lg border px-3 py-2 text-sm" placeholder="头像 URL（可留空，显示默认头像）" />
+          <button
+            type="button"
+            class="shrink-0 rounded-lg border px-3 py-2 text-sm whitespace-nowrap disabled:opacity-50"
+            :disabled="uploading"
+            @click="pickAvatar('edit')"
+          >
+            {{ uploading ? '上传中…' : '上传' }}
+          </button>
+          <input ref="editAvatarInput" type="file" accept="image/*" class="hidden" @change="handleAvatarFile($event, 'edit')" />
         </div>
         <select v-model="editForm.gender" class="w-full rounded-lg border px-3 py-2 text-sm">
           <option value="m">男</option>

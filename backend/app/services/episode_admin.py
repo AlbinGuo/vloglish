@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from datetime import datetime, timedelta
 
+from ..qiniu_storage import is_our_qiniu_url, strip_own_signature
 from ..models import (
     Author,
     Episode,
@@ -37,15 +38,23 @@ def next_episode_index(db: Session) -> int:
     return int(max_index or 0) + 1
 
 
+def _is_qiniu_url(url: str) -> bool:
+    return is_our_qiniu_url(url)
+
+
 def get_or_create_author(db: Session, data: dict) -> Author:
-    avatar = (data.get("avatar") or "").strip()
+    avatar = strip_own_signature((data.get("avatar") or "").strip())
     author = (
         db.query(Author)
         .filter(Author.name == data["name"], Author.accent == data.get("accent", ""))
         .first()
     )
     if author:
-        if avatar and not (author.avatar_url or "").strip():
+        current = (author.avatar_url or "").strip()
+        if avatar and not current:
+            author.avatar_url = avatar
+        elif avatar and _is_qiniu_url(avatar) and not _is_qiniu_url(current):
+            # 历史外链（如 YouTube banner）升级为七牛头像；不覆盖人工设置的七牛头像
             author.avatar_url = avatar
         return author
     author = Author(

@@ -703,6 +703,17 @@ export async function adminUpdateAuthor(id: number, payload: Partial<AdminAuthor
   return data
 }
 
+export async function adminUploadAuthorAvatar(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await adminApi.post<{ url: string }>(
+    '/api/admin/authors/avatar/upload/',
+    form,
+    { timeout: 120000 },
+  )
+  return data
+}
+
 export async function adminDeleteAuthor(id: number) {
   await adminApi.delete(`/api/admin/authors/${id}/`)
 }

@@ -1,9 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+import tempfile
+import uuid
+from pathlib import Path
+
 from ...database import get_db
 from ...deps import get_current_admin
+from ...media import resolve_cover_url
+from ...qiniu_storage import QiniuConfig, strip_own_signature, upload_file
 from ...models import Author, Episode, Tag, User, UserAuthorSubscription, episode_tags
 from ...schemas import (
     AdminAuthorCreateIn,
@@ -14,6 +20,50 @@ from ...schemas import (
 
 router = APIRouter(prefix="/api/admin/authors", tags=["admin-authors"])
 
+_AUTHOR_AVATAR_MAX_BYTES = 5 * 1024 * 1024
+_AUTHOR_AVATAR_TYPES = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
+
+
+@router.post("/avatar/upload/")
+def upload_author_avatar(
+    file: UploadFile = File(...),
+    _admin: User = Depends(get_current_admin),
+):
+    """管理员上传作者头像：代理上传七牛，返回可预览的签名 URL（保存时会还原为 public URL）。"""
+    content_type = (file.content_type or "").lower().split(";")[0].strip()
+    ext = _AUTHOR_AVATAR_TYPES.get(content_type)
+    if not ext:
+        raise HTTPException(status_code=400, detail="仅支持 JPG / PNG / WebP / GIF 图片")
+    content = file.file.read(_AUTHOR_AVATAR_MAX_BYTES + 1)
+    if not content:
+        raise HTTPException(status_code=400, detail="图片内容为空")
+    if len(content) > _AUTHOR_AVATAR_MAX_BYTES:
+        raise HTTPException(status_code=400, detail="图片不能超过 5MB")
+    try:
+        cfg = QiniuConfig.from_env()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    key = cfg.object_key("authors", "avatars", "upload", f"{uuid.uuid4().hex}{ext}")
+    tmp_path = Path(tempfile.gettempdir()) / f"author_avatar_{uuid.uuid4().hex}{ext}"
+    try:
+        tmp_path.write_bytes(content)
+        public_url = upload_file(cfg, tmp_path, key)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"头像上传失败：{exc}") from exc
+    finally:
+        try:
+            tmp_path.unlink()
+        except OSError:
+            pass
+    return {"url": resolve_cover_url(public_url)}
+
 
 def _author_out(author: Author, episode_count: int) -> AdminAuthorOut:
     return AdminAuthorOut(
@@ -22,7 +72,7 @@ def _author_out(author: Author, episode_count: int) -> AdminAuthorOut:
         gender=author.gender,
         nationality=author.nationality,
         accent=author.accent,
-        avatar=author.avatar_url or "",
+        avatar=resolve_cover_url(author.avatar_url or ""),
         episode_count=episode_count,
     )
 
@@ -62,7 +112,7 @@ def create_author(
         gender=body.gender,
         nationality=body.nationality.strip(),
         accent=accent,
-        avatar_url=(body.avatar or "").strip(),
+        avatar_url=strip_own_signature((body.avatar or "").strip()),
     )
     db.add(author)
     db.commit()
@@ -101,7 +151,7 @@ def update_author(
     if "accent" in data:
         author.accent = new_accent
     if "avatar" in data:
-        author.avatar_url = (data["avatar"] or "").strip()
+        author.avatar_url = strip_own_signature((data["avatar"] or "").strip())
 
     db.commit()
     db.refresh(author)
