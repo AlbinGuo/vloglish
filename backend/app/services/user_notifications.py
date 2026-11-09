@@ -8,14 +8,14 @@ from .author_subscribe import subscriber_user_ids
 from .push import enqueue_push
 
 # 全站「新内容上线」通知总开关（站内通知 + App 推送）。
-# 当前关闭：管理端发布新视频/文章后，不再给用户写站内通知，也不再发推送。
+# 默认开启：管理端发布新视频/文章后，给所有活跃用户写站内通知并入队 App 推送。
+# 如需临时关闭：部署时设置 RELEASE_NOTIFICATIONS_ENABLED=0。
 # 仅影响「新内容发布」类通知；投稿审核、投稿待审等通知不受影响。
-# 恢复方式：把默认值改成 True，或部署时设置环境变量 RELEASE_NOTIFICATIONS_ENABLED=1。
 _RELEASE_NOTIFICATIONS_ENV = os.getenv("RELEASE_NOTIFICATIONS_ENABLED")
 RELEASE_NOTIFICATIONS_ENABLED = (
     _RELEASE_NOTIFICATIONS_ENV.strip().lower() in {"1", "true", "yes", "on"}
     if _RELEASE_NOTIFICATIONS_ENV is not None
-    else False
+    else True
 )
 
 

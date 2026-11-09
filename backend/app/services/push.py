@@ -274,13 +274,58 @@ def _process_once() -> None:
         db.close()
 
 
+def _apns_secret_status() -> dict:
+    key = _read_secret("APNS_AUTH_KEY_JSON", "APNS_AUTH_KEY_FILE")
+    key_id = (os.getenv("APNS_KEY_ID") or "").strip()
+    team_id = (os.getenv("APNS_TEAM_ID") or "").strip()
+    topic = (os.getenv("APNS_TOPIC") or "").strip()
+    return {
+        "key": bool(key),
+        "key_id": bool(key_id),
+        "team_id": bool(team_id),
+        "topic": bool(topic),
+        "configured": bool(key and key_id and team_id),
+    }
+
+
+def push_status() -> dict:
+    """推送配置自检（不含密钥内容，可安全用于 health/日志）。"""
+    apns = _apns_secret_status()
+    fcm = bool(_fcm_account())
+    return {
+        "httpx": httpx is not None,
+        "h2": _H2_AVAILABLE,
+        "fcm_configured": fcm,
+        "apns_configured": apns["configured"],
+        "apns_topic_set": apns["topic"],
+        "worker_ready": bool(httpx is not None and (fcm or apns["configured"])),
+    }
+
+
 def start_push_worker(interval: int = 15) -> None:
+    status = push_status()
+    print(
+        "[push] 自检: "
+        f"httpx={'ok' if status['httpx'] else 'MISSING'}, "
+        f"h2={'ok' if status['h2'] else 'MISSING'}, "
+        f"FCM={'on' if status['fcm_configured'] else 'off'}, "
+        f"APNs={'on' if status['apns_configured'] else 'off'}, "
+        f"APNS_TOPIC={'set' if status['apns_topic_set'] else 'MISSING'}"
+    )
     if not is_configured():
-        print("[push] 未配置 FCM/APNs，跳过推送 worker")
+        hints = []
+        if not status["httpx"]:
+            hints.append("安装 httpx")
+        if not status["fcm_configured"] and not status["apns_configured"]:
+            hints.append("配置 FCM_SERVICE_ACCOUNT_* / APNS_*")
+        if not status["apns_topic_set"]:
+            hints.append("设置 APNS_TOPIC=cc.vloglish.app")
+        tail = f"（需：{'；'.join(hints)}）" if hints else ""
+        print(f"[push] 未配置 FCM/APNs，跳过推送 worker{tail}")
         return
-    if _apns_jwt() and not _H2_AVAILABLE:
+    if status["apns_configured"] and not status["h2"]:
         print("[push] ⚠️ 已配置 APNs 但缺少 h2：请 `pip install 'httpx[http2]'`，否则 iOS 推送会一直失败")
-    if _apns_jwt() and not (os.getenv("APNS_TOPIC") or "").strip():
+    if status["apns_configured"] and not status["apns_topic_set"]:
         print("[push] ⚠️ APNS_TOPIC 未设置（应填 bundle id，如 cc.vloglish.app），iOS 推送会返回 BadTopic")
 
     def _loop() -> None:

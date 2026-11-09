@@ -11,6 +11,11 @@ backend/db_switch.py
 *.mobileprovision
 **/cookies.txt
 **/teco_session.json
+# 推送/签名密钥目录与文件（不要入库）
+certs/
+**/google-services.json
+**/fcm-service-account*.json
+**/GoogleService-Info.plist
 
 # keep env templates
 !.env.prod.example

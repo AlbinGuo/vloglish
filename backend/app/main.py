@@ -131,11 +131,17 @@ async def unhandled_exception(_request: Request, exc: Exception):
 @app.get("/api/health")
 def health():
     from .redis_client import REDIS_URL, redis_ping
+    from .services.push import push_status
+    from .services.user_notifications import RELEASE_NOTIFICATIONS_ENABLED
 
     redis_ok = redis_ping() if REDIS_URL else None
     return {
         "status": "ok",
         "redis": "ok" if redis_ok else ("disabled" if not REDIS_URL else "down"),
+        "push": {
+            **push_status(),
+            "release_notifications_enabled": RELEASE_NOTIFICATIONS_ENABLED,
+        },
     }
 
 

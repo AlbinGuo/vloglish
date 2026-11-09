@@ -14,12 +14,18 @@ const TOKEN_KEY = 'push_token'
 let inited = false
 
 /**
- * 临时开关：Android 端缺少 FCM（google-services.json）配置时，
- * 授予通知权限后调用 PushNotifications.register() 会导致原生闪退。
- * 暂时在 Android 关闭推送；配置好 Firebase 后把此常量改回 false 即可恢复。
- * iOS / Web 不受影响。
+ * Android 推送开关（FCM）。
+ *
+ * 原生工程（app/android）已接入 google-services 插件：把 Firebase 的
+ * `google-services.json` 放到 `app/android/app/` 后插件会自动生效。
+ * 但若缺少该文件就调用 PushNotifications.register()，会因 Firebase 未初始化而原生闪退，
+ * 因此这里由构建期变量 `VITE_ANDROID_PUSH_ENABLED` 控制：
+ *   - 默认 false（安全）；
+ *   - 放好 google-services.json 后，在 frontend/.env.app 设 `VITE_ANDROID_PUSH_ENABLED=true` 再打包。
+ * iOS / Web 不受此开关影响。
  */
-const ANDROID_PUSH_DISABLED = true
+const ANDROID_PUSH_ENABLED = import.meta.env.VITE_ANDROID_PUSH_ENABLED === 'true'
+const ANDROID_PUSH_DISABLED = !ANDROID_PUSH_ENABLED
 
 function isPushDisabled(): boolean {
   return ANDROID_PUSH_DISABLED && getNativePlatform() === 'android'
