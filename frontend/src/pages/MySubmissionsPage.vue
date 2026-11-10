@@ -5,6 +5,7 @@ import { accentIconFor } from '@/constants/accentOptions'
 import { listMyArticleSubmissions, type UserArticleSubmissionItem } from '@/api/articles'
 import { getEpisodeList, listMySubmissions, type UserSubmissionItem } from '@/api/episodes'
 import EpisodeCard from '@/components/EpisodeCard.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import { useAuthStore } from '@/stores/auth'
 import { isMobileAppBuild } from '@/utils/platform'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
@@ -105,25 +106,31 @@ watch(
 
 <template>
   <div class="page-container py-6">
-    <div class="flex items-center gap-3 text-sm mb-4">
-      <RouterLink to="/english" class="text-ink-faint hover:text-ink">← 返回目录</RouterLink>
-      <span class="text-neutral-300 dark:text-neutral-600">|</span>
-      <span class="font-medium">我的语料库</span>
-      <span class="flex-1" />
+    <div class="relative mb-4 flex h-9 items-center justify-center">
       <RouterLink
-        v-if="tab === 'videos' && !isApp"
-        to="/english/submit"
-        class="rounded-lg bg-amber-500 text-white px-3 py-1.5 text-sm hover:bg-amber-600"
+        to="/english/mine"
+        class="absolute left-0 inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-faint transition hover:bg-sunken hover:text-ink"
+        aria-label="返回我的"
       >
-        上传视频
+        <AppIcon name="chevron-left" class="h-5 w-5" />
       </RouterLink>
-      <RouterLink
-        v-else-if="tab === 'articles'"
-        to="/english/submit-article"
-        class="rounded-lg bg-amber-500 text-white px-3 py-1.5 text-sm hover:bg-amber-600"
-      >
-        上传文章
-      </RouterLink>
+      <h1 class="text-[15px] font-medium tracking-tight text-ink">我的语料库</h1>
+      <div class="absolute right-0 flex items-center gap-2">
+        <RouterLink
+          v-if="tab === 'videos' && !isApp"
+          to="/english/submit"
+          class="rounded-lg bg-amber-500 text-white px-3 py-1.5 text-sm hover:bg-amber-600"
+        >
+          上传视频
+        </RouterLink>
+        <RouterLink
+          v-else-if="tab === 'articles'"
+          to="/english/submit-article"
+          class="rounded-lg bg-amber-500 text-white px-3 py-1.5 text-sm hover:bg-amber-600"
+        >
+          上传文章
+        </RouterLink>
+      </div>
     </div>
 
     <div class="flex gap-1 mb-6 p-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 w-fit">

@@ -55,27 +55,24 @@ onMounted(load)
 
 <template>
   <div class="page-container max-w-3xl py-6">
-    <div class="mb-4 flex min-w-0 items-center gap-3 text-sm">
-      <RouterLink to="/english/mine" class="shrink-0 text-ink-faint hover:text-ink">← 我的</RouterLink>
-      <span class="text-neutral-300 dark:text-neutral-600">·</span>
-      <span class="font-medium tracking-tight">我的关注</span>
-      <span v-if="items.length" class="text-[11px] tabular-nums text-neutral-400">
-        共 {{ items.length }} 位
-      </span>
-      <span class="flex-1" />
+    <div class="relative mb-4 flex h-9 items-center justify-center">
+      <RouterLink
+        to="/english/mine"
+        class="absolute left-0 inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-faint transition hover:bg-sunken hover:text-ink"
+        aria-label="返回我的"
+      >
+        <AppIcon name="chevron-left" class="h-5 w-5" />
+      </RouterLink>
+      <h1 class="text-[15px] font-medium tracking-tight text-ink">我的关注</h1>
       <button
         type="button"
-        class="shrink-0 text-[12px] text-ink-faint transition hover:text-ink disabled:opacity-50"
+        class="absolute right-0 text-[12px] text-ink-faint transition hover:text-ink disabled:opacity-50"
         :disabled="loading"
         @click="load"
       >
         刷新
       </button>
     </div>
-
-    <p class="mb-5 text-[13px] text-neutral-500 dark:text-neutral-400">
-      你关注的作者都在这里，点「看作品」查看更新，作者上新时会第一时间通知你。
-    </p>
 
     <p v-if="error" class="mb-4 text-sm text-red-600 dark:text-red-400">{{ error }}</p>
 

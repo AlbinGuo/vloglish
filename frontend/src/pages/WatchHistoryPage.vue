@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'
 import { getRecentEpisodes, type RecentEpisode } from '@/api/learning'
@@ -10,8 +10,6 @@ import { formatListenTime } from '@/utils/formatListenTime'
 const items = ref<RecentEpisode[]>([])
 const loading = ref(true)
 const error = ref('')
-
-const completedCount = computed(() => items.value.filter((it) => it.is_completed).length)
 
 async function load() {
   loading.value = true
@@ -77,28 +75,24 @@ onMounted(load)
 
 <template>
   <div class="page-container max-w-3xl py-6">
-    <div class="mb-4 flex items-center gap-3 text-sm min-w-0">
-      <RouterLink to="/english/mine" class="shrink-0 text-ink-faint hover:text-ink">← 我的</RouterLink>
-      <span class="text-neutral-300 dark:text-neutral-600">·</span>
-      <span class="font-medium tracking-tight">浏览记录</span>
-      <span v-if="items.length" class="text-[11px] tabular-nums text-neutral-400">
-        {{ items.length }} 期
-        <template v-if="completedCount">· 已看完 {{ completedCount }}</template>
-      </span>
-      <span class="flex-1" />
+    <div class="relative mb-4 flex h-9 items-center justify-center">
+      <RouterLink
+        to="/english/mine"
+        class="absolute left-0 inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-faint transition hover:bg-sunken hover:text-ink"
+        aria-label="返回我的"
+      >
+        <AppIcon name="chevron-left" class="h-5 w-5" />
+      </RouterLink>
+      <h1 class="text-[15px] font-medium tracking-tight text-ink">浏览记录</h1>
       <button
         type="button"
-        class="shrink-0 text-[12px] text-ink-faint transition hover:text-ink disabled:opacity-50"
+        class="absolute right-0 text-[12px] text-ink-faint transition hover:text-ink disabled:opacity-50"
         :disabled="loading"
         @click="load"
       >
         刷新
       </button>
     </div>
-
-    <p class="mb-5 text-[13px] text-neutral-500 dark:text-neutral-400">
-      这里按时间倒序记录你看过的剧集，点一下就能接着上次的进度继续看。只保留账号内的学习进度，换设备登录也还在。
-    </p>
 
     <p v-if="error" class="mb-4 text-sm text-red-600 dark:text-red-400">{{ error }}</p>
 
