@@ -81,30 +81,44 @@ let started = false
 // 本次会话已提示过的链接（避免取消后反复弹），导入成功后还会持久化
 let sessionHandled = ''
 let lastLink = ''
+// 读取/检查节流：避免 resume/visibility/focus 多次触发重复读取，减少 iOS 粘贴气泡
+let lastReadTs = 0
+let lastReadText = ''
+let lastCheckTs = 0
 
 async function readClipboard(): Promise<string> {
+  const now = Date.now()
+  // 1.5s 内复用上次读数，避免连续系统剪贴板访问（iOS 会反复弹“粘贴”气泡）
+  if (now - lastReadTs < 1500) return lastReadText
+  lastReadTs = now
   if (isNativePlatform()) {
     try {
       const { Clipboard } = await import('@capacitor/clipboard')
       const result = await Clipboard.read()
-      return result.value || ''
+      lastReadText = result.value || ''
+      return lastReadText
     } catch {
       /* native clipboard 读取失败时回退 */
     }
   }
   try {
     if (navigator.clipboard?.readText) {
-      return (await navigator.clipboard.readText()) || ''
+      lastReadText = (await navigator.clipboard.readText()) || ''
+      return lastReadText
     }
   } catch {
     /* 权限被拒或非安全上下文 */
   }
+  lastReadText = ''
   return ''
 }
 
 async function check(): Promise<void> {
   // 正在解析，或已打开并展示着内容时不再重复处理
   if (loading.value || (open.value && data.value)) return
+  const now = Date.now()
+  if (now - lastCheckTs < 800) return
+  lastCheckTs = now
   const text = await readClipboard()
   const link = extractBilibiliUrl(text)
   if (!link) return
@@ -175,9 +189,8 @@ function start(): void {
   if (started) return
   if (!(isMobileAppBuild() || isNativePlatform())) return
   started = true
-  document.addEventListener('visibilitychange', onVisibility)
-  window.addEventListener('focus', onVisibility)
   if (isNativePlatform()) {
+    // 原生壳只监听真正的“回到前台”，避免 WebView 内 visibility/focus 重复触发读取
     void import('@capacitor/app')
       .then(({ App }) => {
         void App.addListener('resume', () => {
@@ -185,6 +198,9 @@ function start(): void {
         })
       })
       .catch(() => {})
+  } else {
+    // 非原生（如 PWA）退回页面可见性
+    document.addEventListener('visibilitychange', onVisibility)
   }
   void check()
 }

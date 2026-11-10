@@ -1,5 +1,6 @@
 from datetime import datetime
 import shutil
+import threading
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -31,7 +32,7 @@ from ..services.local_submit import (
 )
 from ..services.yt_dlp_fetch import is_supported_source_url, resolve_bilibili_short_url
 from ..services.asr_dashscope import dashscope_asr_configured
-from ..services.bilibili_meta import fetch_meta
+from ..services.bilibili_meta import fetch_meta, resolve_durl
 from ..services.episode_ai_enrich import ai_enrich_configured, schedule_ai_enrich
 
 router = APIRouter(prefix="/api/episodes/submit", tags=["episode-submit"])
@@ -364,6 +365,15 @@ def import_bilibili(
     db.add(ep)
     db.commit()
     db.refresh(ep)
+
+    # 后台预热直链缓存：用户点开播放时省去 view+playurl 两次接口往返，明显更快
+    def _warm_durl() -> None:
+        try:
+            resolve_durl(bvid, page)
+        except Exception:  # noqa: BLE001
+            pass
+
+    threading.Thread(target=_warm_durl, daemon=True).start()
 
     return UserEpisodeSubmitOut(
         video_id=ep.video_id,

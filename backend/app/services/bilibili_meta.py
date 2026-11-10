@@ -29,7 +29,7 @@ ALLOWED_HOST_SUFFIXES = (
 )
 
 _durl_cache: dict[str, tuple[float, str]] = {}
-_DURL_TTL = 300
+_DURL_TTL = 900
 _audio_cache: dict[str, tuple[float, str]] = {}
 _AUDIO_TTL = 180
 
@@ -151,6 +151,10 @@ def resolve_durl(bvid: str, page: int) -> str:
         )
     _durl_cache[key] = (now + _DURL_TTL, url)
     return url
+
+
+def invalidate_durl(bvid: str, page: int) -> None:
+    _durl_cache.pop(f"{bvid}#{page}", None)
 
 
 def _download_media(url: str, bvid: str, dest: Path) -> None:

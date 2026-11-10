@@ -18,6 +18,7 @@ from ..services.bilibili_meta import (
     extract_bvid,
     fetch_meta,
     host_allowed,
+    invalidate_durl,
     resolve_durl,
 )
 from ..services.yt_dlp_fetch import _BILIBILI_USER_AGENT, _bili_cookie_header
@@ -91,13 +92,46 @@ def bilibili_stream(bvid: str, request: Request, p: int = 1):
     if range_header:
         headers["Range"] = range_header
 
-    try:
-        resp = urllib.request.urlopen(
-            urllib.request.Request(target, headers=headers), timeout=60
+    def _open(target_url: str):
+        req_headers = dict(headers)
+        if range_header:
+            req_headers["Range"] = range_header
+        return urllib.request.urlopen(
+            urllib.request.Request(target_url, headers=req_headers), timeout=60
         )
+
+    try:
+        resp = _open(target)
     except urllib.error.HTTPError as exc:
         if exc.code == 416:
             raise HTTPException(status_code=416, detail="Range 不满足") from exc
+        # 直链已过期（403/410）：清缓存重新解析后重试一次，避免用户点开要等很久
+        if exc.code in (403, 410):
+            invalidate_durl(clean, page)
+            try:
+                target = resolve_durl(clean, page)
+            except Exception:
+                detail = ""
+                try:
+                    detail = exc.read().decode("utf-8", "ignore")[:200]
+                except Exception:
+                    pass
+                raise HTTPException(
+                    status_code=502, detail=f"B站 CDN 返回 {exc.code}: {detail}"
+                ) from exc
+            try:
+                resp = _open(target)
+            except urllib.error.HTTPError as exc2:
+                detail = ""
+                try:
+                    detail = exc2.read().decode("utf-8", "ignore")[:200]
+                except Exception:
+                    pass
+                raise HTTPException(
+                    status_code=502, detail=f"B站 CDN 返回 {exc2.code}: {detail}"
+                ) from exc2
+            except urllib.error.URLError as exc2:
+                raise HTTPException(status_code=502, detail=f"B站 CDN 连接失败：{exc2}") from exc2
         detail = ""
         try:
             detail = exc.read().decode("utf-8", "ignore")[:200]
