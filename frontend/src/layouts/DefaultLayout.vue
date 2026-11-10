@@ -178,6 +178,7 @@ const MOBILE_BACK_FALLBACKS: Record<string, string> = {
   Learning: '/english/mine',
   Clips: '/english/mine',
   MySubmissions: '/english/mine',
+  MyFollows: '/english/mine',
   WishWall: '/english/mine',
   WatchHistory: '/english/mine',
   WordPractice: '/english/mine',
@@ -187,6 +188,9 @@ const showMobileBack = computed(() => {
   if (immersive.value) return false
   return !MOBILE_ROOT_ROUTE_NAMES.has(String(route.name ?? ''))
 })
+
+/** 移动端顶部导航中间标题（仅路由声明了 mobileTitle 时显示） */
+const mobileTitle = computed(() => String(route.meta.mobileTitle ?? ''))
 
 /** 右滑返回：播放/阅读等沉浸式页面也启用，只排除一级 Tab 页 */
 const swipeBackEnabled = computed(
@@ -584,13 +588,21 @@ watch(
     >
       <div
         v-if="showMobileBack || !hideAppMobileHeader"
-        class="px-4 py-2 flex items-center justify-between gap-3"
+        class="relative px-4 py-2 flex items-center justify-between gap-3"
       >
         <BackButton v-if="showMobileBack" :fallback="mobileBackFallback" />
         <RouterLink v-else to="/english" class="flex items-center gap-2 min-w-0 shrink-0">
           <BrandLogo :size="26" />
           <span class="text-[1rem] font-semibold tracking-[-0.02em] leading-none">Vloglish</span>
         </RouterLink>
+        <span
+          v-if="mobileTitle"
+          class="pointer-events-none absolute inset-0 flex items-center justify-center"
+        >
+          <span class="max-w-[60%] truncate text-[15px] font-medium tracking-tight text-ink">
+            {{ mobileTitle }}
+          </span>
+        </span>
         <div v-if="!hideAppMobileHeader" class="flex items-center gap-0.5">
           <RouterLink
             v-if="auth.isLoggedIn"

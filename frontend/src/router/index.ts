@@ -305,7 +305,7 @@ const userRoutes: RouteRecordRaw[] = [
         path: 'english/my-submissions',
         name: 'MySubmissions',
         component: () => import('@/pages/MySubmissionsPage.vue'),
-        meta: { requiresAuth: true, requiresMember: true },
+        meta: { requiresAuth: true, requiresMember: true, mobileTitle: '我的语料库' },
       },
       {
         path: 'english/notifications',
@@ -347,13 +347,13 @@ const userRoutes: RouteRecordRaw[] = [
         path: 'english/history',
         name: 'WatchHistory',
         component: () => import('@/pages/WatchHistoryPage.vue'),
-        meta: { requiresAuth: true },
+        meta: { requiresAuth: true, mobileTitle: '浏览记录' },
       },
       {
         path: 'english/my-follows',
         name: 'MyFollows',
         component: () => import('@/pages/MyFollowsPage.vue'),
-        meta: { requiresAuth: true },
+        meta: { requiresAuth: true, mobileTitle: '我的关注' },
       },
       {
         path: 'english/mine',
