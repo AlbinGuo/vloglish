@@ -1,12 +1,17 @@
 <script setup lang="ts">
+import { useAuthStore } from '@/stores/auth'
+
 defineProps<{
   free: boolean
   compact?: boolean
 }>()
+
+const auth = useAuthStore()
 </script>
 
 <template>
   <span
+    v-if="!auth.isMember"
     :class="
       compact
         ? free

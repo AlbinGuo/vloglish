@@ -42,7 +42,7 @@ def _is_qiniu_url(url: str) -> bool:
     return is_our_qiniu_url(url)
 
 
-def get_or_create_author(db: Session, data: dict) -> Author:
+def get_or_create_author(db: Session, data: dict, *, override_avatar: bool = False) -> Author:
     avatar = strip_own_signature((data.get("avatar") or "").strip())
     author = (
         db.query(Author)
@@ -51,11 +51,10 @@ def get_or_create_author(db: Session, data: dict) -> Author:
     )
     if author:
         current = (author.avatar_url or "").strip()
-        if avatar and not current:
-            author.avatar_url = avatar
-        elif avatar and _is_qiniu_url(avatar) and not _is_qiniu_url(current):
-            # 历史外链（如 YouTube banner）升级为七牛头像；不覆盖人工设置的七牛头像
-            author.avatar_url = avatar
+        if avatar and avatar != current:
+            # 管理端保存（override）总是采用新头像；否则仅当原为空、或原为外链（如 YouTube banner）升级为七牛
+            if override_avatar or not current or not _is_qiniu_url(current):
+                author.avatar_url = avatar
         return author
     author = Author(
         name=data["name"],

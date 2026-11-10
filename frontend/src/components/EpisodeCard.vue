@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { toRef } from 'vue'
 import { RouterLink } from 'vue-router'
-import { accentIconFor } from '@/constants/accentOptions'
 import { useEpisodeFavorite } from '@/composables/useEpisodeFavorite'
 import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useAuthStore } from '@/stores/auth'
@@ -18,8 +17,6 @@ const props = defineProps<{ episode: EpisodeSummary; to: string }>()
 const episodeRef = toRef(props, 'episode')
 const auth = useAuthStore()
 const { favorited, loading: favoriteLoading, toggle: toggleFavorite } = useEpisodeFavorite(episodeRef)
-
-const accentIcon = accentIconFor(props.episode.author.accent)
 
 function formatDuration(sec: number) {
   const m = Math.floor(sec / 60)
@@ -46,12 +43,6 @@ function learnerLabel() {
           <div class="flex items-center gap-1.5 min-w-0 pr-14">
             <AuthorAvatar :src="episode.author.avatar" :name="episode.author.name" :size="16" />
             <span class="text-white text-xs font-medium truncate">@{{ episode.author.name }}</span>
-            <img
-              v-if="accentIcon"
-              :src="accentIcon"
-              :alt="episode.author.accent"
-              class="w-4 h-4 object-contain shrink-0 rounded-full border border-white"
-            />
           </div>
         </div>
         <span class="absolute bottom-2 right-2 text-white text-xs bg-black/60 px-2 py-0.5 rounded">

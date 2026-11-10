@@ -5,6 +5,7 @@ import type {
   EntryDetail,
   EpisodeDetail,
   EpisodeSummary,
+  MyFollowedAuthor,
   SeriesDetail,
   SeriesSummary,
   Tag,
@@ -85,6 +86,13 @@ export async function getAuthorsCatalog(params: AuthorCatalogParams = {}) {
 
 export async function getAuthorDetail(authorId: number) {
   const { data } = await api.get<AuthorCatalogItem>(`/api/authors/${authorId}/`)
+  return data
+}
+
+export async function getMyFollowedAuthors() {
+  const { data } = await api.get<{ count: number; results: MyFollowedAuthor[] }>(
+    '/api/me/author-subscriptions/',
+  )
   return data
 }
 

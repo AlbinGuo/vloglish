@@ -2,11 +2,14 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import CoverStack from '@/components/catalog/CoverStack.vue'
+import { useAuthStore } from '@/stores/auth'
 import type { SeriesSummary } from '@/types'
 
 const props = defineProps<{
   series: SeriesSummary
 }>()
+
+const auth = useAuthStore()
 
 const covers = computed(() => {
   if (props.series.covers?.length) return props.series.covers
@@ -47,7 +50,7 @@ const stackActive = ref(false)
       </h3>
       <p class="mt-1 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
         已更新至第 {{ series.episode_count }} 集，持续更新中
-        <span v-if="series.requires_membership" class="text-warning"> · 会员</span>
+        <span v-if="series.requires_membership && !auth.isMember" class="text-warning"> · 会员</span>
       </p>
       <p
         v-if="series.summary"

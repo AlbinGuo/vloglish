@@ -350,6 +350,12 @@ const userRoutes: RouteRecordRaw[] = [
         meta: { requiresAuth: true },
       },
       {
+        path: 'english/my-follows',
+        name: 'MyFollows',
+        component: () => import('@/pages/MyFollowsPage.vue'),
+        meta: { requiresAuth: true },
+      },
+      {
         path: 'english/mine',
         name: 'Mine',
         component: () => import('@/pages/MinePage.vue'),

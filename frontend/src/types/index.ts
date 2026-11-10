@@ -27,6 +27,19 @@ export interface Author {
   subscriber_count?: number
 }
 
+/** 我的关注：关注的作者 */
+export interface MyFollowedAuthor {
+  id: number
+  name: string
+  gender: 'm' | 'f' | string
+  nationality: string
+  accent: string
+  avatar?: string
+  episode_count: number
+  unwatched_count: number
+  is_subscribed: boolean
+}
+
 /** 首页按作者分类 / 作者详情 */
 export interface AuthorCatalogItem {
   id: number

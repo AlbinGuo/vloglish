@@ -347,7 +347,7 @@ def create_episode(
     if body.status == "rejected" and not body.rejection_reason.strip():
         raise HTTPException(status_code=400, detail="驳回时需填写原因")
 
-    author = get_or_create_author(db, body.author.model_dump())
+    author = get_or_create_author(db, body.author.model_dump(), override_avatar=True)
     tags = resolve_tags(db, body.tag_names)
     payload = body.model_dump()
     payload["subtitles"] = [s.model_dump() for s in body.subtitles]
@@ -402,7 +402,7 @@ def update_episode(
 
     author = ep.author
     if body.author is not None:
-        author = get_or_create_author(db, body.author.model_dump())
+        author = get_or_create_author(db, body.author.model_dump(), override_avatar=True)
 
     tags = ep.tags
     if body.tag_names is not None:

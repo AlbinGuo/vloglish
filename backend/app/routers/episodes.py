@@ -2,7 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
-from sqlalchemy import func, or_
+from sqlalchemy import distinct, func, or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from ..episode_visibility import published_visibility_filter
@@ -33,6 +33,7 @@ from ..models import (
     EpisodeSeries,
     Tag,
     User,
+    UserAuthorSubscription,
     UserEpisodeFavorite,
     UserEpisodeProgress,
     episode_tags,
@@ -868,3 +869,73 @@ def unsubscribe_author(
         return set_author_subscribed(db, user.id, author_id, False)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.get("/me/author-subscriptions/")
+def my_author_subscriptions(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """我的关注：关注的作者列表，附未观看作品数（按作者主页可见的独立单集统计）。"""
+    sub_rows = (
+        db.query(UserAuthorSubscription.author_id, UserAuthorSubscription.created_at)
+        .filter(UserAuthorSubscription.user_id == user.id)
+        .order_by(UserAuthorSubscription.created_at.desc())
+        .all()
+    )
+    if not sub_rows:
+        return {"count": 0, "results": []}
+
+    author_ids = [row[0] for row in sub_rows]
+    authors = db.query(Author).filter(Author.id.in_(author_ids)).all()
+    by_id = {a.id: a for a in authors}
+
+    total_rows = (
+        db.query(Episode.author_id, func.count(Episode.id))
+        .filter(
+            Episode.author_id.in_(author_ids),
+            Episode.status == "published",
+            Episode.series_id.is_(None),
+        )
+        .filter(published_visibility_filter(user))
+        .group_by(Episode.author_id)
+        .all()
+    )
+    totals = {aid: int(cnt) for aid, cnt in total_rows}
+
+    opened_rows = (
+        db.query(Episode.author_id, func.count(distinct(UserEpisodeProgress.episode_id)))
+        .join(Episode, Episode.id == UserEpisodeProgress.episode_id)
+        .filter(
+            UserEpisodeProgress.user_id == user.id,
+            Episode.author_id.in_(author_ids),
+            Episode.status == "published",
+            Episode.series_id.is_(None),
+        )
+        .filter(published_visibility_filter(user))
+        .group_by(Episode.author_id)
+        .all()
+    )
+    opened = {aid: int(cnt) for aid, cnt in opened_rows}
+
+    results = []
+    for author_id, _created_at in sub_rows:
+        author = by_id.get(author_id)
+        if not author:
+            continue
+        total = totals.get(author_id, 0)
+        seen = opened.get(author_id, 0)
+        results.append(
+            {
+                "id": author.id,
+                "name": author.name,
+                "gender": author.gender,
+                "nationality": author.nationality or "",
+                "accent": author.accent or "",
+                "avatar": resolve_cover_url(author.avatar_url or ""),
+                "episode_count": total,
+                "unwatched_count": max(0, total - seen),
+                "is_subscribed": True,
+            }
+        )
+    return {"count": len(results), "results": results}

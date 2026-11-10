@@ -6,6 +6,7 @@ import EnglishCatalogNavBar from '@/components/english/EnglishCatalogNavBar.vue'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import { requestEpisodeAutoplay } from '@/composables/useEpisodeAutoplay'
 import { useListenPlayerStore } from '@/stores/listenPlayer'
+import { useAuthStore } from '@/stores/auth'
 import EpisodeAccessBadge from '@/components/EpisodeAccessBadge.vue'
 import { isOpenToFreeUsers } from '@/utils/episodeAccess'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
@@ -23,6 +24,7 @@ const series = ref<SeriesDetail | null>(null)
 
 const slug = computed(() => String(route.params.slug || ''))
 const listenPlayer = useListenPlayerStore()
+const auth = useAuthStore()
 
 function episodePath(videoId: string) {
   return `/english/episode/${videoId}`
@@ -150,7 +152,10 @@ watch(slug, load)
             <div class="flex-1 min-w-0 py-0.5">
               <p class="text-xs text-neutral-500 mb-1">
                 第 {{ ep.series_index ?? ep.index }} 集
-                <span :class="isOpenToFreeUsers(ep) ? 'text-emerald-700 dark:text-emerald-400' : 'text-warning'">
+                <span
+                  v-if="!auth.isMember"
+                  :class="isOpenToFreeUsers(ep) ? 'text-emerald-700 dark:text-emerald-400' : 'text-warning'"
+                >
                   · {{ isOpenToFreeUsers(ep) ? '免费' : '会员' }}
                 </span>
               </p>
