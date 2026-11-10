@@ -32,7 +32,7 @@ from .models import (
     EpisodeAudienceNote,
 )
 from .schemas import AuthTokensOut
-from .routers import ai_coach, app_download, article_submit, auth, account_bind, clips, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, public_voice_enroll, site_config, wish_wall, word_practice, wxpay, push
+from .routers import ai_coach, app_download, article_submit, auth, account_bind, bilibili_proxy, clips, demo, entries, episode_submit, episodes, feedback, learning, membership, notifications, presence, articles, public_voice_enroll, site_config, wish_wall, word_practice, wxpay, push
 from .routers.admin import learning as admin_learning
 from .routers.admin import activation_codes as admin_activation_codes
 from .routers.admin import ai_usage as admin_ai_usage
@@ -74,6 +74,7 @@ app.include_router(app_download.router)
 app.include_router(public_voice_enroll.router)
 app.include_router(demo.router)
 app.include_router(episodes.router)
+app.include_router(bilibili_proxy.router)
 app.include_router(episode_submit.router)
 app.include_router(notifications.router)
 app.include_router(push.router)

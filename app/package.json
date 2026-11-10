@@ -18,6 +18,7 @@
     "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/android": "^7.4.3",
     "@capacitor/app": "^7.1.0",
+    "@capacitor/clipboard": "^7.0.4",
     "@capacitor/core": "^7.4.3",
     "@capacitor/ios": "^7.4.3",
     "@capacitor/push-notifications": "^7.0.7",

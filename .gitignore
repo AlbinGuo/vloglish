@@ -67,6 +67,7 @@ backend/data/teco.db
 backend/data/media/
 backend/data/tts_cache/
 backend/teco_lab.db
+backend/data/vloglish-ytdlp-g153bcri/
 
 # --- Logs & caches ---
 logs/

@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import DATA_DIR, get_db
@@ -30,6 +31,7 @@ from ..services.local_submit import (
 )
 from ..services.yt_dlp_fetch import is_supported_source_url, resolve_bilibili_short_url
 from ..services.asr_dashscope import dashscope_asr_configured
+from ..services.bilibili_meta import fetch_meta
 from ..services.episode_ai_enrich import ai_enrich_configured, schedule_ai_enrich
 
 router = APIRouter(prefix="/api/episodes/submit", tags=["episode-submit"])
@@ -270,6 +272,104 @@ def import_self_episode(
         short_title=ep.short_title,
         status=ep.status,
         message=message,
+    )
+
+
+class BilibiliImportIn(BaseModel):
+    bvid: str = ""
+    url: str = ""
+    page: int | None = None
+
+
+@router.post("/bilibili/", response_model=UserEpisodeSubmitOut)
+def import_bilibili(
+    payload: BilibiliImportIn,
+    user: User = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """B 站直连导入：不下载不存储，video_url 指向后端代理接口。"""
+    raw = (payload.bvid or payload.url or "").strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="缺少 B 站链接或 BV 号")
+    try:
+        meta = fetch_meta(raw, payload.page)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"解析失败：{exc}") from exc
+
+    canonical = meta["canonical_url"]
+    existing = (
+        db.query(Episode)
+        .filter(
+            Episode.submitted_by_user_id == user.id,
+            Episode.original_video_url == canonical,
+        )
+        .first()
+    )
+    if existing:
+        return UserEpisodeSubmitOut(
+            video_id=existing.video_id,
+            short_title=existing.short_title,
+            status=existing.status,
+            message="这个视频已经在你的语料库里了",
+        )
+
+    video_id = generate_video_id()
+    while db.query(Episode).filter(Episode.video_id == video_id).first():
+        video_id = generate_video_id()
+
+    bvid = meta["bvid"]
+    page = meta["page"]
+    cover = meta.get("cover_proxy") or meta.get("cover") or ""
+    author_name = (meta.get("author_name") or "").strip() or "B站作者"
+    author = get_or_create_author(
+        db,
+        {
+            "name": author_name,
+            "gender": "m",
+            "nationality": ACCENT_NATIONALITY.get("美国", ""),
+            "accent": "美国",
+            "avatar": meta.get("author_avatar") or "",
+        },
+    )
+
+    ep = Episode(
+        video_id=video_id,
+        status="published",
+        submitted_by_user_id=user.id,
+        is_catalog_public=False,
+    )
+    apply_episode_fields(
+        ep,
+        {
+            "short_title": (meta.get("title") or bvid)[:80],
+            "summary": meta.get("summary") or "",
+            "remark": f"用户 B 站直连导入 (user #{user.id})",
+            "stars": 3,
+            "voca_size": 0,
+            "cover": cover,
+            "video_url": f"/api/bilibili/stream/{bvid}?p={page}",
+            "audio_url": f"/api/bilibili/stream/{bvid}?p={page}",
+            "thumbnail_url": cover,
+            "original_video_url": canonical,
+            "is_demo": False,
+            "status": "published",
+        },
+        author=author,
+        tags=[],
+    )
+    ep.subtitle_count = 0
+    ep.clip_length = float(meta.get("duration") or 0)
+    db.add(ep)
+    db.commit()
+    db.refresh(ep)
+
+    return UserEpisodeSubmitOut(
+        video_id=ep.video_id,
+        short_title=ep.short_title,
+        status=ep.status,
+        message="已添加，开始观看吧",
     )
 
 

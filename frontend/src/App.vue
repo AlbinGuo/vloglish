@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { watch } from 'vue'
-import { RouterView } from 'vue-router'
+import { ref, watch } from 'vue'
+import { RouterView, useRouter } from 'vue-router'
 import AppSplash from '@/components/AppSplash.vue'
 import AppUpdateDialog from '@/components/app/AppUpdateDialog.vue'
+import BilibiliImportDialog from '@/components/bilibili/BilibiliImportDialog.vue'
 import { useAppUpdateCheck } from '@/composables/useAppUpdateCheck'
+import { useBilibiliClipboardWatcher } from '@/composables/useBilibiliClipboardWatcher'
+import { importBilibili } from '@/api/bilibili'
 import { isMobileAppBuild, isNativePlatform } from '@/utils/platform'
 import { useAuthStore } from '@/stores/auth'
 import { initPushNotifications, setupPushNotificationRouting, syncPushToken } from '@/services/pushNotifications'
@@ -18,12 +21,43 @@ void setupPushNotificationRouting()
 
 // 登录后注册系统推送（token 上报需要登录态）
 const auth = useAuthStore()
+
+const router = useRouter()
+const {
+  open: biliOpen,
+  data: biliData,
+  error: biliError,
+  start: startBiliWatcher,
+  reset: resetBili,
+} = useBilibiliClipboardWatcher()
+const biliImporting = ref(false)
+
+async function onBiliConfirm() {
+  const meta = biliData.value
+  if (!meta) return
+  biliImporting.value = true
+  biliError.value = ''
+  try {
+    const res = await importBilibili(meta.bvid, meta.page)
+    resetBili()
+    await router.push(`/english/episode/${res.video_id}`)
+  } catch (e: unknown) {
+    biliError.value =
+      (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+      '导入失败，请稍后再试'
+  } finally {
+    biliImporting.value = false
+  }
+}
+
+// 登录后註冊系统推送（token 上报需要登录态），并开始监听剪贴板里的 B 站链接
 watch(
   () => auth.isLoggedIn,
   (ok) => {
     if (ok) {
       void initPushNotifications()
       void syncPushToken()
+      startBiliWatcher()
     }
   },
   { immediate: true },
@@ -49,5 +83,13 @@ if (isNativePlatform()) {
   <RouterView />
   <AppSplash v-if="showSplash" />
   <AppUpdateDialog :open="open" :info="info" @later="later" @update="onUpdateClicked" />
+  <BilibiliImportDialog
+    :open="biliOpen"
+    :data="biliData"
+    :loading="biliImporting"
+    :error="biliError"
+    @confirm="onBiliConfirm"
+    @close="resetBili"
+  />
 </template>
 
