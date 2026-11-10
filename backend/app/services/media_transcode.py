@@ -84,6 +84,7 @@ def transcode_to_h264(input_path: Path, ffmpeg_dir: Path) -> Path:
     ffmpeg = _ffmpeg_bin(ffmpeg_dir, "ffmpeg")
     output = input_path.with_name(f"{input_path.stem}.h264{input_path.suffix}")
     timeout = int(os.getenv("FFMPEG_TRANSCODE_TIMEOUT", "14400"))
+    preset = os.getenv("FFMPEG_X264_PRESET", "veryfast").strip() or "veryfast"
     proc = subprocess.run(
         [
             ffmpeg,
@@ -93,7 +94,7 @@ def transcode_to_h264(input_path: Path, ffmpeg_dir: Path) -> Path:
             "-c:v",
             "libx264",
             "-preset",
-            "fast",
+            preset,
             "-crf",
             "23",
             "-c:a",

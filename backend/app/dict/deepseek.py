@@ -641,6 +641,7 @@ def build_subtitle_translation_brief(
             response_format={"type": "json_object"},
             temperature=0.3,
             timeout=180,
+            thinking=False,
         )
         raw = _extract_json(content)
         if not isinstance(raw, dict):
@@ -701,6 +702,7 @@ def _ipa_only_batch(english_lines: list[str]) -> list[str]:
         response_format={"type": "json_object"},
         temperature=0.2,
         timeout=180,
+        thinking=False,
     )
     raw = _extract_json(content)
     items = raw.get("items")
@@ -856,6 +858,7 @@ def analyze_episode_metrics_with_deepseek(
         response_format={"type": "json_object"},
         temperature=0.2,
         timeout=180,
+        thinking=False,
     )
     raw = _extract_json(content)
     stars = int(raw.get("stars", 3))
@@ -880,6 +883,7 @@ def _annotate_subtitle_lines_batch(
         response_format={"type": "json_object"},
         temperature=0.25,
         timeout=240,
+        thinking=False,
     )
     raw = _extract_json(content)
     items = raw.get("items")

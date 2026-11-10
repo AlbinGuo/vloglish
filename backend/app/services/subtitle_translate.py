@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from ..dict.deepseek import build_subtitle_translation_brief, enrich_subtitle_lines_with_deepseek
@@ -12,8 +13,15 @@ logger = logging.getLogger(__name__)
 BATCH_SIZE = 20
 _BATCH_SIZE = BATCH_SIZE
 _CONTEXT_WINDOW = 6
-# 同轮内最多并行打几路翻译 / IPA
-PARALLEL_WORKERS = 2
+def _env_int(name: str, default: int, minimum: int = 1) -> int:
+    try:
+        return max(minimum, int(os.getenv(name, str(default))))
+    except ValueError:
+        return default
+
+
+# 同轮内最多并行打几路翻译 / IPA（默认 4，可用 SUBTITLE_TRANSLATE_WORKERS 调整）
+PARALLEL_WORKERS = _env_int("SUBTITLE_TRANSLATE_WORKERS", 6)
 
 
 def enrich_subtitles_with_deepseek(

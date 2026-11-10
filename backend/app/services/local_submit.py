@@ -1,21 +1,27 @@
 """用户自助导入：B 站链接 / 本地视频 + 用户自带的 SRT/VTT 字幕。
 
-处理完直接把媒体落到 ``DATA_DIR/media/<video_id>/``（复用现有
-/api/episode/<video_id>/video|audio 本地媒体服务），由调用方创建
-「已发布、仅本人可见」的剧集。暂不做中文翻译 / 音标 / 难度词汇高亮。
+本地文件导入直接落到 ``DATA_DIR/media/<video_id>/``（复用现有
+/api/episode/<video_id>/video|audio 本地媒体服务）；远程链接（YouTube/B 站）
+下载后转存七牛云，成功即删除本地文件，避免占用服务器磁盘。
+暂不做中文翻译 / 音标 / 难度词汇高亮。
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from ..database import DATA_DIR
+from ..qiniu_storage import QiniuConfig, upload_file
 from .media_transcode import get_ffmpeg_dir, probe_video_codec
 from .vtt_import import subtitle_text_to_dicts
 from .yt_dlp_fetch import download_source_media
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_VIDEO_SUFFIXES = {".mp4", ".mov", ".m4v", ".webm", ".mkv", ".avi", ".flv"}
 ALLOWED_SUBTITLE_SUFFIXES = {".srt", ".vtt", ".txt"}
@@ -65,7 +71,8 @@ def _prepare_video_mp4(src: Path, out: Path) -> None:
     if codec in _H264_CODECS:
         video_args = ["-c:v", "copy"]
     else:
-        video_args = ["-c:v", "libx264", "-preset", "fast", "-crf", "23"]
+        preset = os.getenv("FFMPEG_X264_PRESET", "veryfast").strip() or "veryfast"
+        video_args = ["-c:v", "libx264", "-preset", preset, "-crf", "23"]
     _run_ffmpeg(
         [
             ffmpeg,
@@ -161,9 +168,14 @@ def _finalize_video_dir(
     target_dir = DATA_DIR / "media" / video_id
     target_dir.mkdir(parents=True, exist_ok=True)
     video_out = target_dir / "video.mp4"
+    audio_out = target_dir / "audio.mp3"
     try:
-        _prepare_video_mp4(source_video, video_out)
-        _extract_audio_mp3(video_out, target_dir / "audio.mp3")
+        # 视频转封装/转码与音频抽取互不依赖，并行缩短总耗时
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            fv = pool.submit(_prepare_video_mp4, source_video, video_out)
+            fa = pool.submit(_extract_audio_mp3, source_video, audio_out)
+            fv.result()
+            fa.result()
     except Exception:
         shutil.rmtree(target_dir, ignore_errors=True)
         raise
@@ -205,6 +217,44 @@ def _media_urls(video_id: str) -> dict:
     }
 
 
+def _upload_media_to_qiniu(video_id: str, media_dir: Path) -> dict[str, str] | None:
+    """把处理好的 video/audio/cover 上传七牛，返回可入库的 public 基址。
+
+    七牛未配置时返回 None（调用方回退本地存储）；上传异常由调用方捕获。
+    """
+    try:
+        cfg = QiniuConfig.from_env()
+    except RuntimeError as exc:
+        logger.warning("远程导入转存七牛跳过（七牛未配置）：%s", exc)
+        return None
+
+    jobs: dict[str, Path] = {}
+    for field, pattern in (
+        ("cover", "cover.*"),
+        ("video_url", "video.*"),
+        ("audio_url", "audio.*"),
+    ):
+        candidates = sorted(media_dir.glob(pattern))
+        if candidates:
+            jobs[field] = candidates[0]
+    if "video_url" not in jobs:
+        raise RuntimeError("七牛上传前未找到视频文件")
+
+    uploads: dict[str, str] = {}
+    # 三个文件并行上传，缩短等待
+    with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
+        futures = {
+            pool.submit(upload_file, cfg, path, cfg.object_key(video_id, path.name)): field
+            for field, path in jobs.items()
+        }
+        for future, field in futures.items():
+            uploads[field] = future.result()
+
+    if not uploads.get("video_url"):
+        raise RuntimeError("七牛上传后未得到视频地址")
+    return uploads
+
+
 def ingest_from_local_file(
     *,
     video_id: str,
@@ -244,9 +294,28 @@ def ingest_from_remote_url(
 
     fetched = download_source_media(url, write_subtitles=False, quality="720")
     try:
-        _finalize_video_dir(
+        media_dir = _finalize_video_dir(
             video_id, fetched.video_path, thumbnail_src=fetched.thumbnail_path
         )
+
+        uploaded: dict[str, str] | None = None
+        try:
+            uploaded = _upload_media_to_qiniu(video_id, media_dir)
+        except Exception:  # noqa: BLE001
+            logger.warning("远程导入转存七牛失败，回退本地存储", exc_info=True)
+
+        if uploaded:
+            # 上传成功：删除本地媒体，避免占用服务器磁盘
+            shutil.rmtree(media_dir, ignore_errors=True)
+            media_payload = {
+                "video_url": uploaded.get("video_url", ""),
+                "audio_url": uploaded.get("audio_url", ""),
+            }
+            cover_url = uploaded.get("cover", "")
+        else:
+            media_payload = _media_urls(video_id)
+            cover_url = _cover_url_if_exists(video_id)
+
         return {
             "short_title": _clean_title(fetched.title or ""),
             "summary": (fetched.summary or "")[:2000],
@@ -256,8 +325,8 @@ def ingest_from_remote_url(
             "subtitles": subtitles,
             "had_chinese": had_chinese,
             "clip_length": clip_length,
-            "cover_url": _cover_url_if_exists(video_id),
-            **_media_urls(video_id),
+            "cover_url": cover_url,
+            **media_payload,
         }
     finally:
         shutil.rmtree(fetched.work_dir, ignore_errors=True)

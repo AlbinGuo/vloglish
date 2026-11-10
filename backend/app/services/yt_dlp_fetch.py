@@ -1033,6 +1033,8 @@ def _run_yt_dlp(
         "--ffmpeg-location",
         str(tools.ffmpeg_dir),
         "--no-playlist",
+        "--concurrent-fragments",
+        (os.getenv("YT_DLP_CONCURRENT_FRAGMENTS", "4").strip() or "4"),
         "-f",
         fmt,
         "-o",

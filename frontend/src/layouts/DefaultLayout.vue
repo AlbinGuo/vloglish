@@ -156,6 +156,27 @@ onMounted(() => {
 /** App 端隐藏移动端轻量 header 的品牌 logo / 通知 / 头像（底部 Tab 负责导航），仅保留状态栏安全区 */
 const hideAppMobileHeader = isMobileAppBuild()
 
+/** App 内这些浏览页滑动时隐藏右侧滚动条 */
+const HIDE_SCROLLBAR_ROUTE_NAMES = new Set([
+  'HomePage',
+  'SeriesList',
+  'MySubmissions',
+  'MyFollows',
+  'WatchHistory',
+])
+watch(
+  () => route.name,
+  (name) => {
+    const hide =
+      isMobileAppBuild() && HIDE_SCROLLBAR_ROUTE_NAMES.has(String(name ?? ''))
+    document.documentElement.classList.toggle('hide-app-scrollbar', hide)
+  },
+  { immediate: true },
+)
+onUnmounted(() => {
+  document.documentElement.classList.remove('hide-app-scrollbar')
+})
+
 /** 移动端底部 Tab Bar：仅非沉浸式页面、已登录时显示 */
 const showBottomTabs = computed(() => !immersive.value && auth.isLoggedIn && !route.meta.landing)
 

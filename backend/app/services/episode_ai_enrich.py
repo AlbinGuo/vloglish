@@ -6,13 +6,18 @@
 from __future__ import annotations
 
 import logging
+import shutil
+import tempfile
 import threading
+import urllib.request
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 
 from ..database import DATA_DIR, SessionLocal
 from ..dict.config import DEEPSEEK_API_KEY
 from ..models import Episode, Subtitle
+from ..qiniu_storage import is_our_qiniu_url, qiniu_media_expires, sign_url
 from .asr_dashscope import dashscope_asr_configured, transcribe_audio_to_sentences
 from .episode_admin import replace_subtitles
 from .subtitle_analyze import analyze_subtitles_with_deepseek
@@ -47,6 +52,37 @@ def _load_rows(db: Session, episode: Episode) -> list[dict]:
     ]
 
 
+def _resolve_asr_source(episode: Episode, video_id: str) -> tuple[Path | None, str | None, Path | None]:
+    """定位 ASR 音源：本地文件 / 七牛公网地址 / 外部地址下载到临时文件。
+
+    返回 (本地音频, 七牛 file_url, 需清理的临时目录)。
+    """
+    local = DATA_DIR / "media" / video_id / "audio.mp3"
+    if local.is_file() and local.stat().st_size > 0:
+        return local, None, None
+
+    remote = (getattr(episode, "audio_url", "") or "").strip()
+    if not remote:
+        raise RuntimeError("找不到音频文件，无法生成字幕")
+
+    if remote.startswith(("http://", "https://")) and is_our_qiniu_url(remote):
+        return None, remote, None
+
+    work = Path(tempfile.mkdtemp(prefix="vloglish-asr-", dir=DATA_DIR))
+    tmp = work / "audio.mp3"
+    try:
+        url = sign_url(remote, expires=qiniu_media_expires())
+        req = urllib.request.Request(url, headers={"User-Agent": "vloglish-asr/1.0"})
+        with urllib.request.urlopen(req, timeout=120) as resp, tmp.open("wb") as out:
+            shutil.copyfileobj(resp, out)
+        if not tmp.is_file() or tmp.stat().st_size == 0:
+            raise RuntimeError("下载音频为空")
+        return tmp, None, work
+    except Exception as exc:  # noqa: BLE001
+        shutil.rmtree(work, ignore_errors=True)
+        raise RuntimeError(f"下载音频失败：{exc}") from exc
+
+
 def run_ai_enrich(video_id: str, *, do_asr: bool) -> None:
     """同步执行（由 schedule_ai_enrich 放到后台线程）。"""
     db: Session = SessionLocal()
@@ -62,8 +98,14 @@ def run_ai_enrich(video_id: str, *, do_asr: bool) -> None:
         if not rows and do_asr:
             if not dashscope_asr_configured():
                 raise RuntimeError("未配置语音识别（DASHSCOPE_API_KEY），无法从视频生成字幕")
-            audio = DATA_DIR / "media" / video_id / "audio.mp3"
-            sentences = transcribe_audio_to_sentences(audio, video_id=video_id)
+            audio, file_url, temp_dir = _resolve_asr_source(episode, video_id)
+            try:
+                sentences = transcribe_audio_to_sentences(
+                    audio, video_id=video_id, file_url=file_url
+                )
+            finally:
+                if temp_dir is not None:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
             rows = [
                 {
                     "index": i + 1,

@@ -101,7 +101,7 @@ def _submit_task(file_url: str) -> str:
 def _poll_task(task_id: str) -> dict:
     url = f"{_api_base()}/tasks/{task_id}"
     deadline = time.time() + _asr_timeout()
-    interval = 3.0
+    interval = 1.0
     last: dict = {}
     while time.time() < deadline:
         payload = _http_json("GET", url, headers=_headers())
@@ -114,7 +114,7 @@ def _poll_task(task_id: str) -> dict:
             msg = output.get("message") or output.get("code") or status
             raise RuntimeError(f"DashScope 识别失败: {msg}")
         time.sleep(interval)
-        interval = min(interval + 1.0, 8.0)
+        interval = min(interval * 1.5, 4.0)
     raise RuntimeError(
         f"DashScope 识别超时（>{_asr_timeout()}s）: "
         f"{json.dumps(last, ensure_ascii=False)[:200]}"
@@ -148,11 +148,26 @@ def _fetch_transcriptions(output: dict) -> list[dict]:
     return sentences
 
 
-def transcribe_audio_to_sentences(audio_path: Path, *, video_id: str) -> list[dict]:
-    """音频 -> [{start, end, text}]（秒）。需要七牛 + DASHSCOPE_API_KEY。"""
+def transcribe_audio_to_sentences(
+    audio_path: Path | None = None,
+    *,
+    video_id: str,
+    file_url: str | None = None,
+) -> list[dict]:
+    """音频 -> [{start, end, text}]（秒）。需要七牛 + DASHSCOPE_API_KEY。
+
+    传入 file_url（已是七牛公网基址）时直接签名复用，省去重复上传音频。
+    """
     if not dashscope_asr_configured():
         raise RuntimeError("未配置 DASHSCOPE_API_KEY，无法进行语音识别")
-    if not audio_path.is_file():
+
+    if file_url:
+        signed_url = sign_url(file_url, expires=7200)
+        task_id = _submit_task(signed_url)
+        output = _poll_task(task_id)
+        return _fetch_transcriptions(output)
+
+    if audio_path is None or not audio_path.is_file():
         raise RuntimeError("找不到音频文件，无法识别")
     cfg, key, signed_url = _upload_audio(audio_path, video_id)
     try:

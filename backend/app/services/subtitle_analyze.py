@@ -1,6 +1,7 @@
 """Analyze subtitles for difficulty, vocabulary size, and highlight HTML via DeepSeek."""
 from __future__ import annotations
 
+import os
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -8,8 +9,17 @@ from ..dict.deepseek import analyze_episode_metrics_with_deepseek, annotate_subt
 from .vtt_import import words_to_html
 
 VALID_HIGHLIGHTS = frozenset({"a", "d", "i", "c", "l", "f", "p"})
-ANNOTATE_BATCH_SIZE = 16
-PARALLEL_WORKERS = 2
+
+
+def _env_int(name: str, default: int, minimum: int = 1) -> int:
+    try:
+        return max(minimum, int(os.getenv(name, str(default))))
+    except ValueError:
+        return default
+
+
+ANNOTATE_BATCH_SIZE = _env_int("SUBTITLE_ANNOTATE_BATCH_SIZE", 16)
+PARALLEL_WORKERS = _env_int("SUBTITLE_ANNOTATE_WORKERS", 4)
 
 
 class _HighlightIdGen:
