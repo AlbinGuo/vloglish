@@ -5,7 +5,8 @@ import type { BilibiliResolved } from '@/api/bilibili'
 const props = defineProps<{
   open: boolean
   data: BilibiliResolved | null
-  loading?: boolean
+  resolving?: boolean
+  importing?: boolean
   error?: string
 }>()
 const emit = defineEmits<{ confirm: []; close: [] }>()
@@ -41,6 +42,7 @@ const durationText = computed(() => {
             ×
           </button>
         </div>
+
         <div v-if="data" class="px-4 py-4">
           <div class="relative aspect-video w-full overflow-hidden rounded-xl bg-sunken">
             <img v-if="coverUrl" :src="coverUrl" alt="" class="h-full w-full object-cover" />
@@ -65,14 +67,29 @@ const durationText = computed(() => {
             <button
               type="button"
               class="flex-1 rounded-lg bg-amber-500 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-60"
-              :disabled="loading"
+              :disabled="importing"
               @click="emit('confirm')"
             >
-              {{ loading ? '导入中…' : '立即观看' }}
+              {{ importing ? '导入中…' : '立即观看' }}
             </button>
           </div>
         </div>
-        <div v-else class="px-4 py-8 text-center text-sm text-ink-faint">解析中…</div>
+
+        <div v-else-if="error" class="px-4 py-8 text-center">
+          <p class="text-sm text-red-600">{{ error }}</p>
+          <button
+            type="button"
+            class="mt-4 rounded-lg border border-line-soft px-4 py-2 text-sm text-ink-soft hover:bg-sunken"
+            @click="emit('close')"
+          >
+            关闭
+          </button>
+        </div>
+
+        <div v-else class="px-4 py-10 text-center">
+          <div class="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+          <p class="mt-3 text-sm text-ink-faint">正在解析剪贴板中的 B 站视频…</p>
+        </div>
       </div>
     </div>
   </Teleport>

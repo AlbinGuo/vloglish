@@ -31,6 +31,7 @@ import { useNotificationStore } from '@/stores/notifications'
 import { useVocabularyStore } from '@/stores/vocabulary'
 import { useVoiceCloneStore } from '@/stores/voiceClone'
 import { isNativePlatform } from '@/utils/platform'
+import { useBilibiliClipboardWatcher } from '@/composables/useBilibiliClipboardWatcher'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -47,6 +48,18 @@ const { floatingBallEnabled, setFloatingBallEnabled } = useFloatingBall()
 const { subtitleAlign, setSubtitleAlign } = useSubtitleAlign()
 const { playerSubtitlePosition, setPlayerSubtitlePosition } = usePlayerSubtitlePosition()
 const { subtitleSize, setSubtitleSize } = usePlayerSubtitlePrefs()
+
+const { clearHistory: clearBiliHistory } = useBilibiliClipboardWatcher()
+const biliHistoryCleared = ref(false)
+let biliClearTimer: ReturnType<typeof setTimeout> | undefined
+function onClearBiliHistory() {
+  clearBiliHistory()
+  biliHistoryCleared.value = true
+  if (biliClearTimer) clearTimeout(biliClearTimer)
+  biliClearTimer = setTimeout(() => {
+    biliHistoryCleared.value = false
+  }, 2000)
+}
 
 const isPhone = useIsPhone()
 
@@ -623,6 +636,22 @@ async function submitCredentials() {
         <span class="flex-1 text-[14px]">意见反馈</span>
         <AppIcon name="chevron-right" class="h-4 w-4 text-ink-faint" />
       </button>
+
+      <div class="flex items-center gap-3 border-t border-line-soft px-4 py-3.5">
+        <AppIcon name="clipboard" class="h-5 w-5 shrink-0 text-ink-soft" />
+        <div class="min-w-0 flex-1">
+          <p class="text-[14px] text-ink">B站导入记录</p>
+          <p class="text-[11px] text-ink-faint">清除后同一视频可再次通过剪贴板导入</p>
+        </div>
+        <button
+          type="button"
+          class="shrink-0 rounded-lg border border-line-soft px-3 py-1.5 text-[12px] text-ink-soft transition hover:bg-sunken disabled:opacity-60"
+          :disabled="biliHistoryCleared"
+          @click="onClearBiliHistory"
+        >
+          {{ biliHistoryCleared ? '已清除' : '清除' }}
+        </button>
+      </div>
 
       <RouterLink
         to="/privacy"

@@ -2,10 +2,18 @@
 from __future__ import annotations
 
 import re
+import shutil
 import time
 import urllib.parse
+import urllib.request
+from pathlib import Path
 
-from .yt_dlp_fetch import _bili_cookie_header, _bili_get_json, resolve_bilibili_short_url
+from .yt_dlp_fetch import (
+    _BILIBILI_USER_AGENT,
+    _bili_cookie_header,
+    _bili_get_json,
+    resolve_bilibili_short_url,
+)
 
 _BV_RE = re.compile(r"(BV[0-9A-Za-z]{10})")
 _PAGE_RE = re.compile(r"[?&]p=(\d+)")
@@ -22,6 +30,8 @@ ALLOWED_HOST_SUFFIXES = (
 
 _durl_cache: dict[str, tuple[float, str]] = {}
 _DURL_TTL = 300
+_audio_cache: dict[str, tuple[float, str]] = {}
+_AUDIO_TTL = 180
 
 
 def extract_bvid(raw: str) -> str:
@@ -141,3 +151,81 @@ def resolve_durl(bvid: str, page: int) -> str:
         )
     _durl_cache[key] = (now + _DURL_TTL, url)
     return url
+
+
+def _download_media(url: str, bvid: str, dest: Path) -> None:
+    headers = {
+        "User-Agent": _BILIBILI_USER_AGENT,
+        "Referer": f"https://www.bilibili.com/video/{bvid}",
+        "Origin": "https://www.bilibili.com",
+    }
+    cookie = _bili_cookie_header()
+    if cookie:
+        headers["Cookie"] = cookie
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with urllib.request.urlopen(
+        urllib.request.Request(url, headers=headers), timeout=120
+    ) as resp, dest.open("wb") as out:
+        shutil.copyfileobj(resp, out)
+    if not dest.is_file() or dest.stat().st_size == 0:
+        raise RuntimeError("下载媒体为空")
+
+
+def resolve_audio_url(bvid: str, page: int) -> str:
+    """获取 DASH 纯音频流直链（体积远小于整段视频），进程内缓存 3 分钟。"""
+    key = f"audio#{bvid}#{page}"
+    now = time.time()
+    cached = _audio_cache.get(key)
+    if cached and cached[0] > now:
+        return cached[1]
+
+    data, cookie = _view(bvid)
+    cid, _ = _pick_page(data, page)
+    if not cid:
+        raise RuntimeError("B站未返回 cid")
+    play = _bili_get_json(
+        "https://api.bilibili.com/x/player/playurl"
+        f"?bvid={bvid}&cid={cid}&qn=64&fnval=16&platform=html5&high_quality=1",
+        cookie,
+    )
+    if play.get("code") != 0:
+        raise RuntimeError(
+            f"B站播放接口返回 {play.get('code')}: {play.get('message')}"
+        )
+    dash = (play.get("data") or {}).get("dash") or {}
+    audios = [
+        a
+        for a in (dash.get("audio") or [])
+        if a.get("baseUrl") or a.get("base_url")
+    ]
+    if not audios:
+        raise RuntimeError("B站未返回 DASH 音频流")
+
+    def _bw(item: dict) -> int:
+        try:
+            return int(item.get("bandwidth") or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    # 优先 96kbps 以上的最小体积流，音质够 ASR 用，又比整段视频小很多
+    eligible = [a for a in audios if _bw(a) >= 96000]
+    target = min(eligible or audios, key=_bw)
+    url = str(target.get("baseUrl") or target.get("base_url") or "")
+    if not url:
+        raise RuntimeError("DASH 音频地址为空")
+    _audio_cache[key] = (now + _AUDIO_TTL, url)
+    return url
+
+
+def download_audio(bvid: str, page: int, dest: Path) -> None:
+    """下载音频：优先 DASH 纯音频流（体积小），失败回退 durl 单文件。"""
+    try:
+        url = resolve_audio_url(bvid, page)
+    except Exception:  # noqa: BLE001
+        url = resolve_durl(bvid, page)
+    _download_media(url, bvid, dest)
+
+
+def download_durl(bvid: str, page: int, dest: Path) -> None:
+    """下载 durl 单文件视频（含音频）。"""
+    _download_media(resolve_durl(bvid, page), bvid, dest)

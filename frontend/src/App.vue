@@ -26,9 +26,11 @@ const router = useRouter()
 const {
   open: biliOpen,
   data: biliData,
+  loading: biliResolving,
   error: biliError,
   start: startBiliWatcher,
   reset: resetBili,
+  markImported: markBiliImported,
 } = useBilibiliClipboardWatcher()
 const biliImporting = ref(false)
 
@@ -39,6 +41,7 @@ async function onBiliConfirm() {
   biliError.value = ''
   try {
     const res = await importBilibili(meta.bvid, meta.page)
+    markBiliImported(meta.bvid)
     resetBili()
     await router.push(`/english/episode/${res.video_id}`)
   } catch (e: unknown) {
@@ -86,7 +89,8 @@ if (isNativePlatform()) {
   <BilibiliImportDialog
     :open="biliOpen"
     :data="biliData"
-    :loading="biliImporting"
+    :resolving="biliResolving"
+    :importing="biliImporting"
     :error="biliError"
     @confirm="onBiliConfirm"
     @close="resetBili"

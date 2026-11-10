@@ -9,6 +9,7 @@ import logging
 import shutil
 import tempfile
 import threading
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -52,6 +53,36 @@ def _load_rows(db: Session, episode: Episode) -> list[dict]:
     ]
 
 
+def _prepare_bilibili_audio(api_url: str) -> tuple[Path, None, Path]:
+    """B 站直连剧集没有本地音频：下载 durl 并抽取 mp3 到临时文件供 ASR 使用。"""
+    from .bilibili_meta import download_audio, extract_bvid
+    from .local_submit import _extract_audio_mp3
+
+    parsed = urllib.parse.urlparse(api_url)
+    bvid = extract_bvid(parsed.path)
+    if not bvid:
+        raise RuntimeError("无法解析 B 站视频地址")
+    qs = urllib.parse.parse_qs(parsed.query)
+    try:
+        page = int((qs.get("p") or ["1"])[0] or 1)
+    except ValueError:
+        page = 1
+
+    work = Path(tempfile.mkdtemp(prefix="vloglish-asr-bili-", dir=DATA_DIR))
+    src = work / "source.mp4"
+    out = work / "audio.mp3"
+    try:
+        download_audio(bvid, page, src)
+        _extract_audio_mp3(src, out)
+        src.unlink(missing_ok=True)
+        if not out.is_file() or out.stat().st_size == 0:
+            raise RuntimeError("提取音频为空")
+        return out, None, work
+    except Exception as exc:  # noqa: BLE001
+        shutil.rmtree(work, ignore_errors=True)
+        raise RuntimeError(f"准备 B 站音频失败：{exc}") from exc
+
+
 def _resolve_asr_source(episode: Episode, video_id: str) -> tuple[Path | None, str | None, Path | None]:
     """定位 ASR 音源：本地文件 / 七牛公网地址 / 外部地址下载到临时文件。
 
@@ -64,6 +95,9 @@ def _resolve_asr_source(episode: Episode, video_id: str) -> tuple[Path | None, s
     remote = (getattr(episode, "audio_url", "") or "").strip()
     if not remote:
         raise RuntimeError("找不到音频文件，无法生成字幕")
+
+    if remote.startswith("/api/bilibili/"):
+        return _prepare_bilibili_audio(remote)
 
     if remote.startswith(("http://", "https://")) and is_our_qiniu_url(remote):
         return None, remote, None
