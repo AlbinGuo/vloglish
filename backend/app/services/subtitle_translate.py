@@ -35,11 +35,13 @@ def enrich_subtitles_with_deepseek(
     translation_brief: dict | None = None,
     max_batches: int | None = None,
     parallel_workers: int = PARALLEL_WORKERS,
+    build_brief: bool = True,
 ) -> tuple[int, int, dict, int, bool, int]:
     """Fill chinese/ipa fields.
 
     Returns (translated_count, ipa_count, translation_brief, remaining_pending, done, batches_run).
-    若未传入 translation_brief 且需要翻译，会先生成整集剧情简报。
+    若未传入 translation_brief 且需要翻译、且 build_brief=True，会先生成整集剧情简报。
+    build_brief=False 可跳过简报以加速（术语一致性略降）。
     max_batches 限制本轮翻译批次数（不含 brief），便于分轮续跑。
     """
     pending: list[int] = []
@@ -59,7 +61,7 @@ def enrich_subtitles_with_deepseek(
 
     all_english = [(row.get("english") or "").strip() for row in subtitles]
 
-    if translate_chinese and not brief:
+    if build_brief and translate_chinese and not brief:
         try:
             brief = build_subtitle_translation_brief(
                 [t for t in all_english if t],

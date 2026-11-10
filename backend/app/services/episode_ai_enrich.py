@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import tempfile
 import threading
@@ -21,7 +22,6 @@ from ..models import Episode, Subtitle
 from ..qiniu_storage import is_our_qiniu_url, qiniu_media_expires, sign_url
 from .asr_dashscope import dashscope_asr_configured, transcribe_audio_to_sentences
 from .episode_admin import replace_subtitles
-from .subtitle_analyze import analyze_subtitles_with_deepseek
 from .subtitle_translate import enrich_subtitles_with_deepseek
 
 logger = logging.getLogger(__name__)
@@ -117,6 +117,23 @@ def _resolve_asr_source(episode: Episode, video_id: str) -> tuple[Path | None, s
         raise RuntimeError(f"下载音频失败：{exc}") from exc
 
 
+def _translate_batch_size() -> int:
+    try:
+        return max(5, int(os.getenv("SUBTITLE_TRANSLATE_BATCH", "30")))
+    except ValueError:
+        return 30
+
+
+def _translate_chinese_enabled() -> bool:
+    """SUBTITLE_TRANSLATE_CHINESE=0 时只生成英文字幕（跳过中文翻译/IPA，最快）。"""
+    return os.getenv("SUBTITLE_TRANSLATE_CHINESE", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+
+
 def run_ai_enrich(video_id: str, *, do_asr: bool) -> None:
     """同步执行（由 schedule_ai_enrich 放到后台线程）。"""
     db: Session = SessionLocal()
@@ -155,29 +172,31 @@ def run_ai_enrich(video_id: str, *, do_asr: bool) -> None:
         if not rows:
             raise RuntimeError("没有可用的字幕（请上传字幕或启用语音识别）")
 
-        # 中文 + IPA（失败不阻塞高亮）
-        try:
-            enrich_subtitles_with_deepseek(
-                rows,
-                translate_chinese=True,
-                episode_title=episode.short_title or "",
-                episode_summary=episode.summary or "",
-            )
-        except Exception:
-            logger.warning("AI 翻译失败，继续生成重点词高亮 video=%s", video_id, exc_info=True)
+        # 中文字幕（+IPA）；SUBTITLE_TRANSLATE_CHINESE=0 时只生成英文字幕，最快
+        if _translate_chinese_enabled():
+            try:
+                enrich_subtitles_with_deepseek(
+                    rows,
+                    translate_chinese=True,
+                    episode_title=episode.short_title or "",
+                    episode_summary=episode.summary or "",
+                    build_brief=False,
+                    batch_size=_translate_batch_size(),
+                )
+            except Exception:
+                logger.warning("AI 翻译失败，继续写入英文字幕 video=%s", video_id, exc_info=True)
+        else:
+            logger.info("仅英文字幕（SUBTITLE_TRANSLATE_CHINESE=0） video=%s", video_id)
 
         clip_length = float(max((r["end"] for r in rows), default=0.0))
-        metrics = analyze_subtitles_with_deepseek(rows, clip_length=clip_length or None)
 
         replace_subtitles(db, episode.id, rows)
         episode.subtitle_count = len(rows)
         episode.clip_length = clip_length
-        episode.stars = int(metrics.get("stars", episode.stars or 3) or 3)
-        episode.voca_size = int(metrics.get("voca_size", episode.voca_size or 0) or 0)
         episode.ai_status = "done"
         episode.ai_error = ""
         db.commit()
-        logger.info("AI 富化完成 video=%s subtitles=%d", video_id, len(rows))
+        logger.info("AI 字幕完成（无高亮） video=%s subtitles=%d", video_id, len(rows))
     except Exception as exc:  # noqa: BLE001
         logger.exception("AI 富化失败 video=%s", video_id)
         try:

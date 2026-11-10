@@ -72,6 +72,33 @@ def probe_video_codec(path: Path, ffmpeg_dir: Path) -> str:
     return ""
 
 
+def probe_duration(path: Path, ffmpeg_dir: Path) -> float:
+    """返回媒体时长（秒），失败返回 0。"""
+    ffprobe = _ffmpeg_bin(ffmpeg_dir, "ffprobe")
+    try:
+        proc = subprocess.run(
+            [
+                ffprobe,
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=nw=1:nk=1",
+                str(path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except Exception:
+        return 0.0
+    try:
+        return float((proc.stdout or "").strip())
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def is_browser_compatible_codec(codec: str) -> bool:
     if not codec:
         return True
