@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineOptions({ name: 'MySubmissionsPage' })
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onActivated, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { accentIconFor } from '@/constants/accentOptions'
 import { listMyArticleSubmissions, type UserArticleSubmissionItem } from '@/api/articles'
@@ -118,6 +118,24 @@ async function removeFavoriteSubtitle(item: SubtitleFavorite) {
   }
 }
 
+async function refreshSubtitleFavorites() {
+  try {
+    favoriteSubtitles.value = await getSubtitleFavorites({ limit: 200 })
+  } catch {
+    // ignore
+  }
+}
+
+// 页面被 KeepAlive 缓存：从详情页收藏字幕后返回，静默刷新收藏字幕列表，无需整页重载
+let keepAliveActivatedOnce = false
+onActivated(() => {
+  if (!keepAliveActivatedOnce) {
+    keepAliveActivatedOnce = true
+    return
+  }
+  void refreshSubtitleFavorites()
+})
+
 function subtitleFavoriteLink(item: SubtitleFavorite) {
   return `/english/episode/${encodeURIComponent(item.video_id)}?line=${item.subtitle_index}`
 }
@@ -219,12 +237,12 @@ function subtitleFavoriteLink(item: SubtitleFavorite) {
         <li
           v-for="item in favoriteSubtitles"
           :key="item.id"
-          class="rounded-2xl border border-line-soft bg-card p-3"
+          class="group overflow-hidden rounded-2xl border border-line-soft bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
         >
-          <div class="flex items-start gap-3">
+          <div class="flex items-stretch gap-3 p-3">
             <RouterLink
               :to="subtitleFavoriteLink(item)"
-              class="relative aspect-video w-24 shrink-0 overflow-hidden rounded-lg bg-sunken sm:w-28"
+              class="relative aspect-video w-28 shrink-0 self-start overflow-hidden rounded-xl bg-sunken sm:w-32"
             >
               <img
                 v-if="item.cover_url"
@@ -240,35 +258,37 @@ function subtitleFavoriteLink(item: SubtitleFavorite) {
                 暂无封面
               </div>
             </RouterLink>
-            <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+            <div class="flex min-w-0 flex-1 flex-col justify-between gap-2">
               <div class="min-w-0">
                 <p
                   v-if="item.english_html"
-                  class="subtitle-english text-[14px] font-medium leading-snug text-ink [&_.highlight]:text-amber-600 dark:[&_.highlight]:text-amber-400"
+                  class="subtitle-english text-[14px] font-medium leading-relaxed text-ink line-clamp-3 [&_.highlight]:font-semibold [&_.highlight]:text-amber-600 dark:[&_.highlight]:text-amber-400"
                   v-html="item.english_html"
                 ></p>
-                <p v-else class="text-[14px] font-medium leading-snug text-ink line-clamp-2">{{ item.english }}</p>
-                <p v-if="item.chinese" class="mt-1 text-[13px] text-ink-soft line-clamp-2">{{ item.chinese }}</p>
-                <p class="mt-1.5 text-[11px] text-ink-faint">
-                  <span v-if="item.episode_title" class="truncate">{{ item.episode_title }}</span>
+                <p v-else class="text-[14px] font-medium leading-relaxed text-ink line-clamp-3">{{ item.english }}</p>
+                <p v-if="item.chinese" class="mt-1 text-[13px] leading-relaxed text-ink-soft line-clamp-2">{{ item.chinese }}</p>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <p class="min-w-0 flex-1 truncate text-[11px] text-ink-faint">
+                  <span v-if="item.episode_title">{{ item.episode_title }}</span>
                   <span v-if="item.episode_title"> · </span>
                   <span>{{ formatDate(item.created_at) }}</span>
                 </p>
-              </div>
-              <div class="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  class="rounded-lg px-2 py-1 text-[12px] text-ink-faint transition hover:text-red-500"
-                  @click="removeFavoriteSubtitle(item)"
-                >
-                  取消
-                </button>
-                <RouterLink
-                  :to="subtitleFavoriteLink(item)"
-                  class="rounded-lg bg-amber-500 px-2.5 py-1 text-[12px] font-medium text-white transition hover:bg-amber-600"
-                >
-                  回看
-                </RouterLink>
+                <div class="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    class="rounded-lg px-2 py-1 text-[12px] text-ink-faint transition hover:text-red-500"
+                    @click="removeFavoriteSubtitle(item)"
+                  >
+                    取消
+                  </button>
+                  <RouterLink
+                    :to="subtitleFavoriteLink(item)"
+                    class="rounded-lg bg-amber-500 px-2.5 py-1 text-[12px] font-medium text-white transition hover:bg-amber-600"
+                  >
+                    回看
+                  </RouterLink>
+                </div>
               </div>
             </div>
           </div>
