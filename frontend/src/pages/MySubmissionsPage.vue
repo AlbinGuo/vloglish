@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineOptions({ name: 'MySubmissionsPage' })
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { accentIconFor } from '@/constants/accentOptions'
@@ -204,12 +205,6 @@ watch(
                   >
                     暂无封面
                   </div>
-                  <span
-                    class="absolute top-2 left-2 text-[10px] px-1.5 py-0.5 rounded-md font-medium shadow-md"
-                    :class="statusClass.published"
-                  >
-                    {{ statusLabel.published }}
-                  </span>
                   <img
                     v-if="accentIconFor(row.accent)"
                     :src="accentIconFor(row.accent)"

@@ -42,6 +42,23 @@ import BackButton from '@/components/layout/BackButton.vue'
 
 const route = useRoute()
 const router = useRouter()
+
+// 需要“返回上级页不刷新”的页面：加入 KeepAlive 缓存（按组件 name 匹配）
+const KEEP_ALIVE_NAMES = [
+  'HomePage',
+  'MySubmissionsPage',
+  'MyFollowsPage',
+  'WatchHistoryPage',
+  'AuthorDetailPage',
+]
+// 缓存页用固定 name 作 key（避免不同 query 生成多个实例而命中不到缓存）；其余页用完整路径
+function keepAliveKey(name: unknown, fullPath: string): string {
+  const n = String(name || '')
+  // 作者页按作者路径缓存：同一作者返回命中缓存，不同作者互不干扰
+  if (n === 'AuthorDetailPage') return fullPath
+  if (KEEP_ALIVE_NAMES.includes(n) || n === 'ListenEpisode') return n
+  return fullPath
+}
 const auth = useAuthStore()
 const siteConfig = useSiteConfigStore()
 const notifications = useNotificationStore()
@@ -672,11 +689,8 @@ watch(
       ]"
     >
       <RouterView v-slot="{ Component, route }">
-        <KeepAlive include="HomePage">
-          <component
-            :is="Component"
-            :key="route.name === 'HomePage' ? 'HomePage' : route.name === 'ListenEpisode' ? 'ListenEpisode' : route.fullPath"
-          />
+        <KeepAlive :include="KEEP_ALIVE_NAMES">
+          <component :is="Component" :key="keepAliveKey(route.name, route.fullPath)" />
         </KeepAlive>
       </RouterView>
     </main>

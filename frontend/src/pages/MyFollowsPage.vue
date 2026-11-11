@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineOptions({ name: 'MyFollowsPage' })
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'

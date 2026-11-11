@@ -1,5 +1,7 @@
+import logging
 from datetime import datetime
 import shutil
+import tempfile
 import threading
 from pathlib import Path
 
@@ -9,7 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..database import DATA_DIR, get_db
 from ..deps import get_current_member
-from ..media import resolve_cover_url
+from ..media import episode_audio_dir, resolve_cover_url
 from ..models import Article, Episode, User, UserEpisodeFavorite
 from ..schemas import (
     UserCorpusBadgeOut,
@@ -26,13 +28,15 @@ from ..services.episode_admin import (
 from ..services.local_submit import (
     ALLOWED_SUBTITLE_SUFFIXES,
     ALLOWED_VIDEO_SUFFIXES,
+    _extract_audio_mp3,
+    _prepare_video_mp4,
     ingest_from_local_file,
     ingest_from_remote_url,
     parse_subtitle_upload,
 )
 from ..services.yt_dlp_fetch import is_supported_source_url, resolve_bilibili_short_url
 from ..services.asr_dashscope import dashscope_asr_configured
-from ..services.bilibili_meta import fetch_meta, resolve_durl
+from ..services.bilibili_meta import download_durl, fetch_meta, resolve_durl
 from ..services.episode_ai_enrich import ai_enrich_configured, schedule_ai_enrich
 
 router = APIRouter(prefix="/api/episodes/submit", tags=["episode-submit"])
@@ -365,15 +369,40 @@ def import_bilibili(
     db.add(ep)
     db.commit()
     db.refresh(ep)
+    vid = ep.video_id
 
-    # 后台预热直链缓存：用户点开播放时省去 view+playurl 两次接口往返，明显更快
-    def _warm_durl() -> None:
+    def _prepare_bilibili_media() -> None:
+        # 先预热直链，保证转存期间用户点开也能用代理播放（首帧更快）
         try:
             resolve_durl(bvid, page)
         except Exception:  # noqa: BLE001
             pass
+        # 后台把 B 站视频转存为本地播放文件：之后播放走本地直出、AI 字幕用本地音频，均可秒开
+        media_dir = episode_audio_dir(vid)
+        video_out = media_dir / "video.mp4"
+        audio_out = media_dir / "audio.mp3"
+        if video_out.is_file() and audio_out.is_file():
+            return
+        work = Path(tempfile.mkdtemp(prefix="vloglish-bili-"))
+        try:
+            media_dir.mkdir(parents=True, exist_ok=True)
+            src = work / "source.mp4"
+            download_durl(bvid, page, src)
+            _prepare_video_mp4(src, video_out)
+            try:
+                _extract_audio_mp3(video_out, audio_out)
+            except Exception:  # noqa: BLE001
+                logging.getLogger(__name__).warning(
+                    "B站视频抽取音频失败 video_id=%s", vid, exc_info=True
+                )
+        except Exception:  # noqa: BLE001
+            logging.getLogger(__name__).warning(
+                "B站视频后台转存失败 video_id=%s", vid, exc_info=True
+            )
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
 
-    threading.Thread(target=_warm_durl, daemon=True).start()
+    threading.Thread(target=_prepare_bilibili_media, daemon=True).start()
 
     return UserEpisodeSubmitOut(
         video_id=ep.video_id,

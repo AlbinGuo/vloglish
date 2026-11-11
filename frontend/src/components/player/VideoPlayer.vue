@@ -118,6 +118,26 @@ function parseYoutubeId(src: string): string | null {
 
 const youtubeId = computed(() => parseYoutubeId(props.src))
 
+// 视频首帧就绪前用封面（poster）作为背景，避免起播前黑一下
+const frameReady = ref(false)
+watch(
+  () => props.src,
+  () => {
+    frameReady.value = false
+  },
+)
+function onFrameReady() {
+  frameReady.value = true
+}
+const videoFrameStyle = computed(() => {
+  if (frameReady.value || !props.poster) return undefined
+  return {
+    backgroundImage: `url("${props.poster}")`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+  }
+})
+
 const youtubeEmbedSrc = computed(() => {
   if (!youtubeId.value) return ''
   const params = new URLSearchParams({ rel: '0' })
@@ -223,6 +243,7 @@ onMounted(() => {
           ? 'relative aspect-video overflow-hidden bg-black cursor-pointer'
           : 'relative aspect-video rounded-xl overflow-hidden bg-black shadow-sm cursor-pointer'
     "
+    :style="videoFrameStyle"
     @mouseenter="onVideoHover(true)"
     @mouseleave="onVideoHover(false)"
   >
@@ -245,7 +266,10 @@ onMounted(() => {
       playsinline
       webkit-playsinline
       referrerpolicy="no-referrer"
-      class="w-full h-full object-contain bg-black cursor-pointer"
+      class="w-full h-full object-contain bg-black cursor-pointer transition-opacity duration-200"
+      :class="frameReady ? 'opacity-100' : 'opacity-0'"
+      @loadeddata="onFrameReady"
+      @canplay="onFrameReady"
       @loadedmetadata="onLoadedMetadata"
       @durationchange="onLoadedMetadata"
       @timeupdate="onTimeUpdate"
