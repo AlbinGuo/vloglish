@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'v
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
 import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, completeDailySentence, recordEpisodeView, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
-import { getSubtitleFavorites, saveSubtitleFavorite, removeSubtitleFavoriteBySubtitle } from '@/api/subtitleFavorites'
+import { getSubtitleFavorites, saveSubtitleFavorite, removeSubtitleFavoriteBySubtitle, type SubtitleFavorite } from '@/api/subtitleFavorites'
 import { generateSubtitleLiteral, getEpisodeList, setAuthorSubscribe, setEpisodeFavorite, warmEpisodeWordLookups, addEpisodeSubtitle, aiEnrichEpisode } from '@/api/episodes'
 import { useFavoriteToastStore } from '@/stores/favoriteToast'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
@@ -816,6 +816,8 @@ const favoriteToast = useFavoriteToastStore()
 const corpusBadge = useMyCorpusBadgeStore()
 const learnedSubtitleIds = ref<Set<number>>(new Set())
 const favoritedSubIds = ref<Set<number>>(new Set())
+const favoriteItems = ref<SubtitleFavorite[]>([])
+const favoriteListOpen = ref(false)
 const videoAutoplay = ref(false)
 const subtitleSlideDir = ref<'next' | 'prev'>('next')
 let listScrollAnim = 0
@@ -2928,6 +2930,7 @@ async function loadSubtitleFavorites() {
       if (item.subtitle_id != null) ids.add(item.subtitle_id)
     }
     favoritedSubIds.value = ids
+    favoriteItems.value = items
   } catch {
     // ignore
   }
@@ -2947,9 +2950,21 @@ async function toggleSubtitleFavorite(sub: { id: number }, e: Event) {
     if (isFav) copy.delete(sub.id)
     else copy.add(sub.id)
     favoritedSubIds.value = copy
+    void loadSubtitleFavorites()
   } catch {
     // ignore
   }
+}
+
+function jumpToFavoriteSubtitle(item: SubtitleFavorite) {
+  favoriteListOpen.value = false
+  const subs = sortedSubs.value
+  let sub: Subtitle | undefined
+  if (item.subtitle_id != null) sub = subs.find((s) => s.id === item.subtitle_id)
+  if (!sub) sub = subs[Math.min(item.subtitle_index, subs.length - 1)]
+  if (!sub) return
+  player.seekTo(sub)
+  void nextTick().then(() => scrollCurrentIntoView())
 }
 
 const backFrom = computed(() => {
@@ -3120,6 +3135,20 @@ function subtitleRowClass(index: number) {
             active-class="text-amber-400"
             inactive-class="text-neutral-400"
           />
+        </button>
+        <button
+          v-if="auth.isLoggedIn && !adminPreview"
+          type="button"
+          class="relative inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-sunken transition-colors"
+          aria-label="收藏字幕"
+          title="收藏字幕"
+          @click="favoriteListOpen = true"
+        >
+          <AppIcon name="bookmark" class="w-5 h-5" />
+          <span
+            v-if="favoriteItems.length"
+            class="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] leading-4 text-center font-semibold"
+          >{{ favoriteItems.length }}</span>
         </button>
         <IntensiveModeToggle />
         <button class="hidden sm:inline text-xs text-neutral-400 hover:text-black dark:hover:text-white px-2 py-1" @click="player.showHelp.value = true">
@@ -3783,9 +3812,9 @@ function subtitleRowClass(index: number) {
                     ]
                   : [subtitleRowClass(row.index), row.index === currentIndex && 'subtitle-row--active'],
                 showSubtitleLearnedMark && auth.isLoggedIn && !adminPreview
-                  ? 'pr-[4.4rem]'
+                  ? 'pr-[4.6rem]'
                   : auth.isLoggedIn && !adminPreview
-                    ? 'pr-9 sm:pr-10'
+                    ? 'pr-10 sm:pr-11'
                     : '',
                 practiceMenuOpenId === row.sub.id && 'z-40',
               ]"
@@ -3807,16 +3836,17 @@ function subtitleRowClass(index: number) {
               <button
                 v-if="auth.isLoggedIn && !adminPreview"
                 type="button"
-                class="absolute top-2 right-2 z-10 w-7 h-7 rounded-full text-sm flex items-center justify-center border transition"
-                :class="
-                  favoritedSubIds.has(row.sub.id)
-                    ? 'bg-amber-500 border-amber-500 text-white'
-                    : 'bg-white/80 border-line text-ink-disabled hover:border-amber-400 dark:bg-neutral-800/80 dark:hover:border-amber-500'
-                "
+                class="absolute top-1 right-1 z-10 inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-sunken transition-colors"
+                :aria-label="favoritedSubIds.has(row.sub.id) ? '取消收藏' : '收藏本句'"
                 :title="favoritedSubIds.has(row.sub.id) ? '取消收藏' : '收藏本句'"
                 @click="toggleSubtitleFavorite(row.sub, $event)"
               >
-                {{ favoritedSubIds.has(row.sub.id) ? '★' : '☆' }}
+                <StarIcon
+                  :active="favoritedSubIds.has(row.sub.id)"
+                  size-class="w-5 h-5"
+                  active-class="text-amber-400"
+                  inactive-class="text-neutral-400"
+                />
               </button>
               <IntensiveReadingBlock
                 v-if="intensiveMode"
@@ -4018,18 +4048,12 @@ function subtitleRowClass(index: number) {
           <div class="px-2 pb-2">
             <button
               type="button"
-              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
-              @click="closeMobileMore(); goListenMode()"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-sunken"
+              @click="openSubtitleModeFromMore"
             >
-              用听模式打开
-            </button>
-            <button
-              v-if="episode?.author.id && !episode.series"
-              type="button"
-              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
-              @click="closeMobileMore(); void toggleAuthorSubscribeFromMore()"
-            >
-              {{ episode.author.is_subscribed ? '取消关注作者' : '关注作者' }}
+              字幕 / 词卡 / 汇总 / 语境 / 热议
+              <span class="ml-1.5 align-middle px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none bg-red-500 text-white">新</span>
+              <span class="float-right text-neutral-400">{{ currentModeLabel }}</span>
             </button>
             <RouterLink
               v-if="episode?.author.id && !episode.series"
@@ -4040,29 +4064,26 @@ function subtitleRowClass(index: number) {
               查看作者主页
             </RouterLink>
             <button
+              v-if="episode?.author.id && !episode.series"
               type="button"
-              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-sunken"
-              @click="openSubtitleModeFromMore"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              @click="closeMobileMore(); void toggleAuthorSubscribeFromMore()"
             >
-              字幕 / 词卡 / 汇总 / 语境 / 热议
-              <span class="ml-1.5 align-middle px-1.5 py-0.5 rounded-md text-[10px] font-bold leading-none bg-red-500 text-white">新</span>
-              <span class="float-right text-neutral-400">{{ currentModeLabel }}</span>
-            </button>
-            <button
-              v-if="auth.isLoggedIn"
-              type="button"
-              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-sunken"
-              @click="closeMobileMore(); toggleClipSelectMode()"
-            >
-              {{ clipSelectMode ? '关闭划选' : '划选加入摘录' }}
-              <span class="float-right text-neutral-400">{{ clipSelectMode ? '开' : '关' }}</span>
+              {{ episode.author.is_subscribed ? '取消关注作者' : '关注作者' }}
             </button>
             <button
               type="button"
-              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-sunken"
-              @click="closeMobileMore(); subtitlesHidden = !subtitlesHidden"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              @click="openMobileDrawerFromMore('related')"
             >
-              {{ subtitlesHidden ? '显示字幕' : '隐藏字幕' }}
+              {{ relatedPanelLabel }}
+            </button>
+            <button
+              type="button"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
+              @click="closeMobileMore(); goListenMode()"
+            >
+              用听模式打开
             </button>
             <button
               v-if="contentView === 'subtitles' && subtitleMode === 'blank'"
@@ -4107,20 +4128,61 @@ function subtitleRowClass(index: number) {
               </RouterLink>
             </template>
             <button
-              type="button"
-              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
-              @click="openMobileDrawerFromMore('related')"
-            >
-              {{ relatedPanelLabel }}
-            </button>
-            <button
               v-if="auth.isLoggedIn"
               type="button"
-              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800"
-              @click="openMobileDrawerFromMore('lookup')"
+              class="w-full text-left px-4 py-3.5 text-sm rounded-xl hover:bg-sunken"
+              @click="closeMobileMore(); toggleClipSelectMode()"
             >
-              查词记录
+              {{ clipSelectMode ? '关闭划选' : '划选加入摘录' }}
+              <span class="float-right text-neutral-400">{{ clipSelectMode ? '开' : '关' }}</span>
             </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 收藏字幕弹窗 -->
+    <Teleport to="body">
+      <div
+        v-if="favoriteListOpen && !adminPreview"
+        class="fixed inset-0 z-50 flex flex-col justify-end bg-black/40"
+        @click.self="favoriteListOpen = false"
+      >
+        <div
+          class="flex max-h-[70dvh] flex-col rounded-t-2xl bg-white dark:bg-neutral-900 border-t border-black/10 dark:border-white/10 pb-[env(safe-area-inset-bottom)]"
+          @click.stop
+        >
+          <div class="flex justify-center pt-3 pb-2">
+            <div class="w-10 h-1 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+          </div>
+          <div class="flex items-center justify-between px-4 pb-2">
+            <h3 class="text-sm font-semibold text-ink">我的收藏字幕</h3>
+            <button
+              type="button"
+              class="text-neutral-400 hover:text-ink"
+              aria-label="关闭"
+              @click="favoriteListOpen = false"
+            >
+              <AppIcon name="close" class="w-5 h-5" />
+            </button>
+          </div>
+          <div class="overflow-y-auto px-2 pb-3">
+            <button
+              v-for="item in favoriteItems"
+              :key="item.id"
+              type="button"
+              class="w-full text-left px-3 py-3 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-800 border-b border-line-soft last:border-b-0"
+              @click="jumpToFavoriteSubtitle(item)"
+            >
+              <p
+                class="subtitle-english text-[14px] font-medium leading-snug text-ink [&_.highlight]:text-amber-600 dark:[&_.highlight]:text-amber-400"
+                v-html="item.english_html || item.english"
+              ></p>
+              <p v-if="item.chinese" class="mt-0.5 text-[12px] text-ink-soft line-clamp-2">{{ item.chinese }}</p>
+            </button>
+            <div v-if="!favoriteItems.length" class="py-10 text-center text-sm text-ink-faint">
+              还没有收藏字幕。点字幕行右上角的星标即可收藏。
+            </div>
           </div>
         </div>
       </div>

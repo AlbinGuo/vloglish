@@ -259,6 +259,15 @@ def _migrate_schema():
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE user_subtitle_clips ADD COLUMN examples_for TEXT NOT NULL DEFAULT ''"))
 
+    if "user_subtitle_favorites" in insp.get_table_names():
+        fav_cols = {c["name"] for c in insp.get_columns("user_subtitle_favorites")}
+        if "english_html" not in fav_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE user_subtitle_favorites ADD COLUMN english_html TEXT NOT NULL DEFAULT ''"))
+        if "cover_url" not in fav_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE user_subtitle_favorites ADD COLUMN cover_url TEXT NOT NULL DEFAULT ''"))
+
     if "ai_usage_events" not in insp.get_table_names():
         AiUsageEvent.__table__.create(bind=engine, checkfirst=True)
         print("[vloglish] created table ai_usage_events")

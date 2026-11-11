@@ -10,7 +10,9 @@ export interface SubtitleFavorite {
   english: string
   chinese: string
   ipa: string
+  english_html: string
   episode_title: string
+  cover_url: string
   created_at: string
   already_saved: boolean
 }

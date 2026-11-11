@@ -1245,7 +1245,9 @@ class SubtitleFavoriteOut(BaseModel):
     english: str = ""
     chinese: str = ""
     ipa: str = ""
+    english_html: str = ""
     episode_title: str = ""
+    cover_url: str = ""
     created_at: str
     already_saved: bool = False
 

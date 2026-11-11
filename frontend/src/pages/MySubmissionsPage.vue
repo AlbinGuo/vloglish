@@ -10,6 +10,7 @@ import EpisodeCard from '@/components/EpisodeCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { isMobileAppBuild } from '@/utils/platform'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
 import type { EpisodeSummary } from '@/types'
 
 type CorpusTab = 'favorites' | 'videos' | 'articles' | 'subtitle-favorites'
@@ -116,6 +117,10 @@ async function removeFavoriteSubtitle(item: SubtitleFavorite) {
     // ignore
   }
 }
+
+function subtitleFavoriteLink(item: SubtitleFavorite) {
+  return `/english/episode/${encodeURIComponent(item.video_id)}?line=${item.subtitle_index}`
+}
 </script>
 
 <template>
@@ -216,26 +221,56 @@ async function removeFavoriteSubtitle(item: SubtitleFavorite) {
           :key="item.id"
           class="rounded-2xl border border-line-soft bg-card p-3"
         >
-          <div class="flex items-start justify-between gap-3">
+          <div class="flex items-start gap-3">
             <RouterLink
-              :to="`/english/episode/${encodeURIComponent(item.video_id)}`"
-              class="min-w-0 flex-1"
+              :to="subtitleFavoriteLink(item)"
+              class="relative aspect-video w-24 shrink-0 overflow-hidden rounded-lg bg-sunken sm:w-28"
             >
-              <p class="text-[14px] font-medium leading-snug text-ink line-clamp-2">{{ item.english }}</p>
-              <p v-if="item.chinese" class="mt-1 text-[13px] text-ink-soft line-clamp-2">{{ item.chinese }}</p>
-              <p class="mt-1.5 text-[11px] text-ink-faint">
-                <span v-if="item.episode_title" class="truncate">{{ item.episode_title }}</span>
-                <span v-if="item.episode_title"> · </span>
-                <span>{{ formatDate(item.created_at) }}</span>
-              </p>
+              <img
+                v-if="item.cover_url"
+                :src="resolveMediaUrl(item.cover_url)"
+                :alt="item.episode_title || item.english"
+                class="h-full w-full object-cover"
+                loading="lazy"
+              />
+              <div
+                v-else
+                class="flex h-full w-full items-center justify-center text-[11px] text-ink-faint"
+              >
+                暂无封面
+              </div>
             </RouterLink>
-            <button
-              type="button"
-              class="shrink-0 rounded-lg px-2 py-1 text-[12px] text-ink-faint transition hover:text-red-500"
-              @click="removeFavoriteSubtitle(item)"
-            >
-              取消
-            </button>
+            <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+              <div class="min-w-0">
+                <p
+                  v-if="item.english_html"
+                  class="subtitle-english text-[14px] font-medium leading-snug text-ink [&_.highlight]:text-amber-600 dark:[&_.highlight]:text-amber-400"
+                  v-html="item.english_html"
+                ></p>
+                <p v-else class="text-[14px] font-medium leading-snug text-ink line-clamp-2">{{ item.english }}</p>
+                <p v-if="item.chinese" class="mt-1 text-[13px] text-ink-soft line-clamp-2">{{ item.chinese }}</p>
+                <p class="mt-1.5 text-[11px] text-ink-faint">
+                  <span v-if="item.episode_title" class="truncate">{{ item.episode_title }}</span>
+                  <span v-if="item.episode_title"> · </span>
+                  <span>{{ formatDate(item.created_at) }}</span>
+                </p>
+              </div>
+              <div class="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  class="rounded-lg px-2 py-1 text-[12px] text-ink-faint transition hover:text-red-500"
+                  @click="removeFavoriteSubtitle(item)"
+                >
+                  取消
+                </button>
+                <RouterLink
+                  :to="subtitleFavoriteLink(item)"
+                  class="rounded-lg bg-amber-500 px-2.5 py-1 text-[12px] font-medium text-white transition hover:bg-amber-600"
+                >
+                  回看
+                </RouterLink>
+              </div>
+            </div>
           </div>
         </li>
       </ul>

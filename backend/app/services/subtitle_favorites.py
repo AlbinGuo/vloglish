@@ -20,7 +20,9 @@ def favorite_to_dict(row: UserSubtitleFavorite, *, already_saved: bool = False) 
         "english": row.english or "",
         "chinese": row.chinese or "",
         "ipa": row.ipa or "",
+        "english_html": row.english_html or "",
         "episode_title": row.episode_title or "",
+        "cover_url": row.cover_url or "",
         "created_at": row.created_at.isoformat() if row.created_at else "",
         "already_saved": already_saved,
     }
@@ -80,7 +82,9 @@ def save_favorite(db: Session, user: User, subtitle_id: int) -> tuple[UserSubtit
         english=sub.english or "",
         chinese=sub.chinese or "",
         ipa=sub.ipa or "",
+        english_html=sub.english_html or "",
         episode_title=episode.short_title or "",
+        cover_url=episode.thumbnail_url or episode.cover or "",
         created_at=now,
     )
     db.add(row)

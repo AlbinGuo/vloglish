@@ -656,7 +656,9 @@ class UserSubtitleFavorite(Base):
     english: Mapped[str] = mapped_column(Text, default="")
     chinese: Mapped[str] = mapped_column(Text, default="")
     ipa: Mapped[str] = mapped_column(Text, default="")
+    english_html: Mapped[str] = mapped_column(Text, default="")
     episode_title: Mapped[str] = mapped_column(String(256), default="")
+    cover_url: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
 
