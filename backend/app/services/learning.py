@@ -429,6 +429,24 @@ def learning_summary(db: Session, user_id: int) -> dict:
     }
 
 
+def _recent_progress_view(prog: UserEpisodeProgress, episode: Episode) -> tuple[float, bool]:
+    """浏览记录按“最近一次观看位置”展示进度与完成状态，而非历史最高。
+
+    这样再次观看但没看完时，会显示本次进度（如“已看 20%”），而不是一直“已看完”。
+    """
+    clip = float(episode.clip_length or 0)
+    pos = float(prog.last_position_sec or 0)
+    if clip > 0:
+        percent = round(min(100.0, max(0.0, pos / clip * 100)), 1)
+        return percent, pos >= clip * 0.98
+    count = int(episode.subtitle_count or 0)
+    idx = int(prog.last_subtitle_index or 0)
+    if count > 1:
+        percent = round(min(100.0, max(0.0, idx / (count - 1) * 100)), 1)
+        return percent, idx >= count - 1
+    return round(float(prog.completion_percent or 0), 1), bool(prog.is_completed)
+
+
 def recent_episodes(
     db: Session,
     user_id: int,
@@ -449,21 +467,24 @@ def recent_episodes(
     else:
         q = q.filter(UserEpisodeProgress.last_watched_at.isnot(None))
     rows = q.order_by(UserEpisodeProgress.last_watched_at.desc()).limit(limit).all()
-    return [
-        {
-            "video_id": ep.video_id,
-            "short_title": ep.short_title,
-            "cover": ep.thumbnail_url or ep.cover or "",
-            "completion_percent": prog.completion_percent,
-            "is_completed": prog.is_completed,
-            "last_subtitle_index": prog.last_subtitle_index,
-            "last_watched_at": _fmt_dt(prog.last_watched_at),
-            "last_position_sec": float(prog.last_position_sec or 0),
-            "clip_length": float(ep.clip_length or 0),
-            "author_name": ep.author.name if ep.author else "",
-        }
-        for prog, ep in rows
-    ]
+    out: list[dict] = []
+    for prog, ep in rows:
+        percent, completed = _recent_progress_view(prog, ep)
+        out.append(
+            {
+                "video_id": ep.video_id,
+                "short_title": ep.short_title,
+                "cover": ep.thumbnail_url or ep.cover or "",
+                "completion_percent": percent,
+                "is_completed": completed,
+                "last_subtitle_index": prog.last_subtitle_index,
+                "last_watched_at": _fmt_dt(prog.last_watched_at),
+                "last_position_sec": float(prog.last_position_sec or 0),
+                "clip_length": float(ep.clip_length or 0),
+                "author_name": ep.author.name if ep.author else "",
+            }
+        )
+    return out
 
 
 def learning_calendar(db: Session, user_id: int, days: int = 90) -> list[dict]:

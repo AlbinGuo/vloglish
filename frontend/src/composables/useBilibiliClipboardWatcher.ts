@@ -88,19 +88,22 @@ let lastCheckTs = 0
 
 async function readClipboard(): Promise<string> {
   const now = Date.now()
-  // 1.5s 内复用上次读数，避免连续系统剪贴板访问（iOS 会反复弹“粘贴”气泡）
+  // 1.5s 内复用上次读数，避免连续系统剪贴板访问触发系统“粘贴”提示
   if (now - lastReadTs < 1500) return lastReadText
   lastReadTs = now
   if (isNativePlatform()) {
     try {
       const { Clipboard } = await import('@capacitor/clipboard')
-      const result = await Clipboard.read()
-      lastReadText = result.value || ''
+      lastReadText = (await Clipboard.read()).value || ''
       return lastReadText
     } catch {
-      /* native clipboard 读取失败时回退 */
+      // 原生读取失败时不要回退到 navigator.clipboard：
+      // WebView 的 readText 会弹出持久的系统“粘贴”授权气泡，这里直接放弃本次读取
+      lastReadText = ''
+      return ''
     }
   }
+  // 仅 Web/PWA 使用 navigator
   try {
     if (navigator.clipboard?.readText) {
       lastReadText = (await navigator.clipboard.readText()) || ''

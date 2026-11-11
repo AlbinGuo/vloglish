@@ -2942,6 +2942,12 @@ function goBack() {
     router.push('/english/history')
     return
   }
+  // 无明确来源时回退到真实上一页（如从“收藏/我上传的视频”等进入详情），避免总回到首页
+  const state = window.history.state as { back?: string | null } | null
+  if (state && state.back) {
+    router.back()
+    return
+  }
   router.push(props.backTo ?? '/english')
 }
 
