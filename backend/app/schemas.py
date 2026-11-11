@@ -1235,6 +1235,25 @@ class SubtitleClipUpdateIn(BaseModel):
     note: str | None = Field(default=None, max_length=500)
 
 
+class SubtitleFavoriteOut(BaseModel):
+    id: int
+    video_id: str
+    subtitle_id: int | None = None
+    subtitle_index: int = 0
+    start_sec: float = 0
+    end_sec: float = 0
+    english: str = ""
+    chinese: str = ""
+    ipa: str = ""
+    episode_title: str = ""
+    created_at: str
+    already_saved: bool = False
+
+
+class SubtitleFavoriteSaveIn(BaseModel):
+    subtitle_id: int = Field(ge=1)
+
+
 class VocabularySaveIn(BaseModel):
     """entry_id 可省略：服务端按 word 快速解析，避免客户端先查词再收藏。"""
 

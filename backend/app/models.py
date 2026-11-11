@@ -633,6 +633,33 @@ class UserSubtitleClip(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class UserSubtitleFavorite(Base):
+    """用户收藏的整句字幕（轻量，用于复习/回看），与摘录 clips、生词本相互独立。
+
+    存文本快照：字幕重建（replace_subtitles 删旧建新）后 subtitle_id 会失效，
+    故以 video_id + subtitle_index + start_sec 为准，subtitle_id 仅作软引用。
+    """
+
+    __tablename__ = "user_subtitle_favorites"
+    __table_args__ = (
+        UniqueConstraint("user_id", "video_id", "subtitle_index", name="uq_user_subtitle_favorite"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    episode_id: Mapped[int | None] = mapped_column(ForeignKey("episodes.id"), nullable=True, index=True)
+    subtitle_id: Mapped[int | None] = mapped_column(ForeignKey("subtitles.id"), nullable=True, index=True)
+    video_id: Mapped[str] = mapped_column(String(32), default="", index=True)
+    subtitle_index: Mapped[int] = mapped_column(Integer, default=0)
+    start_sec: Mapped[float] = mapped_column(Float, default=0)
+    end_sec: Mapped[float] = mapped_column(Float, default=0)
+    english: Mapped[str] = mapped_column(Text, default="")
+    chinese: Mapped[str] = mapped_column(Text, default="")
+    ipa: Mapped[str] = mapped_column(Text, default="")
+    episode_title: Mapped[str] = mapped_column(String(256), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
 class LearningSession(Base):
     __tablename__ = "learning_sessions"
 

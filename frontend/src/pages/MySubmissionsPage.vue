@@ -5,13 +5,14 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { accentIconFor } from '@/constants/accentOptions'
 import { listMyArticleSubmissions, type UserArticleSubmissionItem } from '@/api/articles'
 import { getEpisodeList, listMySubmissions, type UserSubmissionItem } from '@/api/episodes'
+import { getSubtitleFavorites, removeSubtitleFavorite, type SubtitleFavorite } from '@/api/subtitleFavorites'
 import EpisodeCard from '@/components/EpisodeCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { isMobileAppBuild } from '@/utils/platform'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
 import type { EpisodeSummary } from '@/types'
 
-type CorpusTab = 'favorites' | 'videos' | 'articles'
+type CorpusTab = 'favorites' | 'videos' | 'articles' | 'subtitle-favorites'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,6 +22,7 @@ const error = ref('')
 const videoRows = ref<UserSubmissionItem[]>([])
 const articleRows = ref<UserArticleSubmissionItem[]>([])
 const favoriteEpisodes = ref<EpisodeSummary[]>([])
+const favoriteSubtitles = ref<SubtitleFavorite[]>([])
 const corpusBadge = useMyCorpusBadgeStore()
 
 const isApp = isMobileAppBuild()
@@ -30,6 +32,7 @@ const tab = computed<CorpusTab>(() => {
   // App 不含「文章投稿」创建，但保留收藏 + 我上传的视频（管理）
   if (raw === 'articles' && !isApp) return 'articles'
   if (raw === 'videos') return 'videos'
+  if (raw === 'subtitle-favorites') return 'subtitle-favorites'
   return 'favorites'
 })
 
@@ -75,14 +78,16 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const [videos, articles, favorites] = await Promise.all([
+    const [videos, articles, favorites, subtitleFavs] = await Promise.all([
       listMySubmissions(),
       listMyArticleSubmissions(),
       getEpisodeList({ status: 'favorite', page_size: 50, offset: 0 }),
+      getSubtitleFavorites({ limit: 200 }),
     ])
     videoRows.value = videos.results
     articleRows.value = articles.results
     favoriteEpisodes.value = favorites.results
+    favoriteSubtitles.value = subtitleFavs
     await corpusBadge.markSeen()
   } catch (e: unknown) {
     const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -102,6 +107,15 @@ watch(
   },
   { deep: true },
 )
+
+async function removeFavoriteSubtitle(item: SubtitleFavorite) {
+  try {
+    await removeSubtitleFavorite(item.id)
+    favoriteSubtitles.value = favoriteSubtitles.value.filter((x) => x.id !== item.id)
+  } catch {
+    // ignore
+  }
+}
 </script>
 
 <template>
@@ -137,6 +151,17 @@ watch(
       >
         收藏
         <span v-if="favoriteEpisodes.length" class="text-xs text-neutral-400 ml-1">{{ favoriteEpisodes.length }}</span>
+      </button>
+      <button
+        type="button"
+        class="px-3.5 py-1.5 text-sm rounded-lg transition"
+        :class="tab === 'subtitle-favorites'
+          ? 'bg-card shadow-sm font-medium'
+          : 'text-neutral-500 hover:text-ink-soft'"
+        @click="setTab('subtitle-favorites')"
+      >
+        收藏字幕
+        <span v-if="favoriteSubtitles.length" class="text-xs text-neutral-400 ml-1">{{ favoriteSubtitles.length }}</span>
       </button>
       <button
         type="button"
@@ -181,6 +206,44 @@ watch(
       >
         还没有收藏视频。去首页点星星，收藏的内容会出现在这里。
         <RouterLink to="/english" class="text-amber-600 hover:underline ml-1">去首页看看</RouterLink>
+      </div>
+    </template>
+
+    <template v-else-if="tab === 'subtitle-favorites'">
+      <ul v-if="favoriteSubtitles.length" class="space-y-3">
+        <li
+          v-for="item in favoriteSubtitles"
+          :key="item.id"
+          class="rounded-2xl border border-line-soft bg-card p-3"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <RouterLink
+              :to="`/english/episode/${encodeURIComponent(item.video_id)}`"
+              class="min-w-0 flex-1"
+            >
+              <p class="text-[14px] font-medium leading-snug text-ink line-clamp-2">{{ item.english }}</p>
+              <p v-if="item.chinese" class="mt-1 text-[13px] text-ink-soft line-clamp-2">{{ item.chinese }}</p>
+              <p class="mt-1.5 text-[11px] text-ink-faint">
+                <span v-if="item.episode_title" class="truncate">{{ item.episode_title }}</span>
+                <span v-if="item.episode_title"> · </span>
+                <span>{{ formatDate(item.created_at) }}</span>
+              </p>
+            </RouterLink>
+            <button
+              type="button"
+              class="shrink-0 rounded-lg px-2 py-1 text-[12px] text-ink-faint transition hover:text-red-500"
+              @click="removeFavoriteSubtitle(item)"
+            >
+              取消
+            </button>
+          </div>
+        </li>
+      </ul>
+      <div
+        v-else
+        class="rounded-xl border border-dashed border-black/10 dark:border-white/10 p-12 text-center text-sm text-neutral-500"
+      >
+        还没有收藏字幕。在视频字幕行点右上角的星标即可收藏整句。
       </div>
     </template>
 

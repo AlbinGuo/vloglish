@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, toRef, watch } from 'v
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { getEpisodeDetail, lookupWord } from '@/api/demo'
 import { getLookupHistory, getSubtitleProgress, removeVocabulary, saveVocabulary, updateSubtitleProgress, completeDailySentence, recordEpisodeView, type SubtitleProgress, type WordLookupRecord } from '@/api/learning'
+import { getSubtitleFavorites, saveSubtitleFavorite, removeSubtitleFavoriteBySubtitle } from '@/api/subtitleFavorites'
 import { generateSubtitleLiteral, getEpisodeList, setAuthorSubscribe, setEpisodeFavorite, warmEpisodeWordLookups, addEpisodeSubtitle, aiEnrichEpisode } from '@/api/episodes'
 import { useFavoriteToastStore } from '@/stores/favoriteToast'
 import { useMyCorpusBadgeStore } from '@/stores/myCorpusBadge'
@@ -814,6 +815,7 @@ const favoriteLoading = ref(false)
 const favoriteToast = useFavoriteToastStore()
 const corpusBadge = useMyCorpusBadgeStore()
 const learnedSubtitleIds = ref<Set<number>>(new Set())
+const favoritedSubIds = ref<Set<number>>(new Set())
 const videoAutoplay = ref(false)
 const subtitleSlideDir = ref<'next' | 'prev'>('next')
 let listScrollAnim = 0
@@ -2032,6 +2034,7 @@ onMounted(() => {
   syncSubtitlesHiddenForVideo(props.videoId)
   load()
   if (auth.isLoggedIn) void vocabularyStore.load()
+  if (auth.isLoggedIn && !props.adminPreview) void loadSubtitleFavorites()
   if (auth.isLoggedIn && !props.adminPreview && props.videoId) void recordEpisodeView(props.videoId)
   window.addEventListener('keydown', onEntryKeydown)
   window.addEventListener('afterprint', onAfterPrint)
@@ -2916,6 +2919,39 @@ async function toggleSubtitleLearned(sub: { id: number }, e: Event) {
   }
 }
 
+async function loadSubtitleFavorites() {
+  if (!auth.isLoggedIn || props.adminPreview || !props.videoId) return
+  try {
+    const items = await getSubtitleFavorites({ videoId: props.videoId, limit: 500 })
+    const ids = new Set<number>()
+    for (const item of items) {
+      if (item.subtitle_id != null) ids.add(item.subtitle_id)
+    }
+    favoritedSubIds.value = ids
+  } catch {
+    // ignore
+  }
+}
+
+async function toggleSubtitleFavorite(sub: { id: number }, e: Event) {
+  e.stopPropagation()
+  if (!auth.isLoggedIn || props.adminPreview) return
+  const isFav = favoritedSubIds.value.has(sub.id)
+  try {
+    if (isFav) {
+      await removeSubtitleFavoriteBySubtitle(sub.id)
+    } else {
+      await saveSubtitleFavorite(sub.id)
+    }
+    const copy = new Set(favoritedSubIds.value)
+    if (isFav) copy.delete(sub.id)
+    else copy.add(sub.id)
+    favoritedSubIds.value = copy
+  } catch {
+    // ignore
+  }
+}
+
 const backFrom = computed(() => {
   const raw = route.query.from
   return String(Array.isArray(raw) ? raw[0] : raw || '')
@@ -2926,29 +2962,30 @@ const fromClips = computed(() => backFrom.value === 'clips')
 const fromHistory = computed(() => backFrom.value === 'history')
 
 function goBack() {
-  if (fromVocabulary.value) {
-    router.push('/english/vocabulary')
-    return
-  }
-  if (fromClips.value) {
-    router.push('/english/clips')
-    return
-  }
-  if (fromLearning.value) {
-    router.push('/english/learning')
-    return
-  }
-  if (fromHistory.value) {
-    router.push('/english/history')
-    return
-  }
-  // 无明确来源时回退到真实上一页（如从“收藏/我上传的视频”等进入详情），避免总回到首页
+  // 优先真实返回上一页（从哪来回哪去），避免 push 造成历史栈重复、二次返回错乱
   const state = window.history.state as { back?: string | null } | null
   if (state && state.back) {
     router.back()
     return
   }
-  router.push(props.backTo ?? '/english')
+  // 无历史（如直接打开详情链接）：按来源兜底，使用 replace 避免再生成历史记录
+  if (fromVocabulary.value) {
+    router.replace('/english/vocabulary')
+    return
+  }
+  if (fromClips.value) {
+    router.replace('/english/clips')
+    return
+  }
+  if (fromLearning.value) {
+    router.replace('/english/learning')
+    return
+  }
+  if (fromHistory.value) {
+    router.replace('/english/history')
+    return
+  }
+  router.replace(props.backTo ?? '/english')
 }
 
 const listenPlayer = useListenPlayerStore()
@@ -3745,14 +3782,18 @@ function subtitleRowClass(index: number) {
                         : 'border-red-100/80 dark:border-red-950/40',
                     ]
                   : [subtitleRowClass(row.index), row.index === currentIndex && 'subtitle-row--active'],
-                showSubtitleLearnedMark && auth.isLoggedIn && !adminPreview ? 'pr-10 sm:pr-12' : '',
+                showSubtitleLearnedMark && auth.isLoggedIn && !adminPreview
+                  ? 'pr-[4.4rem]'
+                  : auth.isLoggedIn && !adminPreview
+                    ? 'pr-9 sm:pr-10'
+                    : '',
                 practiceMenuOpenId === row.sub.id && 'z-40',
               ]"
             >
               <button
                 v-if="showSubtitleLearnedMark && auth.isLoggedIn && !adminPreview"
                 type="button"
-                class="absolute top-2 right-2 z-10 w-7 h-7 rounded-full text-sm flex items-center justify-center border transition"
+                class="absolute top-2 right-10 z-10 w-7 h-7 rounded-full text-sm flex items-center justify-center border transition"
                 :class="
                   learnedSubtitleIds.has(row.sub.id)
                     ? 'bg-emerald-500 border-emerald-500 text-white'
@@ -3762,6 +3803,20 @@ function subtitleRowClass(index: number) {
                 @click="toggleSubtitleLearned(row.sub, $event)"
               >
                 ✓
+              </button>
+              <button
+                v-if="auth.isLoggedIn && !adminPreview"
+                type="button"
+                class="absolute top-2 right-2 z-10 w-7 h-7 rounded-full text-sm flex items-center justify-center border transition"
+                :class="
+                  favoritedSubIds.has(row.sub.id)
+                    ? 'bg-amber-500 border-amber-500 text-white'
+                    : 'bg-white/80 border-line text-ink-disabled hover:border-amber-400 dark:bg-neutral-800/80 dark:hover:border-amber-500'
+                "
+                :title="favoritedSubIds.has(row.sub.id) ? '取消收藏' : '收藏本句'"
+                @click="toggleSubtitleFavorite(row.sub, $event)"
+              >
+                {{ favoritedSubIds.has(row.sub.id) ? '★' : '☆' }}
               </button>
               <IntensiveReadingBlock
                 v-if="intensiveMode"
