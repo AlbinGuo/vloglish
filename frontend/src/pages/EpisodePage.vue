@@ -2224,6 +2224,7 @@ async function loadLookupHistory() {
 async function load() {
   const shouldAutoplay = consumeEpisodeAutoplay()
   const isSwitch = Boolean(episode.value)
+  let didResume = false
 
   if (isSwitch) {
     videoRef.value?.pause()
@@ -2264,7 +2265,18 @@ async function load() {
       }
     }
     const jumped = (await applyVocabDeepLink()) || (await applyLineDeepLink())
-    if (!jumped) nextTick(scrollCurrentIntoView)
+    if (!jumped) {
+      // 无深链定位时：自动续播到上次进度（至少跳过 5 秒，避免刚打开就退出的无意义续播）
+      if (resumePrompt.value && resumePrompt.value.position >= 5) {
+        await applyResume()
+        didResume = true
+      } else {
+        if (resumePrompt.value) clearResumePrompt()
+        nextTick(scrollCurrentIntoView)
+      }
+    } else {
+      didResume = true
+    }
   } catch (e: unknown) {
     const status = (e as { response?: { status?: number; data?: { detail?: string } } })?.response?.status
     const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -2282,7 +2294,7 @@ async function load() {
     }
   } finally {
     loading.value = false
-    if (shouldAutoplay && episode.value) {
+    if (shouldAutoplay && episode.value && !didResume) {
       videoAutoplay.value = true
       await nextTick()
       startPlayback()
@@ -2387,7 +2399,6 @@ async function applyVocabDeepLink(): Promise<boolean> {
 async function applyResume() {
   const prompt = resumePrompt.value
   if (!prompt) return
-  clearResumePrompt()
 
   const idx = Math.min(Math.max(0, prompt.index), sortedSubs.value.length - 1)
   const sub = sortedSubs.value[idx]
@@ -2416,6 +2427,7 @@ async function applyResume() {
   if (!seekToResume()) {
     window.setTimeout(() => seekToResume(), 150)
   }
+  clearResumePrompt()
 }
 
 function dismissResume() {
