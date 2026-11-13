@@ -52,7 +52,7 @@ def _start(video_id: str, video_url: str, local_video: Path | None) -> None:
         except OSError:
             pass
 
-    cmd = ["ffmpeg", "-y", "-loglevel", "error"]
+    cmd = ["ffmpeg", "-y", "-loglevel", "warning"]
     if local_video and local_video.is_file():
         cmd += ["-i", str(local_video)]
     else:
@@ -69,7 +69,20 @@ def _start(video_id: str, video_url: str, local_video: Path | None) -> None:
         cookie = _bili_cookie_header()
         if cookie:
             headers += f"Cookie: {cookie}\r\n"
-        cmd += ["-headers", headers, "-i", url]
+        cmd += [
+            "-rw_timeout",
+            "15000000",
+            "-reconnect",
+            "1",
+            "-reconnect_streamed",
+            "1",
+            "-reconnect_delay_max",
+            "5",
+            "-headers",
+            headers,
+            "-i",
+            url,
+        ]
 
     cmd += [
         "-c",
@@ -77,7 +90,7 @@ def _start(video_id: str, video_url: str, local_video: Path | None) -> None:
         "-f",
         "hls",
         "-hls_time",
-        "4",
+        "2",
         "-hls_list_size",
         "0",
         "-hls_segment_type",
@@ -86,8 +99,9 @@ def _start(video_id: str, video_url: str, local_video: Path | None) -> None:
         "independent_segments",
         str(d / "index.m3u8"),
     ]
-    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    _jobs[video_id] = {"proc": proc, "started": time.time()}
+    log = open(d / "ffmpeg.log", "wb")
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=log)
+    _jobs[video_id] = {"proc": proc, "started": time.time(), "log": log}
     logger.info("HLS 转封装启动 %s (pid=%s)", video_id, proc.pid)
 
 
@@ -97,6 +111,12 @@ def ensure_hls(video_id: str, video_url: str, local_video: Path | None) -> None:
         job = _jobs.get(video_id)
         if job and job["proc"].poll() is None:
             return
+        if job:
+            try:
+                job.get("log") and job["log"].close()
+            except Exception:  # noqa: BLE001
+                pass
+            _jobs.pop(video_id, None)
         if (d / "index.m3u8").is_file() and any(d.glob("*.ts")):
             # 已生成过（进程结束但文件在）——若 m3u8 有 ENDLIST 视为完成
             try:

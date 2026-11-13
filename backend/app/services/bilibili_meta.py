@@ -1,12 +1,16 @@
 """B 站元信息与直链解析，供代理与“一键导入”接口复用。"""
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
+
+# B 站请求清晰度（默认 720P=64；源慢可设 BILI_VIDEO_QN=32(480P)/16(360P) 降低码率提速）
+_VIDEO_QN = os.getenv("BILI_VIDEO_QN", "64")
 
 from .yt_dlp_fetch import (
     _BILIBILI_USER_AGENT,
@@ -136,7 +140,7 @@ def resolve_durl(bvid: str, page: int) -> str:
 
     play = _bili_get_json(
         "https://api.bilibili.com/x/player/playurl"
-        f"?bvid={bvid}&cid={cid}&qn=64&fnval=1&platform=html5&high_quality=1",
+        f"?bvid={bvid}&cid={cid}&qn={_VIDEO_QN}&fnval=1&platform=html5&high_quality=1",
         cookie,
     )
     if play.get("code") != 0:
