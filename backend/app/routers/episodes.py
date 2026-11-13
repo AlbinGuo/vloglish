@@ -516,6 +516,11 @@ def get_episode_detail(
     payload["episode"]["is_owner"] = bool(
         user is not None and episode.submitted_by_user_id == user.id
     )
+    if (episode.video_url or "").startswith("/api/episode/"):
+        # 本地回退的旧视频：打开时后台补转七牛，完成后播放自动切到 CDN
+        from ..services.episode_transfer import schedule_qiniu_backfill
+
+        schedule_qiniu_backfill(episode.video_id)
     _prewarm_bilibili_video(payload)
     return payload
 

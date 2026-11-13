@@ -38,6 +38,7 @@ from ..services.yt_dlp_fetch import is_supported_source_url, resolve_bilibili_sh
 from ..services.asr_dashscope import dashscope_asr_configured
 from ..services.bilibili_meta import download_durl, fetch_meta, resolve_durl
 from ..services.episode_ai_enrich import ai_enrich_configured, schedule_ai_enrich
+from ..services.episode_transfer import schedule_qiniu_backfill
 
 router = APIRouter(prefix="/api/episodes/submit", tags=["episode-submit"])
 
@@ -254,6 +255,7 @@ def import_self_episode(
     replace_subtitles(db, ep.id, result["subtitles"])
     db.commit()
     db.refresh(ep)
+    schedule_qiniu_backfill(video_id)
 
     if ai_generate:
         if not ai_enrich_configured():

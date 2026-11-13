@@ -298,23 +298,9 @@ def ingest_from_remote_url(
             video_id, fetched.video_path, thumbnail_src=fetched.thumbnail_path
         )
 
-        uploaded: dict[str, str] | None = None
-        try:
-            uploaded = _upload_media_to_qiniu(video_id, media_dir)
-        except Exception:  # noqa: BLE001
-            logger.warning("远程导入转存七牛失败，回退本地存储", exc_info=True)
-
-        if uploaded:
-            # 上传成功：删除本地媒体，避免占用服务器磁盘
-            shutil.rmtree(media_dir, ignore_errors=True)
-            media_payload = {
-                "video_url": uploaded.get("video_url", ""),
-                "audio_url": uploaded.get("audio_url", ""),
-            }
-            cover_url = uploaded.get("cover", "")
-        else:
-            media_payload = _media_urls(video_id)
-            cover_url = _cover_url_if_exists(video_id)
+        # 后台异步转存七牛（不阻塞导入）；未配置/失败时保留本地，由 /api/episode 兜底播放
+        media_payload = _media_urls(video_id)
+        cover_url = _cover_url_if_exists(video_id)
 
         return {
             "short_title": _clean_title(fetched.title or ""),
