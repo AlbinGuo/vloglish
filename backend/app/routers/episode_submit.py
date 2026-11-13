@@ -400,7 +400,7 @@ def media_debug(
         "cover_file": cover_file,
         "episode_video_url": ep.video_url,
         "episode_audio_url": ep.audio_url,
-        "transfer_status": ep.media_transfer_status or "",
+        "transfer_status": _transfer_status_for(ep),
         "transfer_error": ep.media_transfer_error or "",
         "qiniu_configured": qiniu_ok,
         "qiniu_bucket": qiniu_bucket,
@@ -502,43 +502,13 @@ def import_bilibili(
     vid = ep.video_id
 
     def _prepare_bilibili_media() -> None:
-        # 先预热直链，保证转存期间用户点开也能用代理播放（首帧更快）
+        # 预热直链，缩短首次播放/转存的首帧等待
         try:
             resolve_durl(bvid, page)
         except Exception:  # noqa: BLE001
             pass
-        # 后台把 B 站视频转存为本地播放文件：之后播放走本地直出、AI 字幕用本地音频，均可秒开
-        media_dir = episode_audio_dir(vid)
-        video_out = media_dir / "video.mp4"
-        audio_out = media_dir / "audio.mp3"
-        if video_out.is_file() and audio_out.is_file():
-            schedule_qiniu_backfill(vid)
-            return
-        work = Path(tempfile.mkdtemp(prefix="vloglish-bili-"))
-        ok = False
-        try:
-            media_dir.mkdir(parents=True, exist_ok=True)
-            src = work / "source.mp4"
-            download_durl(bvid, page, src)
-            _prepare_video_mp4(src, video_out)
-            try:
-                _extract_audio_mp3(video_out, audio_out)
-            except Exception:  # noqa: BLE001
-                logging.getLogger(__name__).warning(
-                    "B站视频抽取音频失败 video_id=%s", vid, exc_info=True
-                )
-            ok = True
-        except Exception:  # noqa: BLE001
-            logging.getLogger(__name__).warning(
-                "B站视频后台转存失败 video_id=%s", vid, exc_info=True
-            )
-        finally:
-            shutil.rmtree(work, ignore_errors=True)
-        if ok:
-            # 本地媒体就绪后转存七牛，成功后播放切到 CDN
-            schedule_qiniu_backfill(vid)
-        else:
-            _set_status(vid, "failed", "B站视频下载失败，请稍后重试")
+        # 后台边下边传转存七牛（不落整片磁盘）；完成后播放自动切到 CDN
+        schedule_qiniu_backfill(vid)
 
     threading.Thread(target=_prepare_bilibili_media, daemon=True).start()
 

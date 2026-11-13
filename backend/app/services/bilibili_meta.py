@@ -233,3 +233,27 @@ def download_audio(bvid: str, page: int, dest: Path) -> None:
 def download_durl(bvid: str, page: int, dest: Path) -> None:
     """下载 durl 单文件视频（含音频）。"""
     _download_media(resolve_durl(bvid, page), bvid, dest)
+
+
+def iter_durl_chunks(bvid: str, page: int, chunk_size: int = 256 * 1024):
+    """流式读取 durl 单文件视频块，供“边下边传七牛”使用，不落整片磁盘。"""
+    url = resolve_durl(bvid, page)
+    headers = {
+        "User-Agent": _BILIBILI_USER_AGENT,
+        "Referer": f"https://www.bilibili.com/video/{bvid}",
+        "Origin": "https://www.bilibili.com",
+    }
+    cookie = _bili_cookie_header()
+    if cookie:
+        headers["Cookie"] = cookie
+    resp = urllib.request.urlopen(
+        urllib.request.Request(url, headers=headers), timeout=120
+    )
+    try:
+        while True:
+            data = resp.read(chunk_size)
+            if not data:
+                break
+            yield data
+    finally:
+        resp.close()
