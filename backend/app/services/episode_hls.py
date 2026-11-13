@@ -246,12 +246,17 @@ def hls_done(video_id: str) -> bool:
 
 
 def build_qiniu_m3u8(video_id: str) -> str | None:
-    """基于已上传七牛的分片动态生成 m3u8（分片为七牛签名 URL，走 CDN）。
+    """用七牛 CDN 分片地址生成 m3u8，但沿用本地 ffmpeg 的真实 EXTINF/TARGETDURATION。
 
+    只把“已上传七牛的分片”前缀列出来，其余结构（时长、目标时长、版本）保持 ffmpeg 原样，
+    避免 iOS 原生 HLS 因 TARGETDURATION/EXTINF 与实际分片不符而拒绝解析。
     还没有任何分片上传成功时返回 None，调用方回退到本地分片。
     """
     names = uploaded_segments(video_id)
     if not names:
+        return None
+    m3u8 = m3u8_path(video_id)
+    if not m3u8.is_file():
         return None
     from ..qiniu_storage import QiniuConfig, sign_url
 
@@ -259,19 +264,52 @@ def build_qiniu_m3u8(video_id: str) -> str | None:
         cfg = QiniuConfig.from_env()
     except RuntimeError:
         return None
+    try:
+        text = m3u8.read_text("utf-8", "ignore")
+    except OSError:
+        return None
 
-    done = hls_done(video_id)
-    out = [
-        "#EXTM3U",
-        "#EXT-X-VERSION:3",
-        "#EXT-X-TARGETDURATION:2",
-        "#EXT-X-MEDIA-SEQUENCE:0",
-        "#EXT-X-PLAYLIST-TYPE:VOD" if done else "#EXT-X-PLAYLIST-TYPE:EVENT",
-    ]
-    for name in names:
-        key = cfg.object_key("hls", video_id, name)
-        out.append("#EXTINF:2.0,")
-        out.append(sign_url(cfg.public_url(key), cfg=cfg))
+    header: list[str] = []
+    entries: list[tuple[str, str]] = []  # (EXTINF 行, 分片文件名)
+    cur_extinf = ""
+    seen_uri = False
+    for raw in text.splitlines():
+        s = raw.strip()
+        if not s:
+            continue
+        if s.startswith("#EXT-X-ENDLIST"):
+            continue
+        if s.startswith("#EXT-X-PLAYLIST-TYPE"):
+            continue
+        if s.startswith("#EXTINF"):
+            cur_extinf = s
+            continue
+        if s.endswith(".ts"):
+            entries.append((cur_extinf, Path(s).name))
+            cur_extinf = ""
+            seen_uri = True
+            continue
+        if not seen_uri:
+            header.append(s)
+
+    if not entries:
+        return None
+
+    uploaded = set(names)
+    out: list[str] = header or ["#EXTM3U", "#EXT-X-VERSION:3"]
+    served = 0
+    for extinf, name in entries:
+        if name not in uploaded:
+            break  # 顺序播放不能跳片：只列已上传的前缀
+        if extinf:
+            out.append(extinf)
+        out.append(sign_url(cfg.public_url(cfg.object_key("hls", video_id, name)), cfg=cfg))
+        served += 1
+    if served == 0:
+        return None
+
+    done = hls_done(video_id) and served == len(entries)
+    out.append("#EXT-X-PLAYLIST-TYPE:VOD" if done else "#EXT-X-PLAYLIST-TYPE:EVENT")
     if done:
         out.append("#EXT-X-ENDLIST")
     return "\n".join(out) + "\n"
