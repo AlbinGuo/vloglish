@@ -102,6 +102,11 @@ def episode_detail(
                     video_url=episode.video_url,
                     original_video_url=episode.original_video_url,
                 ),
+                "hls_url": (
+                    f"/api/episode/{episode.video_id}/hls/index.m3u8"
+                    if "/api/bilibili/stream/" in (episode.video_url or "")
+                    else ""
+                ),
                 "audio_url": resolve_audio_url(
                     video_id=episode.video_id,
                     audio_url=episode.audio_url,

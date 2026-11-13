@@ -1560,6 +1560,8 @@ const playbackSrc = computed(() => {
   const media = episode.value?.media
   if (!media) return ''
   if (videoHidden.value && media.audio_url) return withMediaAuth(resolveMediaUrl(media.audio_url))
+  const hlsUrl = (media as { hls_url?: string }).hls_url
+  if (hlsUrl) return withMediaAuth(resolveMediaUrl(hlsUrl))
   return withMediaAuth(resolveMediaUrl(media.video_url))
 })
 

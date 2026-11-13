@@ -670,6 +670,76 @@ def get_episode_video(
     )
 
 
+@router.get("/episode/{video_id}/hls/index.m3u8")
+def get_episode_hls(
+    video_id: str,
+    token: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user_optional),
+):
+    """B 站视频 HLS 边转边播：返回当前可用的 m3u8（分片地址带 token）。"""
+    episode = db.query(Episode).filter(Episode.video_id == video_id, Episode.status == "published").first()
+    if not episode:
+        raise HTTPException(status_code=404, detail="Episode not found")
+    if user is None and token:
+        user = get_optional_user_from_token(db, token)
+    if not can_access_episode(db, episode, user):
+        raise HTTPException(status_code=403, detail="无权访问该内容")
+
+    from urllib.parse import quote
+
+    from fastapi.responses import PlainTextResponse
+
+    from ..media import find_episode_video_file
+    from ..services.episode_hls import ensure_hls, m3u8_path, wait_first_segment
+
+    local = find_episode_video_file(video_id)
+    ensure_hls(video_id, episode.video_url or "", local[0] if local else None)
+    wait_first_segment(video_id)
+
+    m3u8 = m3u8_path(video_id)
+    if not m3u8.is_file():
+        raise HTTPException(status_code=504, detail="视频切片生成超时，请稍后重试")
+
+    text = m3u8.read_text("utf-8", "ignore")
+    token_q = f"?token={quote(token)}" if token else ""
+    out_lines: list[str] = []
+    for line in text.splitlines():
+        seg = line.strip()
+        if seg.endswith(".ts"):
+            out_lines.append(f"/api/episode/{video_id}/hls/{seg}{token_q}")
+        else:
+            out_lines.append(line)
+    body = "\n".join(out_lines) + "\n"
+    if "#EXT-X-ENDLIST" not in body and "#EXT-X-PLAYLIST-TYPE" not in body:
+        body = body.replace("#EXTM3U", "#EXTM3U\n#EXT-X-PLAYLIST-TYPE:EVENT", 1)
+    return PlainTextResponse(body, media_type="application/vnd.apple.mpegurl")
+
+
+@router.get("/episode/{video_id}/hls/{name}")
+def get_episode_hls_segment(
+    video_id: str,
+    name: str,
+    token: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user_optional),
+):
+    episode = db.query(Episode).filter(Episode.video_id == video_id, Episode.status == "published").first()
+    if not episode:
+        raise HTTPException(status_code=404, detail="Episode not found")
+    if user is None and token:
+        user = get_optional_user_from_token(db, token)
+    if not can_access_episode(db, episode, user):
+        raise HTTPException(status_code=403, detail="无权访问该内容")
+
+    from ..services.episode_hls import segment_path
+
+    path = segment_path(video_id, name)
+    if not path:
+        raise HTTPException(status_code=404, detail="Segment not found")
+    return FileResponse(path, media_type="video/mp2t")
+
+
 @router.get("/episode/{video_id}/cover/")
 def get_episode_cover(
     video_id: str,

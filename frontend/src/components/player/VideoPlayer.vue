@@ -106,6 +106,68 @@ watch(
   { immediate: true },
 )
 
+// ===== HLS（m3u8）支持：B 站视频边转边播 =====
+const isHlsSrc = computed(() => /\.m3u8(\?|$)/i.test(props.src || ''))
+const nativeHlsSupport = (() => {
+  try {
+    const probe = document.createElement('video')
+    return !!probe.canPlayType && probe.canPlayType('application/vnd.apple.mpegurl') !== ''
+  } catch {
+    return false
+  }
+})()
+const bindSrc = computed(() => (isHlsSrc.value && !nativeHlsSupport ? '' : props.src))
+
+let hlsInstance: any = null
+
+function teardownHls() {
+  try {
+    hlsInstance?.destroy?.()
+  } catch {
+    /* ignore */
+  }
+  hlsInstance = null
+}
+
+async function setupHls() {
+  const el = videoEl.value
+  if (!el || !isHlsSrc.value || nativeHlsSupport) return
+  const mod: any = await import('hls.js')
+  const Hls = mod.default || mod
+  teardownHls()
+  if (Hls && typeof Hls.isSupported === 'function' && Hls.isSupported()) {
+    const hls = new Hls({ maxBufferLength: 30 })
+    hlsInstance = hls
+    hls.on(Hls.Events.ERROR, (_evt: unknown, data: { fatal?: boolean }) => {
+      if (data?.fatal) {
+        // 回退：交给浏览器直接尝试该地址（或由上层替换源）
+        try {
+          el.src = props.src
+        } catch {
+          /* ignore */
+        }
+      }
+    })
+    hls.loadSource(props.src)
+    hls.attachMedia(el)
+  } else {
+    el.src = props.src
+  }
+}
+
+watch(videoEl, (el) => {
+  if (el && isHlsSrc.value && !nativeHlsSupport) void setupHls()
+})
+
+watch(
+  () => props.src,
+  () => {
+    if (isHlsSrc.value && !nativeHlsSupport) void setupHls()
+    else teardownHls()
+  },
+)
+// ===== HLS end =====
+
 function parseYoutubeId(src: string): string | null {
   if (!src) return null
   const embed = src.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/)
@@ -224,6 +286,7 @@ function onVideoError() {
 
 onUnmounted(() => {
   clearHideTimer()
+  teardownHls()
   props.registerVideo?.(null)
 })
 
@@ -260,7 +323,7 @@ onMounted(() => {
     <video
       v-else
       ref="videoEl"
-      :src="src"
+      :src="bindSrc"
       :poster="poster"
       preload="auto"
       playsinline
