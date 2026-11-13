@@ -312,7 +312,7 @@ function subtitleFavoriteLink(item: SubtitleFavorite) {
                 <div class="relative aspect-video bg-neutral-200 dark:bg-neutral-800">
                   <img
                     v-if="row.cover"
-                    :src="row.cover"
+                    :src="resolveMediaUrl(row.cover)"
                     :alt="row.short_title"
                     class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
                     loading="lazy"

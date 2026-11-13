@@ -262,7 +262,7 @@ onMounted(() => {
       ref="videoEl"
       :src="src"
       :poster="poster"
-      preload="metadata"
+      preload="auto"
       playsinline
       webkit-playsinline
       referrerpolicy="no-referrer"

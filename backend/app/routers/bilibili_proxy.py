@@ -6,13 +6,15 @@ Referer/Origin/UA/Cookie 请求 CDN，并透传 Range 返回 206，前端 <video
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Iterator
 
 from fastapi import APIRouter, HTTPException, Request, Response
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from ..services.bilibili_meta import (
     extract_bvid,
@@ -25,6 +27,18 @@ from ..services.yt_dlp_fetch import _BILIBILI_USER_AGENT, _bili_cookie_header
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/bilibili", tags=["bilibili"])
+
+# 封面磁盘缓存：B站图片有防盗链、回源慢，且每个 <img> 都会命中后端；落盘后重复访问秒开
+_COVER_CACHE_DIR = Path(__file__).resolve().parents[2] / "data" / "cover_cache"
+_COVER_EXT_BY_TYPE = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "image/avif": ".avif",
+}
+_COVER_KNOWN_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif")
 
 
 @router.get("/resolve")
@@ -45,6 +59,20 @@ def cover(url: str):
     raw = (url or "").strip()
     if not raw or not host_allowed(raw):
         raise HTTPException(status_code=400, detail="非法的封面地址")
+
+    cache_key = hashlib.sha1(raw.encode("utf-8")).hexdigest()
+    try:
+        _COVER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        for ext in _COVER_KNOWN_EXTS:
+            cached = _COVER_CACHE_DIR / f"{cache_key}{ext}"
+            if cached.exists() and cached.stat().st_size > 0:
+                return FileResponse(
+                    cached,
+                    headers={"Cache-Control": "public, max-age=604800, immutable"},
+                )
+    except Exception:  # noqa: BLE001
+        pass
+
     headers = {
         "User-Agent": _BILIBILI_USER_AGENT,
         "Referer": "https://www.bilibili.com/",
@@ -59,10 +87,18 @@ def cover(url: str):
         raise HTTPException(status_code=exc.code, detail="封面拉取失败") from exc
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"封面拉取失败：{exc}") from exc
+
+    try:
+        base_type = media_type.split(";")[0].strip().lower()
+        ext = _COVER_EXT_BY_TYPE.get(base_type, ".jpg")
+        (_COVER_CACHE_DIR / f"{cache_key}{ext}").write_bytes(data)
+    except Exception:  # noqa: BLE001
+        pass
+
     return Response(
         content=data,
         media_type=media_type,
-        headers={"Cache-Control": "public, max-age=86400"},
+        headers={"Cache-Control": "public, max-age=604800, immutable"},
     )
 
 

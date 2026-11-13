@@ -642,6 +642,7 @@ watch(
           </span>
         </span>
         <div v-if="!hideAppMobileHeader" class="flex items-center gap-0.5">
+          <AppDownloadEntry />
           <RouterLink
             v-if="auth.isLoggedIn"
             to="/english/notifications"

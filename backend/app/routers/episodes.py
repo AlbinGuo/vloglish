@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import distinct, func, or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from ..episode_visibility import published_visibility_filter
+from ..episode_visibility import catalog_visibility_filter, published_visibility_filter
 from ..database import get_db
 from ..demo_access import (
     can_access_episode,
@@ -88,7 +88,13 @@ def episode_list(
         joinedload(Episode.series),
     )
     q = q.filter(Episode.status == "published")
-    q = q.filter(published_visibility_filter(user))
+    if author_id is not None:
+        # 作者主页：目录可见内容 + 投稿者本人可见自己的个人投稿（未转全站的私密投稿）
+        q = q.filter(
+            or_(catalog_visibility_filter(), Episode.submitted_by_user_id == user.id)
+        )
+    else:
+        q = q.filter(published_visibility_filter(user))
 
     author_joined = False
 
@@ -422,6 +428,32 @@ def series_detail(
     }
 
 
+def _prewarm_bilibili_video(payload: dict) -> None:
+    """打开详情时后台预热 B 站直链，缩短点击播放的等待（best-effort，失败不影响响应）。"""
+    try:
+        media = (payload.get("episode") or {}).get("media") or {}
+        video_url = str(media.get("video_url") or "")
+    except Exception:  # noqa: BLE001
+        return
+    if "/api/bilibili/stream/" not in video_url:
+        return
+    bvid = video_url.rsplit("/", 1)[-1].split("?")[0]
+    if not bvid:
+        return
+
+    def _run() -> None:
+        try:
+            from ..services.bilibili_meta import resolve_durl
+
+            resolve_durl(bvid, 1)
+        except Exception:  # noqa: BLE001
+            pass
+
+    import threading
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
 @router.get("/episode/{video_id}/detail/")
 def get_episode_detail(
     video_id: str,
@@ -484,6 +516,7 @@ def get_episode_detail(
     payload["episode"]["is_owner"] = bool(
         user is not None and episode.submitted_by_user_id == user.id
     )
+    _prewarm_bilibili_video(payload)
     return payload
 
 
@@ -820,7 +853,12 @@ def author_detail(
             Episode.status == "published",
             Episode.series_id.is_(None),
         )
-        .filter(published_visibility_filter(user))
+        .filter(
+            or_(
+                catalog_visibility_filter(),
+                Episode.submitted_by_user_id == (user.id if user else -1),
+            )
+        )
         .order_by(
             Episode.is_pinned.desc(),
             Episode.open_to_free_users.desc(),
