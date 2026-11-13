@@ -691,10 +691,18 @@ def get_episode_hls(
     from fastapi.responses import PlainTextResponse
 
     from ..media import find_episode_video_file
-    from ..services.episode_hls import ensure_hls, m3u8_path, wait_first_segment
+    from ..services.episode_hls import (
+        build_qiniu_m3u8,
+        ensure_hls,
+        m3u8_path,
+        wait_first_segment,
+    )
 
     local = find_episode_video_file(video_id)
     ensure_hls(video_id, episode.video_url or "", local[0] if local else None)
+    qiniu_m3u8 = build_qiniu_m3u8(video_id)
+    if qiniu_m3u8:
+        return PlainTextResponse(qiniu_m3u8, media_type="application/vnd.apple.mpegurl")
     wait_first_segment(video_id)
 
     m3u8 = m3u8_path(video_id)

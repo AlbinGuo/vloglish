@@ -507,7 +507,14 @@ def import_bilibili(
             resolve_durl(bvid, page)
         except Exception:  # noqa: BLE001
             pass
-        # 后台边下边传转存七牛（不落整片磁盘）；完成后播放自动切到 CDN
+        # 导入即后台预生成 HLS 分片：点开时首片通常已就绪，实现秒开
+        try:
+            from ..services.episode_hls import ensure_hls
+
+            ensure_hls(vid, f"/api/bilibili/stream/{bvid}?p={page}", None)
+        except Exception:  # noqa: BLE001
+            logging.getLogger(__name__).warning("HLS 预生成失败 %s", vid, exc_info=True)
+        # 后台边下边传转存七牛（完成后播放自动切到 CDN）
         schedule_qiniu_backfill(vid)
 
     threading.Thread(target=_prepare_bilibili_media, daemon=True).start()
