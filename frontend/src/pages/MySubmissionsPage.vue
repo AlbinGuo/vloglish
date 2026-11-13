@@ -1,10 +1,10 @@
 <script setup lang="ts">
 defineOptions({ name: 'MySubmissionsPage' })
-import { computed, onActivated, onMounted, ref, watch } from 'vue'
+import { computed, onActivated, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { accentIconFor } from '@/constants/accentOptions'
 import { listMyArticleSubmissions, type UserArticleSubmissionItem } from '@/api/articles'
-import { getEpisodeList, listMySubmissions, type UserSubmissionItem } from '@/api/episodes'
+import { getEpisodeList, listMySubmissions, retransferMyEpisode, type UserSubmissionItem } from '@/api/episodes'
 import { getSubtitleFavorites, removeSubtitleFavorite, type SubtitleFavorite } from '@/api/subtitleFavorites'
 import EpisodeCard from '@/components/EpisodeCard.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -95,6 +95,7 @@ async function load() {
     error.value = msg || '加载失败'
   } finally {
     loading.value = false
+    maybePollTransfer()
   }
 }
 
@@ -134,7 +135,81 @@ onActivated(() => {
     return
   }
   void refreshSubtitleFavorites()
+  void refreshVideoRows().then(maybePollTransfer)
 })
+
+const transferLabels: Record<string, string> = {
+  ready: '已加速',
+  processing: '转存中…',
+  pending: '排队中',
+  failed: '转存失败',
+  local: '本地播放',
+}
+
+function transferLabel(status?: string) {
+  return status ? transferLabels[status] ?? '' : ''
+}
+
+function transferBadgeClass(status?: string) {
+  if (status === 'ready') return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
+  if (status === 'processing' || status === 'pending') return 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
+  if (status === 'failed') return 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400'
+  return 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
+}
+
+function canRetransfer(row: UserSubmissionItem) {
+  return row.transfer_status === 'failed' || row.transfer_status === 'local'
+}
+
+let transferPoll: number | null = null
+
+function stopTransferPoll() {
+  if (transferPoll !== null) {
+    window.clearInterval(transferPoll)
+    transferPoll = null
+  }
+}
+
+async function refreshVideoRows() {
+  try {
+    videoRows.value = (await listMySubmissions()).results
+  } catch {
+    // ignore
+  }
+}
+
+function maybePollTransfer() {
+  const active = videoRows.value.some(
+    (r) => r.transfer_status === 'pending' || r.transfer_status === 'processing',
+  )
+  if (!active) {
+    stopTransferPoll()
+    return
+  }
+  if (transferPoll !== null) return
+  transferPoll = window.setInterval(async () => {
+    await refreshVideoRows()
+    const still = videoRows.value.some(
+      (r) => r.transfer_status === 'pending' || r.transfer_status === 'processing',
+    )
+    if (!still) stopTransferPoll()
+  }, 5000)
+}
+
+async function retransfer(row: UserSubmissionItem) {
+  error.value = ''
+  try {
+    const res = await retransferMyEpisode(row.video_id)
+    row.transfer_status = res.transfer_status
+    row.transfer_error = ''
+    maybePollTransfer()
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+    error.value = msg || '转存请求失败'
+  }
+}
+
+onUnmounted(stopTransferPoll)
 
 function subtitleFavoriteLink(item: SubtitleFavorite) {
   return `/english/episode/${encodeURIComponent(item.video_id)}?line=${item.subtitle_index}`
@@ -338,6 +413,22 @@ function subtitleFavoriteLink(item: SubtitleFavorite) {
                     {{ formatDate(row.created_at) }}
                     <span v-if="row.accent"> · {{ row.accent }}</span>
                   </p>
+                  <div v-if="row.transfer_status" class="flex items-center gap-2 text-[11px]">
+                    <span
+                      class="inline-flex items-center rounded-md px-1.5 py-0.5 font-medium"
+                      :class="transferBadgeClass(row.transfer_status)"
+                    >
+                      {{ transferLabel(row.transfer_status) }}
+                    </span>
+                    <button
+                      v-if="canRetransfer(row)"
+                      type="button"
+                      class="text-amber-600 hover:underline dark:text-amber-400"
+                      @click.stop.prevent="retransfer(row)"
+                    >
+                      {{ row.transfer_status === 'failed' ? '重新转存' : '转存加速' }}
+                    </button>
+                  </div>
                 </div>
               </article>
             </RouterLink>

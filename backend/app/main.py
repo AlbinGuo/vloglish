@@ -259,6 +259,15 @@ def _migrate_schema():
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE user_subtitle_clips ADD COLUMN examples_for TEXT NOT NULL DEFAULT ''"))
 
+    if "episodes" in insp.get_table_names():
+        ep_cols = {c["name"] for c in insp.get_columns("episodes")}
+        if "media_transfer_status" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE episodes ADD COLUMN media_transfer_status VARCHAR(16) NOT NULL DEFAULT ''"))
+        if "media_transfer_error" not in ep_cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE episodes ADD COLUMN media_transfer_error TEXT NOT NULL DEFAULT ''"))
+
     if "user_subtitle_favorites" in insp.get_table_names():
         fav_cols = {c["name"] for c in insp.get_columns("user_subtitle_favorites")}
         if "english_html" not in fav_cols:

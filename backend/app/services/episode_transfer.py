@@ -32,6 +32,21 @@ def schedule_qiniu_backfill(video_id: str) -> None:
     threading.Thread(target=_backfill, args=(vid,), daemon=True).start()
 
 
+def _set_status(video_id: str, status: str, error: str = "") -> None:
+    db = SessionLocal()
+    try:
+        ep = db.query(Episode).filter(Episode.video_id == video_id).first()
+        if not ep:
+            return
+        ep.media_transfer_status = status
+        ep.media_transfer_error = (error or "")[:500]
+        db.commit()
+    except Exception:  # noqa: BLE001
+        db.rollback()
+    finally:
+        db.close()
+
+
 def _find(media_dir: Path, stem: str) -> Path | None:
     candidates = sorted(p for p in media_dir.glob(f"{stem}.*") if p.is_file())
     return candidates[0] if candidates else None
@@ -51,6 +66,7 @@ def _backfill(video_id: str) -> None:
             logger.warning("七牛未配置，跳过转存 %s：%s", video_id, exc)
             return
 
+        _set_status(video_id, "processing")
         video_url = upload_file(cfg, video, cfg.object_key(video_id, video.name))
         audio = _find(media_dir, "audio")
         audio_url = upload_file(cfg, audio, cfg.object_key(video_id, audio.name)) if audio else ""
@@ -68,6 +84,8 @@ def _backfill(video_id: str) -> None:
             if cover_url:
                 ep.cover = cover_url
                 ep.thumbnail_url = cover_url
+            ep.media_transfer_status = "ready"
+            ep.media_transfer_error = ""
             db.commit()
         finally:
             db.close()
@@ -79,8 +97,9 @@ def _backfill(video_id: str) -> None:
             except OSError:
                 pass
         logger.info("转存七牛完成 %s -> %s", video_id, video_url)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         logger.warning("转存七牛失败 %s", video_id, exc_info=True)
+        _set_status(video_id, "failed", str(exc))
     finally:
         with _lock:
             _inflight.discard(video_id)

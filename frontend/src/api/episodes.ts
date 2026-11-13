@@ -257,6 +257,8 @@ export interface UserSubmissionItem {
   has_media: boolean
   accent: string
   cover: string
+  transfer_status: string
+  transfer_error: string
 }
 
 export async function importSelfEpisode(payload: ImportSelfEpisodePayload) {
@@ -300,6 +302,13 @@ export async function aiEnrichEpisode(videoId: string, forceAsr = false) {
 export async function listMySubmissions() {
   const { data } = await api.get<{ count: number; results: UserSubmissionItem[] }>(
     '/api/episodes/submit/',
+  )
+  return data
+}
+
+export async function retransferMyEpisode(videoId: string) {
+  const { data } = await api.post<{ success: boolean; transfer_status: string }>(
+    `/api/episodes/submit/${encodeURIComponent(videoId)}/retransfer/`,
   )
   return data
 }

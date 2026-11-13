@@ -50,6 +50,21 @@ def _fmt_dt(dt) -> str:
     return dt.isoformat() + "Z" if dt else ""
 
 
+def _transfer_status_for(ep: Episode) -> str:
+    """转存七牛状态：显式状态优先，否则按当前播放地址推导。"""
+    status = (ep.media_transfer_status or "").strip()
+    if status:
+        return status
+    raw = (ep.video_url or "").strip()
+    if raw.startswith(("http://", "https://")):
+        from ..qiniu_storage import is_our_qiniu_url
+
+        return "ready" if is_our_qiniu_url(raw) else ""
+    if raw.startswith("/api/episode/"):
+        return "local"
+    return ""
+
+
 @router.get("/", response_model=UserSubmissionListOut)
 def list_my_submissions(
     user: User = Depends(get_current_member),
@@ -73,6 +88,8 @@ def list_my_submissions(
             has_media=bool((ep.video_url or "").strip()) and ep.subtitle_count > 0,
             accent=ep.author.accent if ep.author else "",
             cover=resolve_cover_url((ep.thumbnail_url or ep.cover or "").strip()),
+            transfer_status=_transfer_status_for(ep),
+            transfer_error=ep.media_transfer_error or "",
         )
         for ep in rows
     ]
@@ -280,6 +297,36 @@ def import_self_episode(
         status=ep.status,
         message=message,
     )
+
+
+@router.post("/{video_id}/retransfer/")
+def retransfer_episode(
+    video_id: str,
+    user: User = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """手动重新转存七牛：仅本人投稿，且本地媒体仍在时才可重试。"""
+    ep = (
+        db.query(Episode)
+        .filter(Episode.video_id == video_id, Episode.submitted_by_user_id == user.id)
+        .first()
+    )
+    if not ep:
+        raise HTTPException(status_code=404, detail="视频不存在")
+
+    raw = (ep.video_url or "").strip()
+    if raw.startswith(("http://", "https://")):
+        from ..qiniu_storage import is_our_qiniu_url
+
+        if is_our_qiniu_url(raw):
+            return {"success": True, "transfer_status": "ready"}
+
+    media_dir = DATA_DIR / "media" / video_id
+    if not media_dir.is_dir() or not any(media_dir.glob("video.*")):
+        raise HTTPException(status_code=400, detail="本地视频文件不存在，请重新导入该视频")
+
+    schedule_qiniu_backfill(video_id)
+    return {"success": True, "transfer_status": "pending"}
 
 
 class BilibiliImportIn(BaseModel):

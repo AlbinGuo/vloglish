@@ -77,6 +77,8 @@ class Episode(Base):
     video_url: Mapped[str] = mapped_column(Text, default="")
     audio_url: Mapped[str] = mapped_column(Text, default="")
     thumbnail_url: Mapped[str] = mapped_column(Text, default="")
+    media_transfer_status: Mapped[str] = mapped_column(String(16), default="")
+    media_transfer_error: Mapped[str] = mapped_column(Text, default="")
     original_video_url: Mapped[str] = mapped_column(Text, default="")
     author_id: Mapped[int] = mapped_column(ForeignKey("authors.id"))
     series_id: Mapped[int | None] = mapped_column(ForeignKey("episode_series.id"), nullable=True, index=True)

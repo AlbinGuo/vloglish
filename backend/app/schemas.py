@@ -700,6 +700,8 @@ class UserSubmissionItemOut(BaseModel):
     has_media: bool = False
     accent: str = ""
     cover: str = ""
+    transfer_status: str = ""
+    transfer_error: str = ""
 
 
 class UserSubmissionListOut(BaseModel):
