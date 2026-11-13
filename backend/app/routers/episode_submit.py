@@ -5,12 +5,12 @@ import tempfile
 import threading
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import DATA_DIR, get_db
-from ..deps import get_current_member
+from ..deps import get_current_member, get_current_user_optional, get_optional_user_from_token
 from ..media import episode_audio_dir, resolve_cover_url
 from ..models import Article, Episode, User, UserEpisodeFavorite
 from ..schemas import (
@@ -332,10 +332,18 @@ def retransfer_episode(
 @router.get("/{video_id}/media-debug/")
 def media_debug(
     video_id: str,
-    user: User = Depends(get_current_member),
+    token: str | None = Query(default=None),
     db: Session = Depends(get_db),
+    user: User | None = Depends(get_current_user_optional),
 ):
-    """诊断：该视频在运行实例上的真实媒体路径/文件/七牛配置（仅投稿者或管理员）。"""
+    """诊断：该视频在运行实例上的真实媒体路径/文件/七牛配置（仅投稿者或管理员）。
+
+    浏览器可直接打开：/api/episodes/submit/<video_id>/media-debug/?token=<登录token>
+    """
+    if user is None and token:
+        user = get_optional_user_from_token(db, token)
+    if user is None:
+        raise HTTPException(status_code=401, detail="请先登录：在 URL 后加 ?token=你的登录 token")
     ep = db.query(Episode).filter(Episode.video_id == video_id).first()
     if not ep:
         raise HTTPException(status_code=404, detail="视频不存在")
