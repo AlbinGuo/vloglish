@@ -55,7 +55,7 @@ def _start(video_id: str, video_url: str, local_video: Path | None) -> None:
         except OSError:
             pass
 
-    cmd = ["ffmpeg", "-y", "-loglevel", "warning"]
+    cmd = ["ffmpeg", "-y", "-loglevel", "info", "-stats", "-stats_period", "5"]
     if local_video and local_video.is_file():
         cmd += ["-i", str(local_video)]
     else:
