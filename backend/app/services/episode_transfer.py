@@ -64,6 +64,7 @@ def _backfill(video_id: str) -> None:
             cfg = QiniuConfig.from_env()
         except RuntimeError as exc:
             logger.warning("七牛未配置，跳过转存 %s：%s", video_id, exc)
+            _set_status(video_id, "local", "七牛未配置，暂走本地播放")
             return
 
         _set_status(video_id, "processing")

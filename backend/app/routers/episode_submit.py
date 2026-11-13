@@ -38,7 +38,7 @@ from ..services.yt_dlp_fetch import is_supported_source_url, resolve_bilibili_sh
 from ..services.asr_dashscope import dashscope_asr_configured
 from ..services.bilibili_meta import download_durl, fetch_meta, resolve_durl
 from ..services.episode_ai_enrich import ai_enrich_configured, schedule_ai_enrich
-from ..services.episode_transfer import schedule_qiniu_backfill
+from ..services.episode_transfer import _set_status, schedule_qiniu_backfill
 
 router = APIRouter(prefix="/api/episodes/submit", tags=["episode-submit"])
 
@@ -60,7 +60,7 @@ def _transfer_status_for(ep: Episode) -> str:
         from ..qiniu_storage import is_our_qiniu_url
 
         return "ready" if is_our_qiniu_url(raw) else ""
-    if raw.startswith("/api/episode/"):
+    if raw.startswith("/api/episode/") or raw.startswith("/api/bilibili/"):
         return "local"
     return ""
 
@@ -329,6 +329,78 @@ def retransfer_episode(
     return {"success": True, "transfer_status": "pending"}
 
 
+@router.get("/{video_id}/media-debug/")
+def media_debug(
+    video_id: str,
+    user: User = Depends(get_current_member),
+    db: Session = Depends(get_db),
+):
+    """诊断：该视频在运行实例上的真实媒体路径/文件/七牛配置（仅投稿者或管理员）。"""
+    ep = db.query(Episode).filter(Episode.video_id == video_id).first()
+    if not ep:
+        raise HTTPException(status_code=404, detail="视频不存在")
+    if ep.submitted_by_user_id != user.id and not bool(getattr(user, "is_admin", False)):
+        raise HTTPException(status_code=403, detail="无权查看")
+
+    import os
+    import socket
+
+    media_dir = episode_audio_dir(video_id)
+    files: list[dict] = []
+    video_file = audio_file = cover_file = None
+    if media_dir.is_dir():
+        for p in sorted(media_dir.iterdir()):
+            try:
+                size: int | None = p.stat().st_size
+            except OSError:
+                size = None
+            files.append({"name": p.name, "size": size})
+        for pat, key in (("video.*", "video"), ("audio.*", "audio"), ("cover.*", "cover")):
+            hit = next(iter(sorted(media_dir.glob(pat))), None)
+            if key == "video":
+                video_file = str(hit) if hit else None
+            elif key == "audio":
+                audio_file = str(hit) if hit else None
+            else:
+                cover_file = str(hit) if hit else None
+
+    qiniu_ok = True
+    qiniu_err = ""
+    qiniu_bucket = ""
+    qiniu_domain = ""
+    try:
+        from ..qiniu_storage import QiniuConfig
+
+        cfg = QiniuConfig.from_env()
+        qiniu_bucket = cfg.bucket
+        qiniu_domain = cfg.domain
+    except Exception as exc:  # noqa: BLE001
+        qiniu_ok = False
+        qiniu_err = str(exc)
+
+    return {
+        "video_id": video_id,
+        "hostname": socket.gethostname(),
+        "pid": os.getpid(),
+        "cwd": os.getcwd(),
+        "data_dir": str(DATA_DIR),
+        "media_dir": str(media_dir),
+        "media_dir_exists": media_dir.is_dir(),
+        "files": files,
+        "video_file": video_file,
+        "audio_file": audio_file,
+        "cover_file": cover_file,
+        "episode_video_url": ep.video_url,
+        "episode_audio_url": ep.audio_url,
+        "transfer_status": ep.media_transfer_status or "",
+        "transfer_error": ep.media_transfer_error or "",
+        "qiniu_configured": qiniu_ok,
+        "qiniu_bucket": qiniu_bucket,
+        "qiniu_domain": qiniu_domain,
+        "qiniu_error": qiniu_err,
+    }
+
+
 class BilibiliImportIn(BaseModel):
     bvid: str = ""
     url: str = ""
@@ -415,6 +487,7 @@ def import_bilibili(
     )
     ep.subtitle_count = 0
     ep.clip_length = float(meta.get("duration") or 0)
+    ep.media_transfer_status = "processing"
     db.add(ep)
     db.commit()
     db.refresh(ep)
@@ -431,8 +504,10 @@ def import_bilibili(
         video_out = media_dir / "video.mp4"
         audio_out = media_dir / "audio.mp3"
         if video_out.is_file() and audio_out.is_file():
+            schedule_qiniu_backfill(vid)
             return
         work = Path(tempfile.mkdtemp(prefix="vloglish-bili-"))
+        ok = False
         try:
             media_dir.mkdir(parents=True, exist_ok=True)
             src = work / "source.mp4"
@@ -444,12 +519,18 @@ def import_bilibili(
                 logging.getLogger(__name__).warning(
                     "B站视频抽取音频失败 video_id=%s", vid, exc_info=True
                 )
+            ok = True
         except Exception:  # noqa: BLE001
             logging.getLogger(__name__).warning(
                 "B站视频后台转存失败 video_id=%s", vid, exc_info=True
             )
         finally:
             shutil.rmtree(work, ignore_errors=True)
+        if ok:
+            # 本地媒体就绪后转存七牛，成功后播放切到 CDN
+            schedule_qiniu_backfill(vid)
+        else:
+            _set_status(vid, "failed", "B站视频下载失败，请稍后重试")
 
     threading.Thread(target=_prepare_bilibili_media, daemon=True).start()
 
