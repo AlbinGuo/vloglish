@@ -703,13 +703,18 @@ def get_episode_hls(
     qiniu_m3u8 = build_qiniu_m3u8(video_id)
     if qiniu_m3u8:
         return PlainTextResponse(qiniu_m3u8, media_type="application/vnd.apple.mpegurl")
-    wait_first_segment(video_id)
+    wait_first_segment(video_id, timeout=6)
 
     m3u8 = m3u8_path(video_id)
-    if not m3u8.is_file():
-        raise HTTPException(status_code=504, detail="视频切片生成超时，请稍后重试")
-
-    text = m3u8.read_text("utf-8", "ignore")
+    text = m3u8.read_text("utf-8", "ignore") if m3u8.is_file() else ""
+    if not [ln for ln in text.splitlines() if ln.strip().endswith(".ts")]:
+        # 首片还没切出来：返回占位 EVENT 播放列表，让播放器先拿到清单、稍后 reload 拿分片，
+        # 避免“点开”在服务端阻塞几十秒。
+        placeholder = (
+            "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6\n"
+            "#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:EVENT\n"
+        )
+        return PlainTextResponse(placeholder, media_type="application/vnd.apple.mpegurl")
     token_q = f"?token={quote(token)}" if token else ""
     out_lines: list[str] = []
     for line in text.splitlines():

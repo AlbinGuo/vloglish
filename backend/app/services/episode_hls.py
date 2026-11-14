@@ -23,6 +23,7 @@ _lock = threading.Lock()
 _jobs: dict[str, dict] = {}
 _uploaders: dict[str, threading.Thread] = {}
 _uploaded: dict[str, set[str]] = {}
+_bootstrapping: set[str] = set()
 
 HLS_MIME = "application/vnd.apple.mpegurl"
 TS_MIME = "video/mp2t"
@@ -110,10 +111,16 @@ def _start(video_id: str, video_url: str, local_video: Path | None) -> None:
 
 
 def ensure_hls(video_id: str, video_url: str, local_video: Path | None) -> None:
+    """非阻塞：立即返回，把“解析直链 + 启动 ffmpeg”放后台线程。
+
+    避免 m3u8 请求在 resolve B 站直链时被阻塞几十秒（这是“点开很久才播”的主因）。
+    """
     d = hls_dir(video_id)
     with _lock:
         job = _jobs.get(video_id)
         if job and job["proc"].poll() is None:
+            return
+        if video_id in _bootstrapping:
             return
         if job:
             try:
@@ -128,7 +135,20 @@ def ensure_hls(video_id: str, video_url: str, local_video: Path | None) -> None:
                     return
             except OSError:
                 pass
+        _bootstrapping.add(video_id)
+    threading.Thread(
+        target=_bootstrap, args=(video_id, video_url, local_video), daemon=True
+    ).start()
+
+
+def _bootstrap(video_id: str, video_url: str, local_video: Path | None) -> None:
+    try:
         _start(video_id, video_url, local_video)
+    except Exception:  # noqa: BLE001
+        logger.warning("HLS 启动失败 %s", video_id, exc_info=True)
+    finally:
+        with _lock:
+            _bootstrapping.discard(video_id)
 
 
 def m3u8_path(video_id: str) -> Path:
