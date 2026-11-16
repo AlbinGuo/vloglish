@@ -14,6 +14,7 @@ import { useSiteConfigStore } from '@/stores/siteConfig'
 import EnglishCatalogNavBar from '@/components/english/EnglishCatalogNavBar.vue'
 import EnglishNavTabs from '@/components/english/EnglishNavTabs.vue'
 import EnglishHotTagsBar from '@/components/english/EnglishHotTagsBar.vue'
+import MobileChannelNav from '@/components/english/MobileChannelNav.vue'
 import AuthorStackCard from '@/components/catalog/AuthorStackCard.vue'
 import CatalogContentToolbar from '@/components/catalog/CatalogContentToolbar.vue'
 import CatalogFilterSheet from '@/components/catalog/CatalogFilterSheet.vue'
@@ -320,6 +321,7 @@ watch(
 <template>
   <div ref="rootEl">
     <EnglishCatalogNavBar />
+    <MobileChannelNav />
 
     <div class="page-container pb-6" :class="isMobile ? 'pt-0' : 'py-6'">
       <!-- 手机端：粘性工具条（紧凑搜索 + 标签），固定在 header 下方 -->
