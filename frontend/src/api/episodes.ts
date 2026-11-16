@@ -96,6 +96,15 @@ export async function getMyFollowedAuthors() {
   return data
 }
 
+export async function getFollowingEpisodes(params: { page?: number; page_size?: number } = {}) {
+  const { data } = await api.get<{
+    count: number
+    unwatched_count: number
+    results: EpisodeSummary[]
+  }>('/api/me/following-episodes/', { params })
+  return data
+}
+
 export async function getEpisodeDetail(videoId: string) {
   const { data } = await api.get<{ episode: EpisodeDetail; total_episodes: number }>(
     `/api/episode/${videoId}/detail/`,

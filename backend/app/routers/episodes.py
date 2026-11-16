@@ -1065,3 +1065,75 @@ def my_author_subscriptions(
             }
         )
     return {"count": len(results), "results": results}
+
+
+@router.get("/me/following-episodes/")
+def my_following_episodes(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(12, ge=1, le=50),
+    db: Session = Depends(get_db),
+    device_id: str = Depends(get_device_id),
+    user: User = Depends(get_current_user),
+):
+    """关注作者发布的独立单集（按发布时间倒序），并返回未看总数用于「关注」红点。"""
+    author_ids = [
+        row[0]
+        for row in db.query(UserAuthorSubscription.author_id)
+        .filter(UserAuthorSubscription.user_id == user.id)
+        .all()
+    ]
+    if not author_ids:
+        return {"count": 0, "unwatched_count": 0, "results": []}
+
+    base_filters = [
+        Episode.status == "published",
+        Episode.series_id.is_(None),
+        Episode.author_id.in_(author_ids),
+    ]
+    q = (
+        db.query(Episode)
+        .options(
+            joinedload(Episode.author),
+            joinedload(Episode.tags),
+            joinedload(Episode.series),
+        )
+        .filter(*base_filters)
+        .filter(published_visibility_filter(user))
+    )
+    publish_time = func.coalesce(Episode.published_at, Episode.created_at)
+    q = q.order_by(Episode.is_pinned.desc(), publish_time.desc())
+    total = q.count()
+    items = q.offset((page - 1) * page_size).limit(page_size).all()
+
+    seen = (
+        db.query(func.count(distinct(UserEpisodeProgress.episode_id)))
+        .join(Episode, Episode.id == UserEpisodeProgress.episode_id)
+        .filter(UserEpisodeProgress.user_id == user.id, *base_filters)
+        .filter(published_visibility_filter(user))
+        .scalar()
+        or 0
+    )
+    unwatched = max(0, total - int(seen))
+
+    fav_ids = favorite_video_ids(db, device_id, user.id)
+    prog_map = progress_map_for_episodes(db, user.id, [ep.id for ep in items])
+    learner_map = learner_count_map_for_episodes(db, [ep.id for ep in items])
+
+    def _requires_membership(ep: Episode) -> bool:
+        return not can_access_episode(db, ep, user)
+
+    return {
+        "count": total,
+        "unwatched_count": unwatched,
+        "results": [
+            episode_summary(
+                ep,
+                is_favorite=ep.video_id in fav_ids if user_is_member(user) else False,
+                is_learned=prog_map.get(ep.id).is_completed if prog_map.get(ep.id) else False,
+                progress_percent=prog_map.get(ep.id).completion_percent if prog_map.get(ep.id) else 0,
+                learner_count=learner_map.get(ep.id, 0),
+                requires_membership=_requires_membership(ep),
+            )
+            for ep in items
+        ],
+    }

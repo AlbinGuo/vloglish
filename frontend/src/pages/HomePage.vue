@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { getAuthorsCatalog } from '@/api/episodes'
+import { getAuthorsCatalog, getFollowingEpisodes } from '@/api/episodes'
 import { useCatalogBrowseMode } from '@/composables/useCatalogBrowseMode'
 import { useCatalogScrollMemory } from '@/composables/useCatalogScrollMemory'
 import { useCatalogViewMode } from '@/composables/useCatalogViewMode'
@@ -21,7 +21,7 @@ import CatalogFilterSheet from '@/components/catalog/CatalogFilterSheet.vue'
 import CatalogEpisodeSkeletons from '@/components/skeleton/CatalogEpisodeSkeletons.vue'
 import EpisodeCard from '@/components/EpisodeCard.vue'
 import EpisodeListRow from '@/components/EpisodeListRow.vue'
-import type { AuthorCatalogItem } from '@/types'
+import type { AuthorCatalogItem, EpisodeSummary } from '@/types'
 import AppIcon from '@/components/AppIcon.vue'
 
 defineOptions({ name: 'HomePage' })
@@ -32,6 +32,46 @@ const siteConfig = useSiteConfigStore()
 const { viewMode } = useCatalogViewMode()
 const { browseMode } = useCatalogBrowseMode()
 
+const isFollowingFeed = ref(false)
+const followingEpisodes = ref<EpisodeSummary[]>([])
+const followingLoading = ref(false)
+const followingUnwatched = ref(0)
+const selectedChannel = ref('recommend')
+
+async function loadFollowingFeed() {
+  followingLoading.value = true
+  try {
+    const data = await getFollowingEpisodes({ page: 1, page_size: 50 })
+    followingEpisodes.value = data.results
+    followingUnwatched.value = data.unwatched_count
+  } catch {
+    followingEpisodes.value = []
+    followingUnwatched.value = 0
+  } finally {
+    followingLoading.value = false
+  }
+}
+
+async function selectChannel(key: string) {
+  selectedChannel.value = key
+  isFollowingFeed.value = key === 'follow'
+  if (isFollowingFeed.value) {
+    await loadFollowingFeed()
+    return
+  }
+  if (key.startsWith('tag:')) {
+    const id = Number(key.slice(4))
+    if (Number.isFinite(id)) {
+      store.filters.tagIds = [id]
+      await store.loadEpisodes(true)
+    }
+    return
+  }
+  if (store.filters.tagIds.length) {
+    store.filters.tagIds = []
+    await store.loadEpisodes(true)
+  }
+}
 const isHomeActive = ref(false)
 const rootEl = ref<HTMLElement | null>(null)
 const listEl = ref<HTMLElement | null>(null)
@@ -46,6 +86,11 @@ function scrollToTop() {
 }
 
 async function refreshCatalog() {
+  if (isFollowingFeed.value) {
+    await loadFollowingFeed()
+    setupLoadMoreObserver()
+    return
+  }
   if (browseMode.value === 'author') {
     await loadAuthors()
   } else {
@@ -321,19 +366,17 @@ watch(
 <template>
   <div ref="rootEl">
     <EnglishCatalogNavBar />
-    <MobileChannelNav />
+    <MobileChannelNav :selected="selectedChannel" @update:selected="selectChannel" />
 
     <div class="page-container pb-6" :class="isMobile ? 'pt-0' : 'py-6'">
       <!-- 手机端：粘性工具条（紧凑搜索 + 标签），固定在 header 下方 -->
-      <template v-if="isMobile">
+      <template v-if="isMobile && selectedChannel !== 'follow'">
         <div
           class="sticky z-30 -mx-4 bg-canvas px-4 pb-2 pt-2"
           :style="{ top: 'var(--catalog-sticky-top, 0px)' }"
         >
           <div class="flex items-center gap-2 min-w-0">
-            <div class="min-w-0 flex-1">
-              <EnglishHotTagsBar />
-            </div>
+            <div class="min-w-0 flex-1" />
             <button
               type="button"
               class="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/10 bg-white text-neutral-600 dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-300"
@@ -354,7 +397,7 @@ watch(
       </template>
 
       <!-- 桌面端：保持原样（Tab + 标签同行） -->
-      <template v-else>
+      <template v-else-if="!isMobile">
         <div class="mb-3 flex items-center gap-2 sm:gap-3 min-w-0">
           <EnglishNavTabs class="shrink-0" />
           <EnglishHotTagsBar />
@@ -390,8 +433,24 @@ watch(
         </template>
       </div>
 
+      <!-- 关注作者的新视频流 -->
+      <template v-if="isFollowingFeed">
+        <CatalogEpisodeSkeletons v-if="followingLoading && !followingEpisodes.length" :count="skeletonCount" />
+        <div v-else-if="!followingEpisodes.length" class="py-24 text-center text-neutral-500">
+          你关注的作者还没有发布新视频
+        </div>
+        <div v-else class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+          <EpisodeCard
+            v-for="ep in followingEpisodes"
+            :key="ep.video_id"
+            :episode="ep"
+            :to="episodePath(ep)"
+          />
+        </div>
+      </template>
+
       <!-- 按作者分类 -->
-      <template v-if="browseMode === 'author'">
+      <template v-else-if="browseMode === 'author'">
         <div v-if="authorsLoading && !authors.length" class="py-24 text-center text-neutral-500">加载中...</div>
         <div v-else-if="!authors.length" class="text-center py-24 text-neutral-500">没有匹配的作者</div>
         <div v-else class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
