@@ -1,0 +1,1 @@
+import{aI as r}from"./index-Dmc5zZ-a.js";async function e(a,s){const{data:t}=await r.post("/api/auth/reset-password-by-email/",{email:a,password:s});return t}async function i(a,s){const{data:t}=await r.post("/api/auth/reset-password/",{token:a,password:s});return t}export{i as a,e as r};

@@ -56,7 +56,7 @@ def list_announcements(
     rows = (
         db.query(AdminBroadcast)
         .filter(AdminBroadcast.id > after_id)
-        .order_by(AdminBroadcast.id.asc())
+        .order_by(AdminBroadcast.id.desc())
         .limit(10)
         .all()
     )

@@ -966,7 +966,10 @@ def author_detail(
             "nationality": author.nationality or "",
             "accent": author.accent or "",
             "avatar": resolve_cover_url(author.avatar_url or ""),
-            "banner": resolve_cover_url(author.banner_url or ""),
+            "banner": resolve_cover_url(
+                (author.banner_url or "").strip()
+                or next((ep.cover for ep in episodes if ep.cover), "")
+            ),
             "episode_count": len(episodes),
             "covers": covers,
         },

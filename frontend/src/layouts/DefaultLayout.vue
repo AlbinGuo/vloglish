@@ -386,16 +386,19 @@ async function initAndPollAnnouncements() {
     }
     announceFetchedId = Number(raw) || 0
   }
+  if (announcementQueue.value.length) return
   try {
     const items = await getAnnouncements(announceFetchedId)
     if (items.length) {
-      announceFetchedId = Math.max(announceFetchedId, ...items.map((i) => i.id))
+      // 只弹最新一条，跳过其间堆积的历史公告
+      const latest = items[0]
+      announceFetchedId = Math.max(announceFetchedId, latest.id)
       try {
         localStorage.setItem(ANNOUNCE_KEY, String(announceFetchedId))
       } catch {
         /* ignore */
       }
-      announcementQueue.value = [...announcementQueue.value, ...items]
+      announcementQueue.value = [latest]
     }
   } catch {
     /* ignore */

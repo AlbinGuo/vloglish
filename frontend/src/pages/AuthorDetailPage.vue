@@ -121,6 +121,7 @@ watch(authorId, load)
       <!-- 移动端：关注 / 催更 -->
       <div v-if="isMobile" class="mb-4 flex flex-wrap items-center gap-3">
         <AuthorSubscribeButton
+          class="flex-1 min-w-0"
           :author-id="author.id"
           :is-subscribed="Boolean(author.is_subscribed)"
           :subscriber-count="author.subscriber_count || 0"
@@ -130,14 +131,14 @@ watch(authorId, load)
         />
         <button
           type="button"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-100 disabled:opacity-50 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
+          class="flex flex-1 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 transition hover:bg-amber-100 disabled:opacity-50 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
           :disabled="urging"
           @click="onUrge"
         >
           <AppIcon name="bell" class="h-4 w-4" />
           {{ urging ? '发送中…' : '催更' }}
         </button>
-        <span v-if="urgeMsg" class="text-xs text-amber-600 dark:text-amber-300">{{ urgeMsg }}</span>
+        <span v-if="urgeMsg" class="w-full text-center text-xs text-amber-600 dark:text-amber-300">{{ urgeMsg }}</span>
       </div>
 
       <!-- 桌面端：原信息块 -->
