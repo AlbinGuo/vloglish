@@ -99,6 +99,18 @@ async function refreshCatalog() {
   setupLoadMoreObserver()
 }
 
+function onHomeVisibility() {
+  if (
+    typeof document !== 'undefined' &&
+    document.visibilityState === 'visible' &&
+    isFollowingFeed.value
+  ) {
+    void loadFollowingFeed()
+  }
+}
+onMounted(() => document.addEventListener('visibilitychange', onHomeVisibility))
+onUnmounted(() => document.removeEventListener('visibilitychange', onHomeVisibility))
+
 // App 从后台回到前台时刷新首页（停在首页也能看到最新内容）
 let _homeResumeHandle: { remove: () => void } | null = null
 onMounted(async () => {
@@ -153,14 +165,6 @@ let authorSearchTimer: ReturnType<typeof setTimeout> | undefined
 let mobileSearchTimer: ReturnType<typeof setTimeout> | undefined
 
 /** 筛选按钮角标：Sheet 内可改项（不含标签/搜索） */
-const mobileSheetFilterCount = computed(() => {
-  let n = 0
-  if (browseMode.value === 'author') n += 1
-  if (store.filters.stars) n += 1
-  if (store.filters.duration) n += 1
-  if (store.filters.learningStatus === 'favorite') n += 1
-  return n
-})
 
 const mobileSearchPlaceholder = computed(() =>
   browseMode.value === 'author' ? '搜索作者或标题' : '搜索视频名称或作者',
@@ -369,35 +373,8 @@ watch(
     <MobileChannelNav :selected="selectedChannel" @update:selected="selectChannel" />
 
     <div class="page-container pb-6" :class="isMobile ? 'pt-0' : 'py-6'">
-      <!-- 手机端：粘性工具条（紧凑搜索 + 标签），固定在 header 下方 -->
-      <template v-if="isMobile && selectedChannel !== 'follow'">
-        <div
-          class="sticky z-30 -mx-4 bg-canvas px-4 pb-2 pt-2"
-          :style="{ top: 'var(--catalog-sticky-top, 0px)' }"
-        >
-          <div class="flex items-center gap-2 min-w-0">
-            <div class="min-w-0 flex-1" />
-            <button
-              type="button"
-              class="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/10 bg-white text-neutral-600 dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-300"
-              :class="mobileSheetFilterCount > 0 ? 'border-amber-400 text-amber-600 dark:border-amber-500 dark:text-amber-300' : ''"
-              aria-label="筛选"
-              @click="filterSheetOpen = true"
-            >
-              <AppIcon name="funnel" class="h-[1.05rem] w-[1.05rem]" />
-              <span
-                v-if="mobileSheetFilterCount > 0"
-                class="absolute -right-1 -top-1 flex h-[1rem] min-w-[1rem] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold leading-none text-white"
-              >
-                {{ mobileSheetFilterCount }}
-              </span>
-            </button>
-          </div>
-        </div>
-      </template>
-
-      <!-- 桌面端：保持原样（Tab + 标签同行） -->
-      <template v-else-if="!isMobile">
+      <!-- 移动端顶部已由频道栏承担，漏斗暂隐藏；桌面端保持原样（Tab + 标签同行） -->
+      <template v-if="!isMobile">
         <div class="mb-3 flex items-center gap-2 sm:gap-3 min-w-0">
           <EnglishNavTabs class="shrink-0" />
           <EnglishHotTagsBar />

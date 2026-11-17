@@ -1087,7 +1087,6 @@ def my_following_episodes(
 
     base_filters = [
         Episode.status == "published",
-        Episode.series_id.is_(None),
         Episode.author_id.in_(author_ids),
     ]
     q = (

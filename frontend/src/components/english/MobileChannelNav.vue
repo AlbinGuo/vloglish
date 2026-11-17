@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import { getMyFollowedAuthors, getPopularEpisodeTags } from '@/api/episodes'
 import type { Tag } from '@/types'
@@ -13,7 +13,14 @@ const order = ref<number[]>([])
 const enabled = ref<number[]>([])
 const unwatched = ref(0)
 const managerOpen = ref(false)
-const draggedId = ref<number | null>(null)
+
+// —— 拖拽状态 ——
+const draggingId = ref<number | null>(null)
+const ghostLabel = ref('')
+const ghostPos = ref({ x: 0, y: 0 })
+let pressTimer: ReturnType<typeof setTimeout> | undefined
+let pressStart: { x: number; y: number } | null = null
+let suppressClick = false
 
 const tagById = computed(() => new Map(tags.value.map((t) => [t.id, t])))
 const visibleTags = computed(() =>
@@ -38,16 +45,22 @@ function restore() {
 
 function persist() {
   try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ order: order.value, enabled: enabled.value }),
-    )
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ order: order.value, enabled: enabled.value }))
   } catch {
     /* ignore */
   }
 }
 
-async function load() {
+async function refreshUnwatched() {
+  try {
+    const res = await getMyFollowedAuthors()
+    unwatched.value = res.results.reduce((sum, a) => sum + (a.unwatched_count || 0), 0)
+  } catch {
+    /* keep last */
+  }
+}
+
+async function loadTags() {
   try {
     tags.value = await getPopularEpisodeTags()
   } catch {
@@ -55,19 +68,15 @@ async function load() {
   }
   restore()
   const validIds = tags.value.map((t) => t.id)
-  // 清理已不存在的标签
-  order.value = [...order.value.filter((id) => validIds.includes(id)), ...validIds.filter((id) => !order.value.includes(id))]
+  order.value = [
+    ...order.value.filter((id) => validIds.includes(id)),
+    ...validIds.filter((id) => !order.value.includes(id)),
+  ]
   enabled.value = enabled.value.filter((id) => validIds.includes(id))
   if (order.value.length === 0) {
     order.value = validIds
     enabled.value = validIds.slice(0, 6)
     persist()
-  }
-  try {
-    const res = await getMyFollowedAuthors()
-    unwatched.value = res.results.reduce((sum, a) => sum + (a.unwatched_count || 0), 0)
-  } catch {
-    unwatched.value = 0
   }
 }
 
@@ -81,34 +90,87 @@ function toggle(id: number) {
   persist()
 }
 
-function moveBefore(targetId: number) {
-  const from = draggedId.value
-  if (from == null || from === targetId) return
+function moveBefore(fromId: number, targetId: number) {
+  if (fromId === targetId) return
   const next = [...order.value]
-  const fi = next.indexOf(from)
+  const fi = next.indexOf(fromId)
   const ti = next.indexOf(targetId)
   if (fi < 0 || ti < 0) return
   next.splice(fi, 1)
-  next.splice(ti, 0, from)
+  next.splice(ti, 0, fromId)
   order.value = next
   persist()
 }
 
-function onTouchStart(id: number) {
-  draggedId.value = id
+// —— 移动端长按拖拽（事件委托） ——
+function onGridTouchStart(e: TouchEvent) {
+  const el = (e.target as HTMLElement).closest<HTMLElement>('[data-tag-id]')
+  if (!el) return
+  const id = Number(el.dataset.tagId)
+  const t = e.touches[0]
+  pressStart = { x: t.clientX, y: t.clientY }
+  clearTimeout(pressTimer)
+  pressTimer = setTimeout(() => {
+    draggingId.value = id
+    ghostLabel.value = tagById.value.get(id)?.name || ''
+    ghostPos.value = { x: t.clientX, y: t.clientY }
+    navigator.vibrate?.(15)
+    // 进入拖拽后清掉可能出现的文本选择
+    window.getSelection?.()?.removeAllRanges()
+  }, 260)
 }
 
-function onTouchEnd(e: TouchEvent) {
-  if (draggedId.value == null) return
-  const touch = e.changedTouches[0]
-  const target = touch
-    ? document
-        .elementFromPoint(touch.clientX, touch.clientY)
-        ?.closest<HTMLElement>('[data-tag-id]')
-    : null
-  const tid = target?.dataset.tagId ? Number(target.dataset.tagId) : null
-  if (tid != null) moveBefore(tid)
-  draggedId.value = null
+function onGridTouchMove(e: TouchEvent) {
+  const t = e.touches[0]
+  if (draggingId.value != null) {
+    e.preventDefault()
+    ghostPos.value = { x: t.clientX, y: t.clientY }
+    const target = document
+      .elementFromPoint(t.clientX, t.clientY)
+      ?.closest<HTMLElement>('[data-tag-id]')
+    const tid = target?.dataset.tagId ? Number(target.dataset.tagId) : null
+    if (tid != null && tid !== draggingId.value) moveBefore(draggingId.value, tid)
+    return
+  }
+  // 还没进入拖拽：手指移动超过阈值则视为滚动，取消长按
+  if (pressStart) {
+    const dx = t.clientX - pressStart.x
+    const dy = t.clientY - pressStart.y
+    if (Math.hypot(dx, dy) > 10) {
+      clearTimeout(pressTimer)
+      pressStart = null
+    }
+  }
+}
+
+function onGridTouchEnd() {
+  if (draggingId.value != null) {
+    suppressClick = true
+    setTimeout(() => {
+      suppressClick = false
+    }, 60)
+  }
+  clearTimeout(pressTimer)
+  pressStart = null
+  draggingId.value = null
+}
+
+function onItemClick(id: number) {
+  if (suppressClick || draggingId.value != null) return
+  toggle(id)
+}
+
+// —— 桌面端 HTML5 拖拽 ——
+function onDragStart(id: number) {
+  draggingId.value = id
+  ghostLabel.value = tagById.value.get(id)?.name || ''
+}
+function onDrop(targetId: number) {
+  if (draggingId.value != null) moveBefore(draggingId.value, targetId)
+  draggingId.value = null
+}
+function onDragEnd() {
+  draggingId.value = null
 }
 
 function resetChannels() {
@@ -117,7 +179,23 @@ function resetChannels() {
   persist()
 }
 
-onMounted(load)
+function onVisible() {
+  if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+    void refreshUnwatched()
+  }
+}
+
+let pollTimer: ReturnType<typeof setInterval> | undefined
+onMounted(async () => {
+  await loadTags()
+  await refreshUnwatched()
+  pollTimer = setInterval(() => void refreshUnwatched(), 30000)
+  document.addEventListener('visibilitychange', onVisible)
+})
+onUnmounted(() => {
+  clearInterval(pollTimer)
+  document.removeEventListener('visibilitychange', onVisible)
+})
 </script>
 
 <template>
@@ -188,13 +266,20 @@ onMounted(load)
             <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-line-soft" />
             <div class="mb-1 flex items-center justify-between">
               <h2 class="text-lg font-semibold text-ink">我的频道</h2>
-              <button type="button" class="text-sm font-medium text-brand" @click="managerOpen = false">
-                完成
-              </button>
+              <button type="button" class="text-sm font-medium text-brand" @click="managerOpen = false">完成</button>
             </div>
-            <p class="mb-4 text-xs text-ink-faint">点击标签添加或移除频道，长按拖动调整顺序。关注、推荐为固定频道。</p>
+            <p class="mb-4 text-xs text-ink-faint">
+              点击标签添加或移除频道；<b>长按</b>标签后拖动可调整顺序。关注、推荐为固定频道。
+            </p>
             <div class="max-h-[58dvh] overflow-y-auto pb-2">
-              <div class="grid grid-cols-4 gap-2">
+              <div
+                class="grid select-none grid-cols-4 gap-2 [-webkit-touch-callout:none]"
+                @touchstart="onGridTouchStart"
+                @touchmove="onGridTouchMove"
+                @touchend="onGridTouchEnd"
+                @touchcancel="onGridTouchEnd"
+                @contextmenu.prevent
+              >
                 <div
                   v-for="fix in [{ k: '关注' }, { k: '推荐' }]"
                   :key="fix.k"
@@ -207,17 +292,20 @@ onMounted(load)
                   :key="id"
                   type="button"
                   :data-tag-id="id"
-                  class="flex h-10 touch-none items-center justify-center rounded-lg text-sm transition"
-                  :class="enabled.includes(id) ? 'bg-brand-soft text-brand ring-1 ring-brand/20' : 'bg-sunken text-ink-faint'"
+                  class="flex h-10 items-center justify-center rounded-lg text-sm transition-all duration-150"
+                  :class="[
+                    enabled.includes(id)
+                      ? 'bg-brand-soft text-brand ring-1 ring-brand/20'
+                      : 'bg-sunken text-ink-faint',
+                    draggingId === id ? 'scale-95 opacity-50 ring-2 ring-brand' : '',
+                  ]"
                   :aria-pressed="enabled.includes(id)"
-                  @click="toggle(id)"
-                  @dragstart="draggedId = id"
+                  draggable="true"
+                  @click="onItemClick(id)"
+                  @dragstart="onDragStart(id)"
                   @dragover.prevent
-                  @drop.prevent="moveBefore(id); draggedId = null"
-                  @dragend="draggedId = null"
-                  @touchstart.passive="onTouchStart(id)"
-                  @touchend="onTouchEnd"
-                  @touchmove.prevent
+                  @drop.prevent="onDrop(id)"
+                  @dragend="onDragEnd"
                 >
                   {{ tagById.get(id)?.name }}
                 </button>
@@ -230,6 +318,15 @@ onMounted(load)
           </section>
         </div>
       </Transition>
+
+      <!-- 长按拖动时跟随手指的“轨迹” -->
+      <div
+        v-if="draggingId != null"
+        class="pointer-events-none fixed z-[200] flex h-10 items-center justify-center rounded-lg bg-brand px-3 text-sm font-medium text-white shadow-lg shadow-black/30"
+        :style="{ left: ghostPos.x + 'px', top: ghostPos.y + 'px', transform: 'translate(-50%, -150%)' }"
+      >
+        {{ ghostLabel }}
+      </div>
     </Teleport>
   </div>
 </template>
