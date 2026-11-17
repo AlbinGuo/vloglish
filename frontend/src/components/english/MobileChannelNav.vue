@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
-import { getFollowingStatus, getPopularEpisodeTags } from '@/api/episodes'
+import { getEpisodeTags, getFollowingStatus } from '@/api/episodes'
 import type { Tag } from '@/types'
 
 const props = defineProps<{ selected: string }>()
 const emit = defineEmits<{ (e: 'update:selected', key: string): void }>()
 
-const STORAGE_KEY = 'vloglish-mobile-channels-v3'
+const STORAGE_KEY = 'vloglish-mobile-channels-v4'
 const SEEN_KEY = 'vloglish-follow-seen-at'
+// 初始默认频道（“关注/推荐”固定，其余按名称匹配标签）；重复项会自动去重
+const DEFAULT_CHANNEL_NAMES = ['知识', '访谈', '演讲', '生活', 'BBC六分钟英语', '新闻', '日常']
 const tags = ref<Tag[]>([])
 const order = ref<number[]>([])
 const enabled = ref<number[]>([])
@@ -81,9 +83,32 @@ async function refreshStatus() {
   }
 }
 
+function buildDefault(): { orderIds: number[]; enabledIds: number[] } {
+  const norm = (s: string) => s.replace(/\s+/g, '').toLowerCase()
+  const picked: number[] = []
+  for (const name of DEFAULT_CHANNEL_NAMES) {
+    const key = norm(name)
+    const t =
+      tags.value.find((x) => norm(x.name) === key) ??
+      tags.value.find((x) => norm(x.name).includes(key))
+    if (t && !picked.includes(t.id)) picked.push(t.id)
+  }
+  // 不足 8 个时用其余标签补足
+  for (const t of tags.value) {
+    if (picked.length >= 8) break
+    if (!picked.includes(t.id)) picked.push(t.id)
+  }
+  const enabledIds = picked.slice(0, 8)
+  const orderIds = [
+    ...enabledIds,
+    ...tags.value.map((t) => t.id).filter((id) => !enabledIds.includes(id)),
+  ]
+  return { orderIds, enabledIds }
+}
+
 async function loadTags() {
   try {
-    tags.value = await getPopularEpisodeTags()
+    tags.value = await getEpisodeTags()
   } catch {
     tags.value = []
   }
@@ -94,9 +119,10 @@ async function loadTags() {
     ...validIds.filter((id) => !order.value.includes(id)),
   ]
   enabled.value = enabled.value.filter((id) => validIds.includes(id))
-  if (order.value.length === 0) {
-    order.value = validIds
-    enabled.value = validIds.slice(0, 8)
+  if (enabled.value.length === 0) {
+    const d = buildDefault()
+    order.value = d.orderIds
+    enabled.value = d.enabledIds
     persist()
   }
 }
@@ -195,8 +221,9 @@ function onDragEnd() {
 }
 
 function resetChannels() {
-  order.value = tags.value.map((t) => t.id)
-  enabled.value = tags.value.slice(0, 8).map((t) => t.id)
+  const d = buildDefault()
+  order.value = d.orderIds
+  enabled.value = d.enabledIds
   persist()
 }
 
