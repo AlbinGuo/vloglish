@@ -48,6 +48,7 @@ export interface AuthorCatalogItem {
   nationality: string
   accent: string
   avatar?: string
+  banner?: string
   episode_count: number
   covers: string[]
   is_subscribed?: boolean

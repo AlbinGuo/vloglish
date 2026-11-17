@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -10,7 +10,7 @@ from ...database import get_db
 from ...deps import get_current_admin
 from ...media import resolve_cover_url
 from ...qiniu_storage import QiniuConfig, strip_own_signature, upload_file
-from ...models import Author, Episode, Tag, User, UserAuthorSubscription, episode_tags
+from ...models import Author, AuthorUrge, Episode, Tag, User, UserAuthorSubscription, episode_tags
 from ...schemas import (
     AdminAuthorCreateIn,
     AdminAuthorMergeIn,
@@ -73,6 +73,7 @@ def _author_out(author: Author, episode_count: int) -> AdminAuthorOut:
         nationality=author.nationality,
         accent=author.accent,
         avatar=resolve_cover_url(author.avatar_url or ""),
+        banner=resolve_cover_url(author.banner_url or ""),
         episode_count=episode_count,
     )
 
@@ -95,6 +96,69 @@ def list_authors(
     return [_author_out(a, counts.get(a.id, 0)) for a in authors]
 
 
+@router.get("/urges/")
+def list_author_urges(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    _admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """催更记录：哪个用户对哪个作者催更了、累计次数、最近时间；并给出按作者的汇总。"""
+    q = db.query(AuthorUrge).order_by(AuthorUrge.last_urged_at.desc(), AuthorUrge.id.desc())
+    total = q.count()
+    rows = q.offset((page - 1) * page_size).limit(page_size).all()
+    user_ids = {r.user_id for r in rows}
+    author_ids = {r.author_id for r in rows}
+    users = (
+        {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
+    )
+    authors = (
+        {a.id: a for a in db.query(Author).filter(Author.id.in_(author_ids)).all()}
+        if author_ids
+        else {}
+    )
+
+    def _fmt(dt):
+        return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else ""
+
+    results = []
+    for r in rows:
+        u = users.get(r.user_id)
+        a = authors.get(r.author_id)
+        results.append(
+            {
+                "id": r.id,
+                "author_id": r.author_id,
+                "author_name": (a.name if a else ""),
+                "user_id": r.user_id,
+                "user_email": (u.email if u else ""),
+                "user_nickname": ((u.nickname or "").strip() if u else ""),
+                "user_no": ((u.user_no or "") if u else ""),
+                "count": r.count,
+                "created_at": _fmt(r.created_at),
+                "last_urged_at": _fmt(r.last_urged_at),
+            }
+        )
+
+    agg = (
+        db.query(AuthorUrge.author_id, func.sum(AuthorUrge.count), func.count(AuthorUrge.id))
+        .group_by(AuthorUrge.author_id)
+        .order_by(func.sum(AuthorUrge.count).desc())
+        .all()
+    )
+    author_map = {a.id: a.name for a in db.query(Author).all()}
+    summary = [
+        {
+            "author_id": aid,
+            "author_name": author_map.get(aid, ""),
+            "total_count": int(t or 0),
+            "user_count": int(c or 0),
+        }
+        for aid, t, c in agg
+    ]
+    return {"count": total, "results": results, "summary": summary}
+
+
 @router.post("/", response_model=AdminAuthorOut)
 def create_author(
     body: AdminAuthorCreateIn,
@@ -113,6 +177,7 @@ def create_author(
         nationality=body.nationality.strip(),
         accent=accent,
         avatar_url=strip_own_signature((body.avatar or "").strip()),
+        banner_url=strip_own_signature((body.banner or "").strip()),
     )
     db.add(author)
     db.commit()
@@ -152,6 +217,8 @@ def update_author(
         author.accent = new_accent
     if "avatar" in data:
         author.avatar_url = strip_own_signature((data["avatar"] or "").strip())
+    if "banner" in data:
+        author.banner_url = strip_own_signature((data["banner"] or "").strip())
 
     db.commit()
     db.refresh(author)

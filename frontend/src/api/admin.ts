@@ -500,10 +500,13 @@ export interface AdminAuthor {
   nationality: string
   accent: string
   avatar: string
+  banner: string
   episode_count: number
 }
 
-export type AdminAuthorInput = Omit<AdminAuthor, 'id' | 'episode_count'>
+export type AdminAuthorInput = Omit<AdminAuthor, 'id' | 'episode_count' | 'banner'> & {
+  banner?: string
+}
 
 export interface AdminSubtitle {
   index: number
@@ -720,6 +723,37 @@ export async function adminDeleteAuthor(id: number) {
 
 export async function adminMergeAuthor(id: number, targetId: number) {
   const { data } = await adminApi.post<AdminAuthor>(`/api/admin/authors/${id}/merge/`, { target_id: targetId })
+  return data
+}
+
+export interface AdminAuthorUrgeRow {
+  id: number
+  author_id: number
+  author_name: string
+  user_id: number
+  user_email: string
+  user_nickname: string
+  user_no: string
+  count: number
+  created_at: string
+  last_urged_at: string
+}
+
+export interface AdminAuthorUrgeSummary {
+  author_id: number
+  author_name: string
+  total_count: number
+  user_count: number
+}
+
+export async function adminListAuthorUrges(page = 1, pageSize = 20) {
+  const { data } = await adminApi.get<{
+    count: number
+    results: AdminAuthorUrgeRow[]
+    summary: AdminAuthorUrgeSummary[]
+  }>('/api/admin/authors/urges/', {
+    params: { page, page_size: pageSize },
+  })
   return data
 }
 

@@ -96,6 +96,13 @@ export async function getMyFollowedAuthors() {
   return data
 }
 
+export async function urgeAuthor(authorId: number) {
+  const { data } = await api.post<{ success: boolean; my_count: number; author_total: number }>(
+    `/api/authors/${authorId}/urge/`,
+  )
+  return data
+}
+
 export async function getFollowingEpisodes(params: { page?: number; page_size?: number } = {}) {
   const { data } = await api.get<{
     count: number

@@ -74,3 +74,19 @@ export async function ackNotificationPopups(ids: number[]) {
   )
   return data
 }
+
+export interface AnnouncementItem {
+  id: number
+  title: string
+  body: string
+  image_url: string
+  created_at: string
+}
+
+export async function getAnnouncements(afterId = 0) {
+  const { data } = await api.get<{ results: AnnouncementItem[] }>(
+    '/api/notifications/announcements/',
+    { params: { after_id: afterId } },
+  )
+  return data.results
+}

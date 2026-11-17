@@ -772,6 +772,7 @@ class AdminAuthorOut(BaseModel):
     nationality: str
     accent: str
     avatar: str = ""
+    banner: str = ""
     episode_count: int = 0
 
 
@@ -781,6 +782,7 @@ class AdminAuthorCreateIn(BaseModel):
     nationality: str = Field(default="", max_length=16)
     accent: str = Field(default="", max_length=32)
     avatar: str = Field(default="", max_length=2048)
+    banner: str = Field(default="", max_length=2048)
 
 
 class AdminAuthorUpdateIn(BaseModel):
@@ -789,6 +791,7 @@ class AdminAuthorUpdateIn(BaseModel):
     nationality: str | None = Field(default=None, max_length=16)
     accent: str | None = Field(default=None, max_length=32)
     avatar: str | None = Field(default=None, max_length=2048)
+    banner: str | None = Field(default=None, max_length=2048)
 
 
 class AdminAuthorMergeIn(BaseModel):

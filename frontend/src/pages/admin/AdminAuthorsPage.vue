@@ -24,10 +24,10 @@ const createAvatarInput = ref<HTMLInputElement | null>(null)
 const editAvatarInput = ref<HTMLInputElement | null>(null)
 
 const showCreate = ref(false)
-const form = ref<AdminAuthorInput>({ name: '', gender: 'm', nationality: '', accent: '', avatar: '' })
+const form = ref<AdminAuthorInput>({ name: '', gender: 'm', nationality: '', accent: '', avatar: '', banner: '' })
 
 const editing = ref<AdminAuthor | null>(null)
-const editForm = ref<AdminAuthorInput>({ name: '', gender: 'm', nationality: '', accent: '', avatar: '' })
+const editForm = ref<AdminAuthorInput>({ name: '', gender: 'm', nationality: '', accent: '', avatar: '', banner: '' })
 
 const merging = ref<AdminAuthor | null>(null)
 const mergeTargetId = ref<number | null>(null)
@@ -72,9 +72,10 @@ async function createAuthor() {
       nationality: form.value.nationality.trim(),
       accent: form.value.accent.trim(),
       avatar: form.value.avatar.trim(),
+      banner: (form.value.banner || '').trim(),
     })
     showCreate.value = false
-    form.value = { name: '', gender: 'm', nationality: '', accent: '', avatar: '' }
+    form.value = { name: '', gender: 'm', nationality: '', accent: '', avatar: '', banner: '' }
     success.value = '作者已创建'
     await load()
   } catch (e: unknown) {
@@ -93,6 +94,7 @@ function openEdit(row: AdminAuthor) {
     nationality: row.nationality,
     accent: row.accent,
     avatar: row.avatar || '',
+    banner: row.banner || '',
   }
   error.value = ''
   success.value = ''
@@ -109,6 +111,7 @@ async function saveEdit() {
       nationality: editForm.value.nationality.trim(),
       accent: editForm.value.accent.trim(),
       avatar: editForm.value.avatar.trim(),
+      banner: (editForm.value.banner || '').trim(),
     })
     editing.value = null
     success.value = '已保存'
@@ -278,6 +281,7 @@ onMounted(load)
           </button>
           <input ref="createAvatarInput" type="file" accept="image/*" class="hidden" @change="handleAvatarFile($event, 'create')" />
         </div>
+        <input v-model="form.banner" class="w-full rounded-lg border px-3 py-2 text-sm" placeholder="主页背景图 URL（手机端作者页顶部背景，可留空）" />
         <select v-model="form.gender" class="w-full rounded-lg border px-3 py-2 text-sm">
           <option value="m">男</option>
           <option value="f">女</option>
@@ -311,6 +315,7 @@ onMounted(load)
           </button>
           <input ref="editAvatarInput" type="file" accept="image/*" class="hidden" @change="handleAvatarFile($event, 'edit')" />
         </div>
+        <input v-model="editForm.banner" class="w-full rounded-lg border px-3 py-2 text-sm" placeholder="主页背景图 URL（手机端作者页顶部背景，可留空）" />
         <select v-model="editForm.gender" class="w-full rounded-lg border px-3 py-2 text-sm">
           <option value="m">男</option>
           <option value="f">女</option>

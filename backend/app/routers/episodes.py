@@ -28,6 +28,7 @@ from ..services.learning import learned_episode_ids, progress_map_for_episodes
 from ..media import find_episode_audio_file, find_episode_cover_file, find_episode_video_file, resolve_cover_url
 from ..models import (
     Author,
+    AuthorUrge,
     Episode,
     EpisodeFavorite,
     EpisodeSeries,
@@ -965,6 +966,7 @@ def author_detail(
             "nationality": author.nationality or "",
             "accent": author.accent or "",
             "avatar": resolve_cover_url(author.avatar_url or ""),
+            "banner": resolve_cover_url(author.banner_url or ""),
             "episode_count": len(episodes),
             "covers": covers,
         },
@@ -995,6 +997,44 @@ def unsubscribe_author(
         return set_author_subscribed(db, user.id, author_id, False)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.post("/authors/{author_id}/urge/")
+def urge_author(
+    author_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """用户对作者催更（同一用户对同一作者累计次数）。"""
+    author = db.query(Author).filter(Author.id == author_id).first()
+    if not author:
+        raise HTTPException(status_code=404, detail="作者不存在")
+    now = datetime.utcnow()
+    row = (
+        db.query(AuthorUrge)
+        .filter(AuthorUrge.user_id == user.id, AuthorUrge.author_id == author_id)
+        .first()
+    )
+    if row:
+        row.count = (row.count or 0) + 1
+        row.last_urged_at = now
+    else:
+        row = AuthorUrge(
+            user_id=user.id,
+            author_id=author_id,
+            count=1,
+            created_at=now,
+            last_urged_at=now,
+        )
+        db.add(row)
+    db.commit()
+    total = (
+        db.query(func.sum(AuthorUrge.count))
+        .filter(AuthorUrge.author_id == author_id)
+        .scalar()
+        or 0
+    )
+    return {"success": True, "my_count": row.count, "author_total": int(total)}
 
 
 @router.get("/me/author-subscriptions/")

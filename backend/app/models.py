@@ -37,6 +37,7 @@ class Author(Base):
     nationality: Mapped[str] = mapped_column(String(16), default="")
     accent: Mapped[str] = mapped_column(String(32), default="")
     avatar_url: Mapped[str] = mapped_column(Text, default="")
+    banner_url: Mapped[str] = mapped_column(Text, default="")
 
 
 class EpisodeSeries(Base):
@@ -250,6 +251,22 @@ class UserAuthorSubscription(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     author_id: Mapped[int] = mapped_column(ForeignKey("authors.id", ondelete="CASCADE"), primary_key=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AuthorUrge(Base):
+    """用户对作者的催更记录（同一用户对同一作者累计次数）。"""
+
+    __tablename__ = "author_urges"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    author_id: Mapped[int] = mapped_column(ForeignKey("authors.id", ondelete="CASCADE"), index=True)
+    count: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_urged_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    __table_args__ = (
+        UniqueConstraint("user_id", "author_id", name="uq_author_urge_user_author"),
+    )
 
 
 class User(Base):

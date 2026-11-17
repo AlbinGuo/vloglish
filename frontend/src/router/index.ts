@@ -146,6 +146,11 @@ const adminRoutes: RouteRecordRaw[] = [
         component: () => import('@/pages/admin/AdminAuthorsPage.vue'),
       },
       {
+        path: 'urges',
+        name: 'AdminUrges',
+        component: () => import('@/pages/admin/AdminUrgesPage.vue'),
+      },
+      {
         path: 'tags',
         name: 'AdminTags',
         component: () => import('@/pages/admin/AdminTagsPage.vue'),

@@ -4,13 +4,16 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import {
   ackNotificationPopup,
   ackNotificationPopups,
+  getAnnouncements,
   getPendingPopups,
+  type AnnouncementItem,
   type EpisodePublishedPopup as EpisodePublishedPopupItem,
 } from '@/api/notifications'
 import { normalizePresencePageKey, sendPresenceHeartbeat } from '@/api/presence'
 import BrandLogo from '@/components/BrandLogo.vue'
 import ContinueLearningDropdown from '@/components/ContinueLearningDropdown.vue'
 import EpisodePublishedPopup from '@/components/EpisodePublishedPopup.vue'
+import AnnouncementPopup from '@/components/AnnouncementPopup.vue'
 import FavoriteCorpusToast from '@/components/FavoriteCorpusToast.vue'
 import AiQuotaExhaustedModal from '@/components/ai/AiQuotaExhaustedModal.vue'
 import FeedbackModal from '@/components/FeedbackModal.vue'
@@ -121,6 +124,14 @@ function buildPopupUnits(results: EpisodePublishedPopupItem[]): PopupUnit[] {
 
 const popupUnits = ref<PopupUnit[]>([])
 const popupBusy = ref(false)
+
+// 全站公告（管理员广播）：轮询 + 弹窗
+const ANNOUNCE_KEY = 'vloglish-announce-seen-id'
+const announcementQueue = ref<AnnouncementItem[]>([])
+const currentAnnouncement = computed(() => announcementQueue.value[0] ?? null)
+let announceFetchedId = 0
+let announceInited = false
+let announcePollTimer: ReturnType<typeof setInterval> | null = null
 const currentUnit = computed(() => popupUnits.value[0] ?? null)
 const currentPopupItem = computed(() =>
   currentUnit.value?.kind === 'single' ? currentUnit.value.item : null,
@@ -340,6 +351,7 @@ function startPopupPolling() {
   popupPollTimer = setInterval(() => {
     if (auth.isLoggedIn) void refreshPendingPopups()
   }, 5000)
+  startAnnouncementPolling()
 }
 
 function stopPopupPolling() {
@@ -348,6 +360,67 @@ function stopPopupPolling() {
     popupPollTimer = null
   }
   popupUnits.value = []
+  stopAnnouncementPolling()
+}
+
+async function initAndPollAnnouncements() {
+  if (!auth.isLoggedIn) return
+  if (!announceInited) {
+    announceInited = true
+    let raw: string | null = null
+    try {
+      raw = localStorage.getItem(ANNOUNCE_KEY)
+    } catch {
+      /* ignore */
+    }
+    if (raw == null) {
+      // 首次登录：以当前最新公告为基线，避免弹历史
+      try {
+        const items = await getAnnouncements(0)
+        announceFetchedId = items.length ? Math.max(...items.map((i) => i.id)) : 0
+        localStorage.setItem(ANNOUNCE_KEY, String(announceFetchedId))
+      } catch {
+        /* ignore */
+      }
+      return
+    }
+    announceFetchedId = Number(raw) || 0
+  }
+  try {
+    const items = await getAnnouncements(announceFetchedId)
+    if (items.length) {
+      announceFetchedId = Math.max(announceFetchedId, ...items.map((i) => i.id))
+      try {
+        localStorage.setItem(ANNOUNCE_KEY, String(announceFetchedId))
+      } catch {
+        /* ignore */
+      }
+      announcementQueue.value = [...announcementQueue.value, ...items]
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function startAnnouncementPolling() {
+  stopAnnouncementPolling()
+  void initAndPollAnnouncements()
+  announcePollTimer = setInterval(() => {
+    if (auth.isLoggedIn) void initAndPollAnnouncements()
+  }, 15000)
+}
+
+function stopAnnouncementPolling() {
+  if (announcePollTimer) {
+    clearInterval(announcePollTimer)
+    announcePollTimer = null
+  }
+  announcementQueue.value = []
+  announceInited = false
+}
+
+function closeAnnouncement() {
+  announcementQueue.value = announcementQueue.value.slice(1)
 }
 
 async function ackCurrentPopup() {
@@ -740,5 +813,6 @@ watch(
       @dismiss="dismissPublishedPopup"
       @open="openPublishedPopup"
     />
+    <AnnouncementPopup :item="currentAnnouncement" @close="closeAnnouncement" />
   </div>
 </template>

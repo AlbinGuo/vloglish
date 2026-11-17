@@ -25,6 +25,7 @@ const nav = [
   { to: '/gnadmin/series', label: '合集' },
   { to: '/gnadmin/reading', label: 'News Reading' },
   { to: '/gnadmin/authors', label: '作者' },
+  { to: '/gnadmin/urges', label: '催更' },
   { to: '/gnadmin/tags', label: '标签' },
   { to: '/gnadmin/import', label: '导入导出' },
   { to: '/gnadmin/demo-codes', label: '体验码' },
@@ -51,6 +52,7 @@ const pageTitle = computed(() => {
   if (route.path.startsWith('/gnadmin/import')) return '导入导出'
   if (route.path.startsWith('/gnadmin/demo-codes')) return '体验码'
   if (route.path.startsWith('/gnadmin/authors')) return '作者'
+  if (route.path.startsWith('/gnadmin/urges')) return '催更'
   if (route.path.startsWith('/gnadmin/tags')) return '标签'
   if (route.path.startsWith('/gnadmin/notifications')) return '通知'
   if (route.path.startsWith('/gnadmin/feedback')) return '用户反馈'

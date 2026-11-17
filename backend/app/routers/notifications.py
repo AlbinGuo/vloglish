@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import Article, Episode, User, UserNotification
+from ..models import AdminBroadcast, Article, Episode, User, UserNotification
 from ..schemas import (
     AckPopupsIn,
     EpisodePublishedPopupListOut,
@@ -44,6 +44,34 @@ def _notification_out(
         is_read=row.is_read,
         created_at=_fmt_dt(row.created_at),
     )
+
+
+@router.get("/announcements/")
+def list_announcements(
+    after_id: int = Query(0, ge=0),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """全站公告（管理员广播）：返回 id > after_id 的最新公告，供前端实时弹窗。"""
+    rows = (
+        db.query(AdminBroadcast)
+        .filter(AdminBroadcast.id > after_id)
+        .order_by(AdminBroadcast.id.asc())
+        .limit(10)
+        .all()
+    )
+    return {
+        "results": [
+            {
+                "id": r.id,
+                "title": r.title,
+                "body": r.body,
+                "image_url": r.image_url or "",
+                "created_at": _fmt_dt(r.created_at),
+            }
+            for r in rows
+        ]
+    }
 
 
 @router.get("/", response_model=NotificationListOut)
