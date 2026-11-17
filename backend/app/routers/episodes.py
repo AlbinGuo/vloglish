@@ -1067,6 +1067,53 @@ def my_author_subscriptions(
     return {"count": len(results), "results": results}
 
 
+@router.get("/me/following-status/")
+def my_following_status(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """关注频道角标：未看数量 + 关注作者最新发布时间（用于「新」标记）。"""
+    author_ids = [
+        row[0]
+        for row in db.query(UserAuthorSubscription.author_id)
+        .filter(UserAuthorSubscription.user_id == user.id)
+        .all()
+    ]
+    if not author_ids:
+        return {"unwatched_count": 0, "latest_published_at": None}
+
+    base_filters = [
+        Episode.status == "published",
+        Episode.author_id.in_(author_ids),
+    ]
+    publish_time = func.coalesce(Episode.published_at, Episode.created_at)
+    total = (
+        db.query(func.count(Episode.id))
+        .filter(*base_filters)
+        .filter(published_visibility_filter(user))
+        .scalar()
+        or 0
+    )
+    seen = (
+        db.query(func.count(distinct(UserEpisodeProgress.episode_id)))
+        .join(Episode, Episode.id == UserEpisodeProgress.episode_id)
+        .filter(UserEpisodeProgress.user_id == user.id, *base_filters)
+        .filter(published_visibility_filter(user))
+        .scalar()
+        or 0
+    )
+    latest = (
+        db.query(func.max(publish_time))
+        .filter(*base_filters)
+        .filter(published_visibility_filter(user))
+        .scalar()
+    )
+    return {
+        "unwatched_count": max(0, int(total) - int(seen)),
+        "latest_published_at": (latest.isoformat() + "Z") if latest else None,
+    }
+
+
 @router.get("/me/following-episodes/")
 def my_following_episodes(
     page: int = Query(1, ge=1),

@@ -105,6 +105,13 @@ export async function getFollowingEpisodes(params: { page?: number; page_size?: 
   return data
 }
 
+export async function getFollowingStatus() {
+  const { data } = await api.get<{ unwatched_count: number; latest_published_at: string | null }>(
+    '/api/me/following-status/',
+  )
+  return data
+}
+
 export async function getEpisodeDetail(videoId: string) {
   const { data } = await api.get<{ episode: EpisodeDetail; total_episodes: number }>(
     `/api/episode/${videoId}/detail/`,

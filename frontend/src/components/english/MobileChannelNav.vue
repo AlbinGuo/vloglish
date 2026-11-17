@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
-import { getMyFollowedAuthors, getPopularEpisodeTags } from '@/api/episodes'
+import { getFollowingStatus, getPopularEpisodeTags } from '@/api/episodes'
 import type { Tag } from '@/types'
 
-defineProps<{ selected: string }>()
+const props = defineProps<{ selected: string }>()
 const emit = defineEmits<{ (e: 'update:selected', key: string): void }>()
 
-const STORAGE_KEY = 'vloglish-mobile-channels-v2'
+const STORAGE_KEY = 'vloglish-mobile-channels-v3'
+const SEEN_KEY = 'vloglish-follow-seen-at'
 const tags = ref<Tag[]>([])
 const order = ref<number[]>([])
 const enabled = ref<number[]>([])
 const unwatched = ref(0)
+const hasNew = ref(false)
 const managerOpen = ref(false)
 
 // —— 拖拽状态 ——
@@ -51,10 +53,29 @@ function persist() {
   }
 }
 
-async function refreshUnwatched() {
+function lastSeenAt(): number {
   try {
-    const res = await getMyFollowedAuthors()
-    unwatched.value = res.results.reduce((sum, a) => sum + (a.unwatched_count || 0), 0)
+    return Number(localStorage.getItem(SEEN_KEY) || 0)
+  } catch {
+    return 0
+  }
+}
+
+function markFollowSeen() {
+  try {
+    localStorage.setItem(SEEN_KEY, String(Date.now()))
+  } catch {
+    /* ignore */
+  }
+  hasNew.value = false
+}
+
+async function refreshStatus() {
+  try {
+    const s = await getFollowingStatus()
+    unwatched.value = s.unwatched_count
+    const latest = s.latest_published_at ? Date.parse(s.latest_published_at) : 0
+    hasNew.value = latest > lastSeenAt()
   } catch {
     /* keep last */
   }
@@ -75,7 +96,7 @@ async function loadTags() {
   enabled.value = enabled.value.filter((id) => validIds.includes(id))
   if (order.value.length === 0) {
     order.value = validIds
-    enabled.value = validIds.slice(0, 6)
+    enabled.value = validIds.slice(0, 8)
     persist()
   }
 }
@@ -175,21 +196,28 @@ function onDragEnd() {
 
 function resetChannels() {
   order.value = tags.value.map((t) => t.id)
-  enabled.value = tags.value.slice(0, 6).map((t) => t.id)
+  enabled.value = tags.value.slice(0, 8).map((t) => t.id)
   persist()
 }
 
 function onVisible() {
   if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-    void refreshUnwatched()
+    void refreshStatus()
   }
 }
+
+watch(
+  () => props.selected,
+  (v) => {
+    if (v === 'follow') markFollowSeen()
+  },
+)
 
 let pollTimer: ReturnType<typeof setInterval> | undefined
 onMounted(async () => {
   await loadTags()
-  await refreshUnwatched()
-  pollTimer = setInterval(() => void refreshUnwatched(), 30000)
+  await refreshStatus()
+  pollTimer = setInterval(() => void refreshStatus(), 30000)
   document.addEventListener('visibilitychange', onVisible)
 })
 onUnmounted(() => {
@@ -212,7 +240,14 @@ onUnmounted(() => {
       >
         关注
         <span
-          v-if="unwatched > 0"
+          v-if="hasNew"
+          class="absolute -right-1 top-0.5 rounded-full bg-red-500 px-1 text-center text-[9px] font-semibold leading-[14px] text-white"
+          aria-label="有新视频"
+        >
+          新
+        </span>
+        <span
+          v-else-if="unwatched > 0"
           class="absolute -right-0.5 top-1 min-w-[14px] rounded-full bg-red-500 px-1 text-center text-[9px] font-semibold leading-[14px] text-white"
           aria-label="未看新视频数量"
         >

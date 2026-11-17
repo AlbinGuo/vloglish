@@ -416,7 +416,7 @@ watch(
         <div v-else-if="!followingEpisodes.length" class="py-24 text-center text-neutral-500">
           你关注的作者还没有发布新视频
         </div>
-        <div v-else class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+        <div v-else class="grid grid-cols-1 gap-3">
           <EpisodeCard
             v-for="ep in followingEpisodes"
             :key="ep.video_id"
