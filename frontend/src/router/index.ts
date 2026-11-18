@@ -162,12 +162,6 @@ const adminRoutes: RouteRecordRaw[] = [
 /** App MVP 暂不含投稿 */
 const memberSubmitRoutes: RouteRecordRaw[] = [
   {
-    path: 'english/language',
-    name: 'LanguageSettings',
-    component: () => import('@/pages/LanguageSettingsPage.vue'),
-    meta: { requiresAuth: true, mobileTitle: '学习语言' },
-  },
-  {
     path: 'english/submit',
     name: 'SubmitEpisode',
     component: () => import('@/pages/SubmitEpisodePage.vue'),
@@ -311,6 +305,12 @@ const userRoutes: RouteRecordRaw[] = [
         redirect: '/english',
       },
       ...(isMobile ? [] : memberSubmitRoutes),
+      {
+        path: 'english/language',
+        name: 'LanguageSettings',
+        component: () => import('@/pages/LanguageSettingsPage.vue'),
+        meta: { requiresAuth: true, mobileTitle: '学习语言' },
+      },
       {
         // 我的语料库：App 与 Web 都可用（收藏 + 投稿管理）
         path: 'english/my-submissions',
