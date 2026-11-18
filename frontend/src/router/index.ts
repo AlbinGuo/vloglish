@@ -162,6 +162,12 @@ const adminRoutes: RouteRecordRaw[] = [
 /** App MVP 暂不含投稿 */
 const memberSubmitRoutes: RouteRecordRaw[] = [
   {
+    path: 'english/language',
+    name: 'LanguageSettings',
+    component: () => import('@/pages/LanguageSettingsPage.vue'),
+    meta: { requiresAuth: true, mobileTitle: '学习语言' },
+  },
+  {
     path: 'english/submit',
     name: 'SubmitEpisode',
     component: () => import('@/pages/SubmitEpisodePage.vue'),

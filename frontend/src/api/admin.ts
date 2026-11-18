@@ -532,6 +532,7 @@ export interface AdminEpisodeListItem {
   is_demo: boolean
   is_pinned?: boolean
   open_to_free_users?: boolean
+  language?: string
   is_user_submitted: boolean
   is_catalog_public?: boolean
   tag_names: string[]
@@ -578,6 +579,7 @@ export interface AdminEpisodeDetail {
   is_demo: boolean
   is_pinned?: boolean
   open_to_free_users?: boolean
+  language?: string
   status: string
   rejection_reason?: string
   is_user_submitted?: boolean
@@ -612,6 +614,7 @@ export type AdminEpisodePayload = {
   is_demo: boolean
   is_pinned?: boolean
   open_to_free_users?: boolean
+  language?: string
   status: string
   rejection_reason?: string
   series_id?: number | null

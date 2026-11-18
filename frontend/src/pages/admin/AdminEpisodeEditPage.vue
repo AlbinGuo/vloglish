@@ -89,6 +89,7 @@ const form = ref<AdminEpisodePayload>({
   is_demo: false,
   is_pinned: false,
   open_to_free_users: false,
+  language: 'en',
   status: 'draft',
   rejection_reason: '',
   series_id: null,
@@ -228,6 +229,7 @@ async function loadEpisode() {
       is_demo: data.is_demo,
       is_pinned: Boolean(data.is_pinned),
       open_to_free_users: Boolean(data.open_to_free_users),
+      language: data.language || 'en',
       status: data.status,
       rejection_reason: data.rejection_reason || '',
       series_id: data.series_id ?? null,
@@ -1021,6 +1023,14 @@ watch(
               <option value="published">已发布</option>
               <option value="archived">已下架</option>
               <option value="rejected">驳回</option>
+            </select>
+          </label>
+          <label class="block text-sm">
+            <span class="text-neutral-500">语言</span>
+            <select v-model="form.language" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2">
+              <option value="en">英语 English</option>
+              <option value="de">德语 Deutsch</option>
+              <option value="fr">法语 Français</option>
             </select>
           </label>
           <label v-if="form.status === 'rejected'" class="block text-sm md:col-span-2">

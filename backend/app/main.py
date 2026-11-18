@@ -440,6 +440,26 @@ def _migrate_schema():
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE authors ADD COLUMN banner_url TEXT NOT NULL DEFAULT ''"))
         print("[vloglish] migrated authors.banner_url")
+    # 学习语言偏好 + 剧集语言
+    insp = inspect(engine)
+    user_lang_cols = {c["name"] for c in insp.get_columns("users")}
+    for name, ddl in (
+        ("target_language", "VARCHAR(8) NOT NULL DEFAULT 'en'"),
+        ("native_language", "VARCHAR(8) NOT NULL DEFAULT 'zh'"),
+        ("language_selected", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ):
+        if name not in user_lang_cols:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE users ADD COLUMN {name} {ddl}"))
+                if name == "language_selected":
+                    # 已有用户视为已完成选择，避免升级后被引导页打扰；仅新注册用户为未选
+                    conn.execute(text("UPDATE users SET language_selected = TRUE"))
+            print(f"[vloglish] migrated users.{name}")
+    ep_cols = {c["name"] for c in insp.get_columns("episodes")}
+    if "language" not in ep_cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE episodes ADD COLUMN language VARCHAR(8) NOT NULL DEFAULT 'en'"))
+        print("[vloglish] migrated episodes.language")
     if "my_corpus_seen_at" not in cols:
         with engine.begin() as conn:
             conn.execute(text(f"ALTER TABLE users ADD COLUMN my_corpus_seen_at {datetime_type}"))

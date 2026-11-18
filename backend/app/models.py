@@ -96,6 +96,8 @@ class Episode(Base):
     is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     # 管理员指定：普通用户是否可播放该集（会员限制开启时生效）
     open_to_free_users: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # 内容语言：en | de | fr（默认英语）
+    language: Mapped[str] = mapped_column(String(8), default="en", index=True)
     status: Mapped[str] = mapped_column(String(16), default="published")
     published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # 全站上线弹窗是否已推送过（首次进入公共目录时写入）
@@ -310,6 +312,10 @@ class User(Base):
     signup_country: Mapped[str | None] = mapped_column(String(64), nullable=True)
     signup_region: Mapped[str | None] = mapped_column(String(64), nullable=True)
     signup_city: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # 学习语言偏好：目标语言 en|de|fr；母语 zh；是否已完成首次语言选择
+    target_language: Mapped[str] = mapped_column(String(8), default="en")
+    native_language: Mapped[str] = mapped_column(String(8), default="zh")
+    language_selected: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

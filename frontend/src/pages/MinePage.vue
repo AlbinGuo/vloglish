@@ -32,6 +32,7 @@ import { useVocabularyStore } from '@/stores/vocabulary'
 import { useVoiceCloneStore } from '@/stores/voiceClone'
 import { isNativePlatform } from '@/utils/platform'
 import { useBilibiliClipboardWatcher } from '@/composables/useBilibiliClipboardWatcher'
+import { targetLanguageLabel } from '@/constants/languages'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -605,6 +606,16 @@ async function submitCredentials() {
       >
         <AppIcon name="book-open" class="h-5 w-5 shrink-0" />
         <span class="flex-1 text-[14px] text-ink">怎么学</span>
+        <AppIcon name="chevron-right" class="h-4 w-4 text-ink-faint" />
+      </RouterLink>
+
+      <RouterLink
+        to="/english/language"
+        class="flex items-center gap-3 border-t border-line-soft px-4 py-3.5 text-ink-soft transition hover:bg-sunken"
+      >
+        <AppIcon name="globe" class="h-5 w-5 shrink-0 text-brand" />
+        <span class="flex-1 text-[14px] text-ink">学习语言</span>
+        <span class="text-[12px] text-ink-faint">{{ targetLanguageLabel(auth.user?.target_language) }}</span>
         <AppIcon name="chevron-right" class="h-4 w-4 text-ink-faint" />
       </RouterLink>
 

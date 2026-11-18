@@ -13,6 +13,12 @@ export interface User {
   wx_bound?: boolean
   wechat_only?: boolean
   email_bound?: boolean
+  /** 学习语言偏好：目标语言 en|de|fr */
+  target_language?: string
+  /** 母语：zh */
+  native_language?: string
+  /** 是否已完成首次语言选择 */
+  language_selected?: boolean
 }
 
 export interface Author {

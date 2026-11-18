@@ -36,6 +36,7 @@ from ..schemas import (
     ForgotPasswordIn,
     ForgotPasswordOut,
     LoginIn,
+    LanguageUpdateIn,
     RefreshIn,
     RegisterIn,
     WechatMiniLoginIn,
@@ -79,6 +80,9 @@ def user_out(user: User) -> UserOut:
         wx_bound=bool((user.wx_openid or "").strip()),
         wechat_only=is_wechat_only(user),
         email_bound=not _is_internal_email(user.email),
+        target_language=user.target_language or "en",
+        native_language=user.native_language or "zh",
+        language_selected=bool(user.language_selected),
     )
 
 
@@ -464,6 +468,27 @@ def activate_membership(
 @router.get("/me/", response_model=UserOut)
 def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     persist_user_avatar(db, user)
+    return user_out(user)
+
+
+@router.patch("/language/", response_model=UserOut)
+def update_language(
+    body: LanguageUpdateIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """设置学习语言（目标语言 + 母语），并标记已完成首次选择。"""
+    target = (body.target_language or "en").strip().lower()
+    native = (body.native_language or "zh").strip().lower()
+    if target not in {"en", "de", "fr"}:
+        raise HTTPException(status_code=400, detail="暂不支持的目标语言")
+    if native not in {"zh"}:
+        raise HTTPException(status_code=400, detail="暂不支持的母语")
+    user.target_language = target
+    user.native_language = native
+    user.language_selected = True
+    db.commit()
+    db.refresh(user)
     return user_out(user)
 
 

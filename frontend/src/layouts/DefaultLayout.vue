@@ -14,6 +14,7 @@ import BrandLogo from '@/components/BrandLogo.vue'
 import ContinueLearningDropdown from '@/components/ContinueLearningDropdown.vue'
 import EpisodePublishedPopup from '@/components/EpisodePublishedPopup.vue'
 import AnnouncementPopup from '@/components/AnnouncementPopup.vue'
+import LanguageOnboarding from '@/components/LanguageOnboarding.vue'
 import FavoriteCorpusToast from '@/components/FavoriteCorpusToast.vue'
 import AiQuotaExhaustedModal from '@/components/ai/AiQuotaExhaustedModal.vue'
 import FeedbackModal from '@/components/FeedbackModal.vue'
@@ -817,5 +818,6 @@ watch(
       @open="openPublishedPopup"
     />
     <AnnouncementPopup :item="currentAnnouncement" @close="closeAnnouncement" />
+    <LanguageOnboarding />
   </div>
 </template>

@@ -20,6 +20,14 @@ class UserOut(BaseModel):
     wechat_only: bool = False
     # 是否已绑定可用于邮箱密码登录的真实邮箱（Apple 新用户为内部占位邮箱时为 False）
     email_bound: bool = False
+    target_language: str = "en"
+    native_language: str = "zh"
+    language_selected: bool = False
+
+
+class LanguageUpdateIn(BaseModel):
+    target_language: str = Field(default="en")
+    native_language: str = Field(default="zh")
 
 
 class SetAvatarIn(BaseModel):
@@ -434,6 +442,7 @@ class AdminEpisodeCreateIn(BaseModel):
     is_demo: bool = False
     is_pinned: bool = False
     open_to_free_users: bool = False
+    language: str = Field(default="en", pattern="^(en|de|fr)$")
     status: str = Field(default="draft", pattern=EPISODE_STATUS_PATTERN)
     rejection_reason: str = ""
     series_id: int | None = None
@@ -460,6 +469,7 @@ class AdminEpisodeUpdateIn(BaseModel):
     is_demo: bool | None = None
     is_pinned: bool | None = None
     open_to_free_users: bool | None = None
+    language: str | None = Field(default=None, pattern="^(en|de|fr)$")
     status: str | None = Field(default=None, pattern=EPISODE_STATUS_PATTERN)
     rejection_reason: str | None = None
     series_id: int | None = None
@@ -486,6 +496,7 @@ class AdminEpisodeListItemOut(BaseModel):
     is_demo: bool
     is_pinned: bool = False
     open_to_free_users: bool = False
+    language: str = "en"
     is_user_submitted: bool = False
     is_catalog_public: bool = False
     tag_names: list[str] = []
@@ -531,6 +542,7 @@ class AdminEpisodeDetailOut(BaseModel):
     is_demo: bool
     is_pinned: bool = False
     open_to_free_users: bool = False
+    language: str = "en"
     status: str
     rejection_reason: str = ""
     is_user_submitted: bool = False

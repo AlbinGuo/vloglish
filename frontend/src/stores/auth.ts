@@ -13,6 +13,7 @@ import {
   refreshAuthToken,
   register as registerApi,
   setAccountCredentials as setAccountCredentialsApi,
+  updateLanguage as updateLanguageApi,
 } from '@/api/auth'
 import { clearTokens, getAccessToken, getRefreshToken, isRemoteLoginDetail, setRemoteLoginNotice, setTokens } from '@/api/tokens'
 import type { User } from '@/types'
@@ -110,6 +111,15 @@ export const useAuthStore = defineStore('auth', () => {
     return me
   }
 
+  async function updateLanguage(targetLanguage: string, nativeLanguage: string) {
+    const me = await updateLanguageApi({
+      target_language: targetLanguage,
+      native_language: nativeLanguage,
+    })
+    user.value = me
+    return me
+  }
+
   async function logout() {
     const token = refreshToken.value
     if (token) {
@@ -163,6 +173,7 @@ export const useAuthStore = defineStore('auth', () => {
     updateProfile,
     uploadAvatar,
     setCredentials,
+    updateLanguage,
     logout,
     deleteAccount,
     hydrate,

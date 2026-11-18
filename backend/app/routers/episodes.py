@@ -89,6 +89,7 @@ def episode_list(
         joinedload(Episode.series),
     )
     q = q.filter(Episode.status == "published")
+    q = q.filter(Episode.language == (user.target_language or "en"))
     if author_id is not None:
         # 作者主页：目录可见内容 + 投稿者本人可见自己的个人投稿（未转全站的私密投稿）
         q = q.filter(
@@ -839,6 +840,7 @@ def authors_catalog(
     q = q.filter(Episode.status == "published")
     q = q.filter(published_visibility_filter(user))
     q = q.filter(Episode.series_id.is_(None))
+    q = q.filter(Episode.language == ((user.target_language if user else None) or "en"))
 
     author_joined = False
 
@@ -941,6 +943,7 @@ def author_detail(
             Episode.author_id == author_id,
             Episode.status == "published",
             Episode.series_id.is_(None),
+            Episode.language == ((user.target_language if user else None) or "en"),
         )
         .filter(
             or_(
@@ -1127,6 +1130,7 @@ def my_following_status(
 
     base_filters = [
         Episode.status == "published",
+        Episode.language == (user.target_language or "en"),
         Episode.author_id.in_(author_ids),
     ]
     publish_time = func.coalesce(Episode.published_at, Episode.created_at)

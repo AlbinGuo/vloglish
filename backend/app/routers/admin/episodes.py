@@ -101,6 +101,7 @@ def _episode_detail(ep: Episode, submitter: User | None = None) -> AdminEpisodeD
         is_demo=ep.is_demo,
         is_pinned=bool(getattr(ep, "is_pinned", False)),
         open_to_free_users=bool(getattr(ep, "open_to_free_users", False)),
+        language=ep.language or "en",
         status=ep.status,
         rejection_reason=ep.rejection_reason or "",
         is_user_submitted=ep.submitted_by_user_id is not None,

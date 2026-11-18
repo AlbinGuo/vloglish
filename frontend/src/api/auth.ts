@@ -33,6 +33,11 @@ export async function setAccountCredentials(payload: {
   return data
 }
 
+export async function updateLanguage(payload: { target_language: string; native_language: string }) {
+  const { data } = await api.patch<User>('/api/auth/language/', payload)
+  return data
+}
+
 export async function appleLogin(payload: {
   identity_token: string
   authorization_code?: string

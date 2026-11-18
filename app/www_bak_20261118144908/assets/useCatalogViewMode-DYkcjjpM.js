@@ -1,0 +1,1 @@
+import{j as r,w as c}from"./index-DQz9RT5w.js";const o="catalog_view_mode";function l(){return localStorage.getItem(o)==="list"?"list":"card"}const t=r(l());c(t,e=>{localStorage.setItem(o,e)});function s(){function e(a){t.value=a}return{viewMode:t,setViewMode:e}}export{s as u};

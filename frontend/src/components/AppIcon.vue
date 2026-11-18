@@ -57,6 +57,7 @@ const ICONS: Record<string, IconDef> = {
   'clipboard-list': { vb: "0 0 24 24", fill: "none", stroke: "currentColor", sw: "1.75", inner: "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h4.5M3.75 6.75A2.25 2.25 0 0 1 6 4.5h12A2.25 2.25 0 0 1 20.25 6.75v10.5A2.25 2.25 0 0 1 18 19.5H6a2.25 2.25 0 0 1-2.25-2.25V6.75Z\" />" },
   'clock': { vb: "0 0 24 24", fill: "none", stroke: "currentColor", sw: "1.7", inner: "<circle cx=\"12\" cy=\"13\" r=\"8\" /> <path stroke-linecap=\"round\" d=\"M12 9v4l2.5 1.5M9 4h6\" />" },
   'close': { vb: "0 0 24 24", fill: "none", stroke: "currentColor", sw: "2", inner: "<path d=\"M18 6L6 18M6 6l12 12\" />" },
+  'globe': { vb: "0 0 24 24", fill: "none", stroke: "currentColor", sw: "1.75", inner: "<circle cx=\"12\" cy=\"12\" r=\"9\" /> <path d=\"M3 12h18\" /> <path d=\"M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0 -18Z\" />" },
   'crown': { vb: "0 0 24 24", fill: "currentColor", stroke: "none", sw: "1.5", inner: "<path d=\"M5 16 3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5Zm0 2h14v2H5v-2Z\" />" },
   'document-text': { vb: "0 0 24 24", fill: "none", stroke: "currentColor", sw: "1.7", inner: "<rect x=\"5\" y=\"4\" width=\"14\" height=\"16\" rx=\"2\" /> <path stroke-linecap=\"round\" d=\"M8 8h8M8 12h8M8 16h5\" />" },
   'envelope': { vb: "0 0 24 24", fill: "none", stroke: "currentColor", sw: "1.7", inner: "<rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2.5\" /> <path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"m3.5 6.8 8.5 6.2 8.5-6.2\" />" },
