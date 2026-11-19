@@ -36,7 +36,7 @@ async function onConfirm(payload: { target_language: string; native_language: st
         <p class="mb-5 text-sm text-ink-soft">
           选好后点「开始学习」进入首页。之后也可以在「我的」里随时切换。
         </p>
-        <LanguageSelect :submitting="submitting" confirm-text="开始学习" @confirm="onConfirm" />
+        <LanguageSelect disable-unavailable :submitting="submitting" confirm-text="开始学习" @confirm="onConfirm" />
         <p v-if="error" class="mt-3 text-center text-sm text-danger">{{ error }}</p>
       </div>
     </div>

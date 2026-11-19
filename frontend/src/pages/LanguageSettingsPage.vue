@@ -21,7 +21,8 @@ async function onConfirm(payload: { target_language: string; native_language: st
   try {
     await auth.updateLanguage(payload.target_language, payload.native_language)
     saved.value = true
-    setTimeout(() => window.location.reload(), 800)
+    await router.replace('/english')
+    setTimeout(() => window.location.reload(), 300)
   } catch {
     error.value = '保存失败，请重试'
   } finally {

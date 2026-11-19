@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { NATIVE_LANGUAGES, TARGET_LANGUAGES } from '@/constants/languages'
+import CountryFlag from '@/components/CountryFlag.vue'
 
 const props = defineProps<{
   initialTarget?: string
   initialNative?: string
   submitting?: boolean
   confirmText?: string
+  /** 禁用暂未支持的语言（仅保留英语可选），用于新用户引导 */
+  disableUnavailable?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -15,6 +18,15 @@ const emit = defineEmits<{
 
 const target = ref(props.initialTarget || 'en')
 const native = ref(props.initialNative || 'zh')
+
+function isUnavailable(code: string) {
+  return Boolean(props.disableUnavailable) && code !== 'en'
+}
+
+function pick(code: string) {
+  if (isUnavailable(code)) return
+  target.value = code
+}
 
 function onConfirm() {
   emit('confirm', { target_language: target.value, native_language: native.value })
@@ -30,19 +42,27 @@ function onConfirm() {
           v-for="l in TARGET_LANGUAGES"
           :key="l.code"
           type="button"
-          class="flex flex-col items-center gap-1 rounded-xl border px-2 py-3 text-sm transition"
-          :class="
+          class="flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-sm transition"
+          :class="[
             target === l.code
               ? 'border-brand bg-brand-soft font-medium text-ink'
-              : 'border-line-soft text-ink-soft hover:bg-sunken'
-          "
-          @click="target = l.code"
+              : 'border-line-soft text-ink-soft hover:bg-sunken',
+            isUnavailable(l.code) ? 'cursor-not-allowed opacity-50 hover:bg-transparent' : '',
+          ]"
+          :disabled="isUnavailable(l.code)"
+          @click="pick(l.code)"
         >
-          <span class="text-2xl leading-none">{{ l.flag }}</span>
+          <CountryFlag :code="l.code" class="h-7 w-10 rounded-[3px] ring-1 ring-black/10" />
           <span>{{ l.label }}</span>
-          <span class="text-[11px] text-ink-faint">{{ l.native }}</span>
+          <span v-if="isUnavailable(l.code)" class="text-center text-[10px] leading-tight text-ink-faint">
+            语料库完善中
+          </span>
+          <span v-else class="text-[11px] text-ink-faint">{{ l.native }}</span>
         </button>
       </div>
+      <p v-if="disableUnavailable" class="mt-2 text-[11px] text-ink-faint">
+        德语、法语正在完善语料库，敬请期待。
+      </p>
     </section>
 
     <section>
@@ -52,7 +72,7 @@ function onConfirm() {
           v-for="l in NATIVE_LANGUAGES"
           :key="l.code"
           type="button"
-          class="flex flex-col items-center gap-1 rounded-xl border px-2 py-3 text-sm transition"
+          class="flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-sm transition"
           :class="
             native === l.code
               ? 'border-brand bg-brand-soft font-medium text-ink'
@@ -60,7 +80,7 @@ function onConfirm() {
           "
           @click="native = l.code"
         >
-          <span class="text-2xl leading-none">{{ l.flag }}</span>
+          <CountryFlag :code="l.code" class="h-7 w-10 rounded-[3px] ring-1 ring-black/10" />
           <span>{{ l.label }}</span>
         </button>
       </div>
