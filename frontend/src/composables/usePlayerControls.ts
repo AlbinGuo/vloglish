@@ -5,7 +5,7 @@ import { resumeMedia } from '@/utils/playMedia'
 
 
 
-export const PLAYBACK_RATES = [0.5, 0.7, 0.75, 1, 1.25, 1.5, 2] as const
+export const PLAYBACK_RATES = [0.2, 0.4, 0.6, 0.8, 1, 1.2] as const
 
 export const LOOP_COUNT_OPTIONS = [1, 2, 3, 4, 5, 10, 50, 100] as const
 

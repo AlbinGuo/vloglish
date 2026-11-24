@@ -442,7 +442,7 @@ class AdminEpisodeCreateIn(BaseModel):
     is_demo: bool = False
     is_pinned: bool = False
     open_to_free_users: bool = False
-    language: str = Field(default="en", pattern="^(en|de|fr)$")
+    language: str = Field(default="en", pattern="^(en|de|fr|ja|ko|es|pt)$")
     status: str = Field(default="draft", pattern=EPISODE_STATUS_PATTERN)
     rejection_reason: str = ""
     series_id: int | None = None
@@ -1829,14 +1829,20 @@ class SiteConfigOut(BaseModel):
     """公开站点配置（前端用于隐藏内容限量引导等）。"""
 
     membership_gate_enabled: bool = True
+    language_selection_enabled: bool = True
+    available_target_languages: list[str] = ["en", "de", "fr"]
 
 
 class AdminSiteSettingsOut(BaseModel):
     membership_gate_enabled: bool = True
+    language_selection_enabled: bool = True
+    available_target_languages: list[str] = ["en", "de", "fr"]
 
 
 class AdminSiteSettingsPatchIn(BaseModel):
     membership_gate_enabled: bool | None = None
+    language_selection_enabled: bool | None = None
+    available_target_languages: list[str] | None = None
 
 
 class AppReleaseOut(BaseModel):

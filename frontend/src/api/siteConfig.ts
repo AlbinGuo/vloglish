@@ -2,6 +2,8 @@ import api from '@/api/client'
 
 export interface SiteConfig {
   membership_gate_enabled: boolean
+  language_selection_enabled: boolean
+  available_target_languages: string[]
 }
 
 export async function fetchSiteConfig() {

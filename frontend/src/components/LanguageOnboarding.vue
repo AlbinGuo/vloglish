@@ -1,13 +1,26 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useSiteConfigStore } from '@/stores/siteConfig'
 import LanguageSelect from '@/components/LanguageSelect.vue'
 
 const auth = useAuthStore()
+const siteConfig = useSiteConfigStore()
 const submitting = ref(false)
 const error = ref('')
 
-const visible = computed(() => auth.ready && auth.isLoggedIn && !auth.user?.language_selected)
+const visible = computed(
+  () =>
+    auth.ready &&
+    auth.isLoggedIn &&
+    !auth.user?.language_selected &&
+    siteConfig.ready &&
+    siteConfig.languageSelectionEnabled,
+)
+
+onMounted(() => {
+  if (!siteConfig.ready) void siteConfig.hydrate()
+})
 
 async function onConfirm(payload: { target_language: string; native_language: string }) {
   if (submitting.value) return
@@ -36,7 +49,12 @@ async function onConfirm(payload: { target_language: string; native_language: st
         <p class="mb-5 text-sm text-ink-soft">
           选好后点「开始学习」进入首页。之后也可以在「我的」里随时切换。
         </p>
-        <LanguageSelect disable-unavailable :submitting="submitting" confirm-text="开始学习" @confirm="onConfirm" />
+        <LanguageSelect
+          :available-languages="siteConfig.availableTargetLanguages"
+          :submitting="submitting"
+          confirm-text="开始学习"
+          @confirm="onConfirm"
+        />
         <p v-if="error" class="mt-3 text-center text-sm text-danger">{{ error }}</p>
       </div>
     </div>

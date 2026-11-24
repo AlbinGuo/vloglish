@@ -14,6 +14,24 @@ defineProps<{ code: string }>()
       <rect width="1" height="2" x="1" fill="#ffffff" />
       <rect width="1" height="2" x="2" fill="#ef4135" />
     </svg>
+    <svg v-else-if="code === 'es'" viewBox="0 0 3 2" class="block h-full w-full">
+      <rect width="3" height="2" fill="#c60b1e" />
+      <rect width="3" height="1" y="0.5" fill="#ffc400" />
+    </svg>
+    <svg v-else-if="code === 'pt'" viewBox="0 0 3 2" class="block h-full w-full">
+      <rect width="3" height="2" fill="#da291c" />
+      <rect width="1.2" height="2" x="0" fill="#046a38" />
+      <circle cx="1.2" cy="1" r="0.36" fill="#ffe000" />
+    </svg>
+    <svg v-else-if="code === 'ja'" viewBox="0 0 3 2" class="block h-full w-full">
+      <rect width="3" height="2" fill="#ffffff" />
+      <circle cx="1.5" cy="1" r="0.6" fill="#bc002d" />
+    </svg>
+    <svg v-else-if="code === 'ko'" viewBox="0 0 3 2" class="block h-full w-full">
+      <rect width="3" height="2" fill="#ffffff" />
+      <circle cx="1.5" cy="1" r="0.5" fill="#cd2e3a" />
+      <path d="M1 1a0.5 0.5 0 0 0 1 0z" fill="#0047a0" />
+    </svg>
     <svg v-else-if="code === 'zh'" viewBox="0 0 30 20" class="block h-full w-full">
       <rect width="30" height="20" fill="#de2910" />
       <g fill="#ffde00">

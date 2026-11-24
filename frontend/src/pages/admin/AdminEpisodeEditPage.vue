@@ -1031,6 +1031,10 @@ watch(
               <option value="en">英语 English</option>
               <option value="de">德语 Deutsch</option>
               <option value="fr">法语 Français</option>
+              <option value="ja">日语 日本語</option>
+              <option value="ko">韩语 한국어</option>
+              <option value="es">西班牙语 Español</option>
+              <option value="pt">葡萄牙语 Português</option>
             </select>
           </label>
           <label v-if="form.status === 'rejected'" class="block text-sm md:col-span-2">

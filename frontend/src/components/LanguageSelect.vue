@@ -8,8 +8,8 @@ const props = defineProps<{
   initialNative?: string
   submitting?: boolean
   confirmText?: string
-  /** 禁用暂未支持的语言（仅保留英语可选），用于新用户引导 */
-  disableUnavailable?: boolean
+  /** 允许选择的目标语言代码；未在其中的语言会显示为「语料库完善中」且不可选 */
+  availableLanguages?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -20,7 +20,8 @@ const target = ref(props.initialTarget || 'en')
 const native = ref(props.initialNative || 'zh')
 
 function isUnavailable(code: string) {
-  return Boolean(props.disableUnavailable) && code !== 'en'
+  if (!props.availableLanguages) return false
+  return !props.availableLanguages.includes(code)
 }
 
 function pick(code: string) {
@@ -60,8 +61,8 @@ function onConfirm() {
           <span v-else class="text-[11px] text-ink-faint">{{ l.native }}</span>
         </button>
       </div>
-      <p v-if="disableUnavailable" class="mt-2 text-[11px] text-ink-faint">
-        德语、法语正在完善语料库，敬请期待。
+      <p v-if="availableLanguages" class="mt-2 text-[11px] text-ink-faint">
+        灰色语言正在完善语料库，敬请期待。
       </p>
     </section>
 

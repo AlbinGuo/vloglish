@@ -1,17 +1,23 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useSiteConfigStore } from '@/stores/siteConfig'
 import LanguageSelect from '@/components/LanguageSelect.vue'
 import AppIcon from '@/components/AppIcon.vue'
 
 defineOptions({ name: 'LanguageSettings' })
 
 const auth = useAuthStore()
+const siteConfig = useSiteConfigStore()
 const router = useRouter()
 const submitting = ref(false)
 const error = ref('')
 const saved = ref(false)
+
+onMounted(() => {
+  if (!siteConfig.ready) void siteConfig.hydrate()
+})
 
 async function onConfirm(payload: { target_language: string; native_language: string }) {
   if (submitting.value) return
@@ -47,6 +53,7 @@ async function onConfirm(payload: { target_language: string; native_language: st
     <LanguageSelect
       :initial-target="auth.user?.target_language"
       :initial-native="auth.user?.native_language"
+      :available-languages="siteConfig.availableTargetLanguages"
       :submitting="submitting"
       confirm-text="保存设置"
       @confirm="onConfirm"

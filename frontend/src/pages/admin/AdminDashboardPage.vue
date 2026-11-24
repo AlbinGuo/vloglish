@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import DauTrendChart from '@/components/charts/DauTrendChart.vue'
+import { LANGUAGE_CATALOG } from '@/constants/languages'
 import UserGeoBarChart from '@/components/charts/UserGeoBarChart.vue'
 import {
   adminFetchDashboard,
@@ -33,6 +34,12 @@ const membershipGateEnabled = ref(true)
 const gateSaving = ref(false)
 const gateError = ref('')
 const gateSavedHint = ref('')
+
+const languageSelectionEnabled = ref(true)
+const availableTargetLanguages = ref<string[]>(['en', 'de', 'fr'])
+const langSaving = ref(false)
+const langError = ref('')
+const langSavedHint = ref('')
 
 let onlinePollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -105,6 +112,56 @@ async function toggleMembershipGate() {
   }
 }
 
+async function toggleLanguageSelection() {
+  if (langSaving.value) return
+  const next = !languageSelectionEnabled.value
+  langSaving.value = true
+  langError.value = ''
+  langSavedHint.value = ''
+  try {
+    const data = await adminPatchSiteSettings({ language_selection_enabled: next })
+    languageSelectionEnabled.value = data.language_selection_enabled
+    langSavedHint.value = next
+      ? '已开启：新用户登录后会先选择学习语言'
+      : '已关闭：新用户登录后直接进入英语'
+  } catch {
+    langError.value = '保存失败，请重试'
+  } finally {
+    langSaving.value = false
+  }
+}
+
+async function saveAvailableLanguages(codes: string[]) {
+  if (langSaving.value) return
+  langSaving.value = true
+  langError.value = ''
+  langSavedHint.value = ''
+  try {
+    const data = await adminPatchSiteSettings({ available_target_languages: codes })
+    availableTargetLanguages.value = data.available_target_languages?.length
+      ? [...data.available_target_languages]
+      : []
+    langSavedHint.value = '已更新可开放语言'
+  } catch {
+    langError.value = '保存失败，请重试'
+  } finally {
+    langSaving.value = false
+  }
+}
+
+async function toggleLanguageCode(code: string) {
+  if (langSaving.value) return
+  const set = new Set(availableTargetLanguages.value)
+  if (set.has(code)) {
+    if (set.size <= 1) return
+    set.delete(code)
+  } else {
+    set.add(code)
+  }
+  const ordered = Object.keys(LANGUAGE_CATALOG).filter((c) => set.has(c))
+  await saveAvailableLanguages(ordered)
+}
+
 function formatDwell(sec: number) {
   const s = Math.max(0, Math.floor(sec || 0))
   if (s < 60) return `${s} 秒`
@@ -130,7 +187,13 @@ onMounted(async () => {
     stats.value = dashboard
     geoStats.value = geo
     pageDwell.value = dwell
-    if (site) membershipGateEnabled.value = site.membership_gate_enabled
+    if (site) {
+      membershipGateEnabled.value = site.membership_gate_enabled
+      languageSelectionEnabled.value = site.language_selection_enabled
+      availableTargetLanguages.value = site.available_target_languages?.length
+        ? [...site.available_target_languages]
+        : ['en', 'de', 'fr']
+    }
     applyOnline({
       online_users: dashboard.online_users_now,
       online_members: dashboard.online_members_now,
@@ -221,6 +284,64 @@ function barWidth(rate: number) {
                 : '开启限制（恢复 Freemium）'
           }}
         </button>
+      </div>
+    </section>
+
+    <section class="rounded-xl border border-black/5 bg-white p-5 shadow-sm space-y-4">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="min-w-0 flex-1">
+          <h2 class="font-medium text-neutral-900">学习语言选择</h2>
+          <p class="mt-1 text-sm text-neutral-600 leading-relaxed max-w-2xl">
+            开启时：新用户登录后会先选择目标语言再进入首页。关闭时：新用户直接进入英语，不弹选择。
+          </p>
+          <p
+            class="mt-2 text-sm font-medium"
+            :class="languageSelectionEnabled ? 'text-emerald-700' : 'text-neutral-600'"
+          >
+            当前：{{ languageSelectionEnabled ? '已开启（登录后选择语言）' : '已关闭（直接进入英语）' }}
+          </p>
+          <p v-if="langSavedHint" class="mt-1 text-xs text-emerald-700">{{ langSavedHint }}</p>
+          <p v-if="langError" class="mt-1 text-xs text-red-600">{{ langError }}</p>
+        </div>
+        <button
+          type="button"
+          class="shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50"
+          :class="
+            languageSelectionEnabled
+              ? 'bg-neutral-700 text-white hover:bg-neutral-800'
+              : 'bg-emerald-700 text-white hover:bg-emerald-800'
+          "
+          :disabled="langSaving"
+          @click="toggleLanguageSelection"
+        >
+          {{ languageSelectionEnabled ? '关闭（直接进入英语）' : '开启（登录后选择语言）' }}
+        </button>
+      </div>
+
+      <div class="pt-3 border-t border-black/5">
+        <p class="text-sm text-neutral-600 mb-2">
+          开放给用户选择的目标语言（点击切换，至少保留一个）：
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="(lang, code) in LANGUAGE_CATALOG"
+            :key="code"
+            type="button"
+            class="rounded-full border px-3 py-1.5 text-sm transition disabled:opacity-50"
+            :class="
+              availableTargetLanguages.includes(code)
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
+                : 'border-neutral-200 text-neutral-500 hover:bg-neutral-50'
+            "
+            :disabled="langSaving"
+            @click="toggleLanguageCode(code)"
+          >
+            {{ availableTargetLanguages.includes(code) ? '✓ ' : '' }}{{ lang.label }} · {{ lang.native }}
+          </button>
+        </div>
+        <p class="mt-2 text-[11px] text-neutral-400">
+          用户端只显示已开放的语言可选，其余显示「语料库完善中」。发布视频时请为对应语言的剧集选择语言。
+        </p>
       </div>
     </section>
 

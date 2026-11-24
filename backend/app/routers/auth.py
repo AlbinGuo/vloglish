@@ -480,7 +480,7 @@ def update_language(
     """设置学习语言（目标语言 + 母语），并标记已完成首次选择。"""
     target = (body.target_language or "en").strip().lower()
     native = (body.native_language or "zh").strip().lower()
-    if target not in {"en", "de", "fr"}:
+    if target not in {"en", "de", "fr", "ja", "ko", "es", "pt"}:
         raise HTTPException(status_code=400, detail="暂不支持的目标语言")
     if native not in {"zh"}:
         raise HTTPException(status_code=400, detail="暂不支持的母语")

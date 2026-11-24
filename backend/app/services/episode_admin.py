@@ -208,7 +208,7 @@ def apply_episode_fields(ep: Episode, data: dict, *, author: Author, tags: list[
         ep.open_to_free_users = bool(data.get("open_to_free_users", False))
     if "language" in data:
         lang = (data.get("language") or "").strip().lower()
-        if lang in {"en", "de", "fr"}:
+        if lang in {"en", "de", "fr", "ja", "ko", "es", "pt"}:
             ep.language = lang
     if "status" in data and data.get("status") in VALID_STATUSES:
         new_status = data["status"]

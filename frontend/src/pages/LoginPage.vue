@@ -14,15 +14,47 @@ const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 
+const REMEMBER_KEY = 'vloglish.login.remember'
+
 const email = ref('')
 const password = ref('')
+const remember = ref(false)
 const loading = ref(false)
 const error = ref('')
+
+function loadRemembered() {
+  try {
+    const raw = localStorage.getItem(REMEMBER_KEY)
+    if (!raw) return
+    const saved = JSON.parse(raw) as { email?: string; password?: string }
+    if (saved.email) email.value = saved.email
+    if (saved.password) password.value = saved.password
+    remember.value = Boolean(saved.email && saved.password)
+  } catch {
+    /* ignore */
+  }
+}
+
+function persistRemember() {
+  try {
+    if (remember.value) {
+      localStorage.setItem(
+        REMEMBER_KEY,
+        JSON.stringify({ email: email.value.trim(), password: password.value }),
+      )
+    } else {
+      localStorage.removeItem(REMEMBER_KEY)
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 const appleAvailable = computed(() => isAppleSignInAvailable())
 
 onMounted(() => {
   consumeRemoteLoginNotice()
+  loadRemembered()
 })
 
 async function submit() {
@@ -30,6 +62,7 @@ async function submit() {
   loading.value = true
   try {
     await auth.login(email.value.trim(), password.value)
+    persistRemember()
     const next = typeof route.query.next === 'string' ? route.query.next : '/english'
     await router.replace(next)
   } catch (e: unknown) {
@@ -89,9 +122,10 @@ async function submit() {
           <AppIcon name="envelope" class="auth-field-icon" />
           <input
             id="login-email"
+            name="username"
             v-model="email"
             type="email"
-            autocomplete="email"
+            autocomplete="username"
             required
             placeholder="邮箱地址"
             class="auth-input"
@@ -120,6 +154,15 @@ async function submit() {
         </div>
 
         <p v-if="error" class="text-[13px] text-danger">{{ error }}</p>
+
+        <label class="flex items-center gap-2 text-[12.5px] text-ink-soft">
+          <input
+            v-model="remember"
+            type="checkbox"
+            class="h-4 w-4 rounded border border-line-soft accent-brand"
+          />
+          <span>记住账号和密码</span>
+        </label>
 
         <button type="submit" class="auth-primary" :disabled="loading">
           <span>{{ loading ? '登录中…' : '登录' }}</span>

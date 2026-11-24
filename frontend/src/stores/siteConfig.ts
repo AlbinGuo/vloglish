@@ -4,6 +4,8 @@ import { fetchSiteConfig } from '@/api/siteConfig'
 
 export const useSiteConfigStore = defineStore('siteConfig', () => {
   const membershipGateEnabled = ref(true)
+  const languageSelectionEnabled = ref(true)
+  const availableTargetLanguages = ref<string[]>(['en', 'de', 'fr'])
   const ready = ref(false)
 
   /** 是否仍对非会员做内容限量（视频/合集/文章） */
@@ -19,6 +21,10 @@ export const useSiteConfigStore = defineStore('siteConfig', () => {
     try {
       const data = await fetchSiteConfig()
       membershipGateEnabled.value = data.membership_gate_enabled
+      languageSelectionEnabled.value = data.language_selection_enabled
+      availableTargetLanguages.value = data.available_target_languages?.length
+        ? data.available_target_languages
+        : ['en', 'de', 'fr']
     } catch {
       membershipGateEnabled.value = true
     } finally {
@@ -30,12 +36,24 @@ export const useSiteConfigStore = defineStore('siteConfig', () => {
     membershipGateEnabled.value = enabled
   }
 
+  function setLanguageSelectionEnabled(enabled: boolean) {
+    languageSelectionEnabled.value = enabled
+  }
+
+  function setAvailableTargetLanguages(codes: string[]) {
+    availableTargetLanguages.value = codes
+  }
+
   return {
     membershipGateEnabled,
+    languageSelectionEnabled,
+    availableTargetLanguages,
     ready,
     isContentGated,
     memberToolsOpen,
     hydrate,
     setMembershipGateEnabled,
+    setLanguageSelectionEnabled,
+    setAvailableTargetLanguages,
   }
 })
