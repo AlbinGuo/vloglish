@@ -98,5 +98,6 @@ def set_available_target_languages(db: Session, codes: list[str]) -> list[str]:
     return cleaned
 
 
-def content_access_unlocked(db: Session, user) -> bool:    """关门槛期间：已登录用户可访问全部视频/合集/文章，并可用上传/语料库等会员工具（AI 仍看 is_member）。"""
+def content_access_unlocked(db: Session, user) -> bool:
+    """关门槛期间：已登录用户可访问全部视频/合集/文章，并可用上传/语料库等会员工具（AI 仍看 is_member）。"""
     return user is not None and not is_membership_gate_enabled(db)
